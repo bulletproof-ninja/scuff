@@ -1,12 +1,13 @@
 <project name="scuff" default="make-jar" xmlns:ivy="antlib:org.apache.ivy.ant">
 
 	<target name="resolve-deps" description="resolve dependencies">
-		<ivy:retrieve/>
+		<ivy:retrieve />
 	</target>
 
 	<target name="init" depends="clean">
 		<property environment="env" />
 		<property name="scala.home" value="${env.SCALA_HOME}" />
+		<property name="version" value="1.2-SNAPSHOT" />
 		<property name="scala.jar" value="${scala.home}/lib/scala-library.jar" />
 		<taskdef resource="scala/tools/ant/antlib.xml">
 			<classpath>
@@ -49,6 +50,16 @@
 	</target>
 
 	<target name="make-jar" depends="compile-main, copy-resources">
-		<jar basedir="build/main" destfile="build/${ant.project.name}.jar" index="true" manifest="src/main/resources/META-INF/MANIFEST.MF" />
+		<tstamp/>
+		<manifest file="build/MANIFEST.MF">
+			<attribute name="Built-By" value="${user.name}" />
+			<section name="scuff">
+				<attribute name="Implementation-Title" value="scuff" />
+				<attribute name="Implementation-Version" value="${version} ${TODAY}" />
+				<attribute name="Implementation-Vendor" value="nilskp" />
+                <attribute name="Sealed" value="true" />
+			</section>
+		</manifest>
+		<jar basedir="build/main" destfile="build/${ant.project.name}-${version}.jar" index="true" manifest="build/MANIFEST.MF" />
 	</target>
 </project>
