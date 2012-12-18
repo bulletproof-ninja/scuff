@@ -62,4 +62,18 @@
 		</manifest>
 		<jar basedir="build/main" destfile="build/${ant.project.name}-${version}.jar" index="true" manifest="build/MANIFEST.MF" />
 	</target>
+	
+	<target name="scaladocs" depends="init">
+		<mkdir dir="build/api"/>
+		<scaladoc destdir="build/api">
+            <classpath>
+                <fileset dir="lib">
+                    <include name="**/*.jar" />
+                </fileset>
+                <pathelement location="${scala.jar}" />
+            </classpath>
+		    <src path="src/main/scala"/>
+		    <include name="**/*.scala"/>
+		</scaladoc>
+	</target>
 </project>
