@@ -1,0 +1,54 @@
+<project name="scuff" default="make-jar" xmlns:ivy="antlib:org.apache.ivy.ant">
+
+	<target name="resolve-deps" description="resolve dependencies">
+		<ivy:retrieve/>
+	</target>
+
+	<target name="init" depends="clean">
+		<property environment="env" />
+		<property name="scala.home" value="${env.SCALA_HOME}" />
+		<property name="scala.jar" value="${scala.home}/lib/scala-library.jar" />
+		<taskdef resource="scala/tools/ant/antlib.xml">
+			<classpath>
+				<pathelement location="${scala.home}/lib/scala-compiler.jar" />
+				<pathelement location="${scala.jar}" />
+			</classpath>
+		</taskdef>
+		<mkdir dir="build" />
+	</target>
+
+	<target name="clean">
+		<delete dir="build" />
+	</target>
+
+	<target name="compile-main" depends="init, resolve-deps">
+		<echo message="Compiling with ${scala.home}" />
+		<mkdir dir="build/main" />
+		<scalac srcdir="src/main" destdir="build/main" unchecked="yes" addparams="–unchecked -deprecation –explaintypes –Xdisable-assertions">
+			<!-- -optimise Fails build, try when new version -->
+			<bootclasspath>
+				<pathelement location="${scala.home}/lib/scala-compiler.jar" />
+				<pathelement location="${scala.jar}" />
+			</bootclasspath>
+
+			<classpath>
+				<fileset dir="lib">
+					<include name="**/*.jar" />
+				</fileset>
+			</classpath>
+			<include name="scala/**/*.scala" />
+			<!--include name="java/**/*.java" /-->
+		</scalac>
+	</target>
+
+	<target name="copy-resources" depends="init">
+		<mkdir dir="build/main" />
+		<copy todir="build/main">
+			<fileset dir="src/main/resources" />
+		</copy>
+	</target>
+
+	<target name="make-jar" depends="compile-main, copy-resources">
+		<jar basedir="build/main" destfile="build/${ant.project.name}.jar" index="true" manifest="src/main/resources/META-INF/MANIFEST.MF" />
+	</target>
+</project>
