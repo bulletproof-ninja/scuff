@@ -11,8 +11,8 @@ import scuff.es.EventStore
 private object MongoEventStore {
   final val OrderById_asc = obj("_id" := ASC)
   final val OrderByTime_asc = obj("time" := ASC)
-  final val OrderByRevision_asc = obj("key.revision" := ASC)
-  final val OrderByRevision_desc = obj("key.revision" := DESC)
+  final val OrderByRevision_asc = obj("stream.rev" := ASC)
+  final val OrderByRevision_desc = obj("stream.rev" := DESC)
 
   def toBigInt(dbo: ObjectId) = BigInt(dbo.toByteArray)
   def toObjectId(bi: BigInt) = {
@@ -28,7 +28,7 @@ private object MongoEventStore {
   }
 
   def ensureIndicies(coll: RichDBCollection): RichDBCollection = {
-    coll.ensureUniqueIndex("key.stream" := ASC, "key.revision" := ASC)
+    coll.ensureUniqueIndex("stream.id" := ASC, "stream.rev" := ASC)
     coll.ensureIndex("time")
     coll
   }
@@ -39,11 +39,11 @@ private object MongoEventStore {
   * Stores events, using this format:
   * {{{
   *   {
-  *     _id: { "$oid" : "4ee104863aed01df303f3f27"} // ObjectId
+  *     _id: ObjectId("4ee104863aed01df303f3f27"),
   *     time: { "$date" : "2011-12-08T18:41:32.079Z"}, // Indexed. For reference purposes.
-  *     key: { // Indexed
-  *       stream: 34534, // Or whatever datatype ID is
-  *       revision: 987, // Instance state revision
+  *     stream: { // Indexed
+  *       id: 34534, // Stream identifier
+  *       rev: 987, // Stream revision
   *     }
   *     events: []
   *   }
@@ -67,30 +67,30 @@ abstract class MongoEventStore[ID, EVT](dbColl: DBCollection)(implicit bsonConve
   }
 
   def replayStream[T](stream: ID)(callback: Iterator[Transaction] ⇒ T): T = {
-    query("key.stream" := stream, OrderByRevision_asc, callback)
+    query("stream.id" := stream, OrderByRevision_asc, callback)
   }
 
   def replayStreamSince[T](stream: ID, sinceRevision: Long)(callback: Iterator[Transaction] ⇒ T): T = {
     val filter = obj(
-      "key" := obj(
-        "stream" := stream,
-        "revision" := $gt(sinceRevision)))
+      "stream" := obj(
+        "id" := stream,
+        "rev" := $gt(sinceRevision)))
     query(filter, OrderByRevision_asc, callback)
   }
   def replayStreamTo[T](stream: ID, toRevision: Long)(callback: Iterator[Transaction] ⇒ T): T = {
     val filter = obj(
-      "key" := obj(
-        "stream" := stream,
-        "revision" := $lte(toRevision)))
+      "stream" := obj(
+        "id" := stream,
+        "rev" := $lte(toRevision)))
     query(filter, OrderByRevision_asc, callback)
   }
   def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.NumericRange[Long])(callback: Iterator[Transaction] ⇒ T): T = {
     val lowerBound = $gte(revisionRange.head)
-    val upperBound = if (revisionRange.isInclusive) $lte("key.revision" := revisionRange.last) else $lt("key.revision" := revisionRange.last)
+    val upperBound = if (revisionRange.isInclusive) $lte("stream.rev" := revisionRange.last) else $lt("stream.rev" := revisionRange.last)
     val filter = obj(
-      "key" := obj(
-        "stream" := stream,
-        "revision" := obj(lowerBound, upperBound)))
+      "stream" := obj(
+        "id" := stream,
+        "rev" := obj(lowerBound, upperBound)))
     val txnCallback = if (revisionRange.step == 1L) callback else (iter: Iterator[Transaction]) ⇒ callback(iter.filter(txn ⇒ revisionRange.contains(txn.revision)))
     query(filter, OrderByRevision_asc, txnCallback)
   }
@@ -111,9 +111,9 @@ abstract class MongoEventStore[ID, EVT](dbColl: DBCollection)(implicit bsonConve
     val doc = obj(
       "_id" := oid,
       "time" := timestamp,
-      "key" := obj(
-        "stream" := streamID,
-        "revision" := revision),
+      "stream" := obj(
+        "id" := streamID,
+        "rev" := revision),
       "events" := toBsonList(events))
     try {
       store.safeInsert(doc)
@@ -131,7 +131,7 @@ abstract class MongoEventStore[ID, EVT](dbColl: DBCollection)(implicit bsonConve
   }
 
   def record(stream: ID, events: List[_ <: EVT]): Long = {
-    val revision = store.find("key.stream" := stream).sort(OrderByRevision_desc).limit(1).nextOpt.map(_.apply("key.revision").as[Long]).getOrElse(-1L) + 1L
+    val revision = store.find("stream.id" := stream).sort(OrderByRevision_desc).limit(1).nextOpt.map(_.apply("stream.rev").as[Long]).getOrElse(-1L) + 1L
     tryRecord(stream, revision, events)
   }
 
@@ -149,7 +149,7 @@ abstract class MongoEventStore[ID, EVT](dbColl: DBCollection)(implicit bsonConve
   private def toTransaction(doc: RichDBObject): Transaction = {
     val transactionID = toBigInt(doc._id)
     val timestamp = doc("time").as[Timestamp]
-    val (id, revision) = doc("key").as[DBObject].map { key ⇒ (key("stream").as[ID], key.getAs[Long]("revision")) }
+    val (id, revision) = doc("stream").as[DBObject].map { stream ⇒ (stream("id").as[ID], stream.getAs[Long]("rev")) }
     val events = doc("events").asSeq[DBObject].map(toEvent)
     new Transaction(transactionID, timestamp, id, revision, events.toList)
   }
