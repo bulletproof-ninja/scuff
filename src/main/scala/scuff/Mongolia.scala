@@ -11,7 +11,7 @@ import scuff.js.CoffeeScriptCompiler
 
 object Mongolia {
 
-  implicit private lazy val coffeeCompiler = scuff.js.CoffeeScriptCompiler(false, false, 'bare -> true)
+  private lazy val coffeeCompiler = scuff.js.CoffeeScriptCompiler(false, false, 'bare -> true)
 
   final class Assignment(key: String) {
     def :=(value: BsonValue) = new BsonProp(key, value)
@@ -455,7 +455,6 @@ object Mongolia {
 
   final class RichDBObject(private val underlying: DBObject = new BasicDBObject, ignoreNulls: Boolean = false) extends DBObject with BsonValue {
     import collection.JavaConverters._
-    def this(ignoreNulls: Boolean) = this(new BasicDBObject, ignoreNulls)
     if (underlying == null) throw new NullPointerException("Document is null")
     def markAsPartialObject = underlying.markAsPartialObject
     def isPartialObject: Boolean = underlying.isPartialObject
