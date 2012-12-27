@@ -41,3 +41,5 @@ build.log
 build.log
 /.cache
 /lib
+/ivysettings.xml
+/distrib
