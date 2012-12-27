@@ -31,6 +31,7 @@ private object EventSource {
 trait EventSource[ID, EVT] extends scuff.Topic {
   final type T = Transaction
 
+  // NOTICE: See above for reflective field access, so beware of name changes
   case class Transaction(
     transactionID: BigInt,
     timestamp: scuff.Timestamp,
