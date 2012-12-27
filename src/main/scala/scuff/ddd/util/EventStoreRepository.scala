@@ -45,7 +45,7 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot](implicit conv: AR
         }
         Option(last).map(_.revision)
       }
-    eventStore.replayStream(id)(handler) match {
+    eventStore.replayStreamTo(id, revision)(handler) match {
       case Some(lastRevision) ⇒ newAggregateRoot(id, lastRevision, stateBuilder.currentState, Nil)
       case None ⇒ throw new UnknownIdException(id)
     }
@@ -53,8 +53,8 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot](implicit conv: AR
 
   private[this] def loadLatest(id: AR#ID, lastSeenRevision: Long = Long.MaxValue): AR = {
     val (stateBuilder, snapshotRevision) = loadSnapshot(id) match {
-      case Some((state, revision)) ⇒ newStateMutator(Some(state)) -> Some(revision)
-      case None ⇒ newStateMutator(None) -> None
+      case Some((state, revision)) ⇒ (newStateMutator(Some(state)), Some(revision))
+      case None ⇒ (newStateMutator(None), None)
     }
     val applyEventsAfter = snapshotRevision.getOrElse(-1L)
       def handler(txns: Iterator[eventStore.Transaction]) = {
