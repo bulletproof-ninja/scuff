@@ -1,6 +1,6 @@
 package scuff
 
-trait Topic {
+trait Channel {
   type T
   def subscribe(s: T ⇒ Unit): Subscription
   trait Subscription {

@@ -6,7 +6,7 @@ import java.util.concurrent._
  * Simple publish/subscribe mechanism, with optional exception handling.
  */
 class PubSub[E](exceptionHandler: (Throwable) ⇒ Unit = (t: Throwable) ⇒ {}, executor: Option[Executor] = None)
-    extends Topic {
+    extends Channel {
 
   type T = E
 

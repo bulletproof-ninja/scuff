@@ -28,7 +28,7 @@ private object EventSource {
 /**
  * Event source.
  */
-trait EventSource[ID, EVT] extends scuff.Topic {
+trait EventSource[ID, EVT] extends scuff.Channel {
   final type T = Transaction
 
   // NOTICE: See above for reflective field access, so beware of name changes
