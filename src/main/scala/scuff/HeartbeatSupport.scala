@@ -7,21 +7,20 @@ import javax.servlet._
  * Simple trait to enable heart beating as
  * a means to keep a connection alive.
  */
-trait HeartbeatSupport {
+class HeartbeatSupport(scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1)) {
 
   trait Pacemaker {
     @volatile private[this] var alive = true
     def jolt()
     def joltInterval(): (Int, TimeUnit) = (10, TimeUnit.SECONDS)
     def intervalJitter: Float = 0.2f
+    final def start() = schedule(this) 
     final def stop() = alive = false
     final def isAlive = alive
   }
 
-  protected def newScheduler = Executors.newScheduledThreadPool(1)
-  private[this] val scheduler = newScheduler
-  protected def shutdownHeartbeats(): Unit = scheduler.shutdownNow()
-  protected def start(pm: Pacemaker) = schedule(pm)
+  def shutdownAll(): Unit = scheduler.shutdownNow()
+
   private def schedule(pm: Pacemaker) {
     import math._
     val (dur, unit) = pm.joltInterval
