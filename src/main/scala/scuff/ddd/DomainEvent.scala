@@ -1,6 +1,6 @@
 package scuff.ddd
 
-trait DomainEvent extends scuff.TypeVersioned with Serializable {
+trait DomainEvent extends scuff.Version with Serializable {
   def eventName = getClass.getSimpleName
 }
 
