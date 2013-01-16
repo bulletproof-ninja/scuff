@@ -7,7 +7,7 @@ import scuff.Mongolia._
   * Keep track of handled [[Transaction]]s, so process can resume
   * after shutdown.
   */
-abstract class MongoTransactionTracker[ID, EVT](
+abstract class MongoEventConsumer[ID, EVT](
     dbColl: RichDBCollection,
     txnDocID: BsonValue) extends scuff.es.PersistentEventConsumer[ID, EVT] {
 
