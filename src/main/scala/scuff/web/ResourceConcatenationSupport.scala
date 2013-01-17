@@ -15,6 +15,7 @@ private object ResourceConcatenationSupport {
   *   matches any filename in dir that starts with "foo" and ends with "bar" and has the ".js" extension
   * * Listed (resources read in listed order): "dir/(foo+bar+baz+hmm).js
   */
+@deprecated(message="Interesting experiement, but too unreliable in current form.", since="1.2")
 trait ResourceConcatenationSupport extends HttpServlet {
 
   private def expandServletPaths(pathPrefix: String, filename: String): Seq[String] = {
@@ -43,7 +44,7 @@ trait ResourceConcatenationSupport extends HttpServlet {
 
   }
 
-  abstract override def doGet(req: HttpServletRequest, res: HttpServletResponse) {
+  abstract override def doGet(req: HttpServletRequest, res: HttpServletResponse) = try {
     var contentLength = 0
     var lastModified = -1L
     val headers = collection.mutable.Map[String, collection.mutable.Set[String]]()
@@ -51,19 +52,21 @@ trait ResourceConcatenationSupport extends HttpServlet {
       val proxyReq = new HttpServletRequestWrapper(req) {
         override def getServletPath = servletPath
       }
-      val proxyRes = new HttpServletResponseProxy(res) {
-        override def setContentLength(len: Int) {}
-      }
+      val proxyRes = new HttpServletResponseProxy(res)
       super.doGet(proxyReq, proxyRes)
       proxyRes.writeTo(res.getOutputStream)
       proxyRes.getDateHeader(LastModified).foreach(lm ⇒ lastModified = math.max(lastModified, lm))
       contentLength += proxyRes.contentLength
-      proxyRes.headers.withFilter(_ != LastModified).foreach {
-        case (name, values) ⇒ headers.getOrElseUpdate(name, collection.mutable.Set()) ++ values
+      for ((name, values) ← proxyRes.headers if name != ContentLength && name != LastModified) {
+        headers.getOrElseUpdate(name, collection.mutable.Set()) ++ values
       }
     }
     headers.foreach { case (name, values) ⇒ values.foreach(value ⇒ res.addHeader(name, value)) }
     if (lastModified > -1L) res.setDateHeader(LastModified, lastModified)
     res.setContentLength(contentLength)
+  } catch {
+    case e: Exception ⇒
+      e.printStackTrace()
+      res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
   }
 }
