@@ -22,6 +22,7 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
     writer = Some(w)
     w
   }
+  override def isCommitted() = false
   override def flushBuffer = writer.foreach(_.flush())
   override def addHeader(name: String, value: String) = headers.getOrElseUpdate(name, Buffer[String]()) += value
   override def addIntHeader(name: String, value: Int) = addHeader(name, value.toString)
@@ -39,6 +40,6 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
   def getBytes = out.buffer.toByteArray()
   def contentLength = out.buffer.size
   def writeTo(dest: OutputStream) = out.buffer.writeTo(dest)
-  private[this] lazy val dateFmt = new java.text.SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z", java.util.Locale.US)
+  private[this] val dateFmt = RFC822
   def getDateHeader(name: String): Option[Long] = try { Option(getHeader(name)).map(dateFmt.parse(_).getTime) } catch { case _ ⇒ None }
 }
