@@ -28,7 +28,6 @@ class FinalState(name: String = "") extends Target {
 
 trait FSM extends SuperState {
 
-  //  @annotation.tailrec
   private[this] def assignParenthood(superState: SuperState): Unit = {
     val parent = Some(superState)
     superState.getClass.getDeclaredFields.withFilter(f ⇒ classOf[State].isAssignableFrom(f.getType)).foreach { field ⇒
