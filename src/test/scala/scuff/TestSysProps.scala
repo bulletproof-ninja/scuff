@@ -27,4 +27,12 @@ class TestSysProps {
     }
   }
   
+  @Test
+  def `env fallback` {
+    System.getenv("JAVA_HOME") match {
+      case null => assertEquals(None, SysProps.optional("JAVA_HOME"))
+      case javaHome => assertEquals(javaHome, SysProps.required("JAVA_HOME"))
+    }
+  }
+  
 }
