@@ -8,9 +8,11 @@ class RedisChannel[A](name: String, info: JedisShardInfo, serializer: scuff.Seri
   private[this] val byteName = SafeEncoder.encode(name)
   def subscribe(subscriber: A ⇒ Unit) = {
     val jedisSubscriber = new BinaryJedisPubSub {
-      def onMessage(channel: Array[Byte], msg: Array[Byte]) {
+      def onMessage(channel: Array[Byte], msg: Array[Byte]) = try {
         val msgObj = serializer.back(msg)
         subscriber.apply(msgObj)
+      } catch {
+        case t: Throwable => t.printStackTrace(System.err)
       }
       def onPMessage(pattern: Array[Byte], channel: Array[Byte], msg: Array[Byte]) {}
       def onPSubscribe(channel: Array[Byte], noSubs: Int) {}
@@ -18,7 +20,7 @@ class RedisChannel[A](name: String, info: JedisShardInfo, serializer: scuff.Seri
       def onSubscribe(channel: Array[Byte], noSubs: Int) {}
       def onUnsubscribe(channel: Array[Byte], noSubs: Int) {}
     }
-    val subscriptionThread = new Thread("Redis channel: %s, subscriber: %s".format(name, subscriber)) {
+    val subscriptionThread = new Thread("Redis subscriber (channel: %s): %s".format(name, subscriber)) {
       val jedis = new BinaryJedis(info)
       override def run = try {
         jedis.connect()
@@ -31,7 +33,7 @@ class RedisChannel[A](name: String, info: JedisShardInfo, serializer: scuff.Seri
       }
     }
     subscriptionThread.start()
-    new Subscription {
+    new scuff.Subscription {
       def cancel() = {
         jedisSubscriber.unsubscribe()
         subscriptionThread.interrupt()
