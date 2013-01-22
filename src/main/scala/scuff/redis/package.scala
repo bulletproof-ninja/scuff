@@ -4,7 +4,7 @@ import _root_.redis.clients.jedis._
 import _root_.redis.clients.util.Pool
 
 package object redis {
-  implicit def uriToInfo(uri: java.net.URI) = {
+  implicit def uri2Info(uri: java.net.URI) = {
     val userInfo: Option[(String, Option[String])] = Option(uri.getUserInfo).map { userInfo ⇒
       userInfo.split(":") match {
         case Array(user) ⇒ user -> None
@@ -27,9 +27,13 @@ package object redis {
     }
   }
 
+  def newPool(info: JedisShardInfo, config: JedisPoolConfig = new JedisPoolConfig) = {
+    new JedisPool(config, info.getHost, info.getPort, Protocol.DEFAULT_TIMEOUT, info.getPassword)
+  }
+
   type CONNECTION = (Jedis ⇒ Any) ⇒ Any
   def threadSafe[T](pool: RedisConnectionPool)(factory: CONNECTION ⇒ T): T = factory(block ⇒ pool.connection(block))
-  def singleThreaded[T](db: Int, config: JedisShardInfo)(factory: CONNECTION ⇒ T): T = {
+  def singleThreaded[T](config: JedisShardInfo, db: Int = 0)(factory: CONNECTION ⇒ T): T = {
     val jedis = new Jedis(config)
     jedis.connect()
     jedis.select(db)
