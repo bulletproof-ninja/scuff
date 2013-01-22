@@ -5,11 +5,11 @@ import scuff._
 import scuff.ddd._
 
 /**
- * Event stream, which guarantees consistent ordering,
- * even when using distributed protocols that do not.
- * The callback happens on a single thread, so the consumer
- * does not need to handle synchronization constructs.
- */
+  * Event stream, which guarantees consistent ordering,
+  * even when using distributed protocols that do not.
+  * The callback happens on a single thread, so the consumer
+  * does not need to handle synchronization constructs.
+  */
 trait EventStream[ID, EVT] { self: EventSource[ID, EVT] ⇒
 
   private def newExec(consumer: TxnSequencer) = Executors newSingleThreadExecutor new ThreadFactory {
@@ -33,10 +33,10 @@ trait EventStream[ID, EVT] { self: EventSource[ID, EVT] ⇒
   private type CS = PersistentEventConsumer[ID, EVT]
 
   /**
-   * Resume processing transactions from event source.
-   * Consumer must be thread safe as event delivery
-   * threading is arbitrary and implementation specific.
-   */
+    * Resume processing transactions from event source.
+    * Consumer must be thread safe as event delivery
+    * threading is implementation specific.
+    */
   def resume(consumer: CS): Subscription = {
     val subscription = new ArrayBlockingQueue[Subscription](1)
     val seqConsumer = new TxnSequencer(consumer)
@@ -76,7 +76,7 @@ trait EventStream[ID, EVT] { self: EventSource[ID, EVT] ⇒
         override def gapDetected(expectedRevision: Long, actualRevision: Long, txn: TXN) {
           super.gapDetected(expectedRevision, actualRevision, txn)
           singleThreaded(TxnSequencer.this) {
-            replayStreamSince(id, expectedRevision - 1) { txns ⇒
+            replayStreamRange(id, expectedRevision until actualRevision) { txns ⇒
               txns.foreach(ensureSequence)
             }
           }
