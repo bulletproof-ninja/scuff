@@ -10,7 +10,7 @@ abstract class FormParser[B](implicit manifest: ClassManifest[B]) {
 
   private val beanClass = manifest.erasure.asInstanceOf[Class[B]]
   protected def onMissing(prop: Symbol): String = "required"
-  protected def onError(prop: Symbol, e: Exception): String = e.getMessage
+  protected def onError(prop: Symbol, e: Exception): String = Option(e.getMessage).getOrElse(Option(e.getCause).map(_.getMessage).getOrElse("invalid"))
 
   protected def setDerived(errorName: Symbol)(code: ⇒ Unit): Option[(Symbol, String)] = {
     require(setters.contains(errorName), "Unknown property name: " + errorName)
@@ -51,9 +51,9 @@ abstract class FormParser[B](implicit manifest: ClassManifest[B]) {
       Symbol(pd.getName) -> Property(pd.getPropertyType, convMethod, pd.getWriteMethod)
   }.toMap
 
-  def parseStrKeys(form: String ⇒ Seq[String]): Either[Map[String, String], B] = {
+  def parse(form: String ⇒ Seq[String]): Either[Map[String, String], B] = {
     val withSymbol = (prop: Symbol) ⇒ form(prop.name)
-    parse(withSymbol) match {
+    apply(withSymbol) match {
       case Left(errors) ⇒ Left(errors.map(entry ⇒ entry._1.name -> entry._2))
       case Right(r) ⇒ Right(r)
     }
@@ -63,7 +63,7 @@ abstract class FormParser[B](implicit manifest: ClassManifest[B]) {
     * Parse form and produce either a correctly populated bean object,
     * or a map of error messages per property.
     */
-  def parse(form: Symbol ⇒ Seq[String]): Either[Map[Symbol, String], B] = {
+  def apply(form: Symbol ⇒ Seq[String]): Either[Map[Symbol, String], B] = {
     val bean = beanClass.newInstance
     val errors = firstPass(bean, form)
     if (errors.isEmpty) {
