@@ -8,8 +8,10 @@ import scuff.Mongolia._
   * after shutdown.
   */
 abstract class MongoEventConsumer[ID, EVT](
-    dbColl: RichDBCollection,
+    coll: DBCollection,
     txnDocID: BsonValue) extends scuff.es.PersistentEventConsumer[ID, EVT] {
+
+  private[this] val dbColl = enrich(coll)
 
   private[this] val txnDoc = {
     val doc = obj("_id" := txnDocID)
