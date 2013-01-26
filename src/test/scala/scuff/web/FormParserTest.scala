@@ -8,7 +8,7 @@ class FormParserTest {
   def simple {
     object Parser extends FormParser[Beano]
     val form = Map('age -> Seq("36"), 'perhaps -> Seq("false"))
-    Parser.parse(form) match {
+    Parser(form) match {
       case Left(errors) ⇒ fail("Should have no errors, but does: " + errors)
       case Right(bean) ⇒
         assertEquals(36, bean.age)
@@ -26,7 +26,7 @@ class FormParserTest {
       override val secondPasses = Map('geoPoint -> setGeoPoint _)
     }
     val form = Map('lat -> Seq("181"), 'lng -> Seq("-45.1234"))
-    Parser.parse(form) match {
+    Parser(form) match {
       case Left(errors) ⇒ assertTrue(errors.contains('geoPoint))
       case Right(bean) ⇒ fail("Should have errors")
     }
