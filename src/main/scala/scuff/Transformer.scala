@@ -34,4 +34,4 @@ class JavaSerializer[T] extends StreamingSerializer[T] {
   @inline def streamBack(in: InputStream): T = asObjectInput(in).readObject().asInstanceOf[T]
 }
 
-object JavaSerializer extends JavaSerializer[Any]
+object JavaSerializer extends JavaSerializer[AnyRef]
