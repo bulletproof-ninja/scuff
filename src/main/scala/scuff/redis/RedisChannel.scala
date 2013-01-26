@@ -9,10 +9,9 @@ class RedisChannel[A](name: String, info: JedisShardInfo, serializer: scuff.Seri
   def subscribe(subscriber: A ⇒ Unit) = {
     val jedisSubscriber = new BinaryJedisPubSub {
       def onMessage(channel: Array[Byte], msg: Array[Byte]) = try {
-        val msgObj = serializer.back(msg)
-        subscriber.apply(msgObj)
+        subscriber(serializer.back(msg))
       } catch {
-        case t: Throwable => t.printStackTrace(System.err)
+        case t: Throwable ⇒ t.printStackTrace(System.err)
       }
       def onPMessage(pattern: Array[Byte], channel: Array[Byte], msg: Array[Byte]) {}
       def onPSubscribe(channel: Array[Byte], noSubs: Int) {}
