@@ -12,21 +12,6 @@ import scuff.ddd._
   */
 trait EventStream[ID, EVT] { self: EventSource[ID, EVT] ⇒
 
-  private def newExec(consumer: TxnSequencer) = Executors newSingleThreadExecutor new ThreadFactory {
-    def newThread(r: Runnable): Thread = {
-      new Thread(r, "EventStream dispatch thread: " + consumer)
-    }
-  }
-
-  private[this] val consumerThreads = new LockFreeConcurrentMap[TxnSequencer, ExecutorService]
-
-  private def singleThreaded(consumer: TxnSequencer)(thunk: ⇒ Unit) = {
-    val exec = consumerThreads.getOrElseUpdate(consumer, newExec(consumer))
-    exec execute new Runnable {
-      def run = thunk
-    }
-  }
-
   protected type ES = EventSource[ID, EVT]
   protected type TXN = ES#Transaction
   private type MS = MonotonicSequencer[Long, TXN]
@@ -38,31 +23,20 @@ trait EventStream[ID, EVT] { self: EventSource[ID, EVT] ⇒
     * threading is implementation specific.
     */
   def resume(consumer: CS): Subscription = {
-    val subscription = new ArrayBlockingQueue[Subscription](1) // Use as blocking reference, to avoid race condition
     val seqConsumer = new TxnSequencer(consumer)
-    singleThreaded(seqConsumer) {
-      // Replay first, to avoid potentially
-      // massive out-of-sequence allocation.
-      consumer.lastProcessedTxn() match {
-        case None ⇒ replay()(_.foreach(seqConsumer))
-        case Some(txnID) ⇒ replay(txnID)(_.foreach(seqConsumer))
-      }
-      subscription.add(subscribe(seqConsumer))
-      // Replay again, to eliminate race condition
-      consumer.lastProcessedTxn() match {
-        case None ⇒ // Ignore, nothing has happened, ever
-        case Some(txnID) ⇒ replay(txnID)(_.foreach(seqConsumer))
-      }
+    // Replay first, to avoid potentially
+    // massive out-of-sequence allocation.
+    consumer.lastProcessedTxn() match {
+      case None ⇒ replay()(_.foreach(seqConsumer))
+      case Some(txnID) ⇒ replay(txnID)(_.foreach(seqConsumer))
     }
-    new Subscription {
-      def cancel {
-        subscription.take().cancel()
-//        singleThreaded(seqConsumer) {
-//          consumer.onCancelled()
-//        }
-        consumerThreads.remove(seqConsumer).foreach(_.shutdown())
-      }
+    val subscription = subscribe(seqConsumer)
+    // Replay again, to eliminate race condition
+    consumer.lastProcessedTxn() match {
+      case None ⇒ // Ignore, nothing has happened, ever
+      case Some(txnID) ⇒ replay(txnID)(_.foreach(seqConsumer))
     }
+    subscription
   }
 
   private final class TxnSequencer(consumer: CS) extends (TXN ⇒ Unit) {
@@ -75,10 +49,8 @@ trait EventStream[ID, EVT] { self: EventSource[ID, EVT] ⇒
       new MonotonicSequencer[Long, TXN](seqConsumer, nextRevision, 0, seqDupeConsumer) {
         override def gapDetected(expectedRevision: Long, actualRevision: Long, txn: TXN) {
           super.gapDetected(expectedRevision, actualRevision, txn)
-          singleThreaded(TxnSequencer.this) {
-            replayStreamRange(id, expectedRevision until actualRevision) { txns ⇒
-              txns.foreach(ensureSequence)
-            }
+          replayStreamRange(id, expectedRevision until actualRevision) { txns ⇒
+            txns.foreach(ensureSequence)
           }
         }
         override def flushBuffer() = try {
@@ -108,7 +80,7 @@ trait EventStream[ID, EVT] { self: EventSource[ID, EVT] ⇒
         case Some(sequencer) ⇒ sequencer.apply(txn.revision, txn)
       }
     }
-    def apply(txn: TXN) = singleThreaded(this) { ensureSequence(txn) }
+    def apply(txn: TXN) = ensureSequence(txn)
 
     override val toString = consumer.toString
   }
