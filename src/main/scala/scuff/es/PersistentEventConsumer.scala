@@ -27,5 +27,5 @@ trait PersistentEventConsumer[ID, EVT] {
     */
   def lastProcessedTxn(): Option[BigInt]
   
-  def onCancelled()
+//  def onCancelled()
 }

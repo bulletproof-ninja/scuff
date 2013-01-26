@@ -38,7 +38,7 @@ trait EventStream[ID, EVT] { self: EventSource[ID, EVT] ⇒
     * threading is implementation specific.
     */
   def resume(consumer: CS): Subscription = {
-    val subscription = new ArrayBlockingQueue[Subscription](1)
+    val subscription = new ArrayBlockingQueue[Subscription](1) // Use as blocking reference, to avoid race condition
     val seqConsumer = new TxnSequencer(consumer)
     singleThreaded(seqConsumer) {
       // Replay first, to avoid potentially
@@ -57,9 +57,9 @@ trait EventStream[ID, EVT] { self: EventSource[ID, EVT] ⇒
     new Subscription {
       def cancel {
         subscription.take().cancel()
-        singleThreaded(seqConsumer) {
-          consumer.onCancelled()
-        }
+//        singleThreaded(seqConsumer) {
+//          consumer.onCancelled()
+//        }
         consumerThreads.remove(seqConsumer).foreach(_.shutdown())
       }
     }
