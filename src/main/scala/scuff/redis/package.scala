@@ -35,8 +35,11 @@ package object redis {
   def threadSafe[T](pool: RedisConnectionPool)(factory: CONNECTION ⇒ T): T = factory(block ⇒ pool.connection(block))
   def singleThreaded[T](config: JedisShardInfo, db: Int = 0)(factory: CONNECTION ⇒ T): T = {
     val jedis = new Jedis(config)
-    jedis.connect()
     jedis.select(db)
+    factory(block ⇒ block(jedis))
+  }
+  def singleThreaded[T](jedis: Jedis, db: Option[Int])(factory: CONNECTION ⇒ T): T = {
+    db.foreach(jedis.select)
     factory(block ⇒ block(jedis))
   }
 }
