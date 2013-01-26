@@ -3,8 +3,14 @@ package scuff.redis
 import redis.clients.jedis._
 import redis.clients.util.SafeEncoder._
 
+/**
+ * Redis implementation of [[scala.collection.mutable.ConcurrentMap]].
+ * NOTICE: This implementation does not support the CAS versions of `remove` and 
+ * `replace` due to inefficiencies such implementation would lead to.
+ * See [[scuff.redis.RedisMap]] if such functionality is needed.
+ */
 class RedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Serializer[K], valueSer: scuff.Serializer[V])
-    extends scala.collection.mutable.ConcurrentMap[K, V] {
+    extends collection.mutable.ConcurrentMap[K, V] {
   import collection.JavaConverters._
 
   private def connection[T] = conn.asInstanceOf[(Jedis ⇒ T) ⇒ T]
@@ -107,4 +113,5 @@ class RedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Serialize
   def replace(field: K, newValue: V): Option[V] = throw new UnsupportedOperationException("Redis does not support CAS operations on hash entries")
   def replace(field: K, oldValue: V, newValue: V): Boolean = throw new UnsupportedOperationException("Redis does not support CAS operations on hash entries")
 
+  override def clear() = conn(_.del(name))
 }
