@@ -484,6 +484,8 @@ object Mongolia {
       }
       this
     }
+    def rename(fromTo: (String, String)): Unit = rename(fromTo._1, fromTo._2)
+    def rename(from: String, to: String): Unit = underlying.put(to, underlying.removeField(from))
     def remove(key: String) = BsonField(underlying.removeField(key), underlying, key)
     def raw = this
     def ignoreNulls(ignore: Boolean): RichDBObject = if (ignore == this.ignoreNulls) this else new RichDBObject(underlying, ignore)
@@ -587,6 +589,16 @@ object Mongolia {
       val buffer = collection.mutable.Buffer[T]()
       foreach { dbo ⇒
         buffer += f(dbo)
+      }
+      buffer
+    }
+    def flatMap[T](f: RichDBObject ⇒ Option[T]): Seq[T] = {
+      val buffer = collection.mutable.Buffer[T]()
+      foreach { dbo ⇒
+        f(dbo) match {
+          case Some(t) ⇒ buffer += t
+          case None ⇒ // Filter out
+        }
       }
       buffer
     }
