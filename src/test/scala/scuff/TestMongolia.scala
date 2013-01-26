@@ -46,6 +46,9 @@ class TestMongolia {
     assertEquals("""{"newUUID":{"$uuid":"650c1d1c-3a1d-479c-a3fd-9c707e9288c4"},"oldUUID":{"$uuid":"650c1d1c-3a1d-479c-a3fd-9c707e9288c4"}}""", doc.serialize)
     assertEquals(uuid, doc("newUUID").as[java.util.UUID])
     assertEquals(uuid, doc("oldUUID").as[java.util.UUID])
+    val bytes = UUID2Val(uuid).raw.asInstanceOf[Binary]
+    val binary4 = new com.mongodb.util.Base64Codec().encode(bytes.getData)
+    assertEquals("ZQwdHDodR5yj/ZxwfpKIxA==", binary4)
   }
 
   @Test
@@ -179,13 +182,21 @@ class TestMongolia {
     assertEquals(40, fromMap("foo").as[Int])
   }
 
-//  @Test
-//  def mapReduceCoffee {
-//    val coll = new RichDBCollection(null)
-//    val map = "-> emit(@days[0].toString().substring(0,4), count: 1); return"
-//    val reduce = "(key, values) -> count: values.reduce (t, v) -> t + v.count"
-//    val res = coll.mapReduce(map)(reduce)(obj("trend" := 234))
-//    val res2 = coll.mapReduce(map)(reduce)()
-//  }
+  @Test
+  def rename {
+    val doc = obj("foo" := 42)
+    doc.rename("foo" -> "bar")
+    assertEquals(None, doc("foo").opt[Int])
+    assertEquals(42, doc("bar").as[Int])
+  }
+
+  //  @Test
+  //  def mapReduceCoffee {
+  //    val coll = new RichDBCollection(null)
+  //    val map = "-> emit(@days[0].toString().substring(0,4), count: 1); return"
+  //    val reduce = "(key, values) -> count: values.reduce (t, v) -> t + v.count"
+  //    val res = coll.mapReduce(map)(reduce)(obj("trend" := 234))
+  //    val res2 = coll.mapReduce(map)(reduce)()
+  //  }
 
 }
