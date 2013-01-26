@@ -109,6 +109,8 @@ class RedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueSer: sc
 
   def del(key: K): Boolean = connection(_.del(keySer.forth(key)) == 1L)
 
+  override def clear() = connection(_.flushDB())
+
   def iterator(): Iterator[(K, V)] = {
     connection { jedis ⇒
       val keys = jedis.keys(ALL).asScala.toIterable
