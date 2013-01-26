@@ -26,6 +26,4 @@ trait PersistentEventConsumer[ID, EVT] {
     * will typically only be called during startup.
     */
   def lastProcessedTxn(): Option[BigInt]
-  
-//  def onCancelled()
 }
