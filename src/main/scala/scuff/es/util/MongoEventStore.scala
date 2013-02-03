@@ -105,14 +105,14 @@ abstract class MongoEventStore[ID, EVT](dbColl: DBCollection)(implicit bsonConve
     query(filter, OrderByTime_asc, txnHandler)
   }
 
-  def record(streamID: ID, revision: Long, events: List[_ <: EVT]) {
+  def record(streamId: ID, revision: Long, events: List[_ <: EVT]) {
     val oid = new ObjectId
     val timestamp = new scuff.Timestamp
     val doc = obj(
       "_id" := oid,
       "time" := timestamp,
       "stream" := obj(
-        "id" := streamID,
+        "id" := streamId,
         "rev" := revision),
       "events" := toBsonList(events))
     try {
@@ -120,19 +120,19 @@ abstract class MongoEventStore[ID, EVT](dbColl: DBCollection)(implicit bsonConve
     } catch {
       case e: MongoException.DuplicateKey ⇒ throw new DuplicateRevisionException
     }
-    publish(new Transaction(toBigInt(oid), timestamp, streamID, revision, events))
+    publish(new Transaction(toBigInt(oid), timestamp, streamId, revision, events))
   }
 
-  private def tryRecord(stream: ID, revision: Long, events: List[_ <: EVT]): Long = try {
-    record(stream, revision, events)
+  private def tryRecord(streamId: ID, revision: Long, events: List[_ <: EVT]): Long = try {
+    record(streamId, revision, events)
     revision
   } catch {
-    case _: DuplicateRevisionException ⇒ tryRecord(stream, revision + 1L, events)
+    case _: DuplicateRevisionException ⇒ tryRecord(streamId, revision + 1L, events)
   }
 
-  def record(stream: ID, events: List[_ <: EVT]): Long = {
-    val revision = store.find("stream.id" := stream).sort(OrderByRevision_desc).limit(1).nextOpt.map(_.apply("stream.rev").as[Long]).getOrElse(-1L) + 1L
-    tryRecord(stream, revision, events)
+  def record(streamId: ID, events: List[_ <: EVT]): Long = {
+    val revision = store.find("stream.id" := streamId).sort(OrderByRevision_desc).limit(1).nextOpt.map(_.apply("stream.rev").as[Long]).getOrElse(-1L) + 1L
+    tryRecord(streamId, revision, events)
   }
 
   private def query[T](filter: DBObject, ordering: DBObject, handler: Iterator[Transaction] ⇒ T): T = {

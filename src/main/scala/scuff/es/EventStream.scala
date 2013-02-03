@@ -12,8 +12,7 @@ import scuff.ddd._
   */
 trait EventStream[ID, EVT] { self: EventSource[ID, EVT] ⇒
 
-  protected type ES = EventSource[ID, EVT]
-  protected type TXN = ES#Transaction
+  protected type TXN = self.Transaction
   private type MS = MonotonicSequencer[Long, TXN]
   private type CS = PersistentEventConsumer[ID, EVT]
 
@@ -61,15 +60,15 @@ trait EventStream[ID, EVT] { self: EventSource[ID, EVT] ⇒
       }
     }
     private def ensureSequence(txn: TXN) {
-      val sequencer: Option[MS] = sequencers.get(txn.streamID) match {
+      val sequencer: Option[MS] = sequencers.get(txn.streamId) match {
         case o: Some[_] ⇒ o
         case None ⇒
-          val nextRevision = expectedRevision(txn.streamID)
+          val nextRevision = expectedRevision(txn.streamId)
           if (nextRevision == txn.revision) {
             None
           } else {
-            val seq = createSequencer(txn.streamID, nextRevision)
-            sequencers.putIfAbsent(txn.streamID, seq) match {
+            val seq = createSequencer(txn.streamId, nextRevision)
+            sequencers.putIfAbsent(txn.streamId, seq) match {
               case None ⇒ Some(seq)
               case s: Some[_] ⇒ s
             }
