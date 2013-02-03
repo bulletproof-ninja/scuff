@@ -515,6 +515,7 @@ object Mongolia {
     def asSeq[T](implicit conv: BsonValue ⇒ T) = new Value(underlying).asSeq[T]
     def asSeqOfOption[T](implicit conv: BsonValue ⇒ T) = new Value(underlying).asSeqOfOption[T]
     def +=(prop: BsonProp): Unit = this.put(prop.key, prop.raw)
+    def -=(key: String): Unit = this.removeField(key)
     def add(head: BsonProp, tail: BsonProp*): RichDBObject = {
       this.put(head.key, head.raw)
       tail.foreach { prop ⇒
