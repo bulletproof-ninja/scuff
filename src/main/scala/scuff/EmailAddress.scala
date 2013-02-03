@@ -38,12 +38,10 @@ final case class EmailAddress @throws(classOf[IllegalArgumentException]) (user: 
 
 }
 
-import java.util.regex._
-private object EmailAddress {
-
-  private val userPattern = Pattern compile """(?:[!#\$%&'\*\+\-/=\?\^_` \{\|\}~]|\w)(?:[!#\$%&'\*\+\-/=\?\^_` \{\|\}~]|\w|(?:\.(?=[^\.]))){0,63}"""
-  private val domainPattern = Pattern compile """(\S+\.[a-zA-Z]+)"""
-  private val splitPattern = Pattern compile "@"
+object EmailAddress {
+  private val userPattern = """(?:[!#\$%&'\*\+\-/=\?\^_` \{\|\}~]|\w)(?:[!#\$%&'\*\+\-/=\?\^_` \{\|\}~]|\w|(?:\.(?=[^\.]))){0,63}""".r.pattern
+  private val domainPattern = """(\S+\.[a-zA-Z]+)""".r.pattern
+  private val splitPattern = "@".r.pattern
 
   private def split(address: String) = {
     val parts = splitPattern split address
