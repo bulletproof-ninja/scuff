@@ -19,13 +19,13 @@ trait Authorization extends HttpServlet {
 
   abstract override def service(req: HttpServletRequest, res: HttpServletResponse) {
     req.getSession(false) match {
-      case null ⇒ res.setStatus(SC_FORBIDDEN)
+      case null ⇒ res.setStatus(SC_UNAUTHORIZED)
       case session ⇒
         getAuthenticatedUser(session.getId) match {
-          case None ⇒ res.setStatus(SC_FORBIDDEN)
+          case None ⇒ res.setStatus(SC_UNAUTHORIZED)
           case Some(user) ⇒
             if (rolesAllowed.intersect(user.roles).isEmpty) {
-              res.setStatus(SC_UNAUTHORIZED)
+              res.setStatus(SC_FORBIDDEN)
             } else {
               val reqProxy = new HttpServletRequestWrapper(req) {
                 override def isUserInRole(role: String) = user.roles.contains(role)
@@ -52,14 +52,14 @@ abstract class AuthenticationRerouteFilter extends HttpFilter {
   protected def doFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
     chain.doFilter(req, res)
     if (!res.isCommitted) res.getStatus match {
-      case SC_FORBIDDEN ⇒ mode match {
+      case SC_UNAUTHORIZED ⇒ mode match {
         case Mode.Forward ⇒
           res.setStatus(SC_FOUND)
           req.getRequestDispatcher(loginPage).forward(req, res)
         case Mode.Redirect ⇒
           res.sendRedirect(req.getContextPath concat loginPage)
       }
-      case SC_UNAUTHORIZED ⇒ res.sendError(SC_UNAUTHORIZED)
+      case SC_FORBIDDEN ⇒ res.sendError(SC_FORBIDDEN)
       case _ ⇒ // Ignore
     }
   }
