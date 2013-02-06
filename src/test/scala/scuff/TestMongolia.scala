@@ -190,6 +190,13 @@ class TestMongolia {
     assertEquals(42, doc("bar").as[Int])
   }
 
+  @Test
+  def scalaMap {
+    val doc = obj("mymap" := Map("two" -> 2, "three" -> 3, "fortytwo" -> 42))
+    assertEquals("""{"mymap":{"two":2,"three":3,"fortytwo":42}}""", doc.serialize)
+    assertEquals(Map("two" -> 2, "three" -> 3, "fortytwo" -> 42), doc("mymap").as[Map[String, Int]])
+  }
+
   //  @Test
   //  def mapReduceCoffee {
   //    val coll = new RichDBCollection(null)

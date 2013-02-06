@@ -6,8 +6,8 @@ import org.bson.types._
 import scuff.js.CoffeeScriptCompiler
 
 /**
-  * A few MongoDB helper methods.
-  */
+ * A few MongoDB helper methods.
+ */
 
 object Mongolia {
 
@@ -210,6 +210,10 @@ object Mongolia {
     if (tz.getID == "GMT" && tzID != "GMT") throw new IllegalArgumentException("Unknown timezone: " + tzID)
     tz
   }
+  implicit def Val2Map[T](implicit conv: BsonValue ⇒ T) = (value: BsonValue) ⇒ value.raw match {
+    case dbo: DBObject ⇒ dbo.keys.map(key ⇒ key -> dbo(key).as[T]).toMap
+    case _ ⇒ throw new RuntimeException("Cannot coerce %s into Map".format(value.raw.getClass.getName))
+  }
 
   object BsonField {
     def apply(obj: Any, from: DBObject = null, key: String = null): BsonField = obj match {
@@ -368,8 +372,8 @@ object Mongolia {
   private val base64 = new com.mongodb.util.Base64Codec
 
   /**
-    * Much faster and more compact serialization.
-    */
+   * Much faster and more compact serialization.
+   */
   def serialize(dbo: DBObject): String = {
     val fallback = serializers.get
     val sb = new java.lang.StringBuilder(128)
