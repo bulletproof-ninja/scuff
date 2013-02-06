@@ -24,11 +24,11 @@ class InMemoryEventStore[ID: Ordering,  EVT] extends EventStore[ID, EVT] {
     }
   }
 
-  def record(streamId: ID, revision: Long, events: List[_ <: EVT]) = txnList.synchronized {
+  def record(streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]) = txnList.synchronized {
     val expectedRevision = findCurrentRevision(streamId).getOrElse(-1L) + 1L
     if (revision == expectedRevision) {
       val transactionID = BigInt(txnList.size)
-      val txn = new Transaction(transactionID, new Timestamp, streamId, revision, events)
+      val txn = new Transaction(transactionID, new Timestamp, streamId, revision, metadata, events)
       txnList += txn
       publish(txn)
     } else if (expectedRevision > revision) {
@@ -37,10 +37,10 @@ class InMemoryEventStore[ID: Ordering,  EVT] extends EventStore[ID, EVT] {
       throw new IllegalStateException
     }
   }
-  def record(streamId: ID, events: List[_ <: EVT]): Long = txnList.synchronized {
+  def append(streamId: ID, events: List[_ <: EVT], metadata: Map[String, String]): Long = txnList.synchronized {
     val revision = findCurrentRevision(streamId).getOrElse(-1L) + 1L
     val transactionID = BigInt(txnList.size)
-    val txn = new Transaction(transactionID, new Timestamp, streamId, revision, events)
+    val txn = new Transaction(transactionID, new Timestamp, streamId, revision, metadata, events)
     txnList += txn
     publish(txn)
     revision

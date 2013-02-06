@@ -9,6 +9,11 @@ private object EventSource {
     out.writeLong(txn.timestamp.asMillis)
     out.writeObject(txn.streamId)
     out.writeLong(txn.revision)
+    val hasMetadata = !txn.metadata.isEmpty
+    out.writeBoolean(hasMetadata)
+    if (hasMetadata) {
+      out.writeObject(txn.metadata)
+    }
     out.writeObject(txn.events)
   }
 
@@ -20,14 +25,16 @@ private object EventSource {
     surgeon.setField('timestamp, new scuff.Timestamp(in.readLong))
     surgeon.setField('streamId, in.readObject)
     surgeon.setField('revision, in.readLong)
+    val metadata = if (in.readBoolean) in.readObject else Map.empty
+    surgeon.setField('metadata, metadata)
     surgeon.setField('events, in.readObject)
   }
 
 }
 
 /**
-  * Event source.
-  */
+ * Event source.
+ */
 trait EventSource[ID, EVT] extends scuff.Channel {
   final type T = Transaction
 
@@ -37,6 +44,7 @@ trait EventSource[ID, EVT] extends scuff.Channel {
     timestamp: scuff.Timestamp,
     streamId: ID,
     revision: Long,
+    metadata: Map[String, String],
     events: List[_ <: EVT]) extends {
     private def writeObject(out: java.io.ObjectOutputStream) = EventSource.writeTransaction(this, out)
     private def readObject(in: java.io.ObjectInputStream) = EventSource.readTransaction(this, in)
@@ -48,44 +56,45 @@ trait EventSource[ID, EVT] extends scuff.Channel {
   def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.NumericRange[Long])(callback: Iterator[Transaction] ⇒ T): T
 
   /**
-    * Play back transactions, optionally only the most recent.
-    * This is a blocking call, i.e. when call returns, playback has finished.
-    * @param sinceTransactionID Optional. Only play back transactions since the provided transactionID (not included in playback). Defaults to -1 (all).
-    * @param callback Callback function
-    */
+   * Play back transactions, optionally only the most recent.
+   * This is a blocking call, i.e. when call returns, playback has finished.
+   * @param sinceTransactionID Optional. Only play back transactions since the provided transactionID (not included in playback). Defaults to -1 (all).
+   * @param callback Callback function
+   */
   def replay[T](sinceTransactionID: BigInt = BigInt(-1))(callback: Iterator[Transaction] ⇒ T): T
 
   /**
-    * Play back events for all instances from a given time forward.
-    * This is a blocking call, i.e. when call returns, playback has finished.
-    * @param fromTime Only play back transactions since the provided timestamp.
-    * @param callback Callback function
-    */
+   * Play back events for all instances from a given time forward.
+   * This is a blocking call, i.e. when call returns, playback has finished.
+   * @param fromTime Only play back transactions since the provided timestamp.
+   * @param callback Callback function
+   */
   def replaySince[T](fromTime: java.util.Date)(callback: Iterator[Transaction] ⇒ T): T
 
 }
 
 /**
-  * Event store.
-  */
+ * Event store.
+ */
 trait EventStore[ID, EVT] extends EventSource[ID, EVT] {
 
   /**
-    * Record events into a particular stream, then publish the transaction to subscribers.
-    * @param streamId Event stream identifier
-    * @param revision Event stream revision, which is expected to be committed
-    * @param events The events
-    * @throws DuplicateRevisionException if the expected revision has already been committed. Try, try again.
-    */
+   * Record events into a particular stream, then publish the transaction to subscribers.
+   * @param streamId Event stream identifier
+   * @param revision Event stream revision, which is expected to be committed
+   * @param events The events
+   * @throws DuplicateRevisionException if the expected revision has already been committed. Try, try again.
+   */
   @throws(classOf[DuplicateRevisionException])
-  def record(streamId: ID, revision: Long, events: List[_ <: EVT])
+  def record(streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String] = Map.empty)
 
   /**
-    * Record events into a particular stream, then publish the transaction to subscribers.
-    * @param streamID Event stream identifier
-    * @param events The events
-    * @return revision Event stream revision, which was committed
-    */
-  def record(streamID: ID, events: List[_ <: EVT]): Long
+   * Append events into a particular stream, then publish the transaction to subscribers.
+   * @param streamID Event stream identifier
+   * @param events The events
+   * @param metadata Optional metadata
+   * @return revision Event stream revision, which was committed
+   */
+  def append(streamID: ID, events: List[_ <: EVT], metadata: Map[String, String] = Map.empty): Long
 }
 

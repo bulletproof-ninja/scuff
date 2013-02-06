@@ -36,19 +36,19 @@ private object MongoEventStore {
 }
 
 /**
-  * Stores events, using this format:
-  * {{{
-  *   {
-  *     _id: ObjectId("4ee104863aed01df303f3f27"),
-  *     time: { "$date" : "2011-12-08T18:41:32.079Z"}, // Indexed. For reference purposes.
-  *     stream: { // Indexed
-  *       id: 34534, // Stream identifier
-  *       rev: 987, // Stream revision
-  *     }
-  *     events: []
-  *   }
-  * }}}
-  */
+ * Stores events, using this format:
+ * {{{
+ *   {
+ *     _id: ObjectId("4ee104863aed01df303f3f27"),
+ *     time: { "$date" : "2011-12-08T18:41:32.079Z"}, // Indexed. For reference purposes.
+ *     stream: { // Indexed
+ *       id: 34534, // Stream identifier
+ *       rev: 987, // Stream revision
+ *     }
+ *     events: []
+ *   }
+ * }}}
+ */
 abstract class MongoEventStore[ID, EVT](dbColl: DBCollection)(implicit bsonConverter: ID ⇒ BsonValue, idExtractor: BsonValue ⇒ ID) extends EventStore[ID, EVT] {
   import MongoEventStore._
 
@@ -105,7 +105,7 @@ abstract class MongoEventStore[ID, EVT](dbColl: DBCollection)(implicit bsonConve
     query(filter, OrderByTime_asc, txnHandler)
   }
 
-  def record(streamId: ID, revision: Long, events: List[_ <: EVT]) {
+  def record(streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]) {
     val oid = new ObjectId
     val timestamp = new scuff.Timestamp
     val doc = obj(
@@ -115,24 +115,25 @@ abstract class MongoEventStore[ID, EVT](dbColl: DBCollection)(implicit bsonConve
         "id" := streamId,
         "rev" := revision),
       "events" := toBsonList(events))
+    if (!metadata.isEmpty) doc.add("metadata" := metadata)
     try {
       store.safeInsert(doc)
     } catch {
-      case e: MongoException.DuplicateKey ⇒ throw new DuplicateRevisionException
+      case _: MongoException.DuplicateKey ⇒ throw new DuplicateRevisionException
     }
-    publish(new Transaction(toBigInt(oid), timestamp, streamId, revision, events))
+    publish(new Transaction(toBigInt(oid), timestamp, streamId, revision, metadata, events))
   }
 
-  private def tryRecord(streamId: ID, revision: Long, events: List[_ <: EVT]): Long = try {
-    record(streamId, revision, events)
+  private def tryRecord(streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Long = try {
+    record(streamId, revision, events, metadata)
     revision
   } catch {
-    case _: DuplicateRevisionException ⇒ tryRecord(streamId, revision + 1L, events)
+    case _: DuplicateRevisionException ⇒ tryRecord(streamId, revision + 1L, events, metadata)
   }
 
-  def record(streamId: ID, events: List[_ <: EVT]): Long = {
+  def append(streamId: ID, events: List[_ <: EVT], metadata: Map[String, String]): Long = {
     val revision = store.find("stream.id" := streamId).sort(OrderByRevision_desc).limit(1).nextOpt.map(_.apply("stream.rev").as[Long]).getOrElse(-1L) + 1L
-    tryRecord(streamId, revision, events)
+    tryRecord(streamId, revision, events, metadata)
   }
 
   private def query[T](filter: DBObject, ordering: DBObject, handler: Iterator[Transaction] ⇒ T): T = {
@@ -150,8 +151,9 @@ abstract class MongoEventStore[ID, EVT](dbColl: DBCollection)(implicit bsonConve
     val transactionID = toBigInt(doc._id)
     val timestamp = doc("time").as[Timestamp]
     val (id, revision) = doc("stream").as[DBObject].map { stream ⇒ (stream("id").as[ID], stream.getAs[Long]("rev")) }
+    val metadata = doc("metadata").opt[Map[String, String]].getOrElse(Map.empty)
     val events = doc("events").asSeq[DBObject].map(toEvent)
-    new Transaction(transactionID, timestamp, id, revision, events.toList)
+    new Transaction(transactionID, timestamp, id, revision, metadata, events.toList)
   }
 
 }
