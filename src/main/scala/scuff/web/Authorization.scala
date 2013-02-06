@@ -60,9 +60,8 @@ abstract class AuthenticationRerouteFilter extends HttpFilter {
           res.sendRedirect(req.getContextPath concat loginPage)
       }
       case SC_FORBIDDEN ⇒ res.sendError(SC_FORBIDDEN)
-      case _ ⇒ // Ignore
+      case _ ⇒ // Ignore anything else
     }
   }
-  //          
 
 }
