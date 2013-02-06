@@ -18,5 +18,7 @@ class TestLockFreeConcurrentMap {
     assertTrue(map.remove(1, "one"))
     assertFalse(map.contains(1))
     assertEquals(1, map.size)
+    map -= 5
+    assertTrue(map.isEmpty)
   }
 }
