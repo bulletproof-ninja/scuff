@@ -5,11 +5,11 @@ import java.io._
 import java.net._
 
 /**
-  * Supports the following wildcard resource syntax:
-  * * Wildcard (resources read in alphabetical order): "dir/foo*bar.js",
-  *   matches any filename in dir that starts with "foo" and ends with "bar" and has the ".js" extension
-  * * Listed (resources read in listed order): "dir/(foo+bar+baz+hmm).js
-  */
+ * Supports the following wildcard resource syntax:
+ * * Wildcard (resources read in alphabetical order): "dir/foo*bar.js",
+ *   matches any filename in dir that starts with "foo" and ends with "bar" and has the ".js" extension
+ * * Listed (resources read in listed order): "dir/(foo+bar+baz+hmm).js
+ */
 class ResourceConcatenationFilter extends HttpFilter {
   private final val ConcatNamesMatcher = """^\((.*)\)(\..+)?$""".r
   private final val NameSplitter = """\+""".r
@@ -45,7 +45,7 @@ class ResourceConcatenationFilter extends HttpFilter {
       chain.doFilter(req, res)
     } else try {
       val ctx = req.getServletContext()
-      res.setContentType(ctx.getMimeType(paths.head))
+      Option(ctx.getMimeType(paths.head)).foreach(res.setContentType)
       paths.foreach { servletPath ⇒
         val proxyReq = new HttpServletRequestWrapper(req) {
           override def getServletPath = servletPath
