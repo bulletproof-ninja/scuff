@@ -126,5 +126,9 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) ext
       }
     }
   }
+  
+  override def clear {
+    mapRef.set(mapRef.get.empty)
+  }
 
 }
