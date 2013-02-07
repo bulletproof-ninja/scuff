@@ -66,9 +66,3 @@ trait HttpCachingFilterMixin extends Filter with HttpCaching {
     case _ ⇒ chain.doFilter(req, res)
   }
 }
-
-class NoOpFilter extends Filter {
-  def init(config: FilterConfig) {}
-  def destroy() {}
-  def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = chain.doFilter(req, res)
-}

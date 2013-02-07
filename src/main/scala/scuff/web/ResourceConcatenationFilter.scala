@@ -36,8 +36,10 @@ class ResourceConcatenationFilter extends HttpFilter {
         val extension = Option(matcher.group(2)).getOrElse("")
         filenames.flatMap(filename ⇒ expandServletPaths(req.getServletContext, pathPrefix, filename concat extension))
     }
-
   }
+
+  def init(config: FilterConfig) {}
+  def destroy() {}
 
   def doFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
     val paths = servletPaths(req)
