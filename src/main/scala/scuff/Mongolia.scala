@@ -41,7 +41,7 @@ object Mongolia {
   implicit val Flt2Val = (num: Float) ⇒ new Value(num): BsonValue
   implicit val Shrt2Val = (num: Short) ⇒ new Value(num): BsonValue
   implicit val Bool2Val = (bool: Boolean) ⇒ new Value(bool): BsonValue
-  implicit val Arr2Val = (array: Array[_]) ⇒ new Value(array): BsonValue
+  implicit val Arr2Val = (array: Array[Byte]) ⇒ new Value(array): BsonValue
   implicit val Bin2Val = (binary: Binary) ⇒ new Value(binary): BsonValue
   implicit val Date2Val = (date: java.util.Date) ⇒ new Value(date): BsonValue
   implicit val OID2Val = (oid: ObjectId) ⇒ new Value(oid): BsonValue
@@ -72,6 +72,8 @@ object Mongolia {
     dbo
   }
 
+  implicit def Arr2List[T <: AnyRef <% BsonValue](arr: Array[T]): RichDBList = Seq2List(arr)
+  
   implicit def Seq2List[T <% BsonValue](seq: collection.GenTraversableOnce[T]): RichDBList = {
     val list = new RichDBList
     seq.foreach(t ⇒ list += (t: BsonValue).raw)

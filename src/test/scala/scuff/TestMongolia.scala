@@ -110,6 +110,18 @@ class TestMongolia {
   }
 
   @Test
+  def array {
+      implicit def col2val(color: java.awt.Color) = color.getRGB: BsonValue
+      implicit def val2col(bson: BsonValue) = bson.raw match {
+        case i: Int ⇒ java.awt.Color.decode(i.toString)
+      }
+    val array = Array(java.awt.Color.BLACK, java.awt.Color.BLUE)
+    val doc = obj("array" := array)
+    val newArray = Array[AnyRef](doc("array").asSeq[java.awt.Color]: _*)
+    assertTrue(java.util.Arrays.equals(array.asInstanceOf[Array[Object]], newArray))
+  }
+
+  @Test
   def each {
     val newNames = List("Foo", "Bar")
     val update = $addToSet("names" := $each(newNames: _*))
