@@ -6,14 +6,14 @@ import java.lang.reflect.Method
 /**
  * Retry all method calls on certain exception.
  */
-class RetryOnExceptionProxylicious[T, E <: Throwable](implicit manifest: ClassManifest[T], retryException: ClassManifest[E]) extends Proxylicious[T] {
+class RetryOnExceptionProxylicious[T, E <: Throwable](implicit manifest: reflect.ClassTag[T], retryException: reflect.ClassTag[E]) extends Proxylicious[T] {
   class RetryingSandwich extends Sandwich {
     def include(method: Method) = true
     def before(proxy: T, method: Method, args: Array[Any]) = ()
     def after(proxy: T, method: Method, args: Array[Any], result: Either[Throwable, Any]): Any = result match {
       case Right(r) ⇒ r
       case Left(e) ⇒
-        if (retryException.erasure.isInstance(e)) {
+        if (retryException.runtimeClass.isInstance(e)) {
           method.invoke(proxy, args.asInstanceOf[Array[Object]]: _*)
         } else {
           throw e

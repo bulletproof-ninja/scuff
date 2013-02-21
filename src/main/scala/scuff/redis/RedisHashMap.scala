@@ -10,7 +10,7 @@ import redis.clients.util.SafeEncoder._
  * See [[scuff.redis.RedisMap]] if such functionality is needed.
  */
 class RedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Serializer[K], valueSer: scuff.Serializer[V])
-    extends collection.mutable.ConcurrentMap[K, V] {
+    extends collection.concurrent.Map[K, V] {
   import collection.JavaConverters._
 
   private def connection[T] = conn.asInstanceOf[(Jedis ⇒ T) ⇒ T]
@@ -27,7 +27,7 @@ class RedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Serialize
         txn.exec()
         t
       } catch {
-        case e: Exception ⇒ try { txn.discard() } catch { case _ ⇒ /* Ignore */ }; throw e
+        case e: Exception ⇒ try { txn.discard() } catch { case _: Throwable ⇒ /* Ignore */ }; throw e
       }
     }
   }

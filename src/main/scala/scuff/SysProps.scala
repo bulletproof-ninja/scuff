@@ -1,5 +1,7 @@
 package scuff
 
+import scala.language.reflectiveCalls
+
 /**
  * Look up environment variables with property override.
  */

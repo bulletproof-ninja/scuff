@@ -11,8 +11,9 @@
 		<property name="scala.jar" value="${scala.home}/lib/scala-library.jar" />
 		<taskdef resource="scala/tools/ant/antlib.xml">
 			<classpath>
-				<pathelement location="${scala.home}/lib/scala-compiler.jar" />
 				<pathelement location="${scala.jar}" />
+				<pathelement location="${scala.home}/lib/scala-compiler.jar" />
+				<pathelement location="${scala.home}/lib/scala-reflect.jar" />
 			</classpath>
 		</taskdef>
 		<mkdir dir="build" />
@@ -25,7 +26,7 @@
 	<target name="compile-main" depends="init, resolve-deps">
 		<echo message="Compiling with ${scala.home}" />
 		<mkdir dir="build/main" />
-		<scalac srcdir="src/main" destdir="build/main" unchecked="yes" addparams="–unchecked -deprecation –explaintypes –Xdisable-assertions">
+		<scalac srcdir="src/main" destdir="build/main" unchecked="yes" addparams="–unchecked -deprecation –explaintypes –Xdisable-assertions -feature -optimise -language:implicitConversions">
 			<!-- -optimise Fails build, try when new version -->
 			<bootclasspath>
 				<pathelement location="${scala.home}/lib/scala-compiler.jar" />
@@ -50,30 +51,30 @@
 	</target>
 
 	<target name="make-jar" depends="compile-main, copy-resources">
-		<tstamp/>
+		<tstamp />
 		<manifest file="build/MANIFEST.MF">
 			<attribute name="Built-By" value="${user.name}" />
 			<section name="scuff">
 				<attribute name="Implementation-Title" value="scuff" />
 				<attribute name="Implementation-Version" value="${version} ${TODAY}" />
 				<attribute name="Implementation-Vendor" value="nilskp" />
-                <attribute name="Sealed" value="true" />
+				<attribute name="Sealed" value="true" />
 			</section>
 		</manifest>
 		<jar basedir="build/main" destfile="build/${ant.project.name}-${version}.jar" index="true" manifest="build/MANIFEST.MF" />
 	</target>
-	
+
 	<target name="scaladocs" depends="init">
-		<mkdir dir="build/api"/>
+		<mkdir dir="build/api" />
 		<scaladoc destdir="build/api">
-            <classpath>
-                <fileset dir="lib">
-                    <include name="**/*.jar" />
-                </fileset>
-                <pathelement location="${scala.jar}" />
-            </classpath>
-		    <src path="src/main/scala"/>
-		    <include name="**/*.scala"/>
+			<classpath>
+				<fileset dir="lib">
+					<include name="**/*.jar" />
+				</fileset>
+				<pathelement location="${scala.jar}" />
+			</classpath>
+			<src path="src/main/scala" />
+			<include name="**/*.scala" />
 		</scaladoc>
 	</target>
 </project>

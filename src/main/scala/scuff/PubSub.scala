@@ -34,7 +34,7 @@ class PubSub[E](exceptionHandler: (Throwable) ⇒ Unit = (t: Throwable) ⇒ {}, 
           def run = subscriber(e)
         }
       } catch {
-        case t ⇒ exceptionHandler(t)
+        case t: Throwable ⇒ exceptionHandler(t)
       }
     }
   }

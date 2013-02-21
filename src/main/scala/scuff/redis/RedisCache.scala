@@ -72,7 +72,7 @@ class RedisCache[K, V](val defaultTTL: Int, conn: CONNECTION, keySer: scuff.Seri
       txn.exec()
       t
     } catch {
-      case e: Exception ⇒ try { txn.discard() } catch { case _ ⇒ /* Ignore */ }; throw e
+      case e: Exception ⇒ try { txn.discard() } catch { case _: Throwable ⇒ /* Ignore */ }; throw e
     }
   }
 

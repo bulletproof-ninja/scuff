@@ -4,7 +4,7 @@ import redis.clients.jedis._
 import redis.clients.util.SafeEncoder._
 
 class RedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueSer: scuff.Serializer[V])
-    extends scala.collection.mutable.ConcurrentMap[K, V] {
+    extends collection.concurrent.Map[K, V] {
   import collection.JavaConverters._
 
   private def connection[T] = conn.asInstanceOf[(Jedis ⇒ T) ⇒ T]
@@ -35,7 +35,7 @@ class RedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueSer: sc
       block(txn)
       txn.exec() != null
     } catch {
-      case e: Exception ⇒ try { txn.discard() } catch { case _ ⇒ /* Ignore */ }; throw e
+      case e: Exception ⇒ try { txn.discard() } catch { case _: Throwable ⇒ /* Ignore */ }; throw e
     }
   }
 
@@ -46,7 +46,7 @@ class RedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueSer: sc
       txn.exec()
       t
     } catch {
-      case e: Exception ⇒ try { txn.discard() } catch { case _ ⇒ /* Ignore */ }; throw e
+      case e: Exception ⇒ try { txn.discard() } catch { case _: Throwable ⇒ /* Ignore */ }; throw e
     }
   }
 

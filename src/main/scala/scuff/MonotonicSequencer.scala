@@ -1,5 +1,7 @@
 package scuff
 
+import reflect.ClassTag
+
 /**
  * Monotonic sequencer.
  * <p>If your events can arrive out of sequence, this class can be used to ensure proper sequencing.
@@ -12,12 +14,12 @@ package scuff
  * @param dupeConsumer Duplicate consumer. Optional, defaults to throwing a [DuplicateSequenceReceived].
  * If a lower than expected sequence number is received, this function is called instead of the pass-through consumer.
  */
-// TODO: Re-enable specialization once this is fixed: https://issues.scala-lang.org/browse/SI-4012
+// TODO: Re-enable specialization once this is fixed (if ever): https://issues.scala-lang.org/browse/SI-4012
 class MonotonicSequencer[S, T >: Null <: AnyRef](
     private val consumer: (S, T) ⇒ Unit,
     private var expectedSeqNum: S,
     private val bufferLimit: Int = 0,
-    private val dupeConsumer: (S, T) ⇒ Unit = (s: S, t: T) ⇒ throw new DuplicateSequenceNumberException(s))(implicit seqType: Numeric[S], manifest: ClassManifest[T]) {
+    private val dupeConsumer: (S, T) ⇒ Unit = (s: S, t: T) ⇒ throw new DuplicateSequenceNumberException(s))(implicit seqType: Numeric[S], manifest: ClassTag[T]) {
 
   private def incrementSeqNum() = expectedSeqNum = seqType.plus(expectedSeqNum, seqType.one)
   private def add(s: S, i: Int) = seqType.plus(s, seqType.fromInt(i))

@@ -1,11 +1,12 @@
 package scuff
 
 import java.lang.reflect.{ InvocationHandler, Proxy, Method, UndeclaredThrowableException, InvocationTargetException }
+import reflect.ClassTag
 
 /**
  * Interface proxy factory.
  */
-class Proxylicious[T](implicit manifest: ClassManifest[T]) {
+class Proxylicious[T](implicit manifest: ClassTag[T]) {
 
   def proxy(meat: T, wrapper: Sandwich): T = {
     val handler = new InvocationHandler {
@@ -19,17 +20,17 @@ class Proxylicious[T](implicit manifest: ClassManifest[T]) {
         } catch {
           case t: InvocationTargetException ⇒ Left(t.getTargetException)
           case t: UndeclaredThrowableException => Left(t.getUndeclaredThrowable)
-          case t => Left(t)
+          case t: Throwable => Left(t)
         }
         if (include) {
           wrapper.after(proxy, method, anyArgs, result).asInstanceOf[Object]
         } else result match {
           case Left(t) ⇒ throw t
-          case Right(r: Object) ⇒ r
+          case Right(r: Any) ⇒ r.asInstanceOf[Object]
         }
       }
     }
-    Proxy.newProxyInstance(manifest.erasure.getClassLoader, Array(manifest.erasure), handler).asInstanceOf[T]
+    Proxy.newProxyInstance(manifest.runtimeClass.getClassLoader, Array(manifest.runtimeClass), handler).asInstanceOf[T]
   }
   trait Sandwich {
     /**

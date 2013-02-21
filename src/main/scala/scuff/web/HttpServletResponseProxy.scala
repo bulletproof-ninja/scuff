@@ -6,6 +6,7 @@ import collection.mutable._
 import collection.JavaConverters._
 
 class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServletResponseWrapper(delegate) {
+  import scala.language.reflectiveCalls
   val headers = Map[String, Buffer[String]]()
   private val out = new ServletOutputStream {
     private val _buffer = new ByteArrayOutputStream(4096 * 2)
@@ -41,5 +42,5 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
   def contentLength = out.buffer.size
   def writeTo(dest: OutputStream) = out.buffer.writeTo(dest)
   private[this] val dateFmt = RFC822
-  def getDateHeader(name: String): Option[Long] = try { Option(getHeader(name)).map(dateFmt.parse(_).getTime) } catch { case _ ⇒ None }
+  def getDateHeader(name: String): Option[Long] = try { Option(getHeader(name)).map(dateFmt.parse(_).getTime) } catch { case _: Exception ⇒ None }
 }

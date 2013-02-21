@@ -6,9 +6,9 @@ import java.beans._
 /**
   * Form parser.
   */
-abstract class FormParser[B](implicit manifest: ClassManifest[B]) {
+abstract class FormParser[B](implicit manifest: reflect.ClassTag[B]) {
 
-  private val beanClass = manifest.erasure.asInstanceOf[Class[B]]
+  private val beanClass = manifest.runtimeClass.asInstanceOf[Class[B]]
   protected def onMissing(prop: Symbol): String = "required"
   protected def onError(prop: Symbol, e: Exception): String = Option(e.getMessage).getOrElse(Option(e.getCause).map(_.getMessage).getOrElse("invalid"))
 
@@ -92,7 +92,7 @@ abstract class FormParser[B](implicit manifest: ClassManifest[B]) {
     setters.foreach {
       case (name, Property(propType, converter, setter)) ⇒
         val strValues = {
-          val seq = try { form(name) } catch { case _ ⇒ Seq.empty }
+          val seq = try { form(name) } catch { case _: Exception ⇒ Seq.empty }
           seq.flatMap {
             _.trim match {
               case "" ⇒ None

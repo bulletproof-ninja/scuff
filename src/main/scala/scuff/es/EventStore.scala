@@ -45,7 +45,7 @@ trait EventSource[ID, EVT] extends scuff.Channel {
     streamId: ID,
     revision: Long,
     metadata: Map[String, String],
-    events: List[_ <: EVT]) extends {
+    events: List[EVT]) extends {
     private def writeObject(out: java.io.ObjectOutputStream) = EventSource.writeTransaction(this, out)
     private def readObject(in: java.io.ObjectInputStream) = EventSource.readTransaction(this, in)
   }

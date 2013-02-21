@@ -73,7 +73,7 @@ object Mongolia {
   }
 
   implicit def Arr2List[T <: AnyRef <% BsonValue](arr: Array[T]): RichDBList = Seq2List(arr)
-  
+
   implicit def Seq2List[T <% BsonValue](seq: collection.GenTraversableOnce[T]): RichDBList = {
     val list = new RichDBList
     seq.foreach(t ⇒ list += (t: BsonValue).raw)
@@ -377,83 +377,86 @@ object Mongolia {
    * Much faster and more compact serialization.
    */
   def serialize(dbo: DBObject): String = {
+
+    import scala.language.existentials
+
     val fallback = serializers.get
     val sb = new java.lang.StringBuilder(128)
-      def appendList(list: collection.GenTraversableOnce[_]) {
-        sb append '['
-        val i = list.toIterator
-        var first = true
-        while (i.hasNext) {
-          if (first)
-            first = false
-          else
-            sb append ','
-          append(i.next)
-        }
-        sb append ']'
+    def appendList(list: collection.GenTraversableOnce[_]) {
+      sb append '['
+      val i = list.toIterator
+      var first = true
+      while (i.hasNext) {
+        if (first)
+          first = false
+        else
+          sb append ','
+        append(i.next)
       }
-      def appendMap(map: java.util.Map[_, _]) {
-        sb append '{'
-        val i = map.entrySet.iterator
-        var first = true
-        while (i.hasNext) {
-          val entry = i.next
-          if (first)
-            first = false
-          else
-            sb append ','
-          appendString(String.valueOf(entry.getKey))
-          sb append ':'
-          append(entry.getValue)
-        }
-        sb append '}'
+      sb append ']'
+    }
+    def appendMap(map: java.util.Map[_, _]) {
+      sb append '{'
+      val i = map.entrySet.iterator
+      var first = true
+      while (i.hasNext) {
+        val entry = i.next
+        if (first)
+          first = false
+        else
+          sb append ','
+        appendString(String.valueOf(entry.getKey))
+        sb append ':'
+        append(entry.getValue)
       }
-      def appendString(str: String) {
-        sb append "\""
-        var i = 0
-        while (i < str.length) {
-          str.charAt(i) match {
-            case '\\' ⇒ sb append "\\\\"
-            case '"' ⇒ sb append "\\\""
-            case '\n' ⇒ sb append "\\n"
-            case '\r' ⇒ sb append "\\r"
-            case '\t' ⇒ sb append "\\t"
-            case '\b' ⇒ sb append "\\b"
-            case c if c < 32 ⇒ // Ignore
-            case c ⇒ sb append c
-          }
-          i += 1
+      sb append '}'
+    }
+    def appendString(str: String) {
+      sb append "\""
+      var i = 0
+      while (i < str.length) {
+        str.charAt(i) match {
+          case '\\' ⇒ sb append "\\\\"
+          case '"' ⇒ sb append "\\\""
+          case '\n' ⇒ sb append "\\n"
+          case '\r' ⇒ sb append "\\r"
+          case '\t' ⇒ sb append "\\t"
+          case '\b' ⇒ sb append "\\b"
+          case c if c < 32 ⇒ // Ignore
+          case c ⇒ sb append c
         }
-        sb append "\""
+        i += 1
       }
-      def append(any: Any): Unit = any match {
-        case null ⇒ sb append "null"
-        case s: String ⇒ appendString(s)
-        case d: Double ⇒ sb append d
-        case i: Int ⇒ sb append i
-        case l: Long ⇒ sb append l
-        case b: Boolean ⇒ sb append b
-        case d: java.util.Date ⇒ sb append "{\"$date\":" append d.getTime append '}'
-        case id: ObjectId ⇒ sb append "{\"$oid\":\"" append id.toString append "\"}"
-        case u: UUID ⇒ sb append "{\"$uuid\":\"" append u.toString append "\"}"
-        case a: Array[AnyRef] ⇒ appendList(a)
-        case b: Binary ⇒ if (b.getType == 4) {
-          sb append "{\"$uuid\":\"" append binaryType4ToUUID(b.getData).toString append "\"}"
-        } else {
-          sb append "{\"$binary\":\"" append base64.encode(b.getData) append "\",\"$type\":" append b.getType append '}'
-        }
-        case r: RichDBObject ⇒ appendRef(r.impoverish)
-        case _ ⇒ appendRef(any.asInstanceOf[AnyRef])
+      sb append "\""
+    }
+    def append(any: Any): Unit = any match {
+      case null ⇒ sb append "null"
+      case s: String ⇒ appendString(s)
+      case d: Double ⇒ sb append d
+      case i: Int ⇒ sb append i
+      case l: Long ⇒ sb append l
+      case b: Boolean ⇒ sb append b
+      case d: java.util.Date ⇒ sb append "{\"$date\":" append d.getTime append '}'
+      case id: ObjectId ⇒ sb append "{\"$oid\":\"" append id.toString append "\"}"
+      case u: UUID ⇒ sb append "{\"$uuid\":\"" append u.toString append "\"}"
+      case a: Array[AnyRef] ⇒ appendList(a)
+      case b: Binary ⇒ if (b.getType == 4) {
+        sb append "{\"$uuid\":\"" append binaryType4ToUUID(b.getData).toString append "\"}"
+      } else {
+        sb append "{\"$binary\":\"" append base64.encode(b.getData) append "\",\"$type\":" append b.getType append '}'
       }
-      def appendRef(anyRef: AnyRef): Unit = {
-        import collection.JavaConverters._
-        anyRef match {
-          case m: java.util.Map[_, _] ⇒ appendMap(m)
-          case l: java.lang.Iterable[_] ⇒ appendList(l.asScala)
-          case t: collection.GenTraversableOnce[_] ⇒ appendList(t)
-          case _ ⇒ fallback.serialize(anyRef, sb)
-        }
+      case r: RichDBObject ⇒ appendRef(r.impoverish)
+      case _ ⇒ appendRef(any.asInstanceOf[AnyRef])
+    }
+    def appendRef(anyRef: AnyRef): Unit = {
+      import collection.JavaConverters._
+      anyRef match {
+        case m: java.util.Map[_, _] ⇒ appendMap(m)
+        case l: java.lang.Iterable[_] ⇒ appendList(l.asScala)
+        case t: collection.GenTraversableOnce[_] ⇒ appendList(t)
+        case _ ⇒ fallback.serialize(anyRef, sb)
       }
+    }
 
     append(dbo)
     sb.toString
