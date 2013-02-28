@@ -41,7 +41,7 @@ class TestProxylicious {
       multiply(5, 6)
       fail("Should fail on illegal state")
     } catch {
-      case e ⇒ assertEquals(classOf[IllegalStateException], e.getClass)
+      case e: Exception ⇒ assertEquals(classOf[IllegalStateException], e.getClass)
     }
     assertEquals(42, retryingMultiply(6, 7))
   }
