@@ -3,6 +3,8 @@ package scuff.fsm
 import org.junit._
 import org.junit.Assert._
 
+import language.reflectiveCalls
+
 case object enable extends Event
 case object disable extends Event
 case object reconnected extends Event
