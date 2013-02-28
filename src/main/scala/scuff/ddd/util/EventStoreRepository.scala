@@ -99,19 +99,19 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot](implicit conv: AR
     else throw new IllegalStateException("Cannot insert. %s already has revision %d".format(ar.id, ar.committedRevision))
   }
 
-  private[this] def update(ar: AR): Long = {
+  private[this] def update(ar: AR, metadata: Map[String, String]): Long = {
     val newRevision = ar.committedRevision.getOrElse(-1L) + 1L
-    eventStore.record(ar.id, newRevision, ar.uncommittedEvents)
+    eventStore.record(ar.id, newRevision, ar.uncommittedEvents, metadata)
     newRevision
   }
 
-  def update(id: AR#ID, basedOnRevision: Long)(handler: AR ⇒ Unit): Long = {
+  def update(id: AR#ID, basedOnRevision: Long, metadata: Map[String, String])(handler: AR ⇒ Unit): Long = {
     val ar = loadLatest(id, basedOnRevision)
     handler.apply(ar)
     if (!ar.uncommittedEvents.isEmpty) try {
-      update(ar)
+      update(ar, metadata)
     } catch {
-      case _: DuplicateRevisionException ⇒ update(id, basedOnRevision)(handler)
+      case _: DuplicateRevisionException ⇒ update(id, basedOnRevision, metadata)(handler)
     }
     else {
       ar.committedRevision.get
