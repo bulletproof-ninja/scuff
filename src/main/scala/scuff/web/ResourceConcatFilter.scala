@@ -5,12 +5,12 @@ import java.io._
 import java.net._
 
 /**
- * Supports the following wildcard resource syntax:
- * * Wildcard (resources read in alphabetical order): "dir/foo*bar.js",
- *   matches any filename in dir that starts with "foo" and ends with "bar" and has the ".js" extension
- * * Listed (resources read in listed order): "dir/(foo+bar+baz+hmm).js
- */
-class ResourceConcatenationFilter extends HttpFilter {
+  * Supports the following wildcard resource syntax:
+  * * Wildcard (resources read in alphabetical order): "dir/foo*bar.js",
+  *   matches any filename in dir that starts with "foo" and ends with "bar" and has the ".js" extension
+  * * Listed (resources read in listed order): "dir/(foo+bar+baz+hmm).js
+  */
+class ResourceConcatFilter extends Filter {
   private final val ConcatNamesMatcher = """^\((.*)\)(\..+)?$""".r
   private final val NameSplitter = """\+""".r
 
@@ -41,13 +41,29 @@ class ResourceConcatenationFilter extends HttpFilter {
   def init(config: FilterConfig) {}
   def destroy() {}
 
-  def doFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
+  def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = (req, res) match {
+    case (req: HttpServletRequest, res: HttpServletResponse) ⇒ httpFilter(req, res, chain)
+    case _ ⇒ chain.doFilter(req, res)
+  }
+
+  private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
     val paths = servletPaths(req)
     if (paths.size == 1) {
       chain.doFilter(req, res)
     } else try {
       val ctx = req.getServletContext()
       Option(ctx.getMimeType(paths.head)).foreach(res.setContentType)
+      val lastMod = paths.map { path ⇒
+        req.getServletContext.getResource(path) match {
+          case null ⇒ 0L
+          case url ⇒
+            val file = new java.io.File(url.toURI)
+            file.lastModified
+        }
+      }.max
+      if (lastMod != 0L) {
+        res.setDateHeader(LastModified, lastMod)
+      }
       paths.foreach { servletPath ⇒
         val proxyReq = new HttpServletRequestWrapper(req) {
           override def getServletPath = servletPath
@@ -58,7 +74,7 @@ class ResourceConcatenationFilter extends HttpFilter {
     } catch {
       case e: Exception ⇒
         e.printStackTrace()
-        res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
+        res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage)
     }
   }
 
