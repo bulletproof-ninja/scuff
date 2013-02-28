@@ -32,7 +32,7 @@ trait Authorization extends HttpServlet {
 /**
  * Augment HttpServletRequest with principal and roles.
  */
-abstract class ApplicationSecurityFilter extends HttpFilter {
+abstract class ApplicationSecurityFilter extends Filter {
   /**
    * Lookup authenticated user by request.
    * @return Authenticated user, or None if not authenticated
@@ -40,7 +40,12 @@ abstract class ApplicationSecurityFilter extends HttpFilter {
   protected def getAuthenticatedUser(req: HttpServletRequest): Option[UserPrincipal]
   protected def logoutUser(req: HttpServletRequest, res: HttpServletResponse)
 
-  def doFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
+  def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = (req, res) match {
+    case (req: HttpServletRequest, res: HttpServletResponse) ⇒ httpFilter(req, res, chain)
+    case _ ⇒ chain.doFilter(req, res)
+  }
+
+  private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
     if (req.getUserPrincipal != null) {
       throw new IllegalStateException(
         "Filter should not be used when other authentication is in place: " + req.getUserPrincipal.getClass.getName)
@@ -69,11 +74,16 @@ abstract class ApplicationSecurityFilter extends HttpFilter {
  * Apply this trait to an existing filter to get forwarding
  * (not redirect) to login page.
  */
-trait AuthenticationForwarding extends HttpFilter {
+trait AuthenticationForwarding extends Filter {
 
   protected def loginPage: String
 
-  abstract override def doFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
+  abstract override def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = (req, res) match {
+    case (req: HttpServletRequest, res: HttpServletResponse) ⇒ httpFilter(req, res, chain)
+    case _ ⇒ chain.doFilter(req, res)
+  }
+
+  private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
     super.doFilter(req, res, chain)
     if (!res.isCommitted) res.getStatus match {
       case SC_UNAUTHORIZED ⇒
@@ -90,4 +100,4 @@ trait AuthenticationForwarding extends HttpFilter {
  * Standalone filter of AuthenticationForwarding trait.
  * Does nothing else.
  */
-abstract class AuthenticationForwardingFilter extends NoOpHttpFilter with AuthenticationForwarding
+abstract class AuthenticationForwardingFilter extends NoOpFilter with AuthenticationForwarding
