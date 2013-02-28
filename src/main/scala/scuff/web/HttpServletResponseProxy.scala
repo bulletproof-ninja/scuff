@@ -2,45 +2,170 @@ package scuff.web
 
 import java.io._
 import javax.servlet._, http._
-import collection.mutable._
-import collection.JavaConverters._
+import collection._
+import JavaConverters._
+import reflect.BeanProperty
+import HttpServletResponse._
+import java.util.Locale
 
-class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServletResponseWrapper(delegate) {
-  import scala.language.reflectiveCalls
-  val headers = Map[String, Buffer[String]]()
-  private val out = new ServletOutputStream {
-    private val _buffer = new ByteArrayOutputStream(4096 * 2)
+class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServletResponse {
+
+  val headers = mutable.Map[String, (String, mutable.Buffer[String])]()
+
+  private class Output extends ServletOutputStream {
+    private val _buffer = new ByteArrayOutputStream(bufferSizeHint)
     def buffer = {
       flushBuffer()
       _buffer
     }
     def write(byte: Int) = _buffer.write(byte)
   }
+
+  private[this] var out: Option[Output] = None
+  private def forceOut = out.getOrElse {
+    val o = new Output
+    out = Some(o)
+    o
+  }
   private var writer: Option[PrintWriter] = None
-  override def getOutputStream: ServletOutputStream = out
-  override def getWriter = writer.getOrElse {
-    val w = new PrintWriter(new OutputStreamWriter(out, getCharacterEncoding))
+  def getOutputStream: ServletOutputStream = forceOut
+  def getWriter = writer.getOrElse {
+    val w = new PrintWriter(new OutputStreamWriter(forceOut, getCharacterEncoding))
     writer = Some(w)
     w
   }
-  override def isCommitted() = false
-  override def flushBuffer = writer.foreach(_.flush())
-  override def addHeader(name: String, value: String) = headers.getOrElseUpdate(name, Buffer[String]()) += value
-  override def addIntHeader(name: String, value: Int) = addHeader(name, value.toString)
-  override def addDateHeader(name: String, value: Long) = addHeader(name, dateFmt.format(new java.util.Date(value)))
+  def isCommitted() = false
+  def flushBuffer() = writer match {
+    case Some(w) ⇒ w.flush()
+    case None ⇒ out match {
+      case None ⇒ // Ignore
+      case Some(out) ⇒ out.flush()
+    }
+  }
 
-  override def setHeader(name: String, value: String) = headers.put(name, Buffer(value))
-  override def setIntHeader(name: String, value: Int) = setHeader(name, value.toString)
-  override def setDateHeader(name: String, value: Long) = setHeader(name, dateFmt.format(new java.util.Date(value)))
+  def addHeader(name: String, value: String) = headers.getOrElseUpdate(name.toLowerCase, (name -> mutable.Buffer[String]()))._2 += value
+  def addIntHeader(name: String, value: Int) = addHeader(name, value.toString)
+  def addDateHeader(name: String, value: Long) = addHeader(name, dateFmt.format(new java.util.Date(value)))
 
-  override def getHeader(name: String): String = headers.getOrElse(name, Buffer.empty).headOption.getOrElse(null)
-  override def getHeaders(name: String) = headers.getOrElse(name, Buffer.empty).asJavaCollection
-  override def containsHeader(name: String) = headers.contains(name)
-  override def getHeaderNames() = headers.keySet.asJavaCollection
+  def setHeader(name: String, value: String) = headers.put(name.toLowerCase, (name -> mutable.Buffer(value)))
+  def setIntHeader(name: String, value: Int) = setHeader(name, value.toString)
+  def setDateHeader(name: String, value: Long) = setHeader(name, dateFmt.format(new java.util.Date(value)))
 
-  def getBytes = out.buffer.toByteArray()
-  def contentLength = out.buffer.size
-  def writeTo(dest: OutputStream) = out.buffer.writeTo(dest)
+  def getHeader(name: String): String = headers.get(name.toLowerCase) match {
+    case None ⇒ null
+    case Some(header) ⇒ header._2.headOption.getOrElse(null)
+  }
+  def getHeaders(name: String) = headers.get(name.toLowerCase) match {
+    case None ⇒ java.util.Collections.emptyList()
+    case Some(headers) ⇒ headers._2.asJavaCollection
+  }
+  def containsHeader(name: String) = headers.contains(name.toLowerCase)
+  def getHeaderNames() = headers.values.map(_._1).asJavaCollection
+
+  def getBytes: Array[Byte] = out match {
+    case None ⇒ Array()
+    case Some(out) ⇒ out.buffer.toByteArray()
+  }
+  def getBufferSize = out match {
+    case None ⇒ 0
+    case Some(out) ⇒ out.buffer.size
+  }
+  private[this] var bufferSizeHint = 4096 * 2
+  def setBufferSize(hint: Int) = bufferSizeHint = hint
   private[this] val dateFmt = RFC822
-  def getDateHeader(name: String): Option[Long] = try { Option(getHeader(name)).map(dateFmt.parse(_).getTime) } catch { case _: Exception ⇒ None }
+  def getDateHeaders(name: String): Seq[Long] = try {
+    headers.get(name.toLowerCase) match {
+      case None ⇒ Seq.empty
+      case Some((_, values)) ⇒ values.map(dateFmt.parse(_).getTime)
+    }
+  }
+
+  var status = delegate.getStatus()
+  var message: Option[String] = None
+
+  def getStatus = status
+  def setStatus(code: Int) = status = code
+  def setStatus(code: Int, message: String) {
+    status = code
+    this.message = Option(message)
+  }
+
+  var cookies: List[Cookie] = Nil
+  def addCookie(cookie: Cookie) = cookies = cookie :: cookies
+
+  def encodeRedirectUrl(url: String) = delegate.encodeRedirectURL(url)
+  def encodeRedirectURL(url: String) = delegate.encodeRedirectURL(url)
+  def encodeUrl(url: String) = delegate.encodeURL(url)
+  def encodeURL(url: String) = delegate.encodeURL(url)
+
+  var inError = false
+
+  def sendError(code: Int) {
+    status = code
+    inError = true
+  }
+
+  def sendError(code: Int, message: String) {
+    status = code
+    this.message = Option(message)
+    inError = true
+  }
+  var redirect: Option[String] = None
+  def sendRedirect(redir: String) = redirect = Option(redir)
+
+  @reflect.BeanProperty
+  var locale: Locale = delegate.getLocale()
+
+  @reflect.BeanProperty
+  var characterEncoding = delegate.getCharacterEncoding()
+
+  @reflect.BeanProperty
+  var contentType = delegate.getContentType()
+
+  private var contentLength: Option[Int] = None
+  def setContentLength(len: Int) = Some(len)
+
+  def reset() {
+    headers.clear()
+    cookies = Nil
+    inError = false
+    message = None
+    contentType = delegate.getContentType()
+    characterEncoding = delegate.getCharacterEncoding()
+    locale = delegate.getLocale()
+    status = delegate.getStatus()
+    contentLength = None
+    resetBuffer()
+  }
+  def resetBuffer() {
+    writer = None
+    out = None
+  }
+
+  /**
+    * Propagate from proxy to delegate.
+    */
+  def propagate() {
+    for (cookie ← cookies) delegate.addCookie(cookie)
+    if (inError) message match {
+      case None ⇒ delegate.sendError(status)
+      case Some(message) ⇒ delegate.sendError(status, message)
+    }
+    else redirect match {
+      case Some(redirect) ⇒ delegate.sendRedirect(redirect)
+      case None ⇒
+        for ((name, values) ← headers.values; value ← values) {
+          delegate.addHeader(name, value)
+        }
+        message match {
+          case None ⇒ delegate.setStatus(status)
+          case Some(message) ⇒ delegate.setStatus(status, message)
+        }
+        delegate.setCharacterEncoding(characterEncoding)
+        contentLength.foreach(delegate.setContentLength)
+        delegate.setContentType(contentType)
+        delegate.setLocale(locale)
+        out.foreach(_.buffer.writeTo(delegate.getOutputStream))
+    }
+  }
 }
