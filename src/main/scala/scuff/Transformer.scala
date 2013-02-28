@@ -2,6 +2,9 @@ package scuff
 
 import java.io._
 
+/**
+ * Simple interface for back and forth transformations.
+ */
 trait Transformer[A, B] {
   def forth(a: A): B
   def back(b: B): A

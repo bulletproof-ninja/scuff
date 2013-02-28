@@ -7,6 +7,10 @@ import java.util.concurrent.locks.{ ReadWriteLock, ReentrantReadWriteLock }
  * [[java.util.concurrent.locks.ReadWriteLock]] for concurrency
  * control. All time-to-live (ttl) variables are expected to be 
  * in seconds.
+ * NOTICE: Objects are stored and returned as-is. If they are mutable, 
+ * then manual care must be taken to ensure safe copy on both storing
+ * and retrieving, or otherwise general usage must ensure that objects
+ * stored and retrieved are not modified.
  *
  * @param maxCapacity The maximum number of entries allowed.
  * @param defaultTTL The default time-to-live. 0 means immortal.
