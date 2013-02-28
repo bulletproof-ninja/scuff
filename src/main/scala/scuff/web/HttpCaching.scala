@@ -1,17 +1,21 @@
 package scuff.web
 
-import javax.servlet._, http._, HttpServletResponse._
+import javax.servlet._
+import http._
+import HttpServletResponse._
+import scuff.LRUHeapCache
 
 private object HttpCaching {
-  case class Cached(bytes: Array[Byte], lastModified: Option[Long], headers: Iterable[(String, Iterable[String])]) {
-    val version = lastModified.toRight()
-    val eTag = {
+  case class Cached(bytes: Array[Byte], lastModified: Option[Long], headers: Iterable[(String, Iterable[String])], contentType: String, encoding: String, locale: java.util.Locale) {
+    lazy val eTag = {
       val digest = java.security.MessageDigest.getInstance("MD5").digest(bytes)
-      scuff.BitsBytes.hexEncode(digest).toString
+      "\"" + scuff.BitsBytes.hexEncode(digest) + "\""
     }
     def flushTo(res: HttpServletResponse) {
-      headers.foreach { case (name, values) ⇒ values.foreach(res.addHeader(name, _)) }
-      if (lastModified.isEmpty) res.setHeader(ETag, eTag)
+      for ((name, values) ← headers; value ← values) res.addHeader(name, value)
+      res.setContentType(contentType)
+      res.setCharacterEncoding(encoding)
+      res.setLocale(locale)
       res.setContentLength(bytes.length)
       res.getOutputStream().write(bytes)
       res.flushBuffer()
@@ -22,21 +26,23 @@ private object HttpCaching {
 private[web] sealed trait HttpCaching {
   import HttpCaching._
 
-  private[this] val map = new scuff.LockFreeConcurrentMap[Any, Cached]
-
+  private[this] lazy val defaultCache = new LRUHeapCache[Any, Any](Int.MaxValue, 0)
+  protected def cache: scuff.Cache[Any, Any] = defaultCache
+  private def theCache = cache.asInstanceOf[scuff.Cache[Any, Cached]]
   protected def makeCacheKey(req: HttpServletRequest): Option[Any]
 
   private def fetchResource(res: HttpServletResponse, fetch: HttpServletResponse ⇒ Unit): Cached = {
     import collection.JavaConverters._
     val proxy = new HttpServletResponseProxy(res)
     fetch(proxy)
-    new Cached(proxy.getBytes, proxy.getDateHeader(LastModified), proxy.headers)
+    val lastMod = proxy.getDateHeaders(LastModified).headOption
+    new Cached(proxy.getBytes, lastMod, proxy.headers.values, proxy.getContentType, proxy.getCharacterEncoding, proxy.getLocale)
   }
   protected[web] def respond(cacheKey: Any, req: HttpServletRequest, res: HttpServletResponse)(getResource: HttpServletResponse ⇒ Unit) {
-    val cached = map.getOrElseUpdate(cacheKey, fetchResource(res, getResource))
-    val expectedETag = req.getHeader(IfNoneMatch) // Can be null
+    val cached = theCache.lookupOrStore(cacheKey)(fetchResource(res, getResource))
+    val expectedETag = Option(req.getHeader(IfNoneMatch))
     val expectedLastMod = req.getDateHeader(IfModifiedSince)
-    if (cached.eTag == expectedETag || cached.lastModified.exists(_ == expectedLastMod)) {
+    if (cached.lastModified.exists(_ == expectedLastMod) || expectedETag.exists(_ == cached.eTag)) {
       res.setStatus(SC_NOT_MODIFIED)
     } else {
       cached.flushTo(res)
@@ -44,8 +50,13 @@ private[web] sealed trait HttpCaching {
   }
 }
 
-trait HttpCachingServlet extends HttpServlet with HttpCaching {
+trait HttpCachingServletMixin extends HttpServlet with HttpCaching {
   import HttpCaching._
+
+  abstract override def destroy {
+    cache.disable()
+    super.destroy()
+  }
 
   abstract override def service(req: HttpServletRequest, res: HttpServletResponse) {
     makeCacheKey(req) match {
@@ -57,6 +68,11 @@ trait HttpCachingServlet extends HttpServlet with HttpCaching {
 
 trait HttpCachingFilterMixin extends Filter with HttpCaching {
   import HttpCaching._
+
+  abstract override def destroy {
+    cache.disable()
+    super.destroy()
+  }
 
   abstract override def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = (req, res) match {
     case (req: HttpServletRequest, res: HttpServletResponse) ⇒ makeCacheKey(req) match {
