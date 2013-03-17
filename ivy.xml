@@ -2,10 +2,10 @@
     <info organisation="nilskp" module="scuff"/>
     <dependencies>
         <dependency org="com.google.javascript" name="closure-compiler" rev="rr2079.1"/>
-        <dependency org="javax.mail" name="mail" rev="1.4.5"/>
+        <dependency org="javax.mail" name="mail" rev="1.4.+"/>
         <dependency org="org.mozilla" name="rhino" rev="1.7R4"/>
-        <dependency org="org.mongodb" name="mongo-java-driver" rev="2.10.1"/>
-        <dependency org="javax.servlet" name="javax.servlet-api" rev="3.0.1"/>
-        <dependency org="redis.clients" name="jedis" rev="2.1.0"/>
+        <dependency org="org.mongodb" name="mongo-java-driver" rev="2.10.+"/>
+        <dependency org="javax.servlet" name="javax.servlet-api" rev="3.0.+"/>
+        <dependency org="redis.clients" name="jedis" rev="2.1.+"/>
     </dependencies>
 </ivy-module>
