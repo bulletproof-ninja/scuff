@@ -35,7 +35,7 @@ class RedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueSer: sc
       block(txn)
       txn.exec() != null
     } catch {
-      case e: Exception ⇒ try { txn.discard() } catch { case _: Throwable ⇒ /* Ignore */ }; throw e
+      case e: Exception ⇒ try { txn.discard() } catch { case _: Exception ⇒ /* Ignore */ }; throw e
     }
   }
 

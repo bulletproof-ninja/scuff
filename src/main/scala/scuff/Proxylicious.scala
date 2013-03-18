@@ -20,7 +20,7 @@ class Proxylicious[T](implicit manifest: ClassTag[T]) {
         } catch {
           case t: InvocationTargetException ⇒ Left(t.getTargetException)
           case t: UndeclaredThrowableException => Left(t.getUndeclaredThrowable)
-          case t: Throwable => Left(t)
+          case t: Exception => Left(t)
         }
         if (include) {
           wrapper.after(proxy, method, anyArgs, result).asInstanceOf[Object]

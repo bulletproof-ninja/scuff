@@ -27,7 +27,7 @@ class RedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Serialize
         txn.exec()
         t
       } catch {
-        case e: Exception ⇒ try { txn.discard() } catch { case _: Throwable ⇒ /* Ignore */ }; throw e
+        case e: Exception ⇒ try { txn.discard() } catch { case _: Exception ⇒ /* Ignore */ }; throw e
       }
     }
   }
