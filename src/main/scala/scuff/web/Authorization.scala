@@ -78,13 +78,15 @@ trait AuthenticationForwarding extends Filter {
 
   protected def loginPage: String
 
-  abstract override def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = (req, res) match {
-    case (req: HttpServletRequest, res: HttpServletResponse) ⇒ httpFilter(req, res, chain)
-    case _ ⇒ chain.doFilter(req, res)
+  abstract override def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) {
+    super.doFilter(req, res, chain)
+    (req, res) match {
+      case (req: HttpServletRequest, res: HttpServletResponse) ⇒ httpFilter(req, res, chain)
+      case _ ⇒ // Ignore
+    }
   }
 
   private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
-    super.doFilter(req, res, chain)
     if (!res.isCommitted) res.getStatus match {
       case SC_UNAUTHORIZED ⇒
         res.setStatus(SC_FOUND)
@@ -97,7 +99,7 @@ trait AuthenticationForwarding extends Filter {
 }
 
 /**
- * Standalone filter of AuthenticationForwarding trait.
+ * Stand-alone filter of AuthenticationForwarding trait.
  * Does nothing else.
  */
 abstract class AuthenticationForwardingFilter extends NoOpFilter with AuthenticationForwarding
