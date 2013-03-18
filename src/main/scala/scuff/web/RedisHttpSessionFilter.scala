@@ -7,17 +7,17 @@ import scuff.redis.RedisStringKeyHashMap
 import scuff.JavaSerializer
 
 /**
-  * Given a specific Redis database, this filter stores any session
-  * data in Redis, making it available in a horizontally
-  * scaled environment.
-  */
+ * Given a specific Redis database, this filter stores any session
+ * data in Redis, making it available in a horizontally
+ * scaled environment.
+ */
 trait RedisHttpSessionFilter extends Filter {
 
   def redisSessionDB: RedisConnectionPool
 
   def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = (req, res) match {
-    case (req: HttpServletRequest, res: HttpServletResponse) => httpFilter(req, res, chain)
-    case _ => chain.doFilter(req, res)
+    case (req: HttpServletRequest, res: HttpServletResponse) ⇒ httpFilter(req, res, chain)
+    case _ ⇒ chain.doFilter(req, res)
   }
 
   private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
