@@ -7,8 +7,8 @@ trait URLExclusion extends Filter {
   def exclusionPatterns: Seq[util.matching.Regex]
 
   abstract override def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = (req, res) match {
-    case (req: HttpServletRequest, res: HttpServletResponse) => httpFilter(req, res, chain)
-    case _ => chain.doFilter(req, res)
+    case (req: HttpServletRequest, res: HttpServletResponse) ⇒ httpFilter(req, res, chain)
+    case _ ⇒ super.doFilter(req, res, chain)
   }
 
   private def httpFilter(req: http.HttpServletRequest, res: http.HttpServletResponse, chain: FilterChain) {
