@@ -7,6 +7,7 @@ import scuff.LRUHeapCache
 
 private object HttpCaching {
   case class Cached(bytes: Array[Byte], lastModified: Option[Long], headers: Iterable[(String, Iterable[String])], contentType: String, encoding: String, locale: java.util.Locale) {
+    require(bytes.length > 0, "Empty content of type %s".format(contentType))
     lazy val eTag = {
       val digest = java.security.MessageDigest.getInstance("MD5").digest(bytes)
       "\"" + scuff.BitsBytes.hexEncode(digest) + "\""
@@ -31,23 +32,37 @@ private[web] sealed trait HttpCaching {
   private def theCache = cache.asInstanceOf[scuff.Cache[Any, Cached]]
   protected def makeCacheKey(req: HttpServletRequest): Option[Any]
 
+  private case object NotOkException extends RuntimeException {
+    override def fillInStackTrace: Throwable = this
+  }
+
   private def fetchResource(res: HttpServletResponse, fetch: HttpServletResponse ⇒ Unit): Cached = {
     import collection.JavaConverters._
     val proxy = new HttpServletResponseProxy(res)
     fetch(proxy)
+    if (proxy.status != SC_OK) {
+      proxy.propagate()
+      throw NotOkException
+    } else if (proxy.getBytes.length == 0) {
+      proxy.propagate(SC_NO_CONTENT)
+      throw NotOkException
+    }
     val lastMod = proxy.getDateHeaders(LastModified).headOption
     new Cached(proxy.getBytes, lastMod, proxy.headers.values, proxy.getContentType, proxy.getCharacterEncoding, proxy.getLocale)
   }
-  protected[web] def respond(cacheKey: Any, req: HttpServletRequest, res: HttpServletResponse)(getResource: HttpServletResponse ⇒ Unit) {
-    val cached = theCache.lookupOrStore(cacheKey)(fetchResource(res, getResource))
-    val expectedETag = Option(req.getHeader(IfNoneMatch))
-    val expectedLastMod = req.getDateHeader(IfModifiedSince)
-    if (cached.lastModified.exists(_ == expectedLastMod) || expectedETag.exists(_ == cached.eTag)) {
-      res.setStatus(SC_NOT_MODIFIED)
-    } else {
-      cached.flushTo(res)
+  protected[web] def respond(cacheKey: Any, req: HttpServletRequest, res: HttpServletResponse)(getResource: HttpServletResponse ⇒ Unit) =
+    try {
+      val cached = theCache.lookupOrStore(cacheKey)(fetchResource(res, getResource))
+      val expectedETag = Option(req.getHeader(IfNoneMatch))
+      val expectedLastMod = req.getDateHeader(IfModifiedSince)
+      if (cached.lastModified.exists(_ == expectedLastMod) || expectedETag.exists(_ == cached.eTag)) {
+        res.setStatus(SC_NOT_MODIFIED)
+      } else {
+        cached.flushTo(res)
+      }
+    } catch {
+      case NotOkException ⇒ // Response already populated
     }
-  }
 }
 
 trait HttpCachingServletMixin extends HttpServlet with HttpCaching {
@@ -79,6 +94,6 @@ trait HttpCachingFilterMixin extends Filter with HttpCaching {
       case Some(cacheKey) ⇒ respond(cacheKey, req, res) { res ⇒ super.doFilter(req, res, chain) }
       case None ⇒ super.doFilter(req, res, chain)
     }
-    case _ ⇒ chain.doFilter(req, res)
+    case _ ⇒ super.doFilter(req, res, chain)
   }
 }
