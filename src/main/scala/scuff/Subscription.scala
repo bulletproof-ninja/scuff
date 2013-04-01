@@ -5,6 +5,6 @@ trait Subscription {
 }
 
 trait Channel {
-  type T
-  def subscribe(s: T ⇒ Unit): Subscription
+  type L
+  def subscribe(s: L): Subscription
 }

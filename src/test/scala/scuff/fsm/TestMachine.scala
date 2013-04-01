@@ -3,7 +3,50 @@ package scuff.fsm
 import org.junit._
 import org.junit.Assert._
 
-import language.reflectiveCalls
+class TestFSM {
+  @Test
+  def connection {
+    val conn = new Connection
+    import conn.{ Active, Disabled, Forgotten }
+    assertFalse(conn.isFinal)
+    assertFalse(conn is Active)
+    assertFalse(conn is Disabled)
+    conn.start(enabled = true)
+    assertTrue(conn is Active)
+    conn(disable)
+    assertFalse(conn is Active)
+    assertTrue(conn is Disabled)
+    try {
+      conn(reconnected)
+      fail("Cannot reconnect when already connected")
+    } catch {
+      case e: IllegalStateException ⇒ // Expected
+    }
+    conn(disconnected)
+    assertFalse(conn.isFinal)
+    conn(forget)
+    assertTrue(conn.isFinal)
+  }
+  @Test
+  def dateParser {
+    val parser = new ISODateParser
+    import parser.{ dash, digit, done }
+    assertEquals(None, parser.current)
+    parser.start()
+    val isoDate = "2012-12-31"
+    for (c ← isoDate) c match {
+      case '-' ⇒ parser(dash)
+      case c if c >= '0' && c <= '9' ⇒ parser(digit, c)
+    }
+    parser(done)
+    parser.current match {
+      case Some(comp @ parser.Completed) ⇒ comp.date match {
+        case Some(date) ⇒ assertEquals(isoDate, date.toString)
+        case _ ⇒ fail("Should have some date")
+      }
+      case _ ⇒ fail("current state should be completed")
+    }
+  }
 
 case object enable extends Event
 case object disable extends Event
@@ -59,9 +102,13 @@ class ISODateParser extends FSM {
 
   sealed class ParseState extends LeafState {
     var num = 0
-    override def onEntry(evt: Event, char: Any) = evt match {
-      case `digit` ⇒ onDigit(char.asInstanceOf[Char])
-      case `dash` ⇒ // Ignore
+      override def onEntry(evt: Event, char: Any) = (evt, char) match {
+        case (`digit`, ch: Char) ⇒ onDigit(ch)
+        case (`dash`, _) ⇒ // Ignore
+      }
+      def onEntryX(evt: Event, char: Any) = (evt, char) match {
+        case (`digit`, ch: Char) ⇒ onDigit(ch)
+        case (`dash`, _) ⇒ // Ignore
     }
     def onDigit(char: Char) = num = (num * 10) + (char - '0')
   }
@@ -85,50 +132,4 @@ class ISODateParser extends FSM {
   )
 }
 
-class TestFSM {
-  @Test
-  def connection {
-    val conn = new Connection
-    import conn.{ Active, Disabled, Forgotten }
-    assertFalse(conn.isFinal)
-    assertFalse(conn is Active)
-    assertFalse(conn is Disabled)
-    conn.start(enabled = true)
-    assertTrue(conn is Active)
-    conn(disable)
-    assertFalse(conn is Active)
-    assertTrue(conn is Disabled)
-    try {
-      conn(reconnected)
-      fail("Cannot reconnect when already connected")
-    } catch {
-      case e: IllegalStateException ⇒ // Expected
-    }
-    conn(disconnected)
-    assertFalse(conn.isFinal)
-    conn(forget)
-    assertTrue(conn.isFinal)
-  }
-  @Test
-  def dateParser {
-    val parser = new ISODateParser
-    import parser.{ dash, digit, done }
-    assertEquals(None, parser.current)
-    parser.start()
-    val isoDate = "2012-12-31"
-    for (c ← isoDate) c match {
-      case '-' ⇒ parser(dash)
-      case c if c >= '0' && c <= '9' ⇒ parser(digit, c)
-    }
-    parser(done)
-    parser.current match {
-      case Some(comp @ parser.Completed) ⇒ comp.date match {
-        case Some(date) ⇒ assertEquals(isoDate, date.toString)
-        case _ ⇒ fail("Should have some date")
       }
-      case _ ⇒ fail("current state should be completed")
-    }
-  }
-}
-
-

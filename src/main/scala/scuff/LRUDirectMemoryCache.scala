@@ -31,4 +31,6 @@ final class LRUDirectMemoryCache[K, V](maxCapacity: Int, val defaultTTL: Int, se
   def lookup(key: K): Option[V] = impl.lookup(key).map(toValue)
   def lookupOrStore(key: K, ttlSeconds: Int)(constructor: ⇒ V): V = toValue(impl.lookupOrStore(key, ttlSeconds)(toBuffer(constructor)))
   def disable() = impl.disable()
+  def lookupAndRefresh(key: K, ttl: Int): Option[V] = impl.lookupAndRefresh(key, ttl).map(toValue)
+  def refresh(key: K, ttl: Int) = impl.refresh(key, ttl)
 }

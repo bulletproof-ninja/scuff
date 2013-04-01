@@ -29,6 +29,16 @@ trait Cache[K, V] {
   def lookup(key: K): Option[V]
 
   /**
+    * Refresh TTL. Return `true` if successful.
+    */
+  def refresh(key: K, ttl: Int = defaultTTL): Boolean
+
+  /**
+    * Lookup cache entry and refresh TTL.
+    */
+  def lookupAndRefresh(key: K, ttl: Int = defaultTTL): Option[V]
+
+  /**
     * Lookup cache entry, or if not found, construct, store, and return entry.
     * @param key
     * @param constructor The value constructor, if key not found

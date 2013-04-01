@@ -31,6 +31,13 @@ import java.nio.charset.Charset
  */
 class PropertiesFormatter private (_baseName: Option[String], desiredLocale: Locale, charset: Charset) {
 
+  /**
+    * Subclass constructor. Used when sub-classing is used for location and naming.
+    * @param desiredLocale The desired locale. May use a fallback locale if specific locale is not found
+    * @param charset Override default properties charset of UTF-8
+    */
+  protected def this(desiredLocale: Locale = Locale.ROOT, charset: Charset = PropertiesFormatter.ISO_8859_1) = this(None, desiredLocale, charset)
+
   private[this] val control = new CharsetControl(charset)
 
   private[this] val baseName = _baseName match {
@@ -40,13 +47,6 @@ class PropertiesFormatter private (_baseName: Option[String], desiredLocale: Loc
       if (name endsWith "$") name.substring(0, name.length - 1) else name
     }
   }
-
-  /**
-   * Subclass constructor. Used when sub-classing is used for location and naming.
-   * @param desiredLocale The desired locale. May use a fallback locale if specific locale is not found
-   * @param charset Override default properties charset of UTF-8
-   */
-  protected def this(desiredLocale: Locale = Locale.ROOT, charset: Charset = PropertiesFormatter.ISO_8859_1) = this(None, desiredLocale, charset)
 
   private class Message(strFmt: String) {
     val parmCount = PropertiesFormatter.countParms(strFmt)

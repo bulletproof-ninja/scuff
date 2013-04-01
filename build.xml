@@ -6,6 +6,7 @@
 
 	<target name="init" depends="clean">
 		<property environment="env" />
+		<property name="scala.version" value="scala-2.10"/>
 		<property name="scala.home" value="${env.SCALA_HOME}" />
 		<property name="version" value="1.2-SNAPSHOT" />
 		<property name="scala.jar" value="${scala.home}/lib/scala-library.jar" />
@@ -43,10 +44,58 @@
 		</scalac>
 	</target>
 
+	<target name="compile-test" depends="compile-main">
+		<mkdir dir="build/test" />
+		<scalac srcdir="src/test" destdir="build/test" unchecked="yes" addparams="–unchecked -deprecation –explaintypes">
+			<!-- -optimise Fails build, try when new version -->
+			<bootclasspath>
+				<pathelement location="${scala.home}/lib/scala-compiler.jar" />
+				<pathelement location="${scala.jar}" />
+			</bootclasspath>
+
+			<classpath>
+				<pathelement location="build/main" />
+				<fileset dir="lib">
+					<include name="**/*.jar" />
+				</fileset>
+			</classpath>
+			<include name="scala/**/*.scala" />
+			<!--include name="java/**/*.java" /-->
+		</scalac>
+	</target>
+
+	<target name="run-junit" depends="compile-test, copy-resources">
+		<mkdir dir="build/junit" />
+		<junit fork="yes" haltonfailure="true" haltonerror="true">
+			<formatter type="xml" />
+			<jvmarg value="-ea" />
+			<jvmarg value="-XX:-UseSplitVerifier" />
+			<classpath>
+				<fileset dir="lib">
+					<include name="**/*.jar" />
+					<exclude name="ant-*" />
+				</fileset>
+				<pathelement path="build/main" />
+				<pathelement path="build/test" />
+				<pathelement location="${scala.jar}" />
+			</classpath>
+			<batchtest todir="build/junit">
+				<fileset dir="build/test">
+					<exclude name="**/*$*.class" />
+				</fileset>
+			</batchtest>
+		</junit>
+	</target>
+
+
 	<target name="copy-resources" depends="init">
 		<mkdir dir="build/main" />
 		<copy todir="build/main">
 			<fileset dir="src/main/resources" />
+		</copy>
+		<mkdir dir="build/test" />
+		<copy todir="build/test">
+			<fileset dir="src/test/resources" />
 		</copy>
 	</target>
 
@@ -61,7 +110,7 @@
 				<attribute name="Sealed" value="true" />
 			</section>
 		</manifest>
-		<jar basedir="build/main" destfile="build/${ant.project.name}-${version}.jar" index="true" manifest="build/MANIFEST.MF" />
+		<jar basedir="build/main" destfile="build/${ant.project.name}-${version}-${scala.version}.jar" index="true" manifest="build/MANIFEST.MF" />
 	</target>
 
 	<target name="scaladocs" depends="init">

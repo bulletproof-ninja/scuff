@@ -3,9 +3,12 @@ package scuff
 import org.junit._
 import org.junit.Assert._
 
+object TestCache {
 case class Foo(id: Int, name: String)
+}
 
-class TestCache {
+class TestCache extends Serializable {
+  import TestCache._
   @Test
   def foo {
     val cache = new LRUDirectMemoryCache[String, Foo](10, 1, new JavaSerializer)

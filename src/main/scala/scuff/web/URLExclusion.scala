@@ -4,6 +4,10 @@ import javax.servlet._
 import javax.servlet.http._
 
 trait URLExclusion extends Filter {
+  
+  /**
+   * Patterns to match on servlet path.
+   */
   def exclusionPatterns: Seq[util.matching.Regex]
 
   abstract override def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = (req, res) match {

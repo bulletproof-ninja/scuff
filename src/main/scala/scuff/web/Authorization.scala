@@ -12,7 +12,10 @@ import scuff.UserPrincipal
  */
 trait Authorization extends HttpServlet {
 
-  /** Roles allowed for this servlet. An empty set means *anyone* authenticated. */
+  /**
+    * Roles allowed for this servlet. Default allows 
+    * all authenticated users, regardless of role.
+    */
   protected def rolesAllowed: Set[String] = Set.empty
 
   abstract override def service(req: HttpServletRequest, res: HttpServletResponse) {

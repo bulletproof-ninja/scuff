@@ -8,7 +8,7 @@ import java.util.concurrent._
 class PubSub[E](exceptionHandler: (Throwable) ⇒ Unit = (t: Throwable) ⇒ {}, executor: Option[Executor] = None)
     extends Channel {
 
-  type T = E
+  type L = E ⇒ Unit
 
   def this(executor: Executor) = this(executor = Some(executor))
 

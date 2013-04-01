@@ -60,6 +60,17 @@ final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: Int, staleCheck
   def evict(key: K): Option[V] = writeLock(returnValue(map.remove(key)))
   def lookup(key: K): Option[V] = readLock(returnValue(map.get(key)))
 
+  def refresh(key: K, ttl: Int): Boolean = lookupAndRefresh(key, ttl).isDefined
+  def lookupAndRefresh(key: K, ttl: Int): Option[V] = readLock {
+    map.get(key) match {
+      case null ⇒ None
+      case entry if !entry.isStale() ⇒
+        entry.refresh(ttl)
+        entry.value
+      case _ ⇒ None
+    }
+  }
+
   def disable() = writeLock {
     scavenger.foreach(_.interrupt)
     disabled = true
@@ -84,10 +95,15 @@ final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: Int, staleCheck
     override def removeEldestEntry(eldest: java.util.Map.Entry[K, CacheEntry]) = size > maxCapacity
   }
 
-  private class CacheEntry(rawValue: V, ttl: Int) {
-    val value = Some(rawValue)
-    val expiryMillis = if (ttl > 0) System.currentTimeMillis + ttl*1000 else Long.MaxValue
+  private class CacheEntry(val value: Some[V], ttl: Int) {
+    def this(value: V, ttl: Int) = this(Some(value), ttl)
+
+    refresh(ttl)
+
+    @volatile var expiryMillis: Long = _
     def isStale(now: Long = System.currentTimeMillis) = expiryMillis < now
+    def refresh(ttl: Int) = expiryMillis = if (ttl > 0) System.currentTimeMillis + ttl * 1000 else Long.MaxValue
+
   }
 
   private var scavenger: Option[Thread] = None

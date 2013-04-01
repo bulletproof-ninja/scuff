@@ -17,13 +17,13 @@ sealed trait Target extends State {
 }
 
 class SuperState(name: String = "") extends Source {
-  override def toString = if (name eq "") super.toString else name
+  override def toString = if (name.length == 0) super.toString else name
 }
 class LeafState(name: String = "") extends Source with Target {
-  override def toString = if (name eq "") super.toString else name
+  override def toString = if (name.length == 0) super.toString else name
 }
 class FinalState(name: String = "") extends Target {
-  override def toString = if (name eq "") super.toString else name
+  override def toString = if (name.length == 0) super.toString else name
 }
 
 trait FSM extends SuperState {

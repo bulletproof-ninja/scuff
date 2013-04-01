@@ -8,7 +8,7 @@ import CoffeeScriptCompiler._
 class TestCoffeeScriptCompiler {
   @Test
   def simple2() {
-    val compiler = CoffeeScriptCompiler(true, false)
+    val compiler = CoffeeScriptCompiler(Use.Strict)
     val coffee = """
 arr = [3,5,23,67,34]
 [foo, bar] = arr
@@ -27,7 +27,7 @@ arr = [3,5,23,67,34]
 #sqr = (a) -> a*3
 boo = sqr 15
 """
-    val compiler = CoffeeScriptCompiler(false, false, 'bare -> true)
+    val compiler = CoffeeScriptCompiler('bare -> true)
     val js = compiler.compile(coffee)
     println(js)
   }

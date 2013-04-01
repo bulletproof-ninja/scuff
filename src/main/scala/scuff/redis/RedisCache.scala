@@ -31,6 +31,20 @@ class RedisCache[K, V](val defaultTTL: Int, conn: CONNECTION, keySer: scuff.Seri
   }
 
   def lookup(key: K): Option[V] = Option(getOrNull(key))
+
+  def lookupAndRefresh(key: K, ttl: Int): Option[V] = connection { jedis ⇒
+    getOrNull(keySer.forth(key), jedis) match {
+      case null ⇒ None
+      case value ⇒
+        refresh(key, ttl, jedis)
+        Some(value)
+    }
+  }
+
+  private def refresh(key: K, ttl: Int, jedis: Jedis): Boolean = jedis.expire(keySer.forth(key), ttl) == 1L
+
+  def refresh(key: K, ttl: Int): Boolean = connection(refresh(key, ttl, _))
+
   private def getOrNull(key: K): V = connection(getOrNull(keySer.forth(key), _))
   private def getOrNull(keyBytes: Array[Byte], jedis: Jedis): V =
     jedis.get(keyBytes) match {

@@ -45,7 +45,6 @@ class TestProxylicious {
     }
     assertEquals(42, retryingMultiply(6, 7))
   }
-}
 
 trait Arithmetic {
   def apply(a: Int, b: Int): Int
@@ -62,5 +61,6 @@ trait ThirtiethTimesACharm extends Arithmetic {
       throw new IllegalStateException
     else
       super.apply(a, b)
+  }
   }
 }

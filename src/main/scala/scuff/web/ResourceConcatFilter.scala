@@ -62,7 +62,7 @@ class ResourceConcatFilter extends Filter {
         }
       }.max
       if (lastMod != 0L) {
-        res.setDateHeader(LastModified, lastMod)
+        res.setDateHeader(HttpHeaders.LastModified, lastMod)
       }
       paths.foreach { servletPath ⇒
         val proxyReq = new HttpServletRequestWrapper(req) {

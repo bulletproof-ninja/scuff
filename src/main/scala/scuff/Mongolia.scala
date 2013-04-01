@@ -11,7 +11,7 @@ import scuff.js.CoffeeScriptCompiler
 
 object Mongolia {
 
-  private lazy val coffeeCompiler = scuff.js.CoffeeScriptCompiler(false, false, 'bare -> true)
+  private lazy val coffeeCompiler = scuff.js.CoffeeScriptCompiler('bare -> true)
 
   final class Assignment(key: String) {
     def :=(value: BsonValue) = new BsonProp(key, value)

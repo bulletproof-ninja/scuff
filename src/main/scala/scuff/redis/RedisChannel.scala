@@ -4,7 +4,7 @@ import redis.clients.jedis._
 import redis.clients.util._
 
 class RedisChannel[A](name: String, info: JedisShardInfo, serializer: scuff.Serializer[A] = new scuff.JavaSerializer[A]) extends scuff.Channel {
-  type T = A
+  type L = A ⇒ Unit
   private[this] val byteName = SafeEncoder.encode(name)
   def subscribe(subscriber: A ⇒ Unit) = {
     val jedisSubscriber = new BinaryJedisPubSub {

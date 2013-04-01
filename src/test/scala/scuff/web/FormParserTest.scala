@@ -3,7 +3,42 @@ package scuff.web
 import org.junit._
 import org.junit.Assert._
 
+object FormParserTest {
+
+  @reflect.BeanInfo
+  class Beano {
+    import java.net.URL
+    var name: Option[String] = _
+
+    var url: Option[URL] = _
+    def url(s: String) = new URL(s)
+
+    var age: Int = _
+    def age(s: String) = s.toInt
+
+    var year: Option[Int] = _
+    def year(s: String) = s.toInt
+
+    var maybe: Option[Boolean] = _
+    def maybe(s: String) = s.toBoolean
+
+    var perhaps: Boolean = _
+    def perhaps(s: String) = s.toBoolean
+  }
+
+  @reflect.BeanInfo
+  class Beano2 {
+    var lat: Float = _
+    def lat(s: String) = s.toFloat
+    var lng: Float = _
+    def lng(s: String) = s.toFloat
+    private[web] var geoPoint: scuff.GeoPoint = _
+  }
+
+}
+
 class FormParserTest {
+  import FormParserTest._
   @Test
   def simple {
     object Parser extends FormParser[Beano]
@@ -31,34 +66,5 @@ class FormParserTest {
       case Right(bean) ⇒ fail("Should have errors")
     }
   }
-}
 
-@reflect.BeanInfo
-class Beano {
-  import java.net.URL
-  var name: Option[String] = _
-  
-  var url: Option[URL] = _
-  def url(s: String) = new URL(s)
-  
-  var age: Int = _
-  def age(s: String) = s.toInt
-  
-  var year: Option[Int] = _
-  def year(s: String) = s.toInt
-  
-  var maybe: Option[Boolean] = _
-  def maybe(s: String) = s.toBoolean
-  
-  var perhaps: Boolean = _
-  def perhaps(s: String) = s.toBoolean
-}
-
-@reflect.BeanInfo
-class Beano2 {
-  var lat: Float = _
-  def lat(s: String) = s.toFloat
-  var lng: Float = _
-  def lng(s: String) = s.toFloat
-  private[web] var geoPoint: scuff.GeoPoint = _
 }

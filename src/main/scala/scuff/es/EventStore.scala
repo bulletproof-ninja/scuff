@@ -36,7 +36,9 @@ private object EventSource {
  * Event source.
  */
 trait EventSource[ID, EVT] extends scuff.Channel {
+
   final type T = Transaction
+  final type L = T ⇒ Unit
 
   // NOTICE: See above for reflective field access, so beware of name changes
   case class Transaction(

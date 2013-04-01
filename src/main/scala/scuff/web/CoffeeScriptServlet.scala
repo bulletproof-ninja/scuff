@@ -10,8 +10,9 @@ import scuff.js._
   * to JavaScript.
   */
 class CoffeeScriptServlet extends HttpServlet {
+  import CoffeeScriptCompiler.Use
 
-  protected def newCoffeeCompiler() = CoffeeScriptCompiler(true, false, 'bare -> false)
+  protected def newCoffeeCompiler() = CoffeeScriptCompiler(Use.Strict, false, 'bare -> false)
 
   protected def coffeeCompilation(coffeeScript: String, filename: String): String = newCoffeeCompiler().compile(coffeeScript, filename)
 
@@ -55,5 +56,6 @@ class CoffeeScriptServlet extends HttpServlet {
 }
 
 trait Ice { self: CoffeeScriptServlet ⇒
-  final override def newCoffeeCompiler() = CoffeeScriptCompiler(true, true, 'bare -> false)
+  import CoffeeScriptCompiler.Use
+  final override def newCoffeeCompiler() = CoffeeScriptCompiler(Use.Strict, true, 'bare -> false)
 }

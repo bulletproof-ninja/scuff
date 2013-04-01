@@ -10,10 +10,14 @@ private object HttpCaching {
     require(bytes.length > 0, "Empty content of type %s".format(contentType))
     lazy val eTag = {
       val digest = java.security.MessageDigest.getInstance("MD5").digest(bytes)
-      "\"" + scuff.BitsBytes.hexEncode(digest) + "\""
+      val tag = scuff.BitsBytes.hexEncode(digest).toString
+      new ETag(tag)(false)
     }
     def flushTo(res: HttpServletResponse) {
       for ((name, values) ← headers; value ← values) res.addHeader(name, value)
+      if (lastModified.isEmpty) {
+        eTag >> res
+      }
       res.setContentType(contentType)
       res.setCharacterEncoding(encoding)
       res.setLocale(locale)
@@ -47,14 +51,14 @@ private[web] sealed trait HttpCaching {
       proxy.propagate(SC_NO_CONTENT)
       throw NotOkException
     }
-    val lastMod = proxy.getDateHeaders(LastModified).headOption
+    val lastMod = proxy.getDateHeaders(HttpHeaders.LastModified).headOption
     new Cached(proxy.getBytes, lastMod, proxy.headers.values, proxy.getContentType, proxy.getCharacterEncoding, proxy.getLocale)
   }
   protected[web] def respond(cacheKey: Any, req: HttpServletRequest, res: HttpServletResponse)(getResource: HttpServletResponse ⇒ Unit) =
     try {
       val cached = theCache.lookupOrStore(cacheKey)(fetchResource(res, getResource))
-      val expectedETag = Option(req.getHeader(IfNoneMatch))
-      val expectedLastMod = req.getDateHeader(IfModifiedSince)
+      val expectedETag = ETag.IfNoneMatch(req)
+      val expectedLastMod = req.getDateHeader(HttpHeaders.IfModifiedSince)
       if (cached.lastModified.exists(_ == expectedLastMod) || expectedETag.exists(_ == cached.eTag)) {
         res.setStatus(SC_NOT_MODIFIED)
       } else {
@@ -97,3 +101,6 @@ trait HttpCachingFilterMixin extends Filter with HttpCaching {
     case _ ⇒ super.doFilter(req, res, chain)
   }
 }
+
+abstract class HttpCachingFilter extends NoOpFilter with HttpCachingFilterMixin
+
