@@ -350,11 +350,12 @@ object Mongolia {
     }
 
     def ensureIndex(key: String): Unit = ensureIndex(key := ASC)
+    def ensureIndex(key: String, idxType: String): Unit = underlying.ensureIndex(obj(key := idxType))
     def ensureIndex(keys: BsonIntProp*): Unit = underlying.ensureIndex(obj(keys: _*))
     def ensureUniqueIndex(key: String): Unit = ensureUniqueIndex(key := ASC)
-    def ensureSparseIndex(key: String): Unit = underlying.ensureIndex(new BasicDBObject(key, ASC), new BasicDBObject("sparse", true))
-    def ensureUniqueSparseIndex(key: String): Unit = underlying.ensureIndex(new BasicDBObject(key, ASC), obj("sparse" := true, "unique" := true))
-    def ensureUniqueIndex(keys: BsonIntProp*): Unit = underlying.ensureIndex(obj(keys: _*), new BasicDBObject("unique", true))
+    def ensureSparseIndex(key: String): Unit = underlying.ensureIndex(obj(key := ASC), obj("sparse" := true))
+    def ensureUniqueSparseIndex(key: String): Unit = underlying.ensureIndex(obj(key := ASC), obj("sparse" := true, "unique" := true))
+    def ensureUniqueIndex(keys: BsonIntProp*): Unit = underlying.ensureIndex(obj(keys: _*), obj("unique" := true))
     def findOne(anyRef: Object) = anyRef match {
       case key: DBObject ⇒ underlying.findOne(key)
       case prop: BsonProp ⇒ underlying.findOne(obj(prop))
@@ -534,7 +535,11 @@ object Mongolia {
     }
     def enrich = this
     def impoverish = underlying
-    def _id = underlying.get("_id").asInstanceOf[ObjectId]
+    def _id = underlying.get("_id") match {
+      case null ⇒ throw new IllegalArgumentException("Field \"_id\" is missing")
+      case oid: ObjectId ⇒ oid
+      case any ⇒ ObjectId.massageToObjectId(any)
+    }
     def apply(key: String): BsonField = BsonField(getAs(key), underlying, key)
     def has(key: String) = underlying.containsField(key)
     def getAs[T](name: String): T = {
@@ -640,15 +645,15 @@ object Mongolia {
   def $and[T <% BsonValue](exprs: T*) = "$and" := arr(exprs.map(t ⇒ t: BsonValue): _*)
   def $or[T <% BsonValue](exprs: T*) = "$or" := arr(exprs.map(t ⇒ t: BsonValue): _*)
   def $nor[T <% BsonValue](exprs: T*) = "$nor" := arr(exprs.map(t ⇒ t: BsonValue): _*)
-  def $each[T <% BsonValue](values: T*) = obj("$each" := arr(values.map(t ⇒ t: BsonValue): _*))
+  def $each[T <% BsonValue](values: T*) = "$each" := arr(values.map(t ⇒ t: BsonValue): _*)
   def $exists(exists: Boolean) = "$exists" := exists
   def $set(props: BsonProp*) = "$set" := obj(props: _*)
-  def $unset(names: String*): RichDBObject = {
+  def $unset(names: String*) = {
     val unsets = new RichDBObject
     names.foreach { name ⇒
       unsets.add(name := 1)
     }
-    obj("$unset" := unsets)
+    "$unset" := unsets
   }
   def $mod(modBy: Int, equalsTo: Int) = "$mod" := arr(modBy, equalsTo)
   def $not(props: BsonProp*) = "$not" := obj(props: _*)
