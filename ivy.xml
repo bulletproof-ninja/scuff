@@ -1,7 +1,7 @@
 <ivy-module version="2.0">
     <info organisation="nilskp" module="scuff"/>
     <dependencies>
-        <dependency org="com.google.javascript" name="closure-compiler" rev="rr2079.1"/>
+        <dependency org="com.google.javascript" name="closure-compiler" rev="v20130227"/>
         <dependency org="javax.mail" name="mail" rev="1.4.+"/>
         <dependency org="org.mozilla" name="rhino" rev="1.7R4"/>
         <dependency org="org.mongodb" name="mongo-java-driver" rev="2.10.+"/>
