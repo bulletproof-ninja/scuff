@@ -106,10 +106,6 @@ class ISODateParser extends FSM {
         case (`digit`, ch: Char) ⇒ onDigit(ch)
         case (`dash`, _) ⇒ // Ignore
       }
-      def onEntryX(evt: Event, char: Any) = (evt, char) match {
-        case (`digit`, ch: Char) ⇒ onDigit(ch)
-        case (`dash`, _) ⇒ // Ignore
-    }
     def onDigit(char: Char) = num = (num * 10) + (char - '0')
   }
   val ParseYear = new ParseState
