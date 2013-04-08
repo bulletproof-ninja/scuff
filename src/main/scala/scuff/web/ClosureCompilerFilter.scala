@@ -27,18 +27,22 @@ abstract class ClosureCompilerFilter extends Filter {
     val resProxy = new HttpServletResponseProxy(res)
     chain.doFilter(req, resProxy)
     val uncompressed = new String(resProxy.getBytes, resProxy.getCharacterEncoding)
-    val js = try {
-      ClosureCompiler.compile(uncompressed, req.getServletPath)
+    try {
+      val js = ClosureCompiler.compile(uncompressed, req.getServletPath)
+      try {
+        resProxy.resetBuffer()
+        resProxy.setCharacterEncoding(ClosureCompiler.Encoding)
+        resProxy.getWriter.write(js)
+      } catch {
+        case e: Exception ⇒
+          e.printStackTrace()
+      }
     } catch {
       case e: Exception ⇒
         onCompileError(e)
         uncompressed
     }
-    res.setContentType(resProxy.getContentType)
-    res.setCharacterEncoding(ClosureCompiler.Encoding)
-    val writer = res.getWriter
-    writer.write(js)
-    writer.flush()
+    resProxy.propagate()
   }
 
 }
