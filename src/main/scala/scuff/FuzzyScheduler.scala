@@ -3,11 +3,11 @@ package scuff
 import java.util.concurrent._
 import javax.servlet._
 
-object PeriodicScheduler {
-  trait PeriodicRunnable extends Runnable {
+object FuzzyScheduler {
+  trait FuzzyRunnable extends Runnable {
     @volatile private[this] var alive = true
-    def runInterval(): (Int, TimeUnit) = (10, TimeUnit.SECONDS)
-    def intervalJitter: Float = 0.2f
+    def runDelay(): (Int, TimeUnit)
+    def delayJitter: Float = 0.2f
     def kill() = alive = false
     final def isAlive = alive
   }
@@ -17,19 +17,19 @@ object PeriodicScheduler {
   * Simple scheduler with built-in random jitter
   * to avoid pathological cases of clustering.
   */
-class PeriodicScheduler(scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1)) {
-  import PeriodicScheduler.PeriodicRunnable
+class FuzzyScheduler(scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1)) {
+  import FuzzyScheduler.FuzzyRunnable
 
   def shutdownAll(): Unit = scheduler.shutdownNow()
 
-  def schedule(pr: PeriodicRunnable) {
+  def schedule(pr: FuzzyRunnable) {
     import math._
-    val (dur, unit) = pr.runInterval
+    val (dur, unit) = pr.runDelay
     val intervalMs = unit.toMillis(dur)
-    val absJitter = intervalMs * pr.intervalJitter
-    val minInterval = intervalMs - absJitter
+    val absJitter = intervalMs * pr.delayJitter
+    val minDelay = intervalMs - absJitter
     val jitterRange = absJitter * 2
-    val delayMs = round(random * jitterRange + minInterval)
+    val delayMs = round(random * jitterRange + minDelay)
     val nextRun = new Runnable {
       def run = if (pr.isAlive) {
         var scheduleAgain = true
