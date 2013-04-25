@@ -108,7 +108,7 @@ final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: Int, staleCheck
 
   private var scavenger: Option[Thread] = None
 
-  private class Scavenger extends Thread("LRUHeapCache expiry scavenger") {
+  private class Scavenger extends Thread("%s expiry scavenger".format(LRUHeapCache.this.getClass.getSimpleName)) {
     import collection.JavaConverters._
 
     setDaemon(true)
