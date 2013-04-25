@@ -12,14 +12,12 @@ class PubSub[E](exceptionHandler: (Throwable) ⇒ Unit = (t: Throwable) ⇒ {}, 
 
   def this(executor: Executor) = this(executor = Some(executor))
 
-  private object ThreadGroup extends ThreadGroup(classOf[PubSub[_]].getName) {
+  private object ThreadGroup extends ThreadGroup(ThreadFactory.SystemThreadGroup, this.getClass.getName) {
     override def uncaughtException(t: Thread, e: Throwable) = exceptionHandler(e)
   }
   private[this] val subscribers = new CopyOnWriteArraySet[E ⇒ Unit]
   private[this] val exec = executor.getOrElse {
-    Executors newSingleThreadExecutor new ThreadFactory {
-      def newThread(r: Runnable) = new Thread(ThreadGroup, r)
-    }
+    Executors newSingleThreadExecutor ThreadFactory(this.getClass.getName, ThreadGroup)
   }
 
   /**
