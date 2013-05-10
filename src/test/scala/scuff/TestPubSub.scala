@@ -7,18 +7,18 @@ class TestPubSub {
 
   class Event
 
-  var pubSub: PubSub[Event] = _
+  var pubSub: PubSub[Event, Event] = _
 
   @Before
   def setup {
-    pubSub = new PubSub[Event]
+    pubSub = new PubSub[Event, Event]
   }
 
   @Test(timeout = 2000)
   def exceptional {
     val countDown = new java.util.concurrent.CountDownLatch(6)
     val exceptions = collection.mutable.Buffer[Throwable]()
-    pubSub = new PubSub[Event](t ⇒ { exceptions += t; countDown.countDown() })
+    pubSub = new PubSub[Event, Event](t ⇒ { exceptions += t; countDown.countDown() })
     val l1 = (e: Event) ⇒
       throw new RuntimeException
     pubSub.subscribe(l1)

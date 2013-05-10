@@ -6,15 +6,15 @@ import java.util.Date
 import scuff.es.DuplicateRevisionException
 import scuff.es.EventStore
 
-class InMemoryEventStore[ID: Ordering,  EVT] extends EventStore[ID, EVT] {
+class InMemoryEventStore[ID, EVT, CAT](evt2cat: EventStore[ID, EVT, CAT]#Transaction ⇒ CAT) extends EventStore[ID, EVT, CAT] {
   
-  private[this] val pubSub = new PubSub[T]
+  private[this] val pubSub = new PubSub[CAT, Transaction]()(evt2cat)
   
-  def subscribe(subscriber: T ⇒ Unit) = pubSub.subscribe(subscriber).asInstanceOf[Subscription]
+  def subscribe(subscriber: Transaction ⇒ Unit, filter: CAT ⇒ Boolean) = pubSub.subscribe(subscriber, filter)
   
   protected def publish(txn: Transaction) = pubSub.publish(txn)
 
-  private[this] val txnList = collection.mutable.Buffer[T]()
+  private[this] val txnList = collection.mutable.Buffer[Transaction]()
 
   private def findCurrentRevision(id: ID): Option[Long] = {
     if (txnList.isEmpty) {
@@ -24,11 +24,11 @@ class InMemoryEventStore[ID: Ordering,  EVT] extends EventStore[ID, EVT] {
     }
   }
 
-  def record(streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]) = txnList.synchronized {
+  def record(category: CAT, streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]) = txnList.synchronized {
     val expectedRevision = findCurrentRevision(streamId).getOrElse(-1L) + 1L
     if (revision == expectedRevision) {
       val transactionID = BigInt(txnList.size)
-      val txn = new Transaction(transactionID, new Timestamp, streamId, revision, metadata, events)
+      val txn = new Transaction(transactionID, new Timestamp, category, streamId, revision, metadata, events)
       txnList += txn
       publish(txn)
     } else if (expectedRevision > revision) {
@@ -37,10 +37,10 @@ class InMemoryEventStore[ID: Ordering,  EVT] extends EventStore[ID, EVT] {
       throw new IllegalStateException
     }
   }
-  def append(streamId: ID, events: List[_ <: EVT], metadata: Map[String, String]): Long = txnList.synchronized {
+  def append(category: CAT, streamId: ID, events: List[_ <: EVT], metadata: Map[String, String]): Long = txnList.synchronized {
     val revision = findCurrentRevision(streamId).getOrElse(-1L) + 1L
     val transactionID = BigInt(txnList.size)
-    val txn = new Transaction(transactionID, new Timestamp, streamId, revision, metadata, events)
+    val txn = new Transaction(transactionID, new Timestamp, category, streamId, revision, metadata, events)
     txnList += txn
     publish(txn)
     revision
@@ -58,10 +58,22 @@ class InMemoryEventStore[ID: Ordering,  EVT] extends EventStore[ID, EVT] {
   def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.NumericRange[Long])(callback: Iterator[Transaction] ⇒ T): T = txnList.synchronized {
     callback(txnList.iterator.withFilter(t ⇒ t.streamId == stream && revisionRange.contains(t.revision)))
   }
-  def replay[T](sinceTransactionID: BigInt)(callback: Iterator[Transaction] ⇒ T): T = txnList.synchronized {
-    callback(txnList.drop(sinceTransactionID.toInt + 1).iterator)
+  def replay[T](categories: CAT*)(callback: Iterator[Transaction] ⇒ T): T = txnList.synchronized {
+    val iter = if (categories.isEmpty) {
+      txnList.iterator
+    } else {
+      val catSet = categories.toSet
+      txnList.iterator.withFilter(txn ⇒ catSet.contains(txn.category))
+    }
+    callback(iter)
   }
-  def replaySince[T](fromTime: Date)(callback: Iterator[Transaction] ⇒ T): T = txnList.synchronized {
-    callback(txnList.iterator.withFilter(_.timestamp.getTime >= fromTime.getTime))
+  def replayFrom[T](fromTime: Date, categories: CAT*)(callback: Iterator[Transaction] ⇒ T): T = txnList.synchronized {
+    val iter = if (categories.isEmpty) {
+      txnList.iterator.withFilter(_.timestamp.getTime >= fromTime.getTime)
+    } else {
+      val catSet = categories.toSet
+      txnList.iterator.withFilter(txn ⇒ catSet.contains(txn.category) && txn.timestamp.getTime >= fromTime.getTime)
+  }
+    callback(iter)
   }
 }

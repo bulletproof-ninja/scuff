@@ -7,38 +7,38 @@ import scuff.ddd._
 /**
   * Event stream, which guarantees consistent ordering,
   * even when using distributed protocols that do not.
-  * The callback happens on a single thread, so the consumer
-  * does not need to handle synchronization constructs.
   */
-trait EventStream[ID, EVT] { self: EventSource[ID, EVT] ⇒
+trait EventStream[ID, EVT, CAT] { self: EventSource[ID, EVT, CAT] ⇒
 
   protected type TXN = self.Transaction
   private type MS = MonotonicSequencer[Long, TXN]
-  private type CS = PersistentEventConsumer[ID, EVT]
+  private type CS = PersistentEventConsumer[ID, EVT, CAT]
 
   /**
     * Resume processing transactions from event source.
     * Consumer must be thread safe as event delivery
     * threading is implementation specific.
     */
-  def resume(consumer: CS): Subscription = {
-    val seqConsumer = new TxnSequencer(consumer)
+  def resume(consumer: CS, categories: CAT*): Subscription = {
+    val seqConsumer = new TxnSequencer(consumer, categories.toSet)
     // Replay first, to avoid potentially
     // massive out-of-sequence allocation.
-    consumer.lastProcessedTxn() match {
-      case None ⇒ replay()(_.foreach(seqConsumer))
-      case Some(txnID) ⇒ replay(txnID)(_.foreach(seqConsumer))
+    consumer.resumeFrom() match {
+      case None ⇒ replay(categories: _*)(_.foreach(seqConsumer))
+      case Some(timestamp) ⇒ this.replayFrom(timestamp, categories: _*)(_.foreach(seqConsumer))
     }
+    // Then subscribe
     val subscription = subscribe(seqConsumer)
-    // Replay again, to eliminate race condition
-    consumer.lastProcessedTxn() match {
+    // Then replay again, to eliminate any possible race condition 
+    // between first replay and subscription.
+    consumer.resumeFrom() match {
       case None ⇒ // Ignore, nothing has happened, ever
-      case Some(txnID) ⇒ replay(txnID)(_.foreach(seqConsumer))
+      case Some(timestamp) ⇒ replayFrom(timestamp, categories: _*)(_.foreach(seqConsumer))
     }
     subscription
   }
 
-  private final class TxnSequencer(consumer: CS) extends (TXN ⇒ Unit) {
+  private final class TxnSequencer(consumer: CS, filter: Set[CAT]) extends (TXN ⇒ Unit) {
     private[this] val sequencers = new LockFreeConcurrentMap[ID, MS]()
     private def expectedRevision(id: ID) = consumer.lastProcessedRev(id).getOrElse(-1L) + 1L
     private[this] val seqDupeConsumer = (revision: Long, txn: TXN) ⇒ () // Ignore duplicates
@@ -79,7 +79,7 @@ trait EventStream[ID, EVT] { self: EventSource[ID, EVT] ⇒
         case Some(sequencer) ⇒ sequencer.apply(txn.revision, txn)
       }
     }
-    def apply(txn: TXN) = ensureSequence(txn)
+    def apply(txn: TXN) = if (filter.isEmpty || filter.contains(txn.category)) ensureSequence(txn)
 
     override val toString = consumer.toString
   }

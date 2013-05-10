@@ -18,15 +18,15 @@ class MailRoom(session: Session, headers: (String, String)*) {
    * @param from The sender
    * @param subject The email header
    * @param body The email body
-   * @param to The recipient(s)
+    * @param toAll The recipient(s)
    * @throws MessagingException If email could not be sent
    */
   @throws(classOf[MessagingException])
-  def send(from: InternetAddress, subject: String, body: Document, to: InternetAddress, toMore: InternetAddress*) {
+  def send(from: InternetAddress, subject: String, body: Document, toAll: Iterable[InternetAddress]) {
     val contentType = new javax.mail.internet.ContentType(body.mimeType)
     contentType.getParameter("charset") match {
-      case null => contentType.setParameter("charset", body.encoding)
-      case cs => require(cs.toUpperCase == body.encoding.toUpperCase, "MIME-type charset and encoding do not match: %s vs. %s".format(cs, body.encoding))
+      case null ⇒ contentType.setParameter("charset", body.encoding)
+      case cs ⇒ require(cs.toUpperCase == body.encoding.toUpperCase, "MIME-type charset and encoding do not match: %s vs. %s".format(cs, body.encoding))
     }
     val out = new ByteArrayOutputStream
     val wrt = new BufferedWriter(new OutputStreamWriter(out, body.encoding))
@@ -34,14 +34,26 @@ class MailRoom(session: Session, headers: (String, String)*) {
     wrt.close()
     val msg = new MimeMessage(session)
     msg.setFrom(from)
-    val toAll = Seq(to) ++ toMore
     msg.setRecipients(Message.RecipientType.TO, toAll.toArray[Address])
     msg.setSubject(subject)
     msg.setDataHandler(new DataHandler(new ByteArrayDataSource(out.toByteArray, contentType.toString)))
     headers.foreach {
-      case (key, value) => msg.setHeader(key, value)
+      case (key, value) ⇒ msg.setHeader(key, value)
     }
     Transport.send(msg)
+  }
+  /**
+    * Send email.
+    * @param from The sender
+    * @param subject The email header
+    * @param body The email body
+    * @param to The recipient
+    * @param toMore More recipients
+    * @throws MessagingException If email could not be sent
+    */
+  @throws(classOf[MessagingException])
+  def send(from: InternetAddress, subject: String, body: Document, to: InternetAddress, toMore: InternetAddress*) {
+    send(from, subject, body, Seq(to) ++ toMore)
   }
 
 }

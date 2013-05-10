@@ -5,9 +5,9 @@ package scuff.es
   * as no guarantee can be made about the threading
   * model.
   */
-trait PersistentEventConsumer[ID, EVT] {
+trait PersistentEventConsumer[ID, EVT, CAT] {
 
-  type TXN = EventSource[ID, EVT]#Transaction
+  type TXN = EventSource[ID, EVT, CAT]#Transaction
 
   /**
     * Consume transaction.
@@ -23,9 +23,12 @@ trait PersistentEventConsumer[ID, EVT] {
   def lastProcessedRev(streamId: ID): Option[Long]
 
   /**
-    * Last processed transaction.
+    * Last processed transaction time.
     * This is used when resuming and thus
     * will typically only be called during startup.
+    * It would be wise to adjust the time based on
+    * the clock skew that might exist in a
+    * sharded/clustered environment.
     */
-  def lastProcessedTxn(): Option[BigInt]
+  def resumeFrom(): Option[scuff.Timestamp]
 }

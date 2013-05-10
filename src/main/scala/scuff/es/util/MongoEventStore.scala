@@ -30,6 +30,7 @@ private object MongoEventStore {
   def ensureIndicies(coll: RichDBCollection): RichDBCollection = {
     coll.ensureUniqueIndex("stream.id" := ASC, "stream.rev" := ASC)
     coll.ensureIndex("time")
+    coll.ensureIndex("category")
     coll
   }
 
@@ -41,6 +42,7 @@ private object MongoEventStore {
  *   {
  *     _id: ObjectId("4ee104863aed01df303f3f27"),
  *     time: { "$date" : "2011-12-08T18:41:32.079Z"}, // Indexed. For reference purposes.
+  *     category: "FooBar",
  *     stream: { // Indexed
  *       id: 34534, // Stream identifier
  *       rev: 987, // Stream revision
@@ -49,8 +51,13 @@ private object MongoEventStore {
  *   }
  * }}}
  */
-abstract class MongoEventStore[ID, EVT](dbColl: DBCollection)(implicit bsonConverter: ID ⇒ BsonValue, idExtractor: BsonValue ⇒ ID) extends EventStore[ID, EVT] {
+abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idConv: Transformer[ID, BsonValue], catConv: Transformer[CAT, BsonValue]) extends EventStore[ID, EVT, CAT] {
   import MongoEventStore._
+
+  protected[this] implicit val idConvForth = idConv.forth _
+  protected[this] implicit val idConvBack = idConv.back _
+  protected[this] implicit val catConvForth = catConv.forth _
+  protected[this] implicit val catConvBack = catConv.back _
 
   private[this] val store = ensureIndicies(dbColl)
 
@@ -95,17 +102,26 @@ abstract class MongoEventStore[ID, EVT](dbColl: DBCollection)(implicit bsonConve
     query(filter, OrderByRevision_asc, txnCallback)
   }
 
-  def replay[T](sinceTransactionID: BigInt)(txnHandler: Iterator[Transaction] ⇒ T): T = {
-    val filter = obj("_id" := $gt(toObjectId(sinceTransactionID)))
+  def replay[T](categories: CAT*)(txnHandler: Iterator[Transaction] ⇒ T): T = {
+    val filter = categories.length match {
+      case 0 ⇒ obj()
+      case 1 ⇒ obj("category" := categories.head)
+      case _ ⇒ obj("category" := $in(categories: _*))
+    }
     query(filter, OrderById_asc, txnHandler)
   }
 
-  def replaySince[T](sinceTime: Date)(txnHandler: Iterator[Transaction] ⇒ T): T = {
-    val filter = obj("time" := $gte(sinceTime))
+  def replayFrom[T](fromTime: Date, categories: CAT*)(txnHandler: Iterator[Transaction] ⇒ T): T = {
+    val filter = obj("time" := $gte(fromTime))
+    categories.length match {
+      case 0 ⇒ // Ignore
+      case 1 ⇒ filter.add("category" := categories.head)
+      case _ ⇒ filter.add("category" := $in(categories: _*))
+    }
     query(filter, OrderByTime_asc, txnHandler)
   }
 
-  def record(streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]) {
+  def record(category: CAT, streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]) {
     val oid = new ObjectId
     val timestamp = new scuff.Timestamp
     val doc = obj(
@@ -121,19 +137,19 @@ abstract class MongoEventStore[ID, EVT](dbColl: DBCollection)(implicit bsonConve
     } catch {
       case _: MongoException.DuplicateKey ⇒ throw new DuplicateRevisionException
     }
-    publish(new Transaction(toBigInt(oid), timestamp, streamId, revision, metadata, events))
+    publish(new Transaction(toBigInt(oid), timestamp, category, streamId, revision, metadata, events))
   }
 
-  private def tryRecord(streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Long = try {
-    record(streamId, revision, events, metadata)
+  private def tryRecord(category: CAT, streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Long = try {
+    record(category, streamId, revision, events, metadata)
     revision
   } catch {
-    case _: DuplicateRevisionException ⇒ tryRecord(streamId, revision + 1L, events, metadata)
+    case _: DuplicateRevisionException ⇒ tryRecord(category, streamId, revision + 1L, events, metadata)
   }
 
-  def append(streamId: ID, events: List[_ <: EVT], metadata: Map[String, String]): Long = {
+  def append(category: CAT, streamId: ID, events: List[_ <: EVT], metadata: Map[String, String]): Long = {
     val revision = store.find("stream.id" := streamId).sort(OrderByRevision_desc).limit(1).nextOpt.map(_.apply("stream.rev").as[Long]).getOrElse(-1L) + 1L
-    tryRecord(streamId, revision, events, metadata)
+    tryRecord(category, streamId, revision, events, metadata)
   }
 
   private def query[T](filter: DBObject, ordering: DBObject, handler: Iterator[Transaction] ⇒ T): T = {
@@ -150,10 +166,11 @@ abstract class MongoEventStore[ID, EVT](dbColl: DBCollection)(implicit bsonConve
   private def toTransaction(doc: RichDBObject): Transaction = {
     val transactionID = toBigInt(doc._id)
     val timestamp = doc("time").as[Timestamp]
+    val category = doc("category").as[CAT]
     val (id, revision) = doc("stream").as[DBObject].map { stream ⇒ (stream("id").as[ID], stream.getAs[Long]("rev")) }
     val metadata = doc("metadata").opt[Map[String, String]].getOrElse(Map.empty)
     val events = doc("events").asSeq[DBObject].map(toEvent)
-    new Transaction(transactionID, timestamp, id, revision, metadata, events.toList)
+    new Transaction(transactionID, timestamp, category, id, revision, metadata, events.toList)
   }
 
 }

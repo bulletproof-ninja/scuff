@@ -83,7 +83,7 @@ object Password {
    */
   def apply(password: String) = new Password(digestion(password, Array.empty, DefaultAlgo), DefaultAlgo, Array.empty)
 
-  private val charset = Charset.forName("US-ASCII")
+  private val charset = Charset.forName("UTF-8")
 
   private def digestion(password: String, salt: Array[Byte], algo: String): Array[Byte] = {
     val md = java.security.MessageDigest.getInstance(algo)

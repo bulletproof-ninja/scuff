@@ -28,16 +28,20 @@ object CoffeeScriptCompiler {
     this.apply(reader, useDirective, options: _*)
   }
   def apply(coffeeScriptCompilerSource: Reader, useDirective: Option[Use], options: (Symbol, Any)*): CoffeeScriptCompiler = {
-    val optionString = toJavascript(options)
-    new CoffeeScriptCompiler(coffeeScriptCompilerSource, useDirective.map(_.directive).getOrElse(""), optionString)
+    new CoffeeScriptCompiler(coffeeScriptCompilerSource, useDirective.map(_.directive).getOrElse(""), options)
   }
 
 }
 
-class CoffeeScriptCompiler private (compilerSource: Reader, useDirective: String, options: String) {
+class CoffeeScriptCompiler private (compilerSource: Reader, useDirective: String, options: Seq[(Symbol, Any)]) {
   import CoffeeScriptCompiler._
 
-  private val jsCompile = "CoffeeScript.compile(%s, %s);".format(coffeeScriptCodeVarName, options)
+  private val defaultOptions = options.toMap
+
+  private def jsCompile(otherOptions: Seq[(Symbol, Any)]) = {
+    val options = defaultOptions ++ otherOptions
+    "CoffeeScript.compile(%s, %s);".format(coffeeScriptCodeVarName, toJavascript(options.toSeq))
+  }
 
   private val globalScope = try {
     withContext { context ⇒
@@ -49,12 +53,12 @@ class CoffeeScriptCompiler private (compilerSource: Reader, useDirective: String
     compilerSource.close()
   }
 
-  def compile(coffeeScriptCode: String, name: String = ""): String = withContext { context ⇒
+  def compile(coffeeScriptCode: String, name: String = "", options: Seq[(Symbol, Any)] = Seq.empty): String = withContext { context ⇒
     val code = useDirective concat coffeeScriptCode
     val compileScope = context.newObject(globalScope)
     compileScope.setParentScope(globalScope)
     compileScope.put(coffeeScriptCodeVarName, compileScope, code)
-    String.valueOf(context.evaluateString(compileScope, jsCompile, name, 0, null))
+    String.valueOf(context.evaluateString(compileScope, jsCompile(options), name, 0, null))
   }
 
 }

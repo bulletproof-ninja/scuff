@@ -2,16 +2,18 @@ package scuff.es
 
 private object EventSource {
   final def writeTransaction(t: AnyRef, out: java.io.ObjectOutputStream) {
-    val txn = t.asInstanceOf[EventSource[Any, Any]#Transaction]
+    val txn = t.asInstanceOf[EventSource[Any, Any, Any]#Transaction]
     val transBytes = txn.transactionID.toByteArray
     out.writeByte(transBytes.length)
     out.write(transBytes)
     out.writeLong(txn.timestamp.asMillis)
+    out.writeObject(txn.category)
     out.writeObject(txn.streamId)
     out.writeLong(txn.revision)
-    val hasMetadata = !txn.metadata.isEmpty
-    out.writeBoolean(hasMetadata)
-    if (hasMetadata) {
+    if (txn.metadata.isEmpty) {
+      out.writeBoolean(false)
+    } else {
+      out.writeBoolean(true)
       out.writeObject(txn.metadata)
     }
     out.writeObject(txn.events)
@@ -23,6 +25,7 @@ private object EventSource {
     in.readFully(transBytes)
     surgeon.setField('transactionID, BigInt(transBytes))
     surgeon.setField('timestamp, new scuff.Timestamp(in.readLong))
+    surgeon.setField('category, in.readObject)
     surgeon.setField('streamId, in.readObject)
     surgeon.setField('revision, in.readLong)
     val metadata = if (in.readBoolean) in.readObject else Map.empty
@@ -35,15 +38,15 @@ private object EventSource {
 /**
  * Event source.
  */
-trait EventSource[ID, EVT] extends scuff.Channel {
-
-  final type T = Transaction
-  final type L = T ⇒ Unit
+trait EventSource[ID, EVT, CAT] extends scuff.Channel {
+  final type F = CAT
+  final type L = Transaction ⇒ Unit
 
   // NOTICE: See above for reflective field access, so beware of name changes
   case class Transaction(
     transactionID: BigInt,
     timestamp: scuff.Timestamp,
+    category: CAT,
     streamId: ID,
     revision: Long,
     metadata: Map[String, String],
@@ -63,7 +66,7 @@ trait EventSource[ID, EVT] extends scuff.Channel {
    * @param sinceTransactionID Optional. Only play back transactions since the provided transactionID (not included in playback). Defaults to -1 (all).
    * @param callback Callback function
    */
-  def replay[T](sinceTransactionID: BigInt = BigInt(-1))(callback: Iterator[Transaction] ⇒ T): T
+  def replay[T](categories: CAT*)(callback: Iterator[Transaction] ⇒ T): T
 
   /**
    * Play back events for all instances from a given time forward.
@@ -71,14 +74,14 @@ trait EventSource[ID, EVT] extends scuff.Channel {
    * @param fromTime Only play back transactions since the provided timestamp.
    * @param callback Callback function
    */
-  def replaySince[T](fromTime: java.util.Date)(callback: Iterator[Transaction] ⇒ T): T
+  def replayFrom[T](fromTime: java.util.Date, categories: CAT*)(callback: Iterator[Transaction] ⇒ T): T
 
 }
 
 /**
  * Event store.
  */
-trait EventStore[ID, EVT] extends EventSource[ID, EVT] {
+trait EventStore[ID, EVT, CAT] extends EventSource[ID, EVT, CAT] {
 
   /**
    * Record events into a particular stream, then publish the transaction to subscribers.
@@ -88,7 +91,7 @@ trait EventStore[ID, EVT] extends EventSource[ID, EVT] {
    * @throws DuplicateRevisionException if the expected revision has already been committed. Try, try again.
    */
   @throws(classOf[DuplicateRevisionException])
-  def record(streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String] = Map.empty)
+  def record(category: CAT, streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String] = Map.empty)
 
   /**
    * Append events into a particular stream, then publish the transaction to subscribers.
@@ -97,6 +100,6 @@ trait EventStore[ID, EVT] extends EventSource[ID, EVT] {
    * @param metadata Optional metadata
    * @return revision Event stream revision, which was committed
    */
-  def append(streamID: ID, events: List[_ <: EVT], metadata: Map[String, String] = Map.empty): Long
+  def append(category: CAT, streamID: ID, events: List[_ <: EVT], metadata: Map[String, String] = Map.empty): Long
 }
 

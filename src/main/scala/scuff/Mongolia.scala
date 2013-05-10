@@ -134,7 +134,10 @@ object Mongolia {
   implicit val Val2Int = (value: BsonValue) ⇒ org.bson.BSON.toInt(value.raw)
   implicit val Val2Dbl = (value: BsonValue) ⇒ value.raw.asInstanceOf[Number].doubleValue
   implicit val Val2Flt = (value: BsonValue) ⇒ value.raw.asInstanceOf[Number].floatValue
-  implicit val Val2Lng = (value: BsonValue) ⇒ value.raw.asInstanceOf[Number].longValue
+  implicit val Val2Lng = (value: BsonValue) ⇒ value.raw match {
+    case n: Number ⇒ n.longValue
+    case d: Date ⇒ d.getTime
+  }
   implicit val Val2Shrt = (value: BsonValue) ⇒ value.raw.asInstanceOf[Number].shortValue
   implicit val Val2Chr = (value: BsonValue) ⇒ value.raw match {
     case s: String if s.length == 1 ⇒ s.charAt(0)
@@ -320,33 +323,25 @@ object Mongolia {
       }
     }
 
-    private def compileCoffeeFunction(func: String) = {
-      val js = coffeeCompiler.compile(func).trim()
-      js.substring(1, js.length - 2)
-    }
-    def mapReduce(mapCoffee: String)(reduceCoffee: String)(query: DBObject = null): Iterator[DBObject] = {
-      val mapJs = compileCoffeeFunction(mapCoffee)
-      val reduceJs = compileCoffeeFunction(reduceCoffee)
-      val javaIter = underlying.mapReduce(mapJs, reduceJs, null, MapReduceCommand.OutputType.INLINE, query).results.iterator
+    def mapReduceInline(mapReduce: MapReduce, query: DBObject = null): Iterator[DBObject] = {
+      val javaIter = underlying.mapReduce(mapReduce.mapJS, mapReduce.reduceJS, null, MapReduceCommand.OutputType.INLINE, query).results.iterator
       new Iterator[DBObject] {
         def hasNext = javaIter.hasNext
         def next = javaIter.next
       }
     }
 
-    private def mapReduceInto(map: String, reduce: String, coll: DBCollection, query: DBObject, outType: MapReduceCommand.OutputType) = {
-      val mapJs = compileCoffeeFunction(map)
-      val reduceJs = compileCoffeeFunction(reduce)
-      underlying.mapReduce(mapJs, reduceJs, coll.getFullName, outType, query)
+    private def mapReduceInto(mapReduce: MapReduce, coll: DBCollection, query: DBObject, outType: MapReduceCommand.OutputType) = {
+      underlying.mapReduce(mapReduce.mapJS, mapReduce.reduceJS, coll.getFullName, outType, query)
     }
-    def mapReduceMerge(mapCoffee: String)(reduceCoffee: String)(mergeThis: DBCollection, query: DBObject = null): MapReduceOutput = {
-      mapReduceInto(mapCoffee, reduceCoffee, mergeThis, query, MapReduceCommand.OutputType.MERGE)
+    def mapReduceMerge(mapReduce: MapReduce, mergeThis: DBCollection, query: DBObject = null): MapReduceOutput = {
+      mapReduceInto(mapReduce, mergeThis, query, MapReduceCommand.OutputType.MERGE)
     }
-    def mapReduceReduce(mapCoffee: String)(reduceCoffee: String)(reduceThis: DBCollection, query: DBObject = null): MapReduceOutput = {
-      mapReduceInto(mapCoffee, reduceCoffee, reduceThis, query, MapReduceCommand.OutputType.REDUCE)
+    def mapReduceReduce(mapReduce: MapReduce, reduceThis: DBCollection, query: DBObject = null): MapReduceOutput = {
+      mapReduceInto(mapReduce, reduceThis, query, MapReduceCommand.OutputType.REDUCE)
     }
-    def mapReduceReplace(mapCoffee: String)(reduceCoffee: String)(replaceThis: DBCollection, query: DBObject = null): MapReduceOutput = {
-      mapReduceInto(mapCoffee, reduceCoffee, replaceThis, query, MapReduceCommand.OutputType.REPLACE)
+    def mapReduceReplace(mapReduce: MapReduce, replaceThis: DBCollection, query: DBObject = null): MapReduceOutput = {
+      mapReduceInto(mapReduce, replaceThis, query, MapReduceCommand.OutputType.REPLACE)
     }
 
     def ensureIndex(key: String): Unit = ensureIndex(key := ASC)
@@ -377,87 +372,86 @@ object Mongolia {
   /**
    * Much faster and more compact serialization.
    */
-  def serialize(dbo: DBObject): String = {
-
-    import scala.language.existentials
-
+  def toJson(dbo: DBObject): String = {
     val fallback = serializers.get
     val sb = new java.lang.StringBuilder(128)
-    def appendList(list: collection.GenTraversableOnce[_]) {
-      sb append '['
-      val i = list.toIterator
-      var first = true
-      while (i.hasNext) {
-        if (first)
-          first = false
-        else
-          sb append ','
-        append(i.next)
-      }
-      sb append ']'
-    }
-    def appendMap(map: java.util.Map[_, _]) {
-      sb append '{'
-      val i = map.entrySet.iterator
-      var first = true
-      while (i.hasNext) {
-        val entry = i.next
-        if (first)
-          first = false
-        else
-          sb append ','
-        appendString(String.valueOf(entry.getKey))
-        sb append ':'
-        append(entry.getValue)
-      }
-      sb append '}'
-    }
-    def appendString(str: String) {
-      sb append "\""
-      var i = 0
-      while (i < str.length) {
-        str.charAt(i) match {
-          case '\\' ⇒ sb append "\\\\"
-          case '"' ⇒ sb append "\\\""
-          case '\n' ⇒ sb append "\\n"
-          case '\r' ⇒ sb append "\\r"
-          case '\t' ⇒ sb append "\\t"
-          case '\b' ⇒ sb append "\\b"
-          case c if c < 32 ⇒ // Ignore
-          case c ⇒ sb append c
+      def appendList(list: collection.GenTraversableOnce[_]) {
+        sb append '['
+        val i = list.toIterator
+        var first = true
+        while (i.hasNext) {
+          if (first)
+            first = false
+          else
+            sb append ','
+          append(i.next)
         }
-        i += 1
+        sb append ']'
       }
-      sb append "\""
-    }
-    def append(any: Any): Unit = any match {
-      case null ⇒ sb append "null"
-      case s: String ⇒ appendString(s)
-      case d: Double ⇒ sb append d
-      case i: Int ⇒ sb append i
-      case l: Long ⇒ sb append l
-      case b: Boolean ⇒ sb append b
-      case d: java.util.Date ⇒ sb append "{\"$date\":" append d.getTime append '}'
-      case id: ObjectId ⇒ sb append "{\"$oid\":\"" append id.toString append "\"}"
-      case u: UUID ⇒ sb append "{\"$uuid\":\"" append u.toString append "\"}"
-      case a: Array[AnyRef] ⇒ appendList(a)
-      case b: Binary ⇒ if (b.getType == 4) {
-        sb append "{\"$uuid\":\"" append binaryType4ToUUID(b.getData).toString append "\"}"
-      } else {
-        sb append "{\"$binary\":\"" append base64.encode(b.getData) append "\",\"$type\":" append b.getType append '}'
+      def appendMap(map: java.util.Map[_, _]) {
+        import language.existentials
+        sb append '{'
+        val i = map.entrySet.iterator
+        var first = true
+        while (i.hasNext) {
+          val entry = i.next
+          if (first)
+            first = false
+          else
+            sb append ','
+          appendString(String.valueOf(entry.getKey))
+          sb append ':'
+          append(entry.getValue)
+        }
+        sb append '}'
       }
-      case r: RichDBObject ⇒ appendRef(r.impoverish)
-      case _ ⇒ appendRef(any.asInstanceOf[AnyRef])
-    }
-    def appendRef(anyRef: AnyRef): Unit = {
-      import collection.JavaConverters._
-      anyRef match {
-        case m: java.util.Map[_, _] ⇒ appendMap(m)
-        case l: java.lang.Iterable[_] ⇒ appendList(l.asScala)
-        case t: collection.GenTraversableOnce[_] ⇒ appendList(t)
-        case _ ⇒ fallback.serialize(anyRef, sb)
+      def appendString(str: String) {
+        sb append "\""
+        var i = 0
+        while (i < str.length) {
+          str.charAt(i) match {
+            case '\\' ⇒ sb append "\\\\"
+            case '"' ⇒ sb append "\\\""
+            case '\n' ⇒ sb append "\\n"
+            case '\r' ⇒ sb append "\\r"
+            case '\t' ⇒ sb append "\\t"
+            case '\b' ⇒ sb append "\\b"
+            case c if c < 32 ⇒ // Ignore
+            case c ⇒ sb append c
+          }
+          i += 1
+        }
+        sb append "\""
       }
-    }
+      def append(any: Any): Unit = any match {
+        case null ⇒ sb append "null"
+        case s: String ⇒ appendString(s)
+        case d: Double ⇒ if (java.lang.Double.isNaN(d) || java.lang.Double.isInfinite(d)) sb append "null" else sb append d
+        case i: Int ⇒ sb append i
+        case l: Long ⇒ sb append l
+        case b: Boolean ⇒ sb append b
+        case d: java.util.Date ⇒ sb append "{\"$date\":" append d.getTime append '}'
+        case id: ObjectId ⇒ sb append "{\"$oid\":\"" append id.toString append "\"}"
+        case u: UUID ⇒ sb append "{\"$uuid\":\"" append u.toString append "\"}"
+        case a: Array[AnyRef] ⇒ appendList(a)
+        case b: Binary ⇒ if (b.getType == 4) {
+          sb append "{\"$uuid\":\"" append binaryType4ToUUID(b.getData).toString append "\"}"
+        } else {
+          sb append "{\"$binary\":\"" append base64.encode(b.getData) append "\",\"$type\":" append b.getType append '}'
+        }
+        case r: RichDBObject ⇒ appendRef(r.impoverish)
+        case f: Float ⇒ if (java.lang.Float.isNaN(f) || java.lang.Float.isInfinite(f)) sb append "null" else sb append f
+        case _ ⇒ appendRef(any.asInstanceOf[AnyRef])
+      }
+      def appendRef(anyRef: AnyRef): Unit = {
+        import collection.JavaConverters._
+        anyRef match {
+          case m: java.util.Map[_, _] ⇒ appendMap(m)
+          case l: java.lang.Iterable[_] ⇒ appendList(l.asScala)
+          case t: collection.GenTraversableOnce[_] ⇒ appendList(t)
+          case _ ⇒ fallback.serialize(anyRef, sb)
+        }
+      }
 
     append(dbo)
     sb.toString
@@ -481,7 +475,7 @@ object Mongolia {
     def containsKey(s: String) = underlying.containsKey(s)
     def containsField(s: String) = underlying.containsField(s)
     def keySet = underlying.keySet
-    def put(dbo: DBObject): RichDBObject = {
+    def merge(dbo: DBObject): RichDBObject = {
       dbo match {
         case r: RichDBObject ⇒ putAll(r.underlying)
         case _ ⇒ putAll(dbo)
@@ -496,27 +490,43 @@ object Mongolia {
     }
     def rename(fromTo: (String, String)): Unit = rename(fromTo._1, fromTo._2)
     def rename(from: String, to: String): Unit = underlying.put(to, underlying.removeField(from))
-    def remove(key: String) = BsonField(underlying.removeField(key), underlying, key)
     def raw = this
     def ignoreNulls(ignore: Boolean): RichDBObject = if (ignore == this.ignoreNulls) this else new RichDBObject(underlying, ignore)
     def keys: Iterable[String] = underlying.keySet.asScala
-    def serialize() = Mongolia.serialize(underlying)
-    override def toString = serialize()
+    def toJson() = Mongolia.toJson(underlying)
+    override def toString = underlying.toString()
     import java.util.StringTokenizer
     import collection.JavaConverters._
-    private[this] def getNested[T](obj: DBObject, nested: StringTokenizer): T = {
+
+    @annotation.tailrec
+    private[this] def getNested(obj: DBObject, nested: StringTokenizer, remove: Boolean): Any = {
       if (obj == null) {
-        null.asInstanceOf[T]
+        null
       } else {
         val name = nested.nextToken()
-        val value = obj.get(name)
-        if (nested.hasMoreTokens) {
-          getNested(value.asInstanceOf[DBObject], nested)
+        if (nested.hasMoreTokens()) {
+          getNested(obj.get(name).asInstanceOf[DBObject], nested, remove)
+        } else if (remove) {
+          obj.removeField(name)
         } else {
-          value.asInstanceOf[T]
+          obj.get(name)
         }
       }
     }
+    @annotation.tailrec
+    private[this] def containsNested(obj: DBObject, nested: StringTokenizer): Boolean = {
+      if (obj == null) {
+        false
+      } else {
+        val name = nested.nextToken()
+        if (nested.hasMoreTokens()) {
+          containsNested(obj.get(name).asInstanceOf[DBObject], nested)
+        } else {
+          obj.containsField(name)
+        }
+      }
+    }
+
     def isEmpty = underlying match {
       case m: java.util.Map[_, _] ⇒ m.isEmpty
       case _ ⇒ underlying.keySet.isEmpty
@@ -541,22 +551,40 @@ object Mongolia {
       case any ⇒ ObjectId.massageToObjectId(any)
     }
     def apply(key: String): BsonField = BsonField(getAs(key), underlying, key)
-    def has(key: String) = underlying.containsField(key)
+    def has(key: String) = this.contains(key)
     def getAs[T](name: String): T = {
       if (name.indexOf('.') == -1) {
         underlying.get(name).asInstanceOf[T]
       } else {
-        getNested(underlying, new java.util.StringTokenizer(name, "."))
+        getNested(underlying, new java.util.StringTokenizer(name, "."), remove = false).asInstanceOf[T]
       }
     }
+
+    def remove(key: String): BsonField = {
+      //BsonField(underlying.removeField(key), underlying, key)
+      val value = if (key.indexOf('.') == -1) {
+        underlying.removeField(key)
+      } else {
+        getNested(underlying, new java.util.StringTokenizer(key, "."), remove = true)
+      }
+      BsonField(value, null, key)
+    }
+
+    def contains(name: String): Boolean = {
+      if (name.indexOf('.') == -1) {
+        underlying.containsField(name)
+      } else {
+        containsNested(underlying, new java.util.StringTokenizer(name, "."))
+      }
+    }
+
     def map[T](f: RichDBObject ⇒ T): T = f(this)
 
   }
 
   final class RichDBList extends BasicDBList with BsonValue {
     def raw = this
-    def serialize() = Mongolia.serialize(this)
-    override def toString = serialize()
+    def toJson() = Mongolia.toJson(this)
     def +=(any: Any) = add(any.asInstanceOf[Object])
   }
 
@@ -674,5 +702,61 @@ object Mongolia {
     dbo
   }
   def $where(jsExpr: String) = "$where" := jsExpr
+
+  case class MapReduce(mapJS: String, reduceJS: String) {
+    require(mapJS.trim.length > 0, "No JS code for `map` function")
+    require(reduceJS.trim.length > 0, "No JS code for `reduce` function")
+  }
+  object MapReduce {
+    private val FunctionMatcher = """^(map|reduce)\s*=\s*""".r.pattern
+    private def compileCoffeeFunction(func: String) = {
+      val js = coffeeCompiler.compile(func).trim()
+      js.substring(1, js.length - 2)
+    }
+    def coffee(map: String, reduce: String): MapReduce = {
+      val mapCoffee = compileCoffeeFunction(map)
+      val reduceCoffee = compileCoffeeFunction(reduce)
+      new MapReduce(mapCoffee, reduceCoffee)
+    }
+
+    /**
+     * Takes an `InputStream` which is expected to have
+     * 2 function declarations named `map` and `reduce`,
+     * in CoffeeScript.
+     */
+    def brew(coffeescript: java.io.InputStream, encoding: String = "UTF-8"): MapReduce =
+      brew(new java.io.InputStreamReader(coffeescript, encoding))
+
+    /**
+     * Takes a `Reader` which is expected to have
+     * 2 function declarations named `map` and `reduce`,
+     * in CoffeeScript.
+     */
+    def brew(coffeescript: java.io.Reader): MapReduce = {
+      var active: Option[StringBuilder] = None
+      val map = new StringBuilder
+      val reduce = new StringBuilder
+      val br = coffeescript match {
+        case br: java.io.BufferedReader ⇒ br
+        case r ⇒ new java.io.BufferedReader(r)
+      }
+      var line = br.readLine()
+      while (line != null) {
+        val m = FunctionMatcher.matcher(line)
+        if (m.lookingAt()) {
+          m.group(1) match {
+            case "map" ⇒ active = Some(map)
+            case "reduce" ⇒ active = Some(reduce)
+          }
+          line = m.replaceFirst("")
+        }
+        active.foreach(_ append line append '\n')
+        line = br.readLine()
+      }
+      require(map.size > 0, "`map` function not found. Must be named `map`.")
+      require(reduce.size > 0, "`reduce` function not found. Must be named `reduce`.")
+      coffee(map.result, reduce.result)
+    }
+  }
 
 }

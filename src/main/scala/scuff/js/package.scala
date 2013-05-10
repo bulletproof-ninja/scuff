@@ -8,12 +8,12 @@ package object js {
   
   def UTF8 = Charset.forName("UTF-8")
   
-  def toJavascript(options: Seq[(Symbol, Any)]) = {
+  def toJavascript(options: Seq[(Symbol, Any)]): String = {
     val sb = new java.lang.StringBuilder
       def appendValue(value: Any) {
         value match {
           case nb @ (_: java.lang.Number | _: Boolean | null) ⇒ sb append nb
-          case s: Seq[_] => 
+          case s: Seq[_] ⇒
             sb append "[" 
             s.foreach(appendValue)
             sb append "]"

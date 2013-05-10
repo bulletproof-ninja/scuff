@@ -16,7 +16,13 @@ import scuff.es.util.MongoEventStore
   *     }
   * }}}
   */
-abstract class MongoDomainEventStore[ID](collection: DBCollection)(implicit bsonConverter: ID ⇒ BsonValue, idExtractor: BsonValue ⇒ ID) extends MongoEventStore[ID, DomainEvent](collection) {
+abstract class MongoDomainEventStore[ID, CAT](
+
+  collection: DBCollection)(
+    implicit idConv: scuff.Transformer[ID, BsonValue],
+    catConv: scuff.Transformer[CAT, BsonValue])
+
+    extends MongoEventStore[ID, DomainEvent, CAT](collection) {
 
   protected def snapshotData(evt: DomainEvent): DBObject
   protected def rebuildEvent(name: String, version: Short, data: DBObject): DomainEvent

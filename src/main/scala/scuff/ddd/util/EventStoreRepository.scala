@@ -7,9 +7,9 @@ import scuff.es.DuplicateRevisionException
 /**
   * [[EventStore]]-based [[Repository]] implementation.
   */
-abstract class EventStoreRepository[ESID, AR <: AggregateRoot](implicit conv: AR#ID ⇒ ESID) extends Repository[AR] {
+abstract class EventStoreRepository[ESID, AR <: AggregateRoot, CAT](implicit idConv: AR#ID ⇒ ESID, catConv: AR ⇒ CAT) extends Repository[AR] {
 
-  protected val eventStore: EventStore[ESID, _ >: AR#EVT <: DomainEvent]
+  protected val eventStore: EventStore[ESID, _ >: AR#EVT <: DomainEvent, CAT]
 
   protected type S
   private type TXN = eventStore.Transaction
@@ -92,7 +92,7 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot](implicit conv: AR
 
   def insert(ar: AR): Unit = {
     if (ar.committedRevision.isEmpty) try {
-      eventStore.record(ar.id, 0L, ar.uncommittedEvents)
+      eventStore.record(ar, ar.id, 0L, ar.uncommittedEvents)
     } catch {
       case _: DuplicateRevisionException ⇒ throw new DuplicateIdException(ar.id)
     }
@@ -101,7 +101,7 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot](implicit conv: AR
 
   private[this] def update(ar: AR, metadata: Map[String, String]): Long = {
     val newRevision = ar.committedRevision.getOrElse(-1L) + 1L
-    eventStore.record(ar.id, newRevision, ar.uncommittedEvents, metadata)
+    eventStore.record(ar, ar.id, newRevision, ar.uncommittedEvents, metadata)
     newRevision
   }
 
