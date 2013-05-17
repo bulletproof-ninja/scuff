@@ -11,7 +11,7 @@ class MongoStorage(db: DB) extends Storage {
   private[this] val stacktraces = {
     val c = db("stacktraces")
     c.setWriteConcern(WriteConcern.FSYNC_SAFE)
-    c.ensureUniqueIndex("exception" := ASC, "stackTrace" := ASC)
+    c.ensureIndex("exception" := ASC, "stackTrace" := ASC)
     c
   }
   private[this] val incidents = {
@@ -22,11 +22,19 @@ class MongoStorage(db: DB) extends Storage {
 
   private[this] implicit val ste2bson = (ste: StackTraceElement) ⇒ {
     val doc = obj("class" := ste.getClassName, "method" := ste.getMethodName)
-    if (ste.getLineNumber > 0) doc.add("line" := ste.getLineNumber)
+    if (ste.getLineNumber >= 0) doc.add("line" := ste.getLineNumber)
     if (ste.getFileName != null) doc.add("file" := ste.getFileName)
     doc: BsonValue
   }
 
+  /**
+    * There is a slight race condition at play here,
+    * which can lead to duplicate stack traces,
+    * but since MongoDB appears to enforce unique indices
+    * slightly different than how they are looked up,
+    * we cannot eliminate this (at least without spending
+    * time to understand this problem better).
+    */
   def getStackTraceId(t: Throwable): ID = {
     val doc = obj("exception" := t.getClass.getName, "stackTrace" := t.getStackTrace)
     stacktraces.findOpt(doc, obj("_id" := INCLUDE)) match {
@@ -34,12 +42,8 @@ class MongoStorage(db: DB) extends Storage {
       case None ⇒
         val id = new ObjectId
         doc.add("_id" := id)
-        try {
-          stacktraces.insert(doc)
+        stacktraces.safeInsert(doc)
           id
-        } catch {
-          case _: MongoException.DuplicateKey ⇒ getStackTraceId(t)
-        }
     }
   }
 
