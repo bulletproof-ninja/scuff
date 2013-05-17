@@ -9,23 +9,9 @@ import scuff.es.DuplicateRevisionException
 import scuff.es.EventStore
 
 private object MongoEventStore {
-  final val OrderById_asc = obj("_id" := ASC)
   final val OrderByTime_asc = obj("time" := ASC)
   final val OrderByRevision_asc = obj("stream.rev" := ASC)
   final val OrderByRevision_desc = obj("stream.rev" := DESC)
-
-  def toBigInt(dbo: ObjectId) = BigInt(dbo.toByteArray)
-  def toObjectId(bi: BigInt) = {
-    var biArray = if (bi > 0) bi.toByteArray else new Array[Byte](12)
-    if (biArray.length > 12) {
-      throw new IllegalArgumentException("Value too large for ObjectId: " + bi)
-    } else if (biArray.length < 12) {
-      val temp = biArray
-      biArray = new Array[Byte](12)
-      System.arraycopy(temp, 0, biArray, 12 - temp.length, temp.length)
-    }
-    new ObjectId(biArray)
-  }
 
   def ensureIndicies(coll: RichDBCollection): RichDBCollection = {
     coll.ensureUniqueIndex("stream.id" := ASC, "stream.rev" := ASC)
@@ -42,7 +28,7 @@ private object MongoEventStore {
  *   {
  *     _id: ObjectId("4ee104863aed01df303f3f27"),
  *     time: { "$date" : "2011-12-08T18:41:32.079Z"}, // Indexed. For reference purposes.
-  *     category: "FooBar",
+ *     category: "FooBar",
  *     stream: { // Indexed
  *       id: 34534, // Stream identifier
  *       rev: 987, // Stream revision
@@ -108,7 +94,7 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
       case 1 ⇒ obj("category" := categories.head)
       case _ ⇒ obj("category" := $in(categories: _*))
     }
-    query(filter, OrderById_asc, txnHandler)
+    query(filter, OrderByTime_asc, txnHandler)
   }
 
   def replayFrom[T](fromTime: Date, categories: CAT*)(txnHandler: Iterator[Transaction] ⇒ T): T = {
@@ -122,11 +108,10 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
   }
 
   def record(category: CAT, streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]) {
-    val oid = new ObjectId
     val timestamp = new scuff.Timestamp
     val doc = obj(
-      "_id" := oid,
       "time" := timestamp,
+      "category" := category,
       "stream" := obj(
         "id" := streamId,
         "rev" := revision),
@@ -137,7 +122,7 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     } catch {
       case _: MongoException.DuplicateKey ⇒ throw new DuplicateRevisionException
     }
-    publish(new Transaction(toBigInt(oid), timestamp, category, streamId, revision, metadata, events))
+    publish(new Transaction(timestamp, category, streamId, revision, metadata, events))
   }
 
   private def tryRecord(category: CAT, streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Long = try {
@@ -164,13 +149,12 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
   }
 
   private def toTransaction(doc: RichDBObject): Transaction = {
-    val transactionID = toBigInt(doc._id)
     val timestamp = doc("time").as[Timestamp]
     val category = doc("category").as[CAT]
     val (id, revision) = doc("stream").as[DBObject].map { stream ⇒ (stream("id").as[ID], stream.getAs[Long]("rev")) }
     val metadata = doc("metadata").opt[Map[String, String]].getOrElse(Map.empty)
     val events = doc("events").asSeq[DBObject].map(toEvent)
-    new Transaction(transactionID, timestamp, category, id, revision, metadata, events.toList)
+    new Transaction(timestamp, category, id, revision, metadata, events.toList)
   }
 
 }

@@ -3,9 +3,6 @@ package scuff.es
 private object EventSource {
   final def writeTransaction(t: AnyRef, out: java.io.ObjectOutputStream) {
     val txn = t.asInstanceOf[EventSource[Any, Any, Any]#Transaction]
-    val transBytes = txn.transactionID.toByteArray
-    out.writeByte(transBytes.length)
-    out.write(transBytes)
     out.writeLong(txn.timestamp.asMillis)
     out.writeObject(txn.category)
     out.writeObject(txn.streamId)
@@ -21,9 +18,6 @@ private object EventSource {
 
   final def readTransaction(txn: AnyRef, in: java.io.ObjectInputStream) {
     val surgeon = new scuff.Surgeon(txn)
-    val transBytes = new Array[Byte](scuff.BitsBytes.unsigned(in.readByte))
-    in.readFully(transBytes)
-    surgeon.setField('transactionID, BigInt(transBytes))
     surgeon.setField('timestamp, new scuff.Timestamp(in.readLong))
     surgeon.setField('category, in.readObject)
     surgeon.setField('streamId, in.readObject)
@@ -44,7 +38,6 @@ trait EventSource[ID, EVT, CAT] extends scuff.Channel {
 
   // NOTICE: See above for reflective field access, so beware of name changes
   case class Transaction(
-    transactionID: BigInt,
     timestamp: scuff.Timestamp,
     category: CAT,
     streamId: ID,

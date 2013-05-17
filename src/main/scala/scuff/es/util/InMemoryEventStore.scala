@@ -27,8 +27,7 @@ class InMemoryEventStore[ID, EVT, CAT](evt2cat: EventStore[ID, EVT, CAT]#Transac
   def record(category: CAT, streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]) = txnList.synchronized {
     val expectedRevision = findCurrentRevision(streamId).getOrElse(-1L) + 1L
     if (revision == expectedRevision) {
-      val transactionID = BigInt(txnList.size)
-      val txn = new Transaction(transactionID, new Timestamp, category, streamId, revision, metadata, events)
+      val txn = new Transaction(new Timestamp, category, streamId, revision, metadata, events)
       txnList += txn
       publish(txn)
     } else if (expectedRevision > revision) {
@@ -39,8 +38,7 @@ class InMemoryEventStore[ID, EVT, CAT](evt2cat: EventStore[ID, EVT, CAT]#Transac
   }
   def append(category: CAT, streamId: ID, events: List[_ <: EVT], metadata: Map[String, String]): Long = txnList.synchronized {
     val revision = findCurrentRevision(streamId).getOrElse(-1L) + 1L
-    val transactionID = BigInt(txnList.size)
-    val txn = new Transaction(transactionID, new Timestamp, category, streamId, revision, metadata, events)
+    val txn = new Transaction(new Timestamp, category, streamId, revision, metadata, events)
     txnList += txn
     publish(txn)
     revision
