@@ -46,6 +46,7 @@ class CoffeeScriptServlet extends HttpServlet {
       }
     } catch {
       case e: Exception ⇒
+        res.setContentType("text/plain")
         res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
         val writer = res.getWriter
         writer.println("Failed to compile: " + req.getServletPath)

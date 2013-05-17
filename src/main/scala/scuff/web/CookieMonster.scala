@@ -15,6 +15,7 @@ trait CookieMonster {
 
   /** Max age in seconds. */
   protected def maxAge: Int
+  /** Convert Expires timestamp to MaxAge seconds, using current time. */
   protected def toMaxAge(expires: Long): Int = ((expires - System.currentTimeMillis) / 1000).asInstanceOf[Int]
   protected def transformer: scuff.Transformer[T, String]
   protected def cookieName: String
