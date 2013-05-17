@@ -5,7 +5,7 @@ import redis.clients.util.SafeEncoder._
 
 /**
  * Redis implementation of [[scala.collection.mutable.ConcurrentMap]].
- * NOTICE: This implementation does not support the CAS versions of `remove` and 
+ * NOTICE: This implementation does not support the CAS versions of `remove` and
  * `replace` due to inefficiencies such implementation would lead to.
  * See [[scuff.redis.RedisMap]] if such functionality is needed.
  */
@@ -13,24 +13,11 @@ class RedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Serialize
     extends collection.concurrent.Map[K, V] {
   import collection.JavaConverters._
 
-  private def connection[T] = conn.asInstanceOf[(Jedis ⇒ T) ⇒ T]
+  implicit private def connection[T] = conn.asInstanceOf[(Jedis ⇒ T) ⇒ T]
 
   private[this] val hkey = encode(name)
 
   def set(field: K, value: V) = connection(_.hset(hkey, keySer.forth(field), valueSer.forth(value)))
-
-  private def atomic[T](block: Transaction ⇒ T): T = {
-    connection { jedis ⇒
-      val txn = jedis.multi()
-      try {
-        val t = block(txn)
-        txn.exec()
-        t
-      } catch {
-        case e: Exception ⇒ try { txn.discard() } catch { case _: Exception ⇒ /* Ignore */ }; throw e
-      }
-    }
-  }
 
   override def contains(field: K): Boolean = connection(_.hexists(hkey, keySer.forth(field)))
 
@@ -46,7 +33,7 @@ class RedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Serialize
 
   override def put(field: K, value: V): Option[V] = {
     val hfield = keySer.forth(field)
-    val prev = atomic { txn ⇒
+    val prev = transaction { txn ⇒
       val prev = txn.hget(hkey, hfield)
       txn.hset(hkey, hfield, valueSer.forth(value))
       prev
@@ -55,7 +42,7 @@ class RedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Serialize
   }
   override def remove(field: K): Option[V] = {
     val hfield = keySer.forth(field)
-    val removed = atomic { txn ⇒
+    val removed = transaction { txn ⇒
       val removed = txn.hget(hkey, hfield)
       txn.hdel(hkey, hfield)
       removed
@@ -89,7 +76,7 @@ class RedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Serialize
 
   def putIfAbsent(field: K, value: V): Option[V] = {
     val hfield = keySer.forth(field)
-    val (prevValResp, successResp) = atomic { txn ⇒
+    val (prevValResp, successResp) = transaction { txn ⇒
       txn.hget(hkey, hfield) -> txn.hsetnx(hkey, hfield, valueSer.forth(value))
     }
     if (successResp.get == 1L) {

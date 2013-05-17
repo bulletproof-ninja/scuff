@@ -31,6 +31,19 @@ package object redis {
     new JedisPool(config, info.getHost, info.getPort, Protocol.DEFAULT_TIMEOUT, info.getPassword)
   }
 
+  def atomic[T](conn: Jedis)(block: Transaction ⇒ T): T = {
+    val txn = conn.multi()
+    try {
+      val t = block(txn)
+      txn.exec()
+      t
+    } catch {
+      case e: Exception ⇒ try { txn.discard() } catch { case _: Exception ⇒ /* Ignore */ }; throw e
+    }
+  }
+
+  def transaction[T](block: Transaction ⇒ T)(implicit conn: (Jedis ⇒ T) ⇒ T): T = conn(atomic(_)(block))
+
   type CONNECTION = (Jedis ⇒ Any) ⇒ Any
   def threadSafe[T](pool: RedisConnectionPool)(factory: CONNECTION ⇒ T): T = factory(block ⇒ pool.connection(block))
   def singleThreaded[T](config: JedisShardInfo, db: Int = 0)(factory: CONNECTION ⇒ T): T = {

@@ -7,16 +7,25 @@ class RedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueSer: sc
     extends collection.concurrent.Map[K, V] {
   import collection.JavaConverters._
 
-  private def connection[T] = conn.asInstanceOf[(Jedis ⇒ T) ⇒ T]
+  implicit private def connection[T] = conn.asInstanceOf[(Jedis ⇒ T) ⇒ T]
 
   def set(key: K, value: V) = connection(_.set(keySer.forth(key), valueSer.forth(value)))
 
   private def watch[T](jedis: Jedis, key: Array[Byte], proceed: V ⇒ Boolean, block: Transaction ⇒ Unit): Option[V] = {
+      def tryOptimistic(jedis: Jedis)(block: Transaction ⇒ Unit): Boolean = {
+        val txn = jedis.multi()
+        try {
+          block(txn)
+          txn.exec() != null
+        } catch {
+          case e: Exception ⇒ try { txn.discard() } catch { case _: Exception ⇒ /* Ignore */ }; throw e
+        }
+      }
     jedis.watch(key)
     Option(jedis.get(key)).map(valueSer.back) match {
-      case prevValue @ Some(currValue) if proceed(currValue) ⇒
-        watching(jedis)(block) match {
-          case true ⇒ prevValue
+      case someValue @ Some(value) if proceed(value) ⇒
+        tryOptimistic(jedis)(block) match {
+          case true ⇒ someValue
           case false ⇒ watch(jedis, key, proceed, block)
         }
       case _ ⇒
@@ -29,29 +38,6 @@ class RedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueSer: sc
     connection(jedis ⇒ watch(jedis, key, proceed, block))
   }
 
-  private def watching(jedis: Jedis)(block: Transaction ⇒ Unit): Boolean = {
-    val txn = jedis.multi()
-    try {
-      block(txn)
-      txn.exec() != null
-    } catch {
-      case e: Exception ⇒ try { txn.discard() } catch { case _: Exception ⇒ /* Ignore */ }; throw e
-    }
-  }
-
-  private def atomic[T](jedis: Jedis)(block: Transaction ⇒ T): T = {
-    val txn = jedis.multi()
-    try {
-      val t = block(txn)
-      txn.exec()
-      t
-    } catch {
-      case e: Exception ⇒ try { txn.discard() } catch { case _: Throwable ⇒ /* Ignore */ }; throw e
-    }
-  }
-
-  private def atomic[T](block: Transaction ⇒ T): T = connection(jedis ⇒ atomic(jedis)(block))
-
   override def contains(key: K): Boolean = connection(_.exists(keySer.forth(key)))
 
   private[this] final val ALL = encode("*")
@@ -63,7 +49,7 @@ class RedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueSer: sc
 
   override def remove(key: K): Option[V] = {
     val keyBytes = keySer.forth(key)
-    val removed = atomic { txn ⇒
+    val removed = transaction { txn ⇒
       val removed = txn.get(keyBytes)
       txn.del(keyBytes)
       removed
@@ -97,7 +83,7 @@ class RedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueSer: sc
 
   def putIfAbsent(key: K, value: V): Option[V] = {
     val keyBytes = keySer.forth(key)
-    val (prevValResp, successResp) = atomic { txn ⇒
+    val (prevValResp, successResp) = transaction { txn ⇒
       txn.get(keyBytes) -> txn.setnx(keyBytes, valueSer.forth(value))
     }
     if (successResp.get == 1L) {
