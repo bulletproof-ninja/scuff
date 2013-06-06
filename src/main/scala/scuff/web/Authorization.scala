@@ -79,7 +79,12 @@ abstract class ApplicationSecurityFilter extends Filter {
  */
 trait AuthenticationForwarding extends Filter {
 
+  import javax.activation.MimeType
+
   protected def loginPage: String
+  private[this] val defaultAcceptTypes = Set("text/html").map(new MimeType(_))
+  /** Accept types this filter applies to. Default is only "text/html". */
+  protected def acceptTypes: Set[MimeType] = defaultAcceptTypes
 
   abstract override def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) {
     super.doFilter(req, res, chain)
@@ -91,7 +96,7 @@ trait AuthenticationForwarding extends Filter {
 
   private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
     if (!res.isCommitted) res.getStatus match {
-      case SC_UNAUTHORIZED ⇒
+      case SC_UNAUTHORIZED if AcceptHeader(req).forall(h ⇒ h.matchesAny(acceptTypes)) ⇒
         res.setStatus(SC_FOUND)
         req.getRequestDispatcher(loginPage).forward(req, res)
       case SC_FORBIDDEN ⇒ res.sendError(SC_FORBIDDEN)
