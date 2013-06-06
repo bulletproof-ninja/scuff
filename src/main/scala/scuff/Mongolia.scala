@@ -4,6 +4,7 @@ import java.util.{ Date, UUID, Locale }
 import com.mongodb._
 import org.bson.types._
 import scuff.js.CoffeeScriptCompiler
+import scala.reflect.ClassTag
 
 /**
  * A few MongoDB helper methods.
@@ -53,6 +54,7 @@ object Mongolia {
   implicit val Pwd2Val = (pwd: Password) ⇒ new Value(obj("digest" := pwd.digest, "salt" := pwd.salt, "algo" := pwd.algorithm)): BsonValue
   implicit val Eml2Val = (em: EmailAddress) ⇒ em.toString: BsonValue
   implicit val url2Val = (url: java.net.URL) ⇒ url.toString: BsonValue
+  implicit val uri2Val = (uri: java.net.URI) ⇒ uri.toString: BsonValue
   implicit val tz2Val = (tz: java.util.TimeZone) ⇒ tz.getID: BsonValue
   implicit val gp2val = (gp: GeoPoint) ⇒ arr(gp.latitude: Double, gp.longitude: Double): BsonValue
   implicit val loc2Val = (locale: Locale) ⇒ locale.toLanguageTag: BsonValue
@@ -178,6 +180,7 @@ object Mongolia {
     case ts: Timestamp ⇒ ts
     case d: Date ⇒ new Timestamp(d)
     case l: Long ⇒ new Timestamp(l.longValue)
+    case oid: ObjectId ⇒ new Timestamp(oid.getTime)
     case _ ⇒ throw new RuntimeException("Cannot coerce %s into Timestamp".format(value.raw.getClass.getName))
   }
   implicit val Val2Bin = (value: BsonValue) ⇒ value.raw match {
@@ -208,9 +211,10 @@ object Mongolia {
     val dbo = value.raw.asInstanceOf[DBObject]: RichDBObject
     new Password(dbo("digest").as[Array[Byte]], dbo("algo").as[String], dbo("salt").as[Array[Byte]])
   }
-  implicit val Val2URL = (value: BsonValue) ⇒ new java.net.URL(value.raw.asInstanceOf[String])
+  implicit val Val2URL = (value: BsonValue) ⇒ new java.net.URL(String.valueOf(value.raw))
+  implicit val Val2URI = (value: BsonValue) ⇒ new java.net.URI(String.valueOf(value.raw))
   implicit val val2Tz = (value: BsonValue) ⇒ {
-    val tzID = value.raw.asInstanceOf[String]
+    val tzID = String.valueOf(value.raw)
     val tz = java.util.TimeZone.getTimeZone(tzID)
     if (tz.getID == "GMT" && tzID != "GMT") throw new IllegalArgumentException("Unknown timezone: " + tzID)
     tz
@@ -314,13 +318,10 @@ object Mongolia {
       underlying.remove(key, SAFE)
     }
 
-    def unique[T](field: String, query: DBObject = null)(implicit conv: BsonValue ⇒ T): Seq[T] = {
+    def unique(field: String, query: DBObject = null): Seq[BsonField] = {
       import collection.JavaConverters._
       val list = underlying.distinct(field, query).asInstanceOf[java.util.List[Any]]
-      list.asScala.view.map {
-        case null ⇒ null: T
-        case any ⇒ conv(new Value(any))
-      }
+      list.asScala.view.map(BsonField(_, null, field))
     }
 
     def mapReduceInline(mapReduce: MapReduce, query: DBObject = null): Iterator[DBObject] = {
@@ -370,7 +371,8 @@ object Mongolia {
   private val base64 = new com.mongodb.util.Base64Codec
 
   /**
-   * Much faster and more compact serialization.
+   * Much faster and more compact serialization,
+   * and more importantly *correct* JSON.
    */
   def toJson(dbo: DBObject): String = {
     val fallback = serializers.get
@@ -488,11 +490,22 @@ object Mongolia {
       }
       this
     }
-    def rename(fromTo: (String, String)): Unit = rename(fromTo._1, fromTo._2)
-    def rename(from: String, to: String): Unit = underlying.put(to, underlying.removeField(from))
+    def rename(fromTo: (String, String), transform: BsonField ⇒ BsonValue = null): Unit = {
+      val removed = underlying.removeField(fromTo._1)
+      if (transform == null) {
+        underlying.put(fromTo._2, removed)
+      } else {
+        val value = transform(BsonField(removed, null, fromTo._1))
+        this.add(fromTo._2 := value)
+      }
+    }
     def raw = this
     def ignoreNulls(ignore: Boolean): RichDBObject = if (ignore == this.ignoreNulls) this else new RichDBObject(underlying, ignore)
     def keys: Iterable[String] = underlying.keySet.asScala
+    /**
+     * Much faster and more compact serialization,
+     * and more importantly *correct* JSON.
+     */
     def toJson() = Mongolia.toJson(underlying)
     override def toString = underlying.toString()
     import java.util.StringTokenizer
@@ -526,6 +539,9 @@ object Mongolia {
         }
       }
     }
+
+    def as[T](converters: Map[Class[_], BsonValue ⇒ Any] = Map.empty)(implicit manifest: ClassTag[T]): T =
+      if (manifest.runtimeClass.isInterface) getProxy(this, converters) else throw new IllegalArgumentException("%s must be an interface".format(manifest.runtimeClass))
 
     def isEmpty = underlying match {
       case m: java.util.Map[_, _] ⇒ m.isEmpty
@@ -561,7 +577,6 @@ object Mongolia {
     }
 
     def remove(key: String): BsonField = {
-      //BsonField(underlying.removeField(key), underlying, key)
       val value = if (key.indexOf('.') == -1) {
         underlying.removeField(key)
       } else {
@@ -584,6 +599,10 @@ object Mongolia {
 
   final class RichDBList extends BasicDBList with BsonValue {
     def raw = this
+    /**
+     * Much faster and more compact serialization,
+     * and more importantly *correct* JSON.
+     */
     def toJson() = Mongolia.toJson(this)
     def +=(any: Any) = add(any.asInstanceOf[Object])
   }
@@ -606,7 +625,7 @@ object Mongolia {
       }
       found
     }
-    def first(sorting: BsonIntProp*): Option[RichDBObject] = if (cursor.sort(obj(sorting: _*)).limit(1).hasNext) Some(cursor.next) else None
+    def first(sorting: BsonIntProp*): Option[RichDBObject] = cursor.sort(obj(sorting: _*)).limit(1).nextOpt()
     def nextOpt(): Option[RichDBObject] = if (cursor.hasNext) Some(cursor.next) else None
     def foreach(f: RichDBObject ⇒ Unit) {
       try {
@@ -756,6 +775,108 @@ object Mongolia {
       require(map.size > 0, "`map` function not found. Must be named `map`.")
       require(reduce.size > 0, "`reduce` function not found. Must be named `reduce`.")
       coffee(map.result, reduce.result)
+    }
+  }
+
+  def parseJson(json: String): Any = com.mongodb.util.JSON.parse(json) match {
+    case dbo: DBObject ⇒ enrich(dbo)
+    case a ⇒ a
+  }
+  def parseJsonObject(json: String): Option[DBObject] = parseJson(json) match {
+    case dbo: DBObject ⇒ Some(enrich(dbo))
+    case a ⇒ None
+  }
+
+  private val DefaultProxyConverters: Map[Class[_], (BsonValue ⇒ Any)] = Map(
+    classOf[String] -> Val2Str,
+    classOf[Double] -> Val2Dbl,
+    classOf[Float] -> Val2Dbl,
+    classOf[Long] -> Val2Lng,
+    classOf[Int] -> Val2Int,
+    classOf[Byte] -> Val2Byte,
+    classOf[Boolean] -> Val2Bool,
+    classOf[Short] -> Val2Shrt,
+    classOf[Char] -> Val2Chr,
+    classOf[UUID] -> Val2UUID,
+    classOf[BigDecimal] -> Val2Dec,
+    classOf[ObjectId] -> Val2OID,
+    classOf[Array[Byte]] -> Val2Bin,
+    classOf[scuff.Timestamp] -> Val2Ts,
+    classOf[java.util.Date] -> Val2Ts,
+    classOf[java.util.TimeZone] -> val2Tz,
+    classOf[java.util.Locale] -> Val2Locale,
+    classOf[Number] -> Val2Dec,
+    classOf[scuff.EmailAddress] -> Val2Eml,
+    classOf[scuff.Password] -> Val2Pwd,
+    classOf[java.net.URL] -> Val2URL,
+    classOf[java.net.URI] -> Val2URI)
+
+  private def convertProxyValue(value: BsonField, asType: Class[_], converters: Map[Class[_], BsonValue ⇒ Any]) = converters.get(asType) match {
+    case Some(converter) ⇒ value.as(converter)
+    case None ⇒
+      if (asType.isInterface) {
+        getProxy(value.as[DBObject], converters)(ClassTag(asType))
+      } else {
+        value match {
+          case value: Value ⇒ value.raw
+          case _ ⇒ null
+        }
+      }
+  }
+  private def convertProxyOption(value: BsonField, optType: Class[_], converters: Map[Class[_], BsonValue ⇒ Any]) = converters.get(optType) match {
+    case Some(converter) ⇒ value.opt(converter)
+    case None ⇒
+      if (optType.isInterface) {
+        value.opt[DBObject].map(getProxy(_, converters)(ClassTag(optType)))
+      } else {
+        value match {
+          case value: Value ⇒ Option(convertProxyValue(value, optType, converters))
+          case _ ⇒ None
+        }
+      }
+  }
+  private def convertProxySeq(shouldBeList: BsonField, seqType: Class[_], converters: Map[Class[_], BsonValue ⇒ Any]) = converters.get(seqType) match {
+    case Some(converter) ⇒ shouldBeList.asSeq(converter)
+    case None ⇒
+      if (seqType.isInterface) {
+        shouldBeList.asSeq[DBObject].map(getProxy(_, converters)(ClassTag(seqType)))
+      } else {
+        shouldBeList match {
+          case value: Value ⇒ value.raw match {
+            case list: java.util.ArrayList[_] ⇒
+              import collection.JavaConverters._
+              list.asScala.map(elem ⇒ convertProxyValue(BsonField(elem), seqType, converters))
+            case _ ⇒ Seq(convertProxyValue(value, seqType, converters))
+          }
+          case _ ⇒ Seq.empty
+        }
+      }
+  }
+
+  private def getGenericReturnClass(method: java.lang.reflect.Method) =
+    method.getGenericReturnType().asInstanceOf[java.lang.reflect.ParameterizedType].getActualTypeArguments().head.asInstanceOf[Class[_]]
+
+  private def getProxy[T: ClassTag](dbo: RichDBObject, userConverters: Map[Class[_], BsonValue ⇒ Any]): T = {
+    val fp = new Proxylicious[T]
+    val converters = DefaultProxyConverters ++ userConverters
+    fp.proxify {
+      case (_, method, args) if args == null || args.length == 0 ⇒
+        if (method.getName == "toString") {
+          dbo.toJson()
+        } else {
+          val value = dbo(method.getName)
+          val rt = method.getReturnType
+          if (rt == classOf[Option[_]]) {
+            val rtt = getGenericReturnClass(method)
+            convertProxyOption(value, rtt, converters)
+          } else if (rt.isAssignableFrom(classOf[Seq[_]])) {
+            val rtt = getGenericReturnClass(method)
+            convertProxySeq(value, rtt, converters)
+          } else {
+            convertProxyValue(value, rt, converters)
+          }
+        }
+      case (_, method, _) ⇒ throw new IllegalAccessException("Cannot proxy methods with arguments: " + method)
     }
   }
 

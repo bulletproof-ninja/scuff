@@ -227,7 +227,9 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
 
   @Test
   def remove {
-    val doc = obj("foo" := "bar", "nested" := obj("two" := 2, "three" := 3, "fortytwo" := 42))
+    val oid = new ObjectId
+    val doc = obj("_id" := oid, "foo" := "bar", "nested" := obj("two" := 2, "three" := 3, "fortytwo" := 42))
+    assertEquals(oid, doc.remove("_id").as[ObjectId])
     assertTrue(doc.remove("bar").opt[String].isEmpty)
 
     assertTrue(doc.contains("foo"))
@@ -249,4 +251,57 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
     val dDoc = obj("numbers" := doubles)
     assertEquals("""{"numbers":[null,null,null,123.45]}""", dDoc.toJson)
   }
+
+  @Test
+  def interfaces {
+    trait Foo {
+      def foo: String
+      def nested: Bar
+      trait Bar {
+        def two: Int
+        def three: Long
+        def fortytwo: Double
+      }
+      def maybe: Option[Int]
+      def list: Seq[String]
+      def definite: Option[Int]
+      def list2: Seq[Double]
+    }
+      def assertStuff(foo: Foo) {
+        assertEquals("bar", foo.foo)
+        assertEquals(2, foo.nested.two)
+        assertEquals(3L, foo.nested.three)
+        assertEquals(42d, foo.nested.fortytwo, 0d)
+        assertEquals(None, foo.maybe)
+        assertEquals(Seq(), foo.list)
+        assertEquals(666, foo.definite.get)
+        assertEquals(Seq(1d, 2d, 3d), foo.list2)
+        assertEquals("""{"foo":"bar","nested":{"two":2,"three":3,"fortytwo":42},"definite":666,"list2":[1,2.0,3]}""", foo.toString)
+      }
+    val doc = obj("foo" := "bar", "nested" := obj("two" := 2, "three" := 3, "fortytwo" := 42), "definite" := 666, "list2" := arr(1, 2f, 3L))
+    assertStuff(doc.as[Foo]())
+    parseJsonObject("""{"foo":"bar","nested":{"two":2,"three":3,"fortytwo":42},"definite":666,"list2":[1,2.0,3]}""").map(_.as[Foo]()) match {
+      case None ⇒ fail("Where's the object?")
+      case Some(foo) ⇒ assertStuff(foo)
+    }
+  }
+
+  @Test
+  def transform {
+    val oid = new ObjectId
+    val doc = obj("_id" := oid)
+    doc.rename("_id" -> "identifier", id ⇒ id.as[String])
+    assertEquals("""{"identifier":"%s"}""".format(oid), doc.toJson)
+  }
+
+  @Test
+  def transformNull {
+    val map = Map[ObjectId, Int]()
+    val doc = obj()
+    doc.rename("fooId" -> "foo", fooId ⇒
+      fooId.opt[ObjectId].flatMap(map.get(_).map(_ * 2))
+    )
+    println(doc)
+  }
+
 }
