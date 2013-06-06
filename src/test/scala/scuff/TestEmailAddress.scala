@@ -10,17 +10,16 @@ class TestEmailAddress {
       new EmailAddress("hello@world@foo.bar")
       fail("Cannot have multiple @s")
     } catch {
-      case e: IllegalArgumentException => // Expected
+      case e: IllegalArgumentException ⇒ // Expected
     }
   }
-  
-  
+
   @Test def startsWithDot() {
     try {
       new EmailAddress(".hello@foo.bar")
       fail("Cannot start with dot")
     } catch {
-      case e: IllegalArgumentException => // Expected
+      case e: IllegalArgumentException ⇒ // Expected
     }
   }
 
@@ -29,7 +28,7 @@ class TestEmailAddress {
       new EmailAddress("hello..world@foo.bar")
       fail("Cannot have multiple successive dot")
     } catch {
-      case e: IllegalArgumentException => // Expected
+      case e: IllegalArgumentException ⇒ assertFalse(EmailAddress.isValid("hello..world@foo.bar"))
     }
   }
 
@@ -38,7 +37,7 @@ class TestEmailAddress {
       new EmailAddress("hello.@foo.bar")
       fail("Cannot end with dot")
     } catch {
-      case e: IllegalArgumentException => // Expected
+      case e: IllegalArgumentException ⇒ // Expected
     }
   }
 
@@ -47,7 +46,7 @@ class TestEmailAddress {
       new EmailAddress("abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcde@foo.bar")
       fail("User part cannot exceed 64 chars")
     } catch {
-      case e: IllegalArgumentException => // Expected
+      case e: IllegalArgumentException ⇒ // Expected
     }
   }
 
@@ -56,7 +55,7 @@ class TestEmailAddress {
       new EmailAddress("@foo.bar")
       fail("User part missing")
     } catch {
-      case e: IllegalArgumentException => // Expected
+      case e: IllegalArgumentException ⇒ assertFalse(EmailAddress.isValid("@foo.bar"))
     }
   }
 
@@ -75,13 +74,13 @@ class TestEmailAddress {
     assertEquals((str split "@")(0), ema.user)
     assertEquals((str split "@")(1), ema.domain)
   }
-  
+
   @Test def companion {
     val ema = EmailAddress("foo", "bar.com")
     ema match {
-      case EmailAddress(user, _) if user == "bar" => fail("Not a bar")
-      case EmailAddress(user, _) => assertEquals("foo", user)
+      case EmailAddress(user, _) if user == "bar" ⇒ fail("Not a bar")
+      case EmailAddress(user, _) ⇒ assertEquals("foo", user)
     }
   }
-  
+
 }

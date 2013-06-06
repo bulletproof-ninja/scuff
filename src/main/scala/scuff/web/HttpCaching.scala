@@ -16,7 +16,7 @@ private object HttpCaching {
     def flushTo(res: HttpServletResponse) {
       for ((name, values) ← headers; value ← values) res.addHeader(name, value)
       if (lastModified.isEmpty) {
-        eTag >> res
+        eTag.addTo(res)
       }
       res.setContentType(contentType)
       res.setCharacterEncoding(encoding)
@@ -54,12 +54,11 @@ private[web] sealed trait HttpCaching {
     val lastMod = proxy.getDateHeaders(HttpHeaders.LastModified).headOption
     new Cached(proxy.getBytes, lastMod, proxy.headers.values, proxy.getContentType, proxy.getCharacterEncoding, proxy.getLocale)
   }
-  protected[web] def respond(cacheKey: Any, req: HttpServletRequest, res: HttpServletResponse)(getResource: HttpServletResponse ⇒ Unit) =
+  protected[web] def respond(cacheKey: Any, req: RichRequest, res: HttpServletResponse)(getResource: HttpServletResponse ⇒ Unit) =
     try {
       val cached = theCache.lookupOrStore(cacheKey)(fetchResource(res, getResource))
-      val expectedETag = ETag.IfNoneMatch(req)
-      val expectedLastMod = req.getDateHeader(HttpHeaders.IfModifiedSince)
-      if (cached.lastModified.exists(_ == expectedLastMod) || expectedETag.exists(_ == cached.eTag)) {
+      val expectedLastMod = req.IfModifiedSince()
+      if ((expectedLastMod.isDefined && cached.lastModified == expectedLastMod) || req.IfNoneMatch().exists(_ == cached.eTag)) {
         res.setStatus(SC_NOT_MODIFIED)
       } else {
         cached.flushTo(res)

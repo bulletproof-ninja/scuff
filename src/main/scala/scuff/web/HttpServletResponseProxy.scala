@@ -143,8 +143,8 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
   }
 
   /**
-    * Propagate from proxy to delegate.
-    */
+   * Propagate from proxy to delegate.
+   */
   def propagate(stat: Int = status) {
     for (cookie ← cookies) delegate.addCookie(cookie)
     if (inError) message match {

@@ -27,14 +27,18 @@ trait Cache[K, V] {
     * Lookup cache entry.
     */
   def lookup(key: K): Option[V]
-
   /**
-    * Refresh TTL. Return `true` if successful.
+    * Refresh TTL. If no TTL is supplied,
+    * the default TTL will be used, NOT the
+    * TTL supplied when stored (if any).
+    * Return `true` if successful.
     */
   def refresh(key: K, ttl: Int = defaultTTL): Boolean
-
   /**
     * Lookup cache entry and refresh TTL.
+    * If no TTL is supplied,
+    * the default TTL will be used, NOT the
+    * TTL supplied when stored (if any).
     */
   def lookupAndRefresh(key: K, ttl: Int = defaultTTL): Option[V]
 

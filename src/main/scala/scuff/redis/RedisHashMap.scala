@@ -4,10 +4,10 @@ import redis.clients.jedis._
 import redis.clients.util.SafeEncoder._
 
 /**
- * Redis implementation of [[scala.collection.mutable.ConcurrentMap]].
+ * Redis Hash implementation of [[scala.collection.mutable.ConcurrentMap]].
  * NOTICE: This implementation does not support the CAS versions of `remove` and
  * `replace` due to inefficiencies such implementation would lead to.
- * See [[scuff.redis.RedisMap]] if such functionality is needed.
+ * @see [[scuff.redis.RedisMap]] if such functionality is needed.
  */
 class RedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Serializer[K], valueSer: scuff.Serializer[V])
     extends collection.concurrent.Map[K, V] {

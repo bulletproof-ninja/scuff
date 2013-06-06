@@ -2,43 +2,40 @@ package scuff.redis
 
 import redis.clients.jedis._
 import redis.clients.util._
+import java.util.concurrent._
 
-class RedisChannel[A](name: String, info: JedisShardInfo, serializer: scuff.Serializer[A] = new scuff.JavaSerializer[A]) extends scuff.Channel {
+class RedisChannel[A](channelName: String, info: JedisShardInfo, subscriberThread: Executor, serializer: scuff.Serializer[A]) extends scuff.Channel {
+
+  def this(channelName: String, info: JedisShardInfo, subscriberThreadFactory: ThreadFactory, serializer: scuff.Serializer[A]) =
+    this(channelName, info, Executors.newSingleThreadExecutor(subscriberThreadFactory), serializer)
+
+  def this(channelName: String, info: JedisShardInfo, serializer: scuff.Serializer[A] = new scuff.JavaSerializer[A]) =
+    this(channelName, info, scuff.ThreadFactory(classOf[RedisChannel[_]].getName), serializer)
+
   type F = Nothing
   type L = A ⇒ Unit
-  private[this] val byteName = SafeEncoder.encode(name)
+  private[this] val byteName = SafeEncoder.encode(channelName)
   def subscribe(subscriber: L, filter: Nothing ⇒ Boolean) = {
     val jedisSubscriber = new BinaryJedisPubSub {
-      def onMessage(channel: Array[Byte], msg: Array[Byte]) = try {
-        subscriber(serializer.back(msg))
-      } catch {
-        case t: Throwable ⇒ t.printStackTrace(System.err)
-      }
+      def onMessage(channel: Array[Byte], msg: Array[Byte]) = subscriber(serializer.back(msg))
       def onPMessage(pattern: Array[Byte], channel: Array[Byte], msg: Array[Byte]) {}
       def onPSubscribe(channel: Array[Byte], noSubs: Int) {}
       def onPUnsubscribe(channel: Array[Byte], noSubs: Int) {}
       def onSubscribe(channel: Array[Byte], noSubs: Int) {}
       def onUnsubscribe(channel: Array[Byte], noSubs: Int) {}
     }
-    val subscriptionThread = new Thread("Redis subscriber (channel: %s): %s".format(name, subscriber)) {
+    subscriberThread execute new Runnable {
       val jedis = new BinaryJedis(info)
       override def run = try {
         jedis.connect()
         jedis.subscribe(jedisSubscriber, byteName)
-      } catch {
-        case i: InterruptedException ⇒ // Ok
-        case t: Throwable ⇒ t.printStackTrace(System.err)
       } finally {
         jedis.disconnect()
       }
     }
-    subscriptionThread.start()
     new scuff.Subscription {
-      def cancel() = {
-        jedisSubscriber.unsubscribe()
-        subscriptionThread.interrupt()
+      def cancel() = jedisSubscriber.unsubscribe()
       }
-    }
 
-  }
+    }
 }

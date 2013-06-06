@@ -6,6 +6,7 @@ object HttpHeaders {
   final val ETag = "ETag"
   final val Age = "Age"
   final val IfNoneMatch = "If-None-Match"
+  final val IfMatch = "If-Match"
   final val IfModifiedSince = "If-Modified-Since"
 
 }

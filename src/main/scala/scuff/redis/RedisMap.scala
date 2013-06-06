@@ -3,6 +3,10 @@ package scuff.redis
 import redis.clients.jedis._
 import redis.clients.util.SafeEncoder._
 
+/**
+ * Redis general implementation of [[scala.collection.mutable.ConcurrentMap]].
+ * @see [[scuff.redis.RedisHashMap]] for Hash implementation.
+ */
 class RedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueSer: scuff.Serializer[V])
     extends collection.concurrent.Map[K, V] {
   import collection.JavaConverters._

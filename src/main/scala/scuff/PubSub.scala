@@ -10,16 +10,16 @@ class PubSub[G, E <% G](
   executor: Option[Executor] = None)
     extends Channel {
 
-  def this(executor: Executor) = this(executor = Some(executor))
+  def this(executor: Executor) = this(executor = Option(executor))
+
   type F = G
   type L = E ⇒ Unit
 
-  private object ThreadGroup extends ThreadGroup(ThreadFactory.SystemThreadGroup, this.getClass.getName) {
-    override def uncaughtException(t: Thread, e: Throwable) = exceptionHandler(e)
-  }
   private[this] val subscribers = new CopyOnWriteArrayList[FilteringSubscriber]
   private[this] val exec = executor.getOrElse {
-    Executors newSingleThreadExecutor ThreadFactory(this.getClass.getName, ThreadGroup)
+    new Executor {
+      def execute(runnable: Runnable) = runnable.run()
+    }
   }
 
   /**

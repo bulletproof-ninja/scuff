@@ -15,7 +15,7 @@ class TestProxylicious {
     val doubler = new proxyfier.Sandwich {
       def include(method: Method) = {
         method.getParameterTypes match {
-          case Array(Integer.TYPE, Integer.TYPE) ⇒ method.getReturnType == Integer.TYPE && method.getName == "apply"
+          case Array(Integer.TYPE, Integer.TYPE) ⇒ method named 'apply returns Integer.TYPE
           case _ ⇒ false
         }
       }
@@ -27,7 +27,7 @@ class TestProxylicious {
         }
       }
     }
-    val withDoubling = proxyfier.proxy(multiply, doubler)
+    val withDoubling = proxyfier.sandwich(multiply, doubler)
     assertEquals(9, multiply(3, 3))
     assertEquals(9 * 2, withDoubling(3, 3))
     assertEquals(121, multiply(11, 11))
@@ -36,7 +36,7 @@ class TestProxylicious {
   @Test def `retrying` {
     val multiply = new Multiply with ThirtiethTimesACharm
     val proxyfier = new util.RetryOnExceptionProxylicious[Arithmetic, IllegalStateException]
-    val retryingMultiply = proxyfier.proxy(multiply)
+    val retryingMultiply = proxyfier.withRetry(multiply)
     try {
       multiply(5, 6)
       fail("Should fail on illegal state")
@@ -63,4 +63,5 @@ trait ThirtiethTimesACharm extends Arithmetic {
       super.apply(a, b)
   }
   }
+
 }

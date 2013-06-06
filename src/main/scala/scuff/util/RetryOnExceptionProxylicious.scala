@@ -20,7 +20,7 @@ class RetryOnExceptionProxylicious[T, E <: Throwable](implicit manifest: reflect
         }
     }
   }
-  def proxy(meat: T): T = {
-    proxy(meat, new RetryingSandwich)
+  def withRetry(meat: T): T = {
+    sandwich(meat, new RetryingSandwich)
   }
 }

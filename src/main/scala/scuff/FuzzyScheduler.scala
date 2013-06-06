@@ -3,6 +3,7 @@ package scuff
 import java.util.concurrent._
 import scala.concurrent.duration._
 import javax.servlet._
+import scala.concurrent.ExecutionContext
 
 object FuzzyScheduler {
   trait FuzzyRunnable extends Runnable {
@@ -19,16 +20,16 @@ object FuzzyScheduler {
       */
     def onException(th: Throwable)
     /**
-      * Delay between executions. On initial invocation,
+      * Interval between executions. On initial invocation,
       * this is the delay after scheduling, on subsequent
       * invocations, it's the delay after the previous run
       * ended.
       */
-    def runDelay(): Duration
+    def runInterval(): Duration
     /**
-      * The jitter margin applied to the `runDelay`.
+      * The jitter margin applied to the `runInterval`.
       */
-    def delayJitter: Float = 0.2f
+    def intervalJitter: Float = 0.2f
 
     /**
       * Stop further scheduling.
@@ -47,10 +48,12 @@ class FuzzyScheduler(scheduler: ScheduledExecutorService = Executors.newSchedule
 
   def shutdownAll(): Unit = scheduler.shutdownNow()
 
+  val executionContext = ExecutionContext.fromExecutorService(scheduler)
+
   def schedule(pr: FuzzyRunnable) {
     import math._
-    val intervalMs = pr.runDelay.toMillis
-    val absJitter = intervalMs * pr.delayJitter
+    val intervalMs = pr.runInterval.toMillis
+    val absJitter = intervalMs * pr.intervalJitter
     val minDelay = intervalMs - absJitter
     val jitterRange = absJitter * 2
     val delayMs = round(random * jitterRange + minDelay)
