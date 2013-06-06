@@ -92,7 +92,7 @@ class Connection extends FSM {
   def isDisconnected = is(Disabled.Disconnected) || is(Active.Disconnected)
 }
 
-class ISODateParser extends FSM {
+  class ISODateParser extends typed.FSM[Char] {
 
   def start() {
     super.start(ParseYear)
@@ -102,11 +102,11 @@ class ISODateParser extends FSM {
   object dash extends Event
   object done extends Event
 
-  sealed class ParseState extends LeafState {
+    sealed class ParseState extends typed.LeafState[Char] {
     var num = 0
-      override def onEntry(evt: Event, char: Any) = (evt, char) match {
-        case (`digit`, ch: Char) ⇒ onDigit(ch)
-        case (`dash`, _) ⇒ // Ignore
+      override def onEntry(evt: Event, char: Char) = evt match {
+        case `digit` ⇒ onDigit(char)
+        case `dash` ⇒ // Ignore
       }
     def onDigit(char: Char) = num = (num * 10) + (char - '0')
   }
