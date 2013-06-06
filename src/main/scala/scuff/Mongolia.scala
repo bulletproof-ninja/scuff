@@ -51,7 +51,7 @@ object Mongolia {
     bb.putLong(uuid.getMostSignificantBits).putLong(uuid.getLeastSignificantBits)
     new Binary(4, bb.array): BsonValue
   }
-  implicit val Pwd2Val = (pwd: Password) ⇒ new Value(obj("digest" := pwd.digest, "salt" := pwd.salt, "algo" := pwd.algorithm)): BsonValue
+  implicit val Pwd2Val = (pwd: Password) ⇒ new Value(obj("digest" := pwd.digest, "salt" := pwd.salt, "algo" := pwd.algorithm, "iter" := pwd.iterations)): BsonValue
   implicit val Eml2Val = (em: EmailAddress) ⇒ em.toString: BsonValue
   implicit val url2Val = (url: java.net.URL) ⇒ url.toString: BsonValue
   implicit val uri2Val = (uri: java.net.URI) ⇒ uri.toString: BsonValue
@@ -209,7 +209,7 @@ object Mongolia {
   implicit val Val2Eml = (value: BsonValue) ⇒ new EmailAddress(value.raw.asInstanceOf[String])
   implicit val Val2Pwd = (value: BsonValue) ⇒ {
     val dbo = value.raw.asInstanceOf[DBObject]: RichDBObject
-    new Password(dbo("digest").as[Array[Byte]], dbo("algo").as[String], dbo("salt").as[Array[Byte]])
+    new Password(dbo("digest").as[Array[Byte]], dbo("algo").as[String], dbo("salt").as[Array[Byte]], dbo("iter").opt[Int].getOrElse(1))
   }
   implicit val Val2URL = (value: BsonValue) ⇒ new java.net.URL(String.valueOf(value.raw))
   implicit val Val2URI = (value: BsonValue) ⇒ new java.net.URI(String.valueOf(value.raw))

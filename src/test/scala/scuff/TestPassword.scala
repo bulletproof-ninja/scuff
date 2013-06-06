@@ -41,4 +41,13 @@ class TestPassword {
     val pwd = Password(str, salt)
     assertTrue(pwd.matches(str))
   }
+
+  @Test def slowButSafe {
+    import concurrent.duration._
+    val crunchTime = 20.milliseconds
+    val str = "Foo and Bar went for a walk with パスワードは"
+    val salt = Password.randomSalt(7)
+    val pwd = Password(str, salt, crunchTime)
+    assertTrue(pwd.matches(str))
+  }
 }
