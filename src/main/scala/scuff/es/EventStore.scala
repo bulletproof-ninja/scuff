@@ -54,17 +54,19 @@ trait EventSource[ID, EVT, CAT] extends scuff.Channel {
   def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.NumericRange[Long])(callback: Iterator[Transaction] ⇒ T): T
 
   /**
-   * Play back transactions, optionally only the most recent.
+    * Play back transactions, optionally filtered by one or more categories.
    * This is a blocking call, i.e. when call returns, playback has finished.
-   * @param sinceTransactionID Optional. Only play back transactions since the provided transactionID (not included in playback). Defaults to -1 (all).
+    * @param categories: Optional categories filter
    * @param callback Callback function
    */
   def replay[T](categories: CAT*)(callback: Iterator[Transaction] ⇒ T): T
 
   /**
-   * Play back events for all instances from a given time forward.
+    * Play back events for all instances from a given time forward, optionally
+    * filtered by one or more categories.
    * This is a blocking call, i.e. when call returns, playback has finished.
    * @param fromTime Only play back transactions since the provided timestamp.
+    * @param categories: Optional categories filter
    * @param callback Callback function
    */
   def replayFrom[T](fromTime: java.util.Date, categories: CAT*)(callback: Iterator[Transaction] ⇒ T): T
@@ -88,6 +90,7 @@ trait EventStore[ID, EVT, CAT] extends EventSource[ID, EVT, CAT] {
 
   /**
    * Append events into a particular stream, then publish the transaction to subscribers.
+    * @param category The category for this stream
    * @param streamID Event stream identifier
    * @param events The events
    * @param metadata Optional metadata
