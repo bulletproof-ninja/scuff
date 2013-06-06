@@ -1,14 +1,16 @@
-package scuff
+package scuff.ws
 
 import java.net.URL
+import scala.util.parsing.json.JSON
+import scuff.GeoPoint
 
 /**
  * Retrieve various geo-location information from geo-points.
  * This class uses the web service at http://www.askgeo.com
  */
-class AskGeo(url: String, parser: AskGeo.Parser) {
+class AskGeo(urlPrefix: String, parser: AskGeo.Parser) {
 
-  def this(apiID: String, apiKey: String, parser: AskGeo.Parser = AskGeo.JsonParser) =
+  def this(apiID: String, apiKey: String, parser: AskGeo.Parser = AskGeo.DefaultJsonParser) =
     this("http://api.askgeo.com/v1/%s/%s/query.%s".format(apiID, apiKey, parser.format), parser)
 
   def getTimeZones(points: GeoPoint*): Seq[java.util.TimeZone] = {
@@ -25,15 +27,12 @@ class AskGeo(url: String, parser: AskGeo.Parser) {
         appendPoint(p)
       }
 
-      val timeZoneQuery = new URL(url.concat(query.result))
-      val conn = timeZoneQuery.openConnection()
-      val mimeType = new javax.activation.MimeType(conn.getContentType)
-      val charset = Option(mimeType.getParameter("charset")).getOrElse("US-ASCII")
-      val is = conn.getInputStream()
+      val url = new URL(urlPrefix concat query.result)
+      val reader = toReader(url)
       try {
-        parser.parse(new java.io.InputStreamReader(is, charset))
+        parser.parseTimeZone(reader)
       } finally {
-        is.close()
+        reader.close()
       }
     }
   }
@@ -43,17 +42,16 @@ class AskGeo(url: String, parser: AskGeo.Parser) {
 object AskGeo {
   trait Parser {
     def format: String
-    def parse(content: java.io.Reader): Seq[java.util.TimeZone]
+    def parseTimeZone(content: java.io.BufferedReader): Seq[java.util.TimeZone]
   }
 
-  object JsonParser extends Parser {
-    val format = "json"
+  object DefaultJsonParser extends Parser {
+    def format = "json"
 
     import scala.util.parsing.json._
 
-    def parse(content: java.io.Reader): Seq[java.util.TimeZone] = {
+    def parseTimeZone(buf: java.io.BufferedReader): Seq[java.util.TimeZone] = {
       val sb = new StringBuilder
-      val buf = new java.io.BufferedReader(content)
       var line = buf.readLine()
       while (line != null) {
         sb append line append '\n'
