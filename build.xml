@@ -50,8 +50,8 @@
 	</target>
 
 	<target name="compile-main" depends="init, resolve-deps, scala-taskdef">
-		<mkdir dir="build/main" />
-		<scalac srcdir="src/main" destdir="build/main" unchecked="yes" addparams="–unchecked -deprecation –explaintypes –Xdisable-assertions -feature -optimise -language:implicitConversions">
+		<mkdir dir="${build.destdir}" />
+		<scalac srcdir="src/main" destdir="${build.destdir}" unchecked="yes" addparams="${scalac.params}">
 			<bootclasspath>
 				<pathelement location="${scala-comp.jar}" />
 				<pathelement location="${scala-lib.jar}" />
@@ -69,10 +69,15 @@
 		</scalac>
 	</target>
 
-	<target name="compile-test" depends="compile-main">
+	<target name="compile-test" depends="init, resolve-deps, scala-taskdef">
+		<property name="build.destdir" value="build/test" />
+		<property name="scalac.params" value="-optimise -language:implicitConversions" />
 		<mkdir dir="build/test" />
-		<scalac srcdir="src/test" destdir="build/test" unchecked="yes" addparams="–unchecked -deprecation –explaintypes">
-			<!-- -optimise Fails build, try when new version -->
+		<antcall target="compile-main">
+			<param name="build.destdir" value="${build.destdir}" />
+			<param name="scalac.params" value="${scalac.params}" />
+		</antcall>
+		<scalac srcdir="src/test" destdir="${build.destdir}" addparams="${scalac.params}">
 			<bootclasspath>
 				<pathelement location="${scala-comp.jar}" />
 				<pathelement location="${scala-lib.jar}" />
@@ -80,7 +85,7 @@
 			</bootclasspath>
 
 			<classpath>
-				<pathelement location="build/main" />
+				<pathelement location="${build.destdir}" />
 				<fileset dir="lib">
 					<include name="**/*.jar" />
 					<exclude name="scala-*" />
@@ -91,7 +96,11 @@
 		</scalac>
 	</target>
 
-	<target name="run-junit" depends="compile-test, copy-resources">
+	<target name="run-junit" depends="compile-test">
+		<copy todir="build/test">
+			<fileset dir="src/main/resources" />
+			<fileset dir="src/test/resources" />
+		</copy>
 		<mkdir dir="build/junit" />
 		<junit fork="yes" haltonfailure="true" haltonerror="true">
 			<formatter type="xml" />
@@ -102,12 +111,12 @@
 					<include name="**/*.jar" />
 					<exclude name="ant-*" />
 				</fileset>
-				<pathelement path="build/main" />
 				<pathelement path="build/test" />
 				<pathelement location="${scala-lib.jar}" />
 			</classpath>
 			<batchtest todir="build/junit">
 				<fileset dir="build/test">
+					<include name="**/*Test*.class" />
 					<exclude name="**/*$*.class" />
 				</fileset>
 			</batchtest>
@@ -115,18 +124,12 @@
 	</target>
 
 
-	<target name="copy-resources" depends="init">
+	<target name="make-jar" depends="init">
 		<mkdir dir="build/main" />
-		<copy todir="build/main">
-			<fileset dir="src/main/resources" />
-		</copy>
-		<mkdir dir="build/test" />
-		<copy todir="build/test">
-			<fileset dir="src/test/resources" />
-		</copy>
-	</target>
-
-	<target name="make-jar" depends="compile-main, copy-resources">
+		<antcall target="compile-main">
+			<param name="build.destdir" value="build/main" />
+			<param name="scalac.params" value="–unchecked -deprecation –explaintypes –Xdisable-assertions -feature -optimise -language:implicitConversions" />
+		</antcall>
 		<tstamp />
 		<manifest file="build/MANIFEST.MF">
 			<attribute name="Built-By" value="${user.name}" />
@@ -137,6 +140,9 @@
 				<attribute name="Sealed" value="true" />
 			</section>
 		</manifest>
+		<copy todir="build/main">
+			<fileset dir="src/main/resources" />
+		</copy>
 		<jar basedir="build/main" destfile="build/${ant.project.name}-${version}-scala-${scala.major-minor}.jar" index="true" manifest="build/MANIFEST.MF" />
 	</target>
 
