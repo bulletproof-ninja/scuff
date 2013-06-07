@@ -34,7 +34,7 @@
 
 	<target name="init" depends="clean">
 		<property name="scala.major-minor" value="2.10" />
-		<property name="scala.rev" value="1" />
+		<property name="scala.rev" value="2" />
 		<property name="scala.version" value="${scala.major-minor}.${scala.rev}" />
 		<property name="ivy.version" value="2.3.0" />
 		<property name="version" value="1.2-SNAPSHOT" />

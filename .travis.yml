@@ -1,7 +1,7 @@
 install: ant resolve-deps
 language: scala
 jdk:
-#  - oraclejdk7
+  - oraclejdk7
   - openjdk7
 scala:
   - 2.10.1
