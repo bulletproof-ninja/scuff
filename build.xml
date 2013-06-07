@@ -96,7 +96,7 @@
 		</scalac>
 	</target>
 
-	<target name="run-junit" depends="compile-test">
+	<target name="run-junit" depends="compile-test" description="Run JUnit tests">
 		<copy todir="build/test">
 			<fileset dir="src/main/resources" />
 			<fileset dir="src/test/resources" />
