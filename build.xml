@@ -71,7 +71,7 @@
 
 	<target name="compile-test" depends="init, resolve-deps, scala-taskdef">
 		<property name="build.destdir" value="build/test" />
-		<property name="scalac.params" value="-nowarn -optimise -language:implicitConversions" />
+		<property name="scalac.params" value="-nowarn -language:implicitConversions" />
 		<mkdir dir="build/test" />
 		<antcall target="compile-main">
 			<param name="build.destdir" value="${build.destdir}" />
