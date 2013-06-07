@@ -1,10 +1,10 @@
 install: ant resolve-deps
 language: scala
 jdk:
-  - openjdk7
   - oraclejdk7
+  - openjdk7
 scala:
   - 2.10.1
 script: ant run-junit
 before_script:
-  - export JAVA_OPTS="-XX:MaxPermSize=768M -XX:+CMSClassUnloadingEnabled"
+  - export JAVA_OPTS="-Xmx2048M -XX:MaxPermSize=1024M -XX:+CMSClassUnloadingEnabled -XX:+UseConcMarkSweepGC"
