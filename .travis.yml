@@ -7,4 +7,4 @@ scala:
   - 2.10.1
 script: ant run-junit
 before_script:
-  - "export JAVA_OPTS=-Xmx512m -XX:MaxPermSize=512m -XX:+CMSClassUnloadingEnabled"
+  - export JAVA_OPTS="-Xmx512m -XX:MaxPermSize=512m -XX:+CMSClassUnloadingEnabled"
