@@ -2,7 +2,7 @@ install: ant resolve-deps
 language: scala
 jdk:
   - openjdk7
-#  - oraclejdk7
+  - oraclejdk7
 scala:
   - 2.10.1
 script: ant run-junit
