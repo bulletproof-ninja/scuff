@@ -23,7 +23,11 @@ object CoffeeScriptCompiler {
   def apply(useDirective: Option[Use], iced: Boolean, options: (Symbol, Any)*): CoffeeScriptCompiler = {
     val reader = {
       val src = if (iced) "/META-INF/script/iced-coffee-script.js" else "/META-INF/script/coffee-script.js"
-      new InputStreamReader(getClass().getResourceAsStream(src), "UTF-8")
+      Option(getClass().getResourceAsStream(src)) match {
+        case Some(stream) ⇒ new InputStreamReader(stream, "UTF-8")
+        case None ⇒ throw new IllegalStateException("Cannot find compiler script in classpath: " + src)
+      }
+
     }
     this.apply(reader, useDirective, options: _*)
   }
