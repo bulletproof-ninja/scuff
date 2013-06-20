@@ -49,7 +49,7 @@ class TestSequencer {
     seen.reverse.foreach { case (s, t) ⇒ assertEquals(expected, s); assertEquals(expected, t); expected += 1 }
   }
 
-  @Test(expected = classOf[DuplicateSequenceNumberException])
+  @Test(expected = classOf[MonotonicSequencer.DuplicateSequenceNumberException])
   def `Duplicates must be detected and an exception thrown` {
     val sequencer = new MonotonicSequencer[Long, java.lang.Long](consumer, 5)
     sequencer.apply(4L, 4L)

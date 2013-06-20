@@ -14,12 +14,15 @@ import reflect.ClassTag
  * @param dupeConsumer Duplicate consumer. Optional, defaults to throwing a [DuplicateSequenceReceived].
  * If a lower than expected sequence number is received, this function is called instead of the pass-through consumer.
  */
-// TODO: Re-enable specialization once this is fixed (if ever): https://issues.scala-lang.org/browse/SI-4012
-class MonotonicSequencer[S, T >: Null <: AnyRef](
-    private val consumer: (S, T) ⇒ Unit,
+final class MonotonicSequencer[@specialized(Int, Long) S, T >: Null <: AnyRef](
+    consumer: (S, T) ⇒ Unit,
     private var expectedSeqNum: S,
-    private val bufferLimit: Int = 0,
-    private val dupeConsumer: (S, T) ⇒ Unit = (s: S, t: T) ⇒ throw new DuplicateSequenceNumberException(s))(implicit seqType: Numeric[S], manifest: ClassTag[T]) {
+    bufferLimit: Int = 0,
+    gapHandler: MonotonicSequencer.GapHandler[S] = MonotonicSequencer.NoOpGapHandler[S],
+    dupeConsumer: (S, T) ⇒ Unit = (s: S, t: T) ⇒ throw new MonotonicSequencer.DuplicateSequenceNumberException(s))(implicit seqType: Numeric[S], manifest: ClassTag[T]) {
+
+  def this(consumer: (S, T) ⇒ Unit, expectedSeqNum: S, bufferLimit: Int, dupeConsumer: (S, T) ⇒ Unit)(implicit seqType: Numeric[S], manifest: ClassTag[T]) =
+    this(consumer, expectedSeqNum, bufferLimit, MonotonicSequencer.NoOpGapHandler[S], dupeConsumer)
 
   private def incrementSeqNum() = expectedSeqNum = seqType.plus(expectedSeqNum, seqType.one)
   private def add(s: S, i: Int) = seqType.plus(s, seqType.fromInt(i))
@@ -51,12 +54,15 @@ class MonotonicSequencer[S, T >: Null <: AnyRef](
     } else {
       update(s, t)
       if (array.isSequenced) {
-        flushBuffer()
+        gapClosed()
       }
     }
   }
 
-  protected def flushBuffer() = array.purge(purgeHandler)
+  private def gapClosed() {
+    array.purge(purgeHandler)
+    gapHandler.gapClosed()
+  }
 
   private def update(seq: S, t: T) {
     val idx = subtract(seq, offset)
@@ -73,10 +79,11 @@ class MonotonicSequencer[S, T >: Null <: AnyRef](
     array(idx) = t
   }
 
-  protected def gapDetected(expectedSeqNum: S, actualSeqNum: S, t: T) {
+  private def gapDetected(expectedSeqNum: S, actualSeqNum: S, t: T) {
     if (!array.isEmpty) array.clear()
     offset = expectedSeqNum
     update(actualSeqNum, t)
+    gapHandler.gapDetected(expectedSeqNum, actualSeqNum)
   }
 
   private final class NotNullArray(array: Array[T], private var size: Int = 0, private var maxIdx: Int = -1) {
@@ -151,4 +158,15 @@ class MonotonicSequencer[S, T >: Null <: AnyRef](
 
 }
 
-class DuplicateSequenceNumberException(val seq: Any) extends RuntimeException("Duplicate sequence number received: " + seq)
+object MonotonicSequencer {
+  trait GapHandler[@specialized(Int, Long) S] {
+    def gapDetected(expectedSeqNum: S, actualSeqNum: S): Unit
+    def gapClosed(): Unit
+  }
+  def NoOpGapHandler[S] = new GapHandler[S] {
+    def gapDetected(expectedSeqNum: S, actualSeqNum: S): Unit = {}
+    def gapClosed(): Unit = {}
+  }
+
+  class DuplicateSequenceNumberException(val seq: Any) extends RuntimeException("Duplicate sequence number received: " + seq)
+}
