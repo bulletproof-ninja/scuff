@@ -6,18 +6,16 @@ import scuff.Mongolia._
 import concurrent.duration._
 
 /**
-  * Keep track of handled [[Transaction]]s, so process can resume
-  * after shutdown.
-  */
-abstract class MongoEventConsumer[ID <% BsonValue, EVT, CAT <% BsonValue](
-    dbColl: DBCollection,
-  txnDocID: BsonValue)
+ * Keep track of handled [[Transaction]]s, so process can resume
+ * after shutdown.
+ */
+abstract class MongoEventConsumer[ID <% BsonValue, EVT, CAT <% BsonValue](dbColl: DBCollection)
     extends scuff.es.PersistentEventConsumer[ID, EVT, CAT] {
 
   /**
-    * Worst case clock-skew, when database is sharded.
-    */
-  protected def clockSkew: Duration = 1.seconds
+   * Worst case clock-skew, when database is sharded.
+   */
+  protected def clockSkew: Duration = 5.seconds
   protected def writeConcern: WriteConcern = WriteConcern.UNACKNOWLEDGED
 
   private[this] val syncLock = new AnyRef
@@ -25,7 +23,7 @@ abstract class MongoEventConsumer[ID <% BsonValue, EVT, CAT <% BsonValue](
   private[this] val revDocQry = obj()
 
   final def resumeFrom: Option[scuff.Timestamp] = syncLock.synchronized {
-    dbColl.find(obj(), obj("_id" := EXCLUDE, "time" := INCLUDE)).sort("time" := DESC).limit(1).nextOpt.map { doc ⇒
+    dbColl.find(obj(), obj("_id" := EXCLUDE, "time" := INCLUDE)).first("time" := DESC).map { doc ⇒
       val time = doc("time").as[Long]
       new scuff.Timestamp(time - clockSkew.toMillis)
     }
