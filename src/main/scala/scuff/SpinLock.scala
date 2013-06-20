@@ -1,18 +1,25 @@
 package scuff
 
 /**
- * Spin lock. Useful for code that wants to avoid
+ * Reentrant spin lock. Useful for code that wants to avoid
  * context switching on contention.
  */
 final class SpinLock {
-  private[this] val lock = new java.util.concurrent.atomic.AtomicBoolean(false)
+  private[this] val lock = new java.util.concurrent.atomic.AtomicReference[Thread]
 
+  @annotation.tailrec
   def whenLocked[T](code: ⇒ T): T = {
-    while (!lock.compareAndSet(false, true)) {}
-    try {
+    if (lock.compareAndSet(null, Thread.currentThread)) {
+      try {
+        code
+      } finally {
+        lock.set(null)
+      }
+    } else if (lock.get() == Thread.currentThread) {
       code
-    } finally {
-      lock.set(false)
+    } else {
+      whenLocked(code)
     }
   }
+
 }
