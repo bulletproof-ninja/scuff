@@ -3,39 +3,110 @@ package scuff.redis
 import redis.clients.jedis._
 import redis.clients.util._
 import java.util.concurrent._
+import collection.JavaConverters._
+import java.util.concurrent.locks._
 
-class RedisChannel[A](channelName: String, info: JedisShardInfo, subscriberThread: Executor, serializer: scuff.Serializer[A]) extends scuff.Channel {
+/**
+ * NOTICE: This class will monopolize
+ * a single thread from the given `Executor`.
+ * But only one, regardless of number of
+ * subscribers.
+ */
+class RedisChannel[A](
+  channelName: String,
+  info: JedisShardInfo,
+  subscriberThread: Executor,
+  errorHandler: Exception ⇒ Unit,
+  serializer: scuff.Serializer[A])
+    extends scuff.Channel {
 
-  def this(channelName: String, info: JedisShardInfo, subscriberThreadFactory: ThreadFactory, serializer: scuff.Serializer[A]) =
-    this(channelName, info, Executors.newSingleThreadExecutor(subscriberThreadFactory), serializer)
+  def this(
+    channelName: String,
+    info: JedisShardInfo,
+    subscriberThreadFactory: ThreadFactory,
+    errorHandler: Exception ⇒ Unit,
+    serializer: scuff.Serializer[A]) =
+    this(channelName, info, Executors.newSingleThreadExecutor(subscriberThreadFactory), errorHandler, serializer)
 
-  def this(channelName: String, info: JedisShardInfo, serializer: scuff.Serializer[A] = new scuff.JavaSerializer[A]) =
-    this(channelName, info, scuff.ThreadFactory(classOf[RedisChannel[_]].getName), serializer)
+  def this(
+    channelName: String,
+    info: JedisShardInfo,
+    errorHandler: Exception ⇒ Unit = (e) ⇒ e.printStackTrace(System.err),
+    serializer: scuff.Serializer[A] = new scuff.JavaSerializer[A]) =
+    this(channelName, info, scuff.ThreadFactory(classOf[RedisChannel[_]].getName), errorHandler, serializer)
 
   type F = Nothing
   type L = A ⇒ Unit
   private[this] val byteName = SafeEncoder.encode(channelName)
-  def subscribe(subscriber: L, filter: Nothing ⇒ Boolean) = {
-    val jedisSubscriber = new BinaryJedisPubSub {
-      def onMessage(channel: Array[Byte], msg: Array[Byte]) = subscriber(serializer.back(msg))
-      def onPMessage(pattern: Array[Byte], channel: Array[Byte], msg: Array[Byte]) {}
-      def onPSubscribe(channel: Array[Byte], noSubs: Int) {}
-      def onPUnsubscribe(channel: Array[Byte], noSubs: Int) {}
-      def onSubscribe(channel: Array[Byte], noSubs: Int) {}
-      def onUnsubscribe(channel: Array[Byte], noSubs: Int) {}
+
+  private val (shared, exclusive, newSubscriber) = {
+    val rwLock = new ReentrantReadWriteLock
+    val exclusive = rwLock.writeLock
+    (rwLock.readLock, exclusive, exclusive.newCondition)
+  }
+  private def whenLocked[T](l: Lock)(f: ⇒ T): T = {
+    l.lock()
+    try { f } finally {
+      l.unlock()
     }
-    subscriberThread execute new Runnable {
-      val jedis = new BinaryJedis(info)
-      override def run = try {
-        jedis.connect()
-        jedis.subscribe(jedisSubscriber, byteName)
-      } finally {
-        jedis.disconnect()
+  }
+  private val subscribers = collection.mutable.Buffer[L]()
+
+  private val jedisSubscriber = new BinaryJedisPubSub {
+    def onMessage(channel: Array[Byte], msg: Array[Byte]) {
+      val aMsg = serializer.back(msg)
+      whenLocked(shared) {
+        subscribers.foreach { sub ⇒
+          try { sub(aMsg) } catch {
+            case e: Exception ⇒ errorHandler(e)
+          }
+        }
       }
+    }
+    def onPMessage(pattern: Array[Byte], channel: Array[Byte], msg: Array[Byte]) {}
+    def onPSubscribe(channel: Array[Byte], noSubs: Int) {}
+    def onPUnsubscribe(channel: Array[Byte], noSubs: Int) {}
+    def onSubscribe(channel: Array[Byte], noSubs: Int) {}
+    def onUnsubscribe(channel: Array[Byte], noSubs: Int) {}
+  }
+
+  private[this] val jedis = new BinaryJedis(info)
+  subscriberThread execute new Runnable {
+    def run = while (!Thread.currentThread.isInterrupted) try {
+      awaitSubscribers()
+      consumeMessages()
+    } catch {
+      case _: InterruptedException ⇒ Thread.currentThread().interrupt()
+      case e: Exception ⇒ errorHandler(e)
+    }
+
+    def awaitSubscribers() = whenLocked(exclusive) {
+      while (subscribers.isEmpty) {
+        newSubscriber.await()
+      }
+    }
+
+    def consumeMessages() = try {
+      jedis.connect()
+      jedis.subscribe(jedisSubscriber, byteName)
+    } finally {
+      jedis.disconnect()
+    }
+  }
+  def subscribe(subscriber: L, filter: Nothing ⇒ Boolean) = {
+    whenLocked(exclusive) {
+      if (subscribers.isEmpty) {
+        newSubscriber.signal()
+      }
+      subscribers += subscriber
     }
     new scuff.Subscription {
-      def cancel() = jedisSubscriber.unsubscribe()
+      def cancel() = whenLocked(exclusive) {
+        subscribers -= subscriber
+        if (subscribers.isEmpty) {
+          jedisSubscriber.unsubscribe()
+        }
       }
-
     }
+  }
 }
