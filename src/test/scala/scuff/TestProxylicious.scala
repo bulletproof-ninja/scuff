@@ -33,6 +33,18 @@ class TestProxylicious {
     assertEquals(121, multiply(11, 11))
     assertEquals(121 * 2, withDoubling(11, 11))
   }
+  @Test def `interface` {
+    trait Pure {
+      def foo: Int
+    }
+      def handler(p: Pure, method: Method, args: Array[AnyRef]): Any = {
+        assertEquals("foo", method.getName)
+        42
+      }
+    val p = new Proxylicious[Pure]
+    val pure = p.proxify(handler)
+    assertEquals(42, pure.foo)
+  }
   @Test def `retrying` {
     val multiply = new Multiply with ThirtiethTimesACharm
     val proxyfier = new util.RetryOnExceptionProxylicious[Arithmetic, IllegalStateException]
@@ -46,22 +58,22 @@ class TestProxylicious {
     assertEquals(42, retryingMultiply(6, 7))
   }
 
-trait Arithmetic {
-  def apply(a: Int, b: Int): Int
-}
-class Multiply extends Arithmetic {
-  def apply(a: Int, b: Int) = a * b
-}
-
-trait ThirtiethTimesACharm extends Arithmetic {
-  private var invoCount = 0
-  abstract override def apply(a: Int, b: Int) = {
-    invoCount += 1
-    if (invoCount < 30)
-      throw new IllegalStateException
-    else
-      super.apply(a, b)
+  trait Arithmetic {
+    def apply(a: Int, b: Int): Int
   }
+  class Multiply extends Arithmetic {
+    def apply(a: Int, b: Int) = a * b
+  }
+
+  trait ThirtiethTimesACharm extends Arithmetic {
+    private var invoCount = 0
+    abstract override def apply(a: Int, b: Int) = {
+      invoCount += 1
+      if (invoCount < 30)
+        throw new IllegalStateException
+      else
+        super.apply(a, b)
+    }
   }
 
 }
