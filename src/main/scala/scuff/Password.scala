@@ -51,108 +51,31 @@ final class Password(passwordDigest: Array[Byte], val algorithm: String, saltByt
     Arrays.equals(this.digested, compareDigest)
   }
 
-  override def toString = "Password(algorithm=\"%s\", length=%d)".format(algorithm, length)
+  override def toString = "Password(algorithm=\"%s\", length=%d, iterations=%d)".format(algorithm, length, iterations)
 }
 
 object Password {
   import java.security.MessageDigest
   private val randomizer = new java.security.SecureRandom
 
-  def randomSalt(size: Int): Array[Byte] = {
+  private def randomSalt(size: Int): Array[Byte] = {
     val array = new Array[Byte](size)
     randomizer.nextBytes(array)
     array
   }
 
-  final val DefaultAlgo = "SHA-256"
-  private val DefaultIterations = Left(1)
-
-  /**
-   * Construct from clear text password and salt using provided digest algorithm.
-   * @param password Clear text password.
-   * @param salt Password salt
-   * @param algorithm Digest algorithm to use
-   * @param fixedIterations The fixed number of iterations spent digesting password
-   */
-  def apply(password: String, salt: Array[Byte], algorithm: String, fixedIterations: Int) = {
-    val (bytes, iterations) = digestion(password, salt, algorithm, Left(fixedIterations))
-    new Password(bytes, DefaultAlgo, salt, iterations)
+  def apply(password: String)(implicit config: Config): Password = {
+    val salt = randomSalt(config.saltLength)
+    val (bytes, iterations) = digestion(password, salt, config.algorithm, config.iterative)
+    new Password(bytes, config.algorithm, salt, iterations)
   }
-
-  /**
-   * Construct from clear text password and salt using provided digest algorithm.
-   * @param password Clear text password.
-   * @param salt Password salt
-   * @param algorithm Digest algorithm to use
-   * @param minDuration The minimum time to iteratively digesting password
-   */
-  def apply(password: String, salt: Array[Byte], algorithm: String, minDuration: Duration) = {
-    val (bytes, iterations) = digestion(password, salt, algorithm, Right(minDuration))
-    new Password(bytes, DefaultAlgo, salt, iterations)
-  }
-
-  /**
-   * Construct from clear text password and salt using provided digest algorithm.
-   * @param password Clear text password.
-   * @param salt Password salt
-   * @param minDuration The minimum time to iteratively digesting password
-   */
-  def apply(password: String, salt: Array[Byte], minDuration: Duration) = {
-    val (bytes, iterations) = digestion(password, salt, DefaultAlgo, Right(minDuration))
-    new Password(bytes, DefaultAlgo, salt, iterations)
-  }
-  /**
-   * Construct from clear text password and salt using provided digest algorithm.
-   * @param password Clear text password.
-   * @param salt Password salt
-   * @param fixedIterations The fixed number of iterations spent digesting password
-   */
-  def apply(password: String, salt: Array[Byte], fixedIterations: Int) = {
-    val (bytes, iterations) = digestion(password, salt, DefaultAlgo, Left(fixedIterations))
-    new Password(bytes, DefaultAlgo, salt, iterations)
-  }
-
-  /**
-   * Construct from clear text password and salt using provided digest algorithm.
-   * @param password Clear text password.
-   * @param salt Password salt
-   * @param algorithm Digest algorithm to use
-   */
-  def apply(password: String, salt: Array[Byte], algorithm: String) = {
-    val (bytes, iterations) = digestion(password, salt, algorithm, DefaultIterations)
-    new Password(bytes, algorithm, salt, iterations)
-  }
-  /**
-   * Construct from clear text password and salt using default digest algorithm.
-   * @param password Clear text password.
-   * @param salt Password salt
-   */
-  def apply(password: String, salt: Array[Byte]) = {
-    val (bytes, iterations) = digestion(password, salt, DefaultAlgo, DefaultIterations)
-    new Password(bytes, DefaultAlgo, salt, iterations)
-  }
-  /**
-   * Construct from clear text password and desired digest algorithm, no salt.
-   * @param password Clear text password.
-   * @param algorithm Digest algorithm to use
-   */
-  def apply(password: String, algorithm: String) = {
-    val (bytes, iterations) = digestion(password, Array.empty, algorithm, DefaultIterations)
-    new Password(bytes, algorithm, Array.empty, iterations)
-  }
-  /**
-   * Construct from clear text password using default digest algorithm, no salt.
-   * @param password Clear text password.
-   * @param algorithm Digest algorithm to use
-   */
-  def apply(password: String): Password = apply(password, Array[Byte]())
 
   private val charset = Charset.forName("UTF-8")
 
-  private def digestion(password: String, salt: Array[Byte], algo: String, iterations: Either[Int, Duration]): (Array[Byte], Int) = {
+  private def digestion(password: String, salt: Array[Byte], algo: String, iterative: Either[Int, Duration]): (Array[Byte], Int) = {
     val md = MessageDigest.getInstance(algo)
     val passwordBytes = password.getBytes(charset)
-    iterations match {
+    iterative match {
       case Left(iterations) ⇒
         var soFar = 0
         val result = digestUntil(md, salt, passwordBytes) {
@@ -182,4 +105,34 @@ object Password {
       digestUntil(md, salt, digested)(done)
     }
   }
+
+  /**
+    * Configuration.
+    * @param algorithm The digest algorithm. This string must be understood by [[java.security.MessageDigest]]
+    * @param saltLength The length of the random salt generated. Can be 0 for no salt.
+    * @param iterative Defines how to digest iteratively. Can be either a fixed number (at least 1),
+    * or a minimum duration (don't go overboard here). Using a duration will be adaptive to the hardware
+    * it's running on, and makes digestion time more predictable.
+    */
+  case class Config(algorithm: String, saltLength: Int, iterative: Either[Int, Duration]) {
+    require(MessageDigest.getInstance(algorithm) != null)
+    require(saltLength >= 0, "Negative salt length is nonsensical")
+    iterative match {
+      case Left(iterations) ⇒ require(iterations > 0, "Must have at least one iteration: " + iterations)
+      case Right(duration) ⇒ require(duration.isFinite, "Must be a finite duration: " + duration)
+    }
+    /**
+      * @param algorithm The digest algorithm. This string must be understood by [[java.security.MessageDigest]]
+      * @param saltLength The length of the random salt generated. Can be 0 for no salt.
+      * @param iterations Number of times to iterate the digest. Must be at least 1.
+      */
+    def this(algorithm: String, saltLength: Int, iterations: Int) = this(algorithm, saltLength, Left(iterations))
+    /**
+      * @param algorithm The digest algorithm. This string must be understood by [[java.security.MessageDigest]]
+      * @param saltLength The length of the random salt generated. Can be 0 for no salt.
+      * @param digestDuration Minimum amount of time spent on iterative digestion
+      */
+    def this(algorithm: String, saltLength: Int, digestDuration: Duration) = this(algorithm, saltLength, Right(digestDuration))
+  }
+
 }
