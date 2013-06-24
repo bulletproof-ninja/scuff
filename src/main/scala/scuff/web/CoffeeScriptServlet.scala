@@ -2,14 +2,14 @@ package scuff.web
 
 import javax.servlet._
 import http._
-
+import HttpHeaders._
 import scuff.js._
 
 /**
-  * Perform on-the-fly conversion of CoffeeScript
-  * to JavaScript.
-  */
-class CoffeeScriptServlet extends HttpServlet {
+ * Perform on-the-fly conversion of CoffeeScript
+ * to JavaScript.
+ */
+abstract class CoffeeScriptServlet extends HttpServlet {
   import CoffeeScriptCompiler.Use
 
   protected def newCoffeeCompiler() = CoffeeScriptCompiler(Use.Strict, false, 'bare -> false)
@@ -34,11 +34,15 @@ class CoffeeScriptServlet extends HttpServlet {
     }
   }
 
+  /** Max age, in seconds. */
+  protected def maxAge(req: HttpServletRequest): Int
+
   override def doGet(req: HttpServletRequest, res: HttpServletResponse) {
     try {
       compile(req.getServletPath) match {
         case Some((js, lastMod)) ⇒
-          res.setDateHeader("Last-Modified", lastMod)
+          res.setDateHeader(LastModified, lastMod)
+          res.setHeader(CacheControl, "max-age=" + maxAge(req))
           res.setCharacterEncoding("UTF-8")
           res.setContentType("text/javascript")
           res.getWriter.print(js)
