@@ -540,8 +540,9 @@ object Mongolia {
       }
     }
 
-    def as[T](converters: Map[Class[_], BsonValue ⇒ Any] = Map.empty)(implicit manifest: ClassTag[T]): T =
-      if (manifest.runtimeClass.isInterface) getProxy(this, converters) else throw new IllegalArgumentException("%s must be an interface".format(manifest.runtimeClass))
+    def like[T](implicit manifest: ClassManifest[T]): T = like(Map.empty[Class[_], BsonValue ⇒ Any])
+    def like[T](converters: Map[Class[_], BsonValue ⇒ Any])(implicit manifest: ClassManifest[T]): T =
+      if (manifest.erasure.isInterface) getProxy(this, converters) else throw new IllegalArgumentException("%s must be an interface".format(manifest.erasure))
 
     def isEmpty = underlying match {
       case m: java.util.Map[_, _] ⇒ m.isEmpty
@@ -654,13 +655,11 @@ object Mongolia {
       }
       buffer
     }
-    def flatMap[T](f: RichDBObject ⇒ Option[T]): Seq[T] = {
+
+    def flatMap[T](f: RichDBObject ⇒ collection.GenTraversableOnce[T]): Seq[T] = {
       val buffer = collection.mutable.Buffer[T]()
       foreach { dbo ⇒
-        f(dbo) match {
-          case Some(t) ⇒ buffer += t
-          case None ⇒ // Filter out
-        }
+        f(dbo).foreach(buffer += _)
       }
       buffer
     }
@@ -809,7 +808,8 @@ object Mongolia {
     classOf[scuff.EmailAddress] -> Val2Eml,
     classOf[scuff.Password] -> Val2Pwd,
     classOf[java.net.URL] -> Val2URL,
-    classOf[java.net.URI] -> Val2URI)
+    classOf[java.net.URI] -> Val2URI
+  )
 
   private def convertProxyValue(value: BsonField, asType: Class[_], converters: Map[Class[_], BsonValue ⇒ Any]) = converters.get(asType) match {
     case Some(converter) ⇒ value.as(converter)
