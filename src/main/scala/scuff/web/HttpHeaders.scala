@@ -8,5 +8,5 @@ object HttpHeaders {
   final val IfNoneMatch = "If-None-Match"
   final val IfMatch = "If-Match"
   final val IfModifiedSince = "If-Modified-Since"
-
+  final val CacheControl = "Cache-Control"
 }
