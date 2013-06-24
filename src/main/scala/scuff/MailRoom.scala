@@ -6,12 +6,15 @@ import javax.activation.DataHandler
 
 import java.net.{ InetSocketAddress, InetAddress }
 
-import javax.mail._, internet.{ MimeMessage, InternetAddress }
+import javax.mail._
+import javax.mail.internet._
 import javax.mail.util.ByteArrayDataSource
 
 class MailRoom(session: Session, headers: (String, String)*) {
   def this(smtpServer: InetSocketAddress, username: String, password: String, headers: (String, String)*) = this(MailRoom.makeSession(smtpServer, Some(username, password)), headers: _*)
   def this(smtpServer: InetSocketAddress, headers: (String, String)*) = this(MailRoom.makeSession(smtpServer, None), headers: _*)
+
+  import MailRoom._
 
   /**
    * Send email.
@@ -22,21 +25,22 @@ class MailRoom(session: Session, headers: (String, String)*) {
    * @throws MessagingException If email could not be sent
    */
   @throws(classOf[MessagingException])
-  def send(from: InternetAddress, subject: String, body: Document, toAll: Iterable[InternetAddress]) {
-    val contentType = new javax.mail.internet.ContentType(body.mimeType)
-    contentType.getParameter("charset") match {
-      case null ⇒ contentType.setParameter("charset", body.encoding)
-      case cs ⇒ require(cs.toUpperCase == body.encoding.toUpperCase, "MIME-type charset and encoding do not match: %s vs. %s".format(cs, body.encoding))
-    }
-    val out = new ByteArrayOutputStream
-    val wrt = new BufferedWriter(new OutputStreamWriter(out, body.encoding))
-    body.dump(wrt)
-    wrt.close()
+  def send(from: InternetAddress, subject: String, body: Document, toAll: Iterable[InternetAddress], attachments: Attachment*) {
     val msg = new MimeMessage(session)
     msg.setFrom(from)
     msg.setRecipients(Message.RecipientType.TO, toAll.toArray[Address])
     msg.setSubject(subject)
-    msg.setDataHandler(new DataHandler(new ByteArrayDataSource(out.toByteArray, contentType.toString)))
+    val multipart = new MimeMultipart
+    val bodyPart = new MimeBodyPart
+    bodyPart.setDataHandler(toDataHandler(body))
+    multipart.addBodyPart(bodyPart)
+    attachments.foreach { attachment ⇒
+      val part = new MimeBodyPart
+      part.setFileName(attachment.name)
+      part.setDataHandler(toDataHandler(attachment))
+      multipart.addBodyPart(part)
+    }
+    msg.setContent(multipart)
     headers.foreach {
       case (key, value) ⇒ msg.setHeader(key, value)
     }
@@ -67,6 +71,26 @@ object MailRoom {
 
   private final val DefaultSmtpPort = 25
 
+  private def toDataHandler(doc: Document) = {
+    val out = new ByteArrayOutputStream
+    val wrt = new BufferedWriter(new OutputStreamWriter(out, doc.encoding))
+    doc.dump(wrt)
+    wrt.close()
+    val contentType = new javax.mail.internet.ContentType(doc.mimeType)
+    contentType.getParameter("charset") match {
+      case null ⇒ contentType.setParameter("charset", doc.encoding)
+      case cs ⇒ require(cs.toUpperCase == doc.encoding.toUpperCase, "MIME-type charset and encoding do not match: %s vs. %s".format(cs, doc.encoding))
+    }
+    new DataHandler(new ByteArrayDataSource(out.toByteArray, contentType.toString))
+  }
+  private def toDataHandler(doc: Attachment) = {
+    val out = new ByteArrayOutputStream
+    doc.dump(out)
+    out.close()
+    val contentType = new javax.mail.internet.ContentType(doc.mimeType)
+    new DataHandler(new ByteArrayDataSource(out.toByteArray, contentType.toString))
+  }
+
   private def makeSession(smtpServer: InetSocketAddress, userPass: Option[(String, String)]) = {
     val props = new java.util.Properties
     props.setProperty("mail.smtp.host", smtpServer.getHostName)
@@ -80,6 +104,28 @@ object MailRoom {
         }
     }.getOrElse(null)
     Session.getInstance(props, auth)
+  }
+
+  trait Attachment {
+    def name: String
+    def dump(out: OutputStream)
+    def mimeType: String
+  }
+  class DocAttachment(doc: Document, val name: String) extends Attachment {
+    require(name != null, "Must have document name")
+    def dump(out: OutputStream) {
+      val writer = new OutputStreamWriter(out)
+      doc.dump(writer)
+      writer.close()
+    }
+    def mimeType: String = doc.mimeType
+  }
+  class FileAttachment(file: File, val mimeType: String, altName: String = null) extends Attachment {
+    val name = Option(altName).getOrElse(file.getName)
+    def dump(out: OutputStream) {
+      val is = new FileInputStream(file)
+      IO.copyStream(is -> out)
+    }
   }
 
 }
