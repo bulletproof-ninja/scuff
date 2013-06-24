@@ -22,11 +22,15 @@ class TestGeoPoint {
 
   @Test()
   def `out of positive bounds` {
-    assertEquals(None, GeoPoint.parse("-23,34534 : 180,54642"))
+    assertTrue(GeoPoint.parse("-23,34534 : 180,54642").isFailure)
   }
 
   @Test()
   def `out of negative bounds` {
-    assertEquals(None, GeoPoint.parse("-230.34534 : 179,54642"))
+    assertTrue(GeoPoint.parse("-230.34534 : 179,54642").isFailure)
+  }
+  @Test
+  def `invalid` {
+    assertTrue(GeoPoint.parse("23").isFailure)
   }
 }

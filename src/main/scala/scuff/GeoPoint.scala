@@ -6,16 +6,17 @@ case class GeoPoint(latitude: Float, longitude: Float) {
 }
 
 object GeoPoint {
-  private val regex = """((-?\d{1,3})\D(\d+))[^\d-]+((-?\d{1,3})\D(\d+))""".r
+  import scala.util.Try
+  private val regex = """^(-?\d{1,3})(?:[.,·'](\d*))?[^\d-]+(-?\d{1,3})(?:[.,·'](\d*))?$""".r
   private def verify(name: String, latLon: Float) = require(-180f <= latLon && latLon <= 180f, "Invalid " + name + ": " + latLon)
-  def parse(str: String) = try {
-    regex.findFirstMatchIn(str).map { m ⇒
-      val lat = (m.group(2) + "." + m.group(3)).toFloat
-      val lng = (m.group(5) + "." + m.group(6)).toFloat
+  def parse(str: String): Try[GeoPoint] = Try {
+    regex.findFirstMatchIn(str) match {
+      case None ⇒ throw new IllegalArgumentException("Cannot parse: \"%s\"".format(str))
+      case Some(m) ⇒
+        val lat = (m.group(1) + "." + m.group(2)).toFloat
+        val lng = (m.group(3) + "." + m.group(4)).toFloat
       new GeoPoint(lat, lng)
     }
-  } catch {
-    case e: Exception ⇒ None
   }
 }
 
