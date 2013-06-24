@@ -279,8 +279,8 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
         assertEquals("""{"foo":"bar","nested":{"two":2,"three":3,"fortytwo":42},"definite":666,"list2":[1,2.0,3]}""", foo.toString)
       }
     val doc = obj("foo" := "bar", "nested" := obj("two" := 2, "three" := 3, "fortytwo" := 42), "definite" := 666, "list2" := arr(1, 2f, 3L))
-    assertStuff(doc.as[Foo]())
-    parseJsonObject("""{"foo":"bar","nested":{"two":2,"three":3,"fortytwo":42},"definite":666,"list2":[1,2.0,3]}""").map(_.as[Foo]()) match {
+    assertStuff(doc.like[Foo])
+    parseJsonObject("""{"foo":"bar","nested":{"two":2,"three":3,"fortytwo":42},"definite":666,"list2":[1,2.0,3]}""").map(_.like[Foo]) match {
       case None ⇒ fail("Where's the object?")
       case Some(foo) ⇒ assertStuff(foo)
     }

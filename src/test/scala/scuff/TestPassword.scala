@@ -5,10 +5,14 @@ import org.junit.Assert._
 
 class TestPassword {
 
+  implicit def config(algo: String) = new Password.Config(algo, 0, 1)
+  implicit def config(salt: Int) = new Password.Config("SHA-256", salt, 1)
+  implicit val config: Password.Config = config("SHA-256")
+
   @Test def equality() {
     val str = "pAssWord9"
-    val pwd = Password(str, "sha")
-    val p2 = Password(str, "SHA")
+    val pwd = Password(str)("sha")
+    val p2 = Password(str)("SHA")
     assertEquals(pwd, p2)
     assertFalse(p2.equals(str))
     assertFalse(p2.equals(p2.toString))
@@ -16,16 +20,16 @@ class TestPassword {
 
   @Test def matching() {
     val str = "pAssWord9"
-    val pwd = Password(str, "sha")
+    val pwd = Password(str)("sha")
     assertTrue(pwd.matches(str))
     assertEquals(java.security.MessageDigest.getInstance("SHA").getDigestLength, pwd.digest.length)
   }
 
   @Test def digestLength {
     val str = "pAssWord9"
-    val sha = Password(str, "sha")
+    val sha = Password(str)("sha")
     assertEquals(java.security.MessageDigest.getInstance("SHA").getDigestLength, sha.digest.length)
-    val sha512 = Password(str, "SHA-512")
+    val sha512 = Password(str)("SHA-512")
     assertEquals(java.security.MessageDigest.getInstance(sha512.algorithm).getDigestLength, sha512.digest.length)
   }
 
@@ -37,17 +41,18 @@ class TestPassword {
 
   @Test def salty {
     val str = "パスワードは"
-    val salt = Password.randomSalt(7)
-    val pwd = Password(str, salt)
+    val pwd = Password(str)(7)
     assertTrue(pwd.matches(str))
   }
 
   @Test def slowButSafe {
     import concurrent.duration._
-    val crunchTime = 20.milliseconds
+    val config = new Password.Config("SHA-256", 7, 133.milliseconds)
     val str = "Foo and Bar went for a walk with パスワードは"
-    val salt = Password.randomSalt(7)
-    val pwd = Password(str, salt, crunchTime)
+    val before = System.currentTimeMillis()
+    val pwd = Password(str)(config)
+    val msSpent = System.currentTimeMillis - before
+    assertTrue(msSpent >= 133)
     assertTrue(pwd.matches(str))
   }
 }
