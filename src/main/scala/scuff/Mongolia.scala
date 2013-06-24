@@ -540,9 +540,9 @@ object Mongolia {
       }
     }
 
-    def like[T](implicit manifest: ClassManifest[T]): T = like(Map.empty[Class[_], BsonValue ⇒ Any])
-    def like[T](converters: Map[Class[_], BsonValue ⇒ Any])(implicit manifest: ClassManifest[T]): T =
-      if (manifest.erasure.isInterface) getProxy(this, converters) else throw new IllegalArgumentException("%s must be an interface".format(manifest.erasure))
+    def like[T](implicit tag: ClassTag[T]): T = like(Map.empty[Class[_], BsonValue ⇒ Any])
+    def like[T](converters: Map[Class[_], BsonValue ⇒ Any])(implicit tag: ClassTag[T]): T =
+      if (tag.runtimeClass.isInterface) getProxy(this, converters) else throw new IllegalArgumentException("%s must be an interface".format(manifest.runtimeClass))
 
     def isEmpty = underlying match {
       case m: java.util.Map[_, _] ⇒ m.isEmpty
@@ -808,8 +808,7 @@ object Mongolia {
     classOf[scuff.EmailAddress] -> Val2Eml,
     classOf[scuff.Password] -> Val2Pwd,
     classOf[java.net.URL] -> Val2URL,
-    classOf[java.net.URI] -> Val2URI
-  )
+    classOf[java.net.URI] -> Val2URI)
 
   private def convertProxyValue(value: BsonField, asType: Class[_], converters: Map[Class[_], BsonValue ⇒ Any]) = converters.get(asType) match {
     case Some(converter) ⇒ value.as(converter)
