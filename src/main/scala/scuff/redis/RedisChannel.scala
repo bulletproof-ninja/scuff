@@ -35,7 +35,7 @@ class RedisChannel[A](
     serializer: scuff.Serializer[A] = new scuff.JavaSerializer[A]) =
     this(channelName, info, scuff.ThreadFactory(classOf[RedisChannel[_]].getName), errorHandler, serializer)
 
-  type F = Nothing
+  type F = A
   type L = A ⇒ Unit
   private[this] val byteName = SafeEncoder.encode(channelName)
 
@@ -50,7 +50,10 @@ class RedisChannel[A](
       l.unlock()
     }
   }
-  private val subscribers = collection.mutable.Buffer[L]()
+  private class FilteredSubscriber(sub: L, allow: F ⇒ Boolean) {
+    def apply(a: A) = if (allow(a)) sub(a)
+  }
+  private val subscribers = collection.mutable.Buffer[FilteredSubscriber]()
 
   private val jedisSubscriber = new BinaryJedisPubSub {
     def onMessage(channel: Array[Byte], msg: Array[Byte]) {
@@ -93,16 +96,17 @@ class RedisChannel[A](
       jedis.disconnect()
     }
   }
-  def subscribe(subscriber: L, filter: Nothing ⇒ Boolean) = {
+  def subscribe(subscriber: L, filter: A ⇒ Boolean) = {
+    val filteredSub = new FilteredSubscriber(subscriber, filter)
     whenLocked(exclusive) {
       if (subscribers.isEmpty) {
         newSubscriber.signal()
       }
-      subscribers += subscriber
+      subscribers += filteredSub
     }
     new scuff.Subscription {
       def cancel() = whenLocked(exclusive) {
-        subscribers -= subscriber
+        subscribers -= filteredSub
         if (subscribers.isEmpty) {
           jedisSubscriber.unsubscribe()
         }
