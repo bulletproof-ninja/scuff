@@ -7,21 +7,16 @@ import org.bson.types._
 import scuff.es.util.MongoEventStore
 
 /**
-  * Stores events, using this format:
-  * {{{
-  *   {
-  *     name: "EventName",
-  *     version: 4,
-  *     data: {}
-  *     }
-  * }}}
-  */
-abstract class MongoDomainEventStore[ID, CAT](
-
-  collection: DBCollection)(
-    implicit idConv: scuff.Transformer[ID, BsonValue],
-    catConv: scuff.Transformer[CAT, BsonValue])
-
+ * Stores events, using this format:
+ * {{{
+ *   {
+ *     name: "EventName",
+ *     version: 4,
+ *     data: {}
+ *     }
+ * }}}
+ */
+abstract class MongoDomainEventStore[ID, CAT](collection: DBCollection)(implicit idConv: scuff.Transformer[ID, BsonValue], catConv: scuff.Transformer[CAT, BsonValue])
     extends MongoEventStore[ID, DomainEvent, CAT](collection) {
 
   protected def snapshotData(evt: DomainEvent): DBObject
@@ -30,8 +25,7 @@ abstract class MongoDomainEventStore[ID, CAT](
   final protected def toDBObject(evt: DomainEvent): DBObject = obj(
     "name" := evt.eventName,
     "version" := evt.typeVersion,
-    "data" := snapshotData(evt)
-  )
+    "data" := snapshotData(evt))
   final protected def toEvent(dbo: DBObject): DomainEvent = {
     val name = dbo.getAs[String]("name")
     val version = dbo.getAs[Int]("version").asInstanceOf[Short]

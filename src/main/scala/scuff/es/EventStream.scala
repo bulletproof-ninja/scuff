@@ -1,9 +1,10 @@
 package scuff.es
 
-import java.util.concurrent._
+//import java.util.concurrent._
 import scuff._
 import scuff.ddd._
-import scala.concurrent.Future
+import scala.concurrent._
+import scala.util._
 
 /**
  * Event stream, which guarantees consistent ordering,
@@ -21,27 +22,31 @@ trait EventStream[ID, EVT, CAT] { self: EventSource[ID, EVT, CAT] ⇒
    * Consumer must be thread safe as event delivery
    * threading is implementation specific.
    */
-  def resume(extConsumer: CS, categories: CAT*): Subscription = {
-    val intConsumer = new TransactionSequencer(extConsumer, categories.toSet)
-    // Replay first, to avoid potentially
-    // massive out-of-sequence allocation.
-    extConsumer.resumeFrom() match {
-      case None ⇒ replay(categories: _*)(_.foreach(intConsumer))
-      case Some(timestamp) ⇒ this.replayFrom(timestamp, categories: _*)(_.foreach(intConsumer))
+  def resume(extConsumer: CS, categories: CAT*): Future[Subscription] = {
+    val seqConsumer: TXN ⇒ Unit = new TransactionSequencer(extConsumer)
+      def handler(txns: Iterator[TXN]) = txns.foreach(seqConsumer)
+    // Replay first to catch up and avoid
+    // large out-of-sequence allocation.
+    val futureConsumption = extConsumer.resumeFrom() match {
+      case None ⇒ replay(categories: _*)(handler)
+      case Some(timestamp) ⇒ this.replayFrom(timestamp, categories: _*)(handler)
     }
-    // Then subscribe
-    val subscription = subscribe(intConsumer)
-    // Then replay again, to eliminate any possible race condition 
-    // between first replay and subscription.
-    extConsumer.resumeFrom() match {
-      case None ⇒ // Ignore, nothing has happened, ever
-      case Some(timestamp) ⇒ replayFrom(timestamp, categories: _*)(_.foreach(intConsumer))
+    futureConsumption.flatMap { _ ⇒
+      // And *then* subscribe
+      val categorySet = categories.toSet
+      val sub = subscribe(seqConsumer, categorySet.isEmpty || categorySet.contains(_))
+      // Then replay again, to eliminate any possible race 
+      // condition between first replay and subscription.
+      extConsumer.resumeFrom() match {
+        case None ⇒ Future.successful(sub)
+        case Some(timestamp) ⇒
+          replayFrom(timestamp, categories: _*)(handler).map(_ ⇒ sub)
+      }
     }
-    subscription
   }
 
   private[this] val DupeConsumer = (revision: Long, txn: TXN) ⇒ () // Ignore duplicates
-  private final class TransactionSequencer(consumer: CS, filter: Set[CAT]) extends (TXN ⇒ Unit) {
+  private final class TransactionSequencer(consumer: CS) extends (TXN ⇒ Unit) {
     private[this] val sequencers = new LockFreeConcurrentMap[ID, (MS, SpinLock)]
     private def expectedRevision(id: ID) = consumer.lastProcessedRev(id).getOrElse(-1L) + 1L
     private[this] val seqConsumer = (revision: Long, txn: TXN) ⇒ consumer.consume(txn)
@@ -73,18 +78,14 @@ trait EventStream[ID, EVT, CAT] { self: EventSource[ID, EVT, CAT] ⇒
         case Some((sequencer, lock)) ⇒ lock.whenLocked(sequencer.apply(txn.revision, txn))
       }
     }
-    def apply(txn: TXN) = if (filter.isEmpty || filter.contains(txn.category)) ensureSequence(txn)
+    def apply(txn: TXN) = ensureSequence(txn)
 
     override val toString = consumer.toString
 
     private class GapHandler(id: ID) extends MonotonicSequencer.GapHandler[Long] {
       def gapDetected(expectedRevision: Long, actualRevision: Long): Unit =
-        Future {
-          replayStreamRange(id, expectedRevision until actualRevision) { txns ⇒
-            txns.foreach(ensureSequence)
-          }
-        }.onFailure {
-          case e: Exception ⇒ e.printStackTrace(System.err)
+        replayStreamRange(id, expectedRevision until actualRevision) { txns ⇒
+          txns.foreach(ensureSequence)
         }
       def gapClosed() = sequencers.remove(id)
     }

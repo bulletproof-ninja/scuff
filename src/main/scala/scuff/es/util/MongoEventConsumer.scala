@@ -15,7 +15,7 @@ abstract class MongoEventConsumer[ID <% BsonValue, EVT, CAT <% BsonValue](dbColl
   /**
    * Worst case clock-skew, when database is sharded.
    */
-  protected def clockSkew: Duration = 5.seconds
+  protected def clockSkew: Duration = 2.seconds
   protected def writeConcern: WriteConcern = WriteConcern.UNACKNOWLEDGED
 
   private[this] val syncLock = new AnyRef

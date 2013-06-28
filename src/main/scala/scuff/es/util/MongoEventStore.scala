@@ -8,6 +8,9 @@ import java.util.Date
 import scuff.es.DuplicateRevisionException
 import scuff.es.EventStore
 
+import concurrent._
+import scala.util._
+
 private object MongoEventStore {
   final val OrderByTime_asc = obj("time" := ASC)
   final val OrderByRevision_asc = obj("_id.rev" := ASC)
@@ -36,9 +39,12 @@ private object MongoEventStore {
  *   }
  * }}}
  */
-abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idConv: Transformer[ID, BsonValue], catConv: Transformer[CAT, BsonValue]) extends EventStore[ID, EVT, CAT] {
+abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idConv: Transformer[ID, BsonValue], catConv: Transformer[CAT, BsonValue])
+    extends EventStore[ID, EVT, CAT] {
+
   import MongoEventStore._
 
+  protected[this] implicit def execCtx: ExecutionContext
   protected[this] implicit val idConvForth = idConv.forth _
   protected[this] implicit val idConvBack = idConv.back _
   protected[this] implicit val catConvForth = catConv.forth _
@@ -58,25 +64,25 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
       toBsonList(tail, list)
   }
 
-  def replayStream[T](stream: ID)(callback: Iterator[Transaction] ⇒ T): T = {
+  def replayStream[T](stream: ID)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
     query("_id.stream" := stream, OrderByRevision_asc, callback)
   }
 
-  def replayStreamSince[T](stream: ID, sinceRevision: Long)(callback: Iterator[Transaction] ⇒ T): T = {
+  def replayStreamSince[T](stream: ID, sinceRevision: Long)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
     val filter = obj(
       "_id" := obj(
         "stream" := stream,
         "rev" := $gt(sinceRevision)))
     query(filter, OrderByRevision_asc, callback)
   }
-  def replayStreamTo[T](stream: ID, toRevision: Long)(callback: Iterator[Transaction] ⇒ T): T = {
+  def replayStreamTo[T](stream: ID, toRevision: Long)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
     val filter = obj(
       "_id" := obj(
         "stream" := stream,
         "rev" := $lte(toRevision)))
     query(filter, OrderByRevision_asc, callback)
   }
-  def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.NumericRange[Long])(callback: Iterator[Transaction] ⇒ T): T = {
+  def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.NumericRange[Long])(callback: Iterator[Transaction] ⇒ T): Future[T] = {
     val lowerBound = $gte(revisionRange.head)
     val upperBound = if (revisionRange.isInclusive) $lte("_id.rev" := revisionRange.last) else $lt("_id.rev" := revisionRange.last)
     val filter = obj(
@@ -87,7 +93,7 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     query(filter, OrderByRevision_asc, txnCallback)
   }
 
-  def replay[T](categories: CAT*)(txnHandler: Iterator[Transaction] ⇒ T): T = {
+  def replay[T](categories: CAT*)(txnHandler: Iterator[Transaction] ⇒ T): Future[T] = {
     val filter = categories.length match {
       case 0 ⇒ obj()
       case 1 ⇒ obj("category" := categories.head)
@@ -96,7 +102,7 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     query(filter, OrderByTime_asc, txnHandler)
   }
 
-  def replayFrom[T](fromTime: Date, categories: CAT*)(txnHandler: Iterator[Transaction] ⇒ T): T = {
+  def replayFrom[T](fromTime: Date, categories: CAT*)(txnHandler: Iterator[Transaction] ⇒ T): Future[T] = {
     val filter = obj("time" := $gte(fromTime))
     categories.length match {
       case 0 ⇒ // Ignore
@@ -106,7 +112,8 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     query(filter, OrderByTime_asc, txnHandler)
   }
 
-  def record(category: CAT, stream: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]) {
+  // TODO: Make non-blocking once supported by the driver.
+  def record(category: CAT, stream: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Future[Unit] = Future {
     val timestamp = new scuff.Timestamp
     val doc = obj(
       "_id" := obj(
@@ -121,22 +128,25 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     } catch {
       case _: MongoException.DuplicateKey ⇒ throw new DuplicateRevisionException
     }
-    publish(new Transaction(timestamp, category, stream, revision, metadata, events))
-  }
+    new Transaction(timestamp, category, stream, revision, metadata, events)
+  }.andThen {
+    case Success(txn) ⇒ publish(txn)
+  }.map(_ ⇒ Unit)
 
-  private def tryRecord(category: CAT, stream: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Long = try {
+  private def tryRecord(category: CAT, stream: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Future[Long] = Future {
     record(category, stream, revision, events, metadata)
     revision
-  } catch {
+  }.recoverWith {
     case _: DuplicateRevisionException ⇒ tryRecord(category, stream, revision + 1L, events, metadata)
   }
 
-  def append(category: CAT, stream: ID, events: List[_ <: EVT], metadata: Map[String, String]): Long = {
+  def append(category: CAT, stream: ID, events: List[_ <: EVT], metadata: Map[String, String]): Future[Long] = {
     val revision = store.find("_id.stream" := stream).first(OrderByRevision_desc).map(_.apply("_id.rev").as[Long]).getOrElse(-1L) + 1L
     tryRecord(category, stream, revision, events, metadata)
   }
 
-  private def query[T](filter: DBObject, ordering: DBObject, handler: Iterator[Transaction] ⇒ T): T = {
+  // TODO: Make non-blocking once supported by the driver.
+  private def query[T](filter: DBObject, ordering: DBObject, handler: Iterator[Transaction] ⇒ T): Future[T] = Future {
     import collection.JavaConverters._
     val cursor = store.find(filter).sort(ordering)
     try {

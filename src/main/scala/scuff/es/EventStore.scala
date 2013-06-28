@@ -1,5 +1,7 @@
 package scuff.es
 
+import concurrent.Future
+
 private object EventSource {
   final def writeTransaction(t: AnyRef, out: java.io.ObjectOutputStream) {
     val txn = t.asInstanceOf[EventSource[Any, Any, Any]#Transaction]
@@ -48,10 +50,10 @@ trait EventSource[ID, EVT, CAT] extends scuff.Channel {
     private def readObject(in: java.io.ObjectInputStream) = EventSource.readTransaction(this, in)
   }
 
-  def replayStream[T](stream: ID)(callback: Iterator[Transaction] ⇒ T): T
-  def replayStreamSince[T](stream: ID, sinceRevision: Long)(callback: Iterator[Transaction] ⇒ T): T
-  def replayStreamTo[T](stream: ID, toRevision: Long)(callback: Iterator[Transaction] ⇒ T): T
-  def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.NumericRange[Long])(callback: Iterator[Transaction] ⇒ T): T
+  def replayStream[T](stream: ID)(callback: Iterator[Transaction] ⇒ T): Future[T]
+  def replayStreamSince[T](stream: ID, sinceRevision: Long)(callback: Iterator[Transaction] ⇒ T): Future[T]
+  def replayStreamTo[T](stream: ID, toRevision: Long)(callback: Iterator[Transaction] ⇒ T): Future[T]
+  def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.NumericRange[Long])(callback: Iterator[Transaction] ⇒ T): Future[T]
 
   /**
    * Play back transactions, optionally filtered by one or more categories.
@@ -59,7 +61,7 @@ trait EventSource[ID, EVT, CAT] extends scuff.Channel {
    * @param categories: Optional categories filter
    * @param callback Callback function
    */
-  def replay[T](categories: CAT*)(callback: Iterator[Transaction] ⇒ T): T
+  def replay[T](categories: CAT*)(callback: Iterator[Transaction] ⇒ T): Future[T]
 
   /**
    * Play back events for all instances from a given time forward, optionally
@@ -69,7 +71,7 @@ trait EventSource[ID, EVT, CAT] extends scuff.Channel {
    * @param categories: Optional categories filter
    * @param callback Callback function
    */
-  def replayFrom[T](fromTime: java.util.Date, categories: CAT*)(callback: Iterator[Transaction] ⇒ T): T
+  def replayFrom[T](fromTime: java.util.Date, categories: CAT*)(callback: Iterator[Transaction] ⇒ T): Future[T]
 
 }
 
@@ -83,10 +85,9 @@ trait EventStore[ID, EVT, CAT] extends EventSource[ID, EVT, CAT] {
    * @param streamId Event stream identifier
    * @param revision Event stream revision, which is expected to be committed
    * @param events The events
-   * @throws DuplicateRevisionException if the expected revision has already been committed. Try, try again.
+   * @return Potential DuplicateRevisionException if the expected revision has already been committed. Try, try again.
    */
-  @throws(classOf[DuplicateRevisionException])
-  def record(category: CAT, streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String] = Map.empty)
+  def record(category: CAT, streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String] = Map.empty): Future[Unit]
 
   /**
    * Append events into a particular stream, then publish the transaction to subscribers.
@@ -94,7 +95,7 @@ trait EventStore[ID, EVT, CAT] extends EventSource[ID, EVT, CAT] {
    * @param streamID Event stream identifier
    * @param events The events
    * @param metadata Optional metadata
-   * @return revision Event stream revision, which was committed
+   * @return revision Event stream revision that was committed
    */
-  def append(category: CAT, streamID: ID, events: List[_ <: EVT], metadata: Map[String, String] = Map.empty): Long
+  def append(category: CAT, streamID: ID, events: List[_ <: EVT], metadata: Map[String, String] = Map.empty): Future[Long]
 }
