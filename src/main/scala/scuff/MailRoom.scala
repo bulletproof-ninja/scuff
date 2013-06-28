@@ -91,7 +91,7 @@ object MailRoom {
     new DataHandler(new ByteArrayDataSource(out.toByteArray, contentType.toString))
   }
 
-  private def makeSession(smtpServer: InetSocketAddress, userPass: Option[(String, String)]) = {
+  def makeSession(smtpServer: InetSocketAddress, userPass: Option[(String, String)], otherProps: Map[String, Any] = Map.empty) = {
     val props = new java.util.Properties
     props.setProperty("mail.smtp.host", smtpServer.getHostName)
     props.setProperty("mail.smtp.port", smtpServer.getPort.toString)
@@ -103,6 +103,9 @@ object MailRoom {
           override def getPasswordAuthentication = new PasswordAuthentication(user, pass)
         }
     }.getOrElse(null)
+    otherProps.foreach {
+      case (key, value) ⇒ props.setProperty(key, String.valueOf(value))
+    }
     Session.getInstance(props, auth)
   }
 
