@@ -90,4 +90,26 @@ class TestParser {
     }
   }
 
+  @Test
+  def `string constructor` {
+    trait Foo {
+      def email: scuff.EmailAddress
+    }
+    val parser = new Parser[Foo]
+    parser.onePass(Map("email" -> Seq("abc@def.gh"))) match {
+      case Right(foo) ⇒ assertEquals("abc@def.gh", foo.email.toString)
+    }
+  }
+
+  @Test
+  def `factory method` {
+    trait Foo {
+      def addr: java.net.InetAddress
+    }
+    val parser = new Parser[Foo]
+    parser.onePass(Map("addr" -> Seq("localhost"))) match {
+      case Right(foo) ⇒ assertEquals("localhost", foo.addr.getHostName)
+    }
+  }
+
 }

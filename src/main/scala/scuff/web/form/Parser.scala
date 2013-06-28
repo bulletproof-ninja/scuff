@@ -2,7 +2,7 @@ package scuff.web.form
 
 import reflect.ClassTag
 import scuff.Proxylicious
-import util.Try
+import util._
 import java.lang.reflect.Method
 
 object Parser {
@@ -13,8 +13,6 @@ object Parser {
   private def toDouble(s: String) = s.toDouble
   private def toLong(s: String) = s.toLong
   private def toBD(s: String) = BigDecimal(s)
-  private def toEmail(s: String) = new scuff.EmailAddress(s)
-  private def toURL(s: String) = new java.net.URL(s)
   private def toBoolean(s: String) = s.toLowerCase match {
     case "true" | "1" | "yes" ⇒ true
     case "false" | "0" | "no" ⇒ false
@@ -35,8 +33,6 @@ object Parser {
     classOf[Long] -> toLong,
     classOf[java.lang.Long] -> toLong,
     classOf[BigDecimal] -> toBD,
-    classOf[scuff.EmailAddress] -> toEmail,
-    classOf[java.net.URL] -> toURL,
     classOf[Boolean] -> toBoolean,
     classOf[scuff.GeoPoint] -> toGeoPoint)
 }
@@ -68,14 +64,38 @@ class Parser[T](implicit tag: ClassTag[T]) {
     getterMethods.map(m ⇒ m.getName -> new ReturnType(m.getReturnType, m.getGenericReturnType)).toMap
   }
 
+  protected def converters: Map[Class[_], String ⇒ Any] = Parser.DefaultConverters
+
   /**
    * This method will never be called with an empty/null string value,
    * so it's expected to always return a value or throw exception if unable
    * to do so.
    */
   protected def convert(name: String, value: String, toType: Class[_]): Any = {
-    Parser.DefaultConverters.get(toType) match {
-      case None ⇒ sys.error(s"""Cannot convert "$value" to $toType""")
+    converters.get(toType) match {
+      case None ⇒
+        import java.lang.reflect.{ Constructor, Modifier }
+        val constructors = toType.getConstructors().filter { ctor ⇒
+          val parmTypes = ctor.getParameterTypes()
+          parmTypes.length == 1 && parmTypes(0) == classOf[String]
+        }
+        constructors match {
+          case Array(ctor) ⇒ ctor.newInstance(value)
+          case _ ⇒
+            val factoryMethods = toType.getMethods().filter { method ⇒
+              Modifier.isStatic(method.getModifiers) &&
+                method.getReturnType() == toType &&
+                {
+                  val parmTypes = method.getParameterTypes()
+                  parmTypes.length == 1 && parmTypes(0) == classOf[String]
+                }
+            }
+            factoryMethods match {
+              case Array(factoryMethod) ⇒ factoryMethod.invoke(null, value)
+              case _ ⇒ // None or ambiguous
+                sys.error("Cannot convert \"" + value + "\" to " + toType)
+            }
+        }
       case Some(conv) ⇒ conv(value)
     }
   }
