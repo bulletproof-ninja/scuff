@@ -3,7 +3,7 @@ package scuff.web
 import scuff.redis.RedisConnectionPool
 import javax.servlet._
 import javax.servlet.http._
-import scuff.redis.RedisStringKeyHashMap
+import scuff.redis.util.RedisStringKeyHashMap
 import scuff.JavaSerializer
 
 /**

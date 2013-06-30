@@ -1,4 +1,4 @@
-package scuff.redis
+package scuff.redis.util
 
 import _root_.redis.clients.util.SafeEncoder
 
