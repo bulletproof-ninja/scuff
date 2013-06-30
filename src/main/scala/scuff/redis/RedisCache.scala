@@ -73,7 +73,10 @@ class RedisCache[K, V](val defaultTTL: Int, conn: CONNECTION, keySer: scuff.Seri
     }
   }
 
-  def disable() = connection(_.flushDB); disabled = true
+  def disable() {
+    connection(_.flushDB)
+    disabled = true
+  }
 
   import collection.JavaConverters._
 
