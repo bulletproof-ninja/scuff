@@ -11,16 +11,22 @@ import scala.concurrent._
  */
 abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](implicit idConv: AR#ID ⇒ ESID) extends Repository[AR] {
 
-  implicit protected def execCtx: ExecutionContext
+  protected def errHandler(t: Throwable)
+
+  implicit protected def execCtx: ExecutionContext = new ExecutionContext {
+    def execute(r: Runnable) = r.run()
+    def reportFailure(t: Throwable) = errHandler(t)
+  }
   protected val eventStore: EventStore[ESID, _ >: AR#EVT <: DomainEvent, CAT]
 
+  /** Domain state type. */
   protected type S
   private type TXN = eventStore.Transaction
 
   /**
-   * Create new state mutator instance.
+   * Create new state mutator for rebuilding state.
    */
-  protected def newStateMutator(snapshotState: Option[S]): DomainStateMutator[AR#EVT, S]
+  protected def newStateMutator(snapshotState: Option[S]): StateMutator[AR#EVT, S]
 
   /**
    * Create an aggregate root instance, using the provided data and revision.
@@ -32,7 +38,8 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
    */
   protected def newAggregateRoot(id: AR#ID, revision: Long, state: S, concurrentUpdates: List[_ <: AR#EVT]): AR
 
-  protected def loadSnapshot(id: AR#ID): Future[Option[(S, Long)]] = Future.successful(None)
+  private[this] val NoFuture = Future.successful(None)
+  protected def loadSnapshot(id: AR#ID): Future[Option[(S, Long)]] = NoFuture
   protected def saveSnapshot(id: AR#ID, revision: Long, state: S) {}
 
   private[this] def loadRevision(id: AR#ID, revision: Long): Future[AR] = {
@@ -53,7 +60,16 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
     }
   }
 
+  @inline protected def now() = System.currentTimeMillis()
+  /**
+   * Notification for every aggregate loaded.
+   * Can be used for statistics gathering,
+   * or to determine snapshotting.
+   */
+  protected def onLoadNotification(id: AR#ID, revision: Long, timeMs: Long) {}
+
   private def loadLatest(id: AR#ID, lastSeenRevision: Long = Long.MaxValue): Future[AR] = {
+    val startTime = now()
     val futureMutator = loadSnapshot(id).map { snapshot ⇒
       snapshot match {
         case Some((state, revision)) ⇒ (newStateMutator(Some(state)), Some(revision))
@@ -89,6 +105,7 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
     futureState.map {
       case None ⇒ throw new UnknownIdException(id)
       case Some((state, revision, concurrentUpdates)) ⇒
+        onLoadNotification(id, revision, now() - startTime)
         saveSnapshot(id, revision, state)
         newAggregateRoot(id, revision, state, concurrentUpdates)
     }

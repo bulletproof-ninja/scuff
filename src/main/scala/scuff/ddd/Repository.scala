@@ -16,6 +16,7 @@ trait Repository[AR <: AggregateRoot] {
    */
   def load(id: AR#ID, revision: Option[Long] = None): Future[AR]
   final def load(id: (AR#ID, Long)): Future[AR] = load(id._1, Some(id._2))
+  final def load(id: AR#ID, revision: Long): Future[AR] = load(id, Some(revision))
 
   /**
    * Update aggregate. Changes are committed and any revision conflict is
