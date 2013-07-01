@@ -491,12 +491,14 @@ object Mongolia {
       this
     }
     def rename(fromTo: (String, String), transform: BsonField ⇒ BsonValue = null): Unit = {
-      val removed = underlying.removeField(fromTo._1)
-      if (transform == null) {
-        underlying.put(fromTo._2, removed)
-      } else {
-        val value = transform(BsonField(removed, null, fromTo._1))
-        this.add(fromTo._2 := value)
+      if (underlying.containsField(fromTo._1)) {
+        val removed = underlying.removeField(fromTo._1)
+        if (transform == null) {
+          underlying.put(fromTo._2, removed)
+        } else {
+          val value = transform(BsonField(removed, null, fromTo._1))
+          this.add(fromTo._2 := value)
+        }
       }
     }
     def raw = this
