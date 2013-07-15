@@ -1,10 +1,9 @@
-package scuff.es.util
+package scuff.eventual.util
 
-import scuff.ddd._
+//import scuff.ddd._
 import scuff._
 import java.util.Date
-import scuff.es.DuplicateRevisionException
-import scuff.es.EventStore
+//import scuff.eventual._
 
 import concurrent._
 import scala.util._
@@ -12,7 +11,7 @@ import scala.util._
 /**
  * Non-persistent implementation, probably only useful for testing.
  */
-abstract class InMemoryEventStore[ID, EVT, CAT](implicit execCtx: ExecutionContext) extends EventStore[ID, EVT, CAT] {
+abstract class InMemoryEventStore[ID, EVT, CAT](implicit execCtx: ExecutionContext) extends eventual.EventStore[ID, EVT, CAT] {
 
   protected[this] def txn2cat(txn: Transaction): CAT
 
@@ -41,7 +40,7 @@ abstract class InMemoryEventStore[ID, EVT, CAT](implicit execCtx: ExecutionConte
           txnList += txn
           txn
         } else if (expectedRevision > revision) {
-          throw new DuplicateRevisionException
+          throw new eventual.DuplicateRevisionException(streamId, revision)
         } else {
           throw new IllegalStateException
         }

@@ -1,7 +1,7 @@
 package scuff.redis
 
-import redis.clients.jedis._
-import redis.clients.util.SafeEncoder._
+import _root_.redis.clients.jedis._
+import _root_.redis.clients.util._
 
 /**
  * Redis Hash implementation of [[scala.collection.mutable.ConcurrentMap]].
@@ -15,46 +15,46 @@ class RedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Serialize
 
   implicit private def connection[T] = conn.asInstanceOf[(Jedis ⇒ T) ⇒ T]
 
-  private[this] val hkey = encode(name)
+  private[this] val hkey = SafeEncoder.encode(name)
 
-  def set(field: K, value: V) = connection(_.hset(hkey, keySer.forth(field), valueSer.forth(value)))
+  def set(field: K, value: V) = connection(_.hset(hkey, keySer.encode(field), valueSer.encode(value)))
 
-  override def contains(field: K): Boolean = connection(_.hexists(hkey, keySer.forth(field)))
+  override def contains(field: K): Boolean = connection(_.hexists(hkey, keySer.encode(field)))
 
   override def keySet(): Set[K] = keys.toSet
   override def keys(): Iterable[K] = {
     val keys = connection(_.hkeys(hkey))
-    keys.asScala.view.map(keySer.back)
+    keys.asScala.view.map(keySer.decode)
   }
   override def values(): Iterable[V] = {
     val values = connection(_.hvals(hkey))
-    values.asScala.view.map(valueSer.back)
+    values.asScala.view.map(valueSer.decode)
   }
 
   override def put(field: K, value: V): Option[V] = {
-    val hfield = keySer.forth(field)
+    val hfield = keySer.encode(field)
     val prev = transaction { txn ⇒
       val prev = txn.hget(hkey, hfield)
-      txn.hset(hkey, hfield, valueSer.forth(value))
+      txn.hset(hkey, hfield, valueSer.encode(value))
       prev
     }
-    Option(prev.get).map(valueSer.back)
+    Option(prev.get).map(valueSer.decode)
   }
   override def remove(field: K): Option[V] = {
-    val hfield = keySer.forth(field)
+    val hfield = keySer.encode(field)
     val removed = transaction { txn ⇒
       val removed = txn.hget(hkey, hfield)
       txn.hdel(hkey, hfield)
       removed
     }
-    Option(removed.get).map(valueSer.back)
+    Option(removed.get).map(valueSer.decode)
   }
   def -=(field: K): this.type = {
-    connection(_.hdel(hkey, keySer.forth(field)))
+    connection(_.hdel(hkey, keySer.encode(field)))
     this
   }
   def +=(entry: (K, V)): this.type = {
-    connection(_.hset(hkey, keySer.forth(entry._1), valueSer.forth(entry._2)))
+    connection(_.hset(hkey, keySer.encode(entry._1), valueSer.encode(entry._2)))
     this
   }
   def get(field: K): Option[V] = Option(getOrNull(field))
@@ -66,31 +66,31 @@ class RedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Serialize
   }
   private def getOrNull(field: K): V = {
     connection { jedis ⇒
-      jedis.hget(hkey, keySer.forth(field)) match {
+      jedis.hget(hkey, keySer.encode(field)) match {
         case null ⇒ null.asInstanceOf[V]
-        case bytes ⇒ valueSer.back(bytes)
+        case bytes ⇒ valueSer.decode(bytes)
       }
     }
   }
-  def setIfAbsent(field: K, value: V): Boolean = connection(_.hsetnx(hkey, keySer.forth(field), valueSer.forth(value)) == 1L)
+  def setIfAbsent(field: K, value: V): Boolean = connection(_.hsetnx(hkey, keySer.encode(field), valueSer.encode(value)) == 1L)
 
   def putIfAbsent(field: K, value: V): Option[V] = {
-    val hfield = keySer.forth(field)
+    val hfield = keySer.encode(field)
     val (prevValResp, successResp) = transaction { txn ⇒
-      txn.hget(hkey, hfield) -> txn.hsetnx(hkey, hfield, valueSer.forth(value))
+      txn.hget(hkey, hfield) -> txn.hsetnx(hkey, hfield, valueSer.encode(value))
     }
     if (successResp.get == 1L) {
       None
     } else {
-      Option(prevValResp.get).map(valueSer.back)
+      Option(prevValResp.get).map(valueSer.decode)
     }
   }
 
-  def del(field: K): Boolean = connection(_.hdel(hkey, keySer.forth(field)) == 1L)
+  def del(field: K): Boolean = connection(_.hdel(hkey, keySer.encode(field)) == 1L)
 
   def iterator(): Iterator[(K, V)] = {
     val mapped = connection(_.hgetAll(hkey)).entrySet.asScala.view.map { entry ⇒
-      keySer.back(entry.getKey) -> valueSer.back(entry.getValue)
+      keySer.decode(entry.getKey) -> valueSer.decode(entry.getValue)
     }
     mapped.iterator
   }

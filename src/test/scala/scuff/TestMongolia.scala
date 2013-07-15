@@ -10,7 +10,7 @@ class TestMongolia {
   @Test
   def `bson object` {
     val oid = new ObjectId("506c53b0a025ec577423ef92")
-    val timestamp = new scuff.Timestamp(1349276592614L)
+    val timestamp = new Timestamp(1349276592614L)
     val uuid = java.util.UUID.fromString("650c1d1c-3a1d-479c-a3fd-9c707e9288c4")
     val opt: Option[Int] = None
     val list = List("a", "b")
@@ -45,7 +45,7 @@ class TestMongolia {
     assertEquals("""{"newUUID":{"$uuid":"650c1d1c-3a1d-479c-a3fd-9c707e9288c4"},"oldUUID":{"$uuid":"650c1d1c-3a1d-479c-a3fd-9c707e9288c4"}}""", doc.toJson)
     assertEquals(uuid, doc("newUUID").as[java.util.UUID])
     assertEquals(uuid, doc("oldUUID").as[java.util.UUID])
-    val bytes = UUID2Val(uuid).raw.asInstanceOf[Binary]
+    val bytes = UUIDCdc.encode(uuid).raw.asInstanceOf[Binary]
     val binary4 = new com.mongodb.util.Base64Codec().encode(bytes.getData)
     assertEquals("ZQwdHDodR5yj/ZxwfpKIxA==", binary4)
   }
@@ -60,6 +60,16 @@ class TestMongolia {
   def increment {
     val obj = $inc("age" := 45L, "days" := -34.34)
     assertEquals("""{"$inc":{"age":45,"days":-34.34}}""", obj.toJson)
+  }
+
+  @Test
+  def geoPoint {
+    val gp = GeoPoint.parse("35.027311, -111.023075", 1.23f).get
+    val dbo = obj("location" := gp)
+    assertEquals("""{"location":{"type":"Point","coordinates":[-111.0230712890625,35.02730941772461],"radius":1.2300000190734863}}""", dbo.toJson)
+    assertEquals("""{"location":{"type":"Point","coordinates":[-111.0230712890625,35.02730941772461]}}""", obj("location" := gp.copy(radius = 0f)).toJson)
+    assertEquals("""{"location":{"$near":{"$geometry":{"type":"Point","coordinates":[-111.0230712890625,35.02730941772461]},"$maxDistance":1.2300000190734863}}}""", obj("location" := $near(gp)).toJson)
+    assertEquals("""{"location":{"$near":{"$geometry":{"type":"Point","coordinates":[-111.0230712890625,35.02730941772461]}}}}""", obj("location" := $near(gp.copy(radius = 0f))).toJson)
   }
 
   @Test
@@ -110,10 +120,12 @@ class TestMongolia {
 
   @Test
   def array {
-      implicit def col2val(color: java.awt.Color) = color.getRGB: BsonValue
-      implicit def val2col(bson: BsonValue) = bson.raw match {
+    implicit val ColCdc = new Codec[java.awt.Color, BsonValue] {
+      def encode(color: java.awt.Color): BsonValue = IntCdc.encode(color.getRGB)
+      def decode(bson: BsonValue) = bson.raw match {
         case i: Int ⇒ java.awt.Color.decode(i.toString)
       }
+    }
     val array = Array(java.awt.Color.BLACK, java.awt.Color.BLUE)
     val doc = obj("array" := array)
     val newArray = Array[AnyRef](doc("array").asSeq[java.awt.Color]: _*)
@@ -154,18 +166,6 @@ class TestMongolia {
     assertEquals("""["A","B","C"]""", dbo.toJson)
     val list = dbo.asSeq[String]
     assertEquals(Seq("A", "B", "C"), list)
-  }
-
-  @Test
-  def chars {
-    val foo = obj("a" := 'A', "b" := 'B', "c" := 'C')
-    assertEquals('A', foo("a").as[Char])
-    assertEquals('B', foo("b").as[Char])
-    assertEquals('C', foo("c").as[Char])
-    val bar = obj("d" := "D", "e" := "E", "f" := "F")
-    assertEquals('D', bar("d").as[Char])
-    assertEquals('E', bar("e").as[Char])
-    assertEquals('F', bar("f").as[Char])
   }
 
   @Test
@@ -253,6 +253,12 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
   }
 
   @Test
+  def `value props` {
+    val foo = obj("foo" := $size(42))
+    assertEquals("""{"foo":{"$size":42}}""", foo.toJson)
+  }
+
+  @Test
   def interfaces {
     trait Foo {
       def foo: String
@@ -276,14 +282,22 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
         assertEquals(Seq(), foo.list)
         assertEquals(666, foo.definite.get)
         assertEquals(Seq(1d, 2d, 3d), foo.list2)
-        assertEquals("""{"foo":"bar","nested":{"two":2,"three":3,"fortytwo":42},"definite":666,"list2":[1,2.0,3]}""", foo.toString)
+        assertEquals("""{"foo":"bar","nested":{"two":2,"three":3,"fortytwo":42},"definite":666,"list2":[1.0,2.0,3.0]}""", foo.toString)
       }
     val doc = obj("foo" := "bar", "nested" := obj("two" := 2, "three" := 3, "fortytwo" := 42), "definite" := 666, "list2" := arr(1, 2f, 3L))
     assertStuff(doc.like[Foo])
-    parseJsonObject("""{"foo":"bar","nested":{"two":2,"three":3,"fortytwo":42},"definite":666,"list2":[1,2.0,3]}""").map(_.like[Foo]) match {
+    parseJsonObject("""{"foo":"bar","nested":{"two":2,"three":3,"fortytwo":42},"definite":666,"list2":[1.0,2.0,3.0]}""").map(_.like[Foo]) match {
       case None ⇒ fail("Where's the object?")
       case Some(foo) ⇒ assertStuff(foo)
     }
+  }
+
+  @Test
+  def `null or None` {
+    val foo = obj("foo" := $ne(None))
+    assertEquals("""{"foo":{"$ne":null}}""", foo.toJson)
+    val bar = obj("bar" := obj("$ne" := null))
+    assertEquals("""{"bar":{"$ne":null}}""", bar.toJson)
   }
 
   @Test
@@ -299,9 +313,17 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
     val map = Map[ObjectId, Int]()
     val doc = obj()
     doc.rename("fooId" -> "foo", fooId ⇒
-      fooId.opt[ObjectId].flatMap(map.get(_).map(_ * 2))
-    )
-    println(doc)
+      fooId.opt[ObjectId].flatMap(map.get(_).map(_ * 2)))
+    assertEquals("{}", doc.toJson)
+  }
+
+  @Test
+  def transformMissing {
+    val map = Map[ObjectId, Int]()
+    val doc = obj()
+    doc.rename("fooId" -> "foo", fooId ⇒
+      fooId.opt[ObjectId].flatMap(map.get(_).map(_ * 2)))
+    assertEquals("{}", doc.toJson)
   }
 
 }

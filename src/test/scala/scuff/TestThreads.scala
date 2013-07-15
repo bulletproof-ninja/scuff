@@ -4,10 +4,10 @@ import org.junit._
 import org.junit.Assert._
 import java.util.concurrent._
 
-class TestThreadFactory extends Serializable {
+class TestThreads extends Serializable {
   @Test
   def foo {
-    val tf = ThreadFactory("MyThread")
+    val tf = Threads.factory("MyThread")
     val latch = new CountDownLatch(1)
     val thread = tf newThread new Runnable {
       def run = latch.countDown()

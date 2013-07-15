@@ -9,41 +9,41 @@ object FuzzyScheduler {
   trait FuzzyRunnable extends Runnable {
     @volatile private[this] var alive = true
     /**
-      * Handle exception.
-      * Rethrow to bubble up to underlying executor service
-      * (NOTE: rethrow will potentially affect other jobs),
-      * or call `stop()` to stop this orderly.
-      * Or do something else and continue scheduling.
-      * This method exists to ensure excplicit exception
-      * handling. It could be done inside `run` method,
-      * but it's often forgotten.
-      */
+     * Handle exception.
+     * Rethrow to bubble up to underlying executor service
+     * (NOTE: rethrow will potentially affect other jobs),
+     * or call `stop()` to stop this orderly.
+     * Or do something else and continue scheduling.
+     * This method exists to ensure explicit exception
+     * handling. It could be done inside `run` method,
+     * but it's often forgotten.
+     */
     def onException(th: Throwable)
     /**
-      * Interval between executions. On initial invocation,
-      * this is the delay after scheduling, on subsequent
-      * invocations, it's the delay after the previous run
-      * ended.
-      */
+     * Interval between executions. On initial invocation,
+     * this is the delay after scheduling, on subsequent
+     * invocations, it's the delay after the previous run
+     * ended.
+     */
     def runInterval(): Duration
     /**
-      * The jitter margin applied to the `runInterval`.
-      */
+     * The jitter margin applied to the `runInterval`.
+     */
     def intervalJitter: Float = 0.2f
 
     /**
-      * Stop further scheduling.
-      */
+     * Stop further scheduling.
+     */
     def stop() = alive = false
     final def isAlive = alive
   }
 }
 
 /**
-  * Simple scheduler with built-in random jitter
-  * to avoid pathological cases of clustering.
-  */
-class FuzzyScheduler(scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1, ThreadFactory(classOf[FuzzyScheduler].getName))) {
+ * Simple scheduler with built-in random jitter
+ * to avoid pathological cases of clustering.
+ */
+class FuzzyScheduler(scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1, Threads.factory(classOf[FuzzyScheduler].getName))) {
   import FuzzyScheduler.FuzzyRunnable
 
   def shutdownAll(): Unit = scheduler.shutdownNow()

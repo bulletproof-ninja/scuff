@@ -17,11 +17,11 @@ final class LRUDirectMemoryCache[K, V](maxCapacity: Int, val defaultTTL: Int, se
       buffer.position(0)
       buffer.get(bytes)
     }
-    ser.back(bytes)
+    ser.decode(bytes)
   }
 
   private def toBuffer(value: V): ByteBuffer = {
-    val bytes = ser.forth(value)
+    val bytes = ser.encode(value)
     val buffer = ByteBuffer.allocateDirect(bytes.length)
     buffer.put(bytes).asReadOnlyBuffer()
   }

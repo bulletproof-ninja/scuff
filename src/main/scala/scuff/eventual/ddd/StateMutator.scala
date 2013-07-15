@@ -1,10 +1,11 @@
-package scuff.ddd.util
+package scuff.eventual.ddd
 
-import scuff.ddd._
+import scuff.ddd.DomainEvent
+import scuff.ddd.DomainEventHandler
 
 /**
  * This class encapsulates and transforms domain state,
- * BUT does not (necessarily) collect events.
+ * based on events.
  */
 trait StateMutator[EVT <: DomainEvent, S] extends DomainEventHandler[EVT] {
   /** Current state. */

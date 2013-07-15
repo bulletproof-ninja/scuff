@@ -1,15 +1,18 @@
 package scuff.ddd
 
 trait AggregateRoot {
-  type EVT <: DomainEvent
-  type ID
-  def id: ID
-  def revision: Option[Long]
   override final lazy val hashCode = id.hashCode ^ revision.map(_.asInstanceOf[Int]).getOrElse(17)
   override final def equals(obj: Any) = obj match {
     case that: AggregateRoot ⇒ this.id == that.id && this.revision == that.revision
     case _ ⇒ false
   }
-  def newEvents: List[_ <: EVT]
-}
 
+  type EVT <: DomainEvent
+  type ID
+  /** Unique identifier. */
+  def id: ID
+  /** Current revision. */
+  def revision: Option[Long]
+  /** Events produced. */
+  def events: List[_ <: EVT]
+}

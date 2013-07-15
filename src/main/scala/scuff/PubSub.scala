@@ -1,26 +1,17 @@
 package scuff
 
-import java.util.concurrent._
+import concurrent._
 
 /**
- * Simple publish/subscribe mechanism, with optional exception handling.
+  * Simple publish/subscribe mechanism.
  */
-class PubSub[G, E <% G](
-  exceptionHandler: (Throwable) ⇒ Unit = (t: Throwable) ⇒ {},
-  executor: Option[Executor] = None)
+class PubSub[G, E <% G](executor: ExecutionContext = SameThreadExecution)
     extends Channel {
-
-  def this(executor: Executor) = this(executor = Option(executor))
 
   type F = G
   type L = E ⇒ Unit
 
-  private[this] val subscribers = new CopyOnWriteArrayList[FilteringSubscriber]
-  private[this] val exec = executor.getOrElse {
-    new Executor {
-      def execute(runnable: Runnable) = runnable.run()
-    }
-  }
+  private[this] val subscribers = new java.util.concurrent.CopyOnWriteArrayList[FilteringSubscriber]
 
   /**
    * Publish event.
@@ -34,12 +25,8 @@ class PubSub[G, E <% G](
 
   private class FilteringSubscriber(sub: E ⇒ Unit, filter: F ⇒ Boolean) {
     def handle(e: E) = if (filter(e)) {
-        exec execute new Runnable {
-        def run = try {
-          sub(e)
-        } catch {
-          case e: Exception ⇒ exceptionHandler(e)
-        }
+      executor execute new Runnable {
+        def run = sub(e)
       }
     }
   }

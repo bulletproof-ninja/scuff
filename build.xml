@@ -37,7 +37,7 @@
 		<property name="scala.rev" value="2" />
 		<property name="scala.version" value="${scala.major-minor}.${scala.rev}" />
 		<property name="ivy.version" value="2.3.0" />
-		<property name="version" value="1.2-SNAPSHOT" />
+		<property name="scuff.version" value="1.2-SNAPSHOT" />
 		<property name="ivy.jar" value="lib/ivy-${ivy.version}.jar" />
 		<property name="scala-lib.jar" value="lib/scala-library-${scala.version}.jar" />
 		<property name="scala-comp.jar" value="lib/scala-compiler-${scala.version}.jar" />
@@ -123,19 +123,18 @@
 		</junit>
 	</target>
 
-
 	<target name="make-jar" depends="init">
 		<mkdir dir="build/main" />
 		<antcall target="compile-main">
 			<param name="build.destdir" value="build/main" />
-			<param name="scalac.params" value="–unchecked -deprecation –explaintypes –Xdisable-assertions -feature -optimise -language:implicitConversions" />
+			<param name="scalac.params" value="–unchecked -deprecation –explaintypes –Xdisable-assertions -feature -optimise -language:implicitConversions -Yinline-warnings" />
 		</antcall>
 		<tstamp />
 		<manifest file="build/MANIFEST.MF">
 			<attribute name="Built-By" value="${user.name}" />
 			<section name="scuff">
 				<attribute name="Implementation-Title" value="scuff" />
-				<attribute name="Implementation-Version" value="${version} ${TODAY}" />
+				<attribute name="Implementation-Version" value="${scuff.version} ${TODAY}" />
 				<attribute name="Implementation-Vendor" value="nilskp" />
 				<attribute name="Sealed" value="true" />
 			</section>
@@ -143,7 +142,7 @@
 		<copy todir="build/main">
 			<fileset dir="src/main/resources" />
 		</copy>
-		<jar basedir="build/main" destfile="build/${ant.project.name}-${version}-scala-${scala.major-minor}.jar" index="true" manifest="build/MANIFEST.MF" />
+		<jar basedir="build/main" destfile="build/${ant.project.name}-${scuff.version}-scala-${scala.major-minor}.jar" index="true" manifest="build/MANIFEST.MF" />
 	</target>
 
 	<target name="scaladocs" depends="init">

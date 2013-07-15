@@ -1,7 +1,6 @@
 package scuff.redis
 
-import redis.clients.jedis._
-import redis.clients.util.SafeEncoder._
+import _root_.redis.clients.jedis._
 
 class RedisCache[K, V](val defaultTTL: Int, conn: CONNECTION, keySer: scuff.Serializer[K], valueSer: scuff.Serializer[V])
     extends scuff.Cache[K, V] {
@@ -15,25 +14,25 @@ class RedisCache[K, V](val defaultTTL: Int, conn: CONNECTION, keySer: scuff.Seri
 
   def store(key: K, value: V, ttlSeconds: Int) =
     if (ttlSeconds > 0) {
-      connection(_.setex(keySer.forth(key), ttlSeconds, valueSer.forth(value)))
+      connection(_.setex(keySer.encode(key), ttlSeconds, valueSer.encode(value)))
     } else {
-      connection(_.set(keySer.forth(key), valueSer.forth(value)))
+      connection(_.set(keySer.encode(key), valueSer.encode(value)))
     }
 
   def evict(key: K): Option[V] = {
-    val keyBytes = keySer.forth(key)
+    val keyBytes = keySer.encode(key)
     val removed = atomic { txn ⇒
       val removed = txn.get(keyBytes)
       txn.del(keyBytes)
       removed
     }
-    Option(removed.get).map(valueSer.back)
+    Option(removed.get).map(valueSer.decode)
   }
 
   def lookup(key: K): Option[V] = Option(getOrNull(key))
 
   def lookupAndRefresh(key: K, ttl: Int): Option[V] = connection { jedis ⇒
-    getOrNull(keySer.forth(key), jedis) match {
+    getOrNull(keySer.encode(key), jedis) match {
       case null ⇒ None
       case value ⇒
         refresh(key, ttl, jedis)
@@ -41,17 +40,17 @@ class RedisCache[K, V](val defaultTTL: Int, conn: CONNECTION, keySer: scuff.Seri
     }
   }
 
-  private def refresh(key: K, ttl: Int, jedis: Jedis): Boolean = jedis.expire(keySer.forth(key), ttl) == 1L
+  private def refresh(key: K, ttl: Int, jedis: Jedis): Boolean = jedis.expire(keySer.encode(key), ttl) == 1L
 
   def refresh(key: K, ttl: Int): Boolean = connection(refresh(key, ttl, _))
 
-  private def getOrNull(key: K): V = connection(getOrNull(keySer.forth(key), _))
+  private def getOrNull(key: K): V = connection(getOrNull(keySer.encode(key), _))
   private def getOrNull(keyBytes: Array[Byte], jedis: Jedis): V =
     jedis.get(keyBytes) match {
       case null ⇒ null.asInstanceOf[V]
-      case bytes ⇒ valueSer.back(bytes)
+      case bytes ⇒ valueSer.decode(bytes)
     }
-  def lookupOrStore(key: K, ttlSeconds: Int)(constructor: ⇒ V): V = connection(lookupOrStore(_, keySer.forth(key), ttlSeconds, constructor))
+  def lookupOrStore(key: K, ttlSeconds: Int)(constructor: ⇒ V): V = connection(lookupOrStore(_, keySer.encode(key), ttlSeconds, constructor))
   private def lookupOrStore(jedis: Jedis, keyBytes: Array[Byte], ttlSeconds: Int, constructor: ⇒ V): V = {
     val value = getOrNull(keyBytes, jedis)
     if (value != null) {
@@ -59,7 +58,7 @@ class RedisCache[K, V](val defaultTTL: Int, conn: CONNECTION, keySer: scuff.Seri
     } else {
       val value = constructor
       val (prevValResp, successResp) = atomic(jedis) { txn ⇒
-        txn.get(keyBytes) -> txn.setnx(keyBytes, valueSer.forth(value))
+        txn.get(keyBytes) -> txn.setnx(keyBytes, valueSer.encode(value))
       }
       if (successResp.get == 1L) {
         if (ttlSeconds > 0) {
@@ -80,7 +79,7 @@ class RedisCache[K, V](val defaultTTL: Int, conn: CONNECTION, keySer: scuff.Seri
 
   import collection.JavaConverters._
 
-  def set(key: K, value: V) = connection(_.set(keySer.forth(key), valueSer.forth(value)))
+  def set(key: K, value: V) = connection(_.set(keySer.encode(key), valueSer.encode(value)))
 
   private def atomic[T](jedis: Jedis)(block: Transaction ⇒ T): T = {
     val txn = jedis.multi()

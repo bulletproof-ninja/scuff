@@ -1,13 +1,19 @@
-package scuff.es
+package scuff.eventual
 
 import org.junit._
 import org.junit.Assert._
 import scuff.ddd._
-import scuff.ddd.util._
-import scuff.es.util.InMemoryEventStore
-import concurrent._, duration._
+import scuff.eventual._
+import scuff.eventual.util.InMemoryEventStore
+import concurrent._
+import duration._
 import scala.util._
 import ExecutionContext.Implicits.global
+import scuff.eventual.ddd.EventHandler
+import scuff.eventual.ddd.StateMutator
+import scuff.eventual.ddd.EventHandler
+import scuff.eventual.ddd.MapSnapshots
+import scuff.eventual.ddd.EventStoreRepository
 
 abstract class TestEventStoreRepository {
 
@@ -39,7 +45,7 @@ abstract class TestEventStoreRepository {
   @Test
   def saveNew = doAsync { done ⇒
     val newFoo = Aggr.create("Foo")
-    assertEquals(1, newFoo.newEvents.size)
+    assertEquals(1, newFoo.events.size)
     repo.insert(newFoo).onSuccess {
       case _ ⇒ done.success(Unit)
     }
@@ -49,9 +55,9 @@ abstract class TestEventStoreRepository {
     val insert = repo.insert {
       val newFoo = Aggr.create("Foo")
       newFoo(AddNewNumber(42))
-      newFoo.newEvents match {
+      newFoo.events match {
         case AggrCreated() :: NewNumberWasAdded(n) :: Nil ⇒ assertEquals(42, n)
-        case _ ⇒ fail("Event sequence incorrect: " + newFoo.newEvents)
+        case _ ⇒ fail("Event sequence incorrect: " + newFoo.events)
       }
       newFoo
     }
@@ -59,9 +65,9 @@ abstract class TestEventStoreRepository {
       case _ ⇒
         repo.update("Foo" -> 0) { foo ⇒
           foo(AddNewNumber(42))
-          assertEquals(0, foo.newEvents.size)
+          assertEquals(0, foo.events.size)
           foo(AddNewNumber(99))
-          assertEquals(1, foo.newEvents.size)
+          assertEquals(1, foo.events.size)
         }
     }
     update1.onSuccess {
@@ -86,10 +92,10 @@ abstract class TestEventStoreRepository {
   }
   @Test
   def `programmer error` = doAsync { done ⇒
-    Try { repo.insert(new Aggr("FooBar", new AggrStateMutator with AggrEventRetainer, Some(42))) } match {
+    Try { repo.insert(new Aggr("FooBar", new EventHandler(new AggrStateMutator), Some(42))) } match {
       case Failure(e: IllegalStateException) ⇒ assertTrue(e.getMessage().contains("FooBar") && e.getMessage.contains("42"))
     }
-    Try { repo.insert(new Aggr("FooBar", new AggrStateMutator with AggrEventRetainer, None)) } match {
+    Try { repo.insert(new Aggr("FooBar", new EventHandler(new AggrStateMutator), None)) } match {
       case Failure(e: IllegalStateException) ⇒ assertTrue(e.getMessage().contains("FooBar"))
     }
     repo.insert(Aggr.create("FooBar")).onComplete {
@@ -135,8 +141,8 @@ abstract class TestEventStoreRepository {
   }
   @Test
   def `noop update` = doAsync { done ⇒
-    repo.insert(Aggr.create("Foo")).onComplete {
-      case Success(_) ⇒
+    repo.insert(Aggr.create("Foo")).onSuccess {
+      case _ ⇒
         var twoPlusTwo = 0
         repo.update("Foo" -> 0) { foo ⇒
           twoPlusTwo = 2 + 2
@@ -150,10 +156,10 @@ abstract class TestEventStoreRepository {
   }
 }
 
-class Aggr(val id: String, onEvent: AggrEventRetainer, val revision: Option[Long] = None) extends AggregateRoot {
+class Aggr(val id: String, onEvent: EventHandler[AggrEvent, AggrState], val revision: Option[Long] = None) extends AggregateRoot {
   type EVT = AggrEvent
   type ID = String
-  def newEvents: List[_ <: EVT] = onEvent.appliedEvents
+  def events: List[_ <: EVT] = onEvent.events
   private def aggr = onEvent.state
   def apply(cmd: AddNewNumber) {
     if (!onEvent.state.numbers.contains(cmd.n)) {
@@ -165,7 +171,7 @@ class Aggr(val id: String, onEvent: AggrEventRetainer, val revision: Option[Long
 
 object Aggr {
   def create(id: String): Aggr = {
-    val mutator = new AggrStateMutator with AggrEventRetainer
+    val mutator = new EventHandler(new AggrStateMutator)
     mutator(new AggrCreated)
     new Aggr(id, mutator)
   }
@@ -197,8 +203,6 @@ class AggrStateMutator(var state: AggrState = null, concurrentEvents: List[AggrE
   }
 }
 
-trait AggrEventRetainer extends EventRetainer[AggrEvent, AggrState]
-
 class TestEventStoreRepositoryNoSnapshots extends TestEventStoreRepository {
 
   @Before
@@ -212,7 +216,7 @@ class TestEventStoreRepositoryNoSnapshots extends TestEventStoreRepository {
       type S = AggrState
       def newStateMutator(snapshotState: Option[S]) = new AggrStateMutator(snapshotState.getOrElse(null))
       def newAggregateRoot(id: String, revision: Long, state: S, concurrentUpdates: List[_ <: AggrEvent]) = {
-        val collector = new AggrStateMutator(state, concurrentUpdates) with AggrEventRetainer
+        val collector = new EventHandler(new AggrStateMutator(state, concurrentUpdates))
         new Aggr(id, collector, Some(revision))
       }
     }
@@ -227,15 +231,14 @@ class TestEventStoreRepositoryWithSnapshots extends TestEventStoreRepository {
     es = new InMemoryEventStore[String, AggrEvent, Unit] {
       def txn2cat(txn: Transaction) = ()
     }
-    repo = new EventStoreRepository[String, Aggr, Unit] with MapSnapshotting[String, Aggr, Unit] {
+    repo = new EventStoreRepository[String, Aggr, Unit] with MapSnapshots[String, Aggr, Unit] {
       def errHandler(t: Throwable) = throw t
       val eventStore = es
       type S = AggrState
-      def saveInterval = 1
       val snapshots = new scuff.LockFreeConcurrentMap[String, (S, Long)]
       def newStateMutator(snapshotState: Option[AggrState]) = new AggrStateMutator(snapshotState.getOrElse(null))
       def newAggregateRoot(id: String, revision: Long, state: S, concurrentUpdates: List[_ <: AggrEvent]) = {
-        val collector = new AggrStateMutator(state, concurrentUpdates) with AggrEventRetainer
+        val collector = new EventHandler(new AggrStateMutator(state, concurrentUpdates))
         new Aggr(id, collector, Some(revision))
       }
     }

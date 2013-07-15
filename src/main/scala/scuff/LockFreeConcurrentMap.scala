@@ -25,7 +25,6 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) ext
   def remove(k: A, expected: B): Boolean = {
     val map = mapRef.get
     map.get(k) match {
-      case None ⇒ false
       case Some(value) if value == expected ⇒
         val updated = map - k
         if (mapRef.compareAndSet(map, updated)) {

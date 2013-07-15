@@ -1,6 +1,8 @@
-package scuff.es
+package scuff.eventual
 
-import concurrent.Future
+import scuff._
+import concurrent.{ Promise, Future }
+import java.util.Date
 
 private object EventSource {
   final def writeTransaction(t: AnyRef, out: java.io.ObjectOutputStream) {
@@ -19,8 +21,8 @@ private object EventSource {
   }
 
   final def readTransaction(txn: AnyRef, in: java.io.ObjectInputStream) {
-    val surgeon = new scuff.Surgeon(txn)
-    surgeon.setField('timestamp, new scuff.Timestamp(in.readLong))
+    val surgeon = new Surgeon(txn)
+    surgeon.setField('timestamp, new Timestamp(in.readLong))
     surgeon.setField('category, in.readObject)
     surgeon.setField('streamId, in.readObject)
     surgeon.setField('revision, in.readLong)
@@ -34,13 +36,13 @@ private object EventSource {
 /**
  * Event source.
  */
-trait EventSource[ID, EVT, CAT] extends scuff.Channel {
+trait EventSource[ID, EVT, CAT] extends Channel {
   final type F = CAT
-  final type L = Transaction ⇒ Unit
+  type L = Transaction ⇒ Unit
 
   // NOTICE: See above for reflective field access, so beware of name changes
   case class Transaction(
-    timestamp: scuff.Timestamp,
+    timestamp: Timestamp,
     category: CAT,
     streamId: ID,
     revision: Long,
@@ -71,7 +73,7 @@ trait EventSource[ID, EVT, CAT] extends scuff.Channel {
    * @param categories: Optional categories filter
    * @param callback Callback function
    */
-  def replayFrom[T](fromTime: java.util.Date, categories: CAT*)(callback: Iterator[Transaction] ⇒ T): Future[T]
+  def replayFrom[T](fromTime: Date, categories: CAT*)(callback: Iterator[Transaction] ⇒ T): Future[T]
 
 }
 

@@ -69,15 +69,15 @@ class TestSequencer {
     val capacity = 10
     val sequencer = new MonotonicSequencer[Long, java.lang.Long](consumer, 0L, capacity)
     try {
-    for (s ← 1L to (capacity * 2L)) {
-      sequencer.apply(s, java.lang.Long.valueOf(s))
-      assertTrue(seen.size <= capacity)
-    }
+      for (s ← 1L to (capacity * 2L)) {
+        sequencer.apply(s, java.lang.Long.valueOf(s))
+        assertTrue(seen.size <= capacity)
+      }
     } catch {
-      case e: MonotonicSequencer[_,_]#BufferCapacityExceeded =>
-      assertEquals(1L, e.buffer.head._1)
-      var expected = 1L
-      e.buffer.foreach { case (s, t) ⇒ assertEquals(expected, s); assertEquals(expected, t); expected += 1 }
+      case e: MonotonicSequencer[_, _]#BufferCapacityExceeded ⇒
+        assertEquals(1L, e.buffer.head._1)
+        var expected = 1L
+        e.buffer.foreach { case (s, t) ⇒ assertEquals(expected, s); assertEquals(expected, t); expected += 1 }
     }
   }
 
@@ -92,6 +92,25 @@ class TestSequencer {
     assertEquals(1024, seen.size)
     var expected = 0L
     seen.reverse.foreach { case (s, t) ⇒ assertEquals(expected, s); assertEquals(expected, t); expected += 1 }
+  }
+
+  @Test
+  def `Gap increasing` {
+    val sequencer = new MonotonicSequencer[Long, java.lang.Long](consumer, 0, 0)
+    sequencer(3, 3)
+    assertTrue(seen.isEmpty)
+    sequencer(5, 5)
+    assertTrue(seen.isEmpty)
+    sequencer(1, 1)
+    assertTrue(seen.isEmpty)
+    sequencer(4, 4)
+    assertTrue(seen.isEmpty)
+    sequencer(2, 2)
+    assertTrue(seen.isEmpty)
+    sequencer(0, 0)
+    val expected = (0 to 5).toList
+    assertEquals(expected, seen.reverse.map(_._1))
+    assertEquals(expected, seen.reverse.map(_._2))
   }
 
 }

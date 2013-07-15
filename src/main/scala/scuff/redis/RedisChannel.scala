@@ -1,39 +1,22 @@
 package scuff.redis
 
-import redis.clients.jedis._
-import redis.clients.util._
+import scuff._
+import _root_.redis.clients.jedis._
+import _root_.redis.clients.util._
 import java.util.concurrent._
 import collection.JavaConverters._
 import java.util.concurrent.locks._
 
 /**
- * NOTICE: This class will monopolize
- * a single thread from the given `Executor`.
- * But only one, regardless of number of
- * subscribers.
+ * Redis pub/sub channel.
  */
-class RedisChannel[A](
-  channelName: String,
+class RedisChannel[A] private (
+  channelName: Array[Byte],
   info: JedisShardInfo,
   subscriberThread: Executor,
-  errorHandler: Exception ⇒ Unit,
-  serializer: scuff.Serializer[A])
-    extends scuff.Channel {
-
-  def this(
-    channelName: String,
-    info: JedisShardInfo,
-    subscriberThreadFactory: ThreadFactory,
-    errorHandler: Exception ⇒ Unit,
-    serializer: scuff.Serializer[A]) =
-    this(channelName, info, Executors.newSingleThreadExecutor(subscriberThreadFactory), errorHandler, serializer)
-
-  def this(
-    channelName: String,
-    info: JedisShardInfo,
-    errorHandler: Exception ⇒ Unit = (e) ⇒ e.printStackTrace(System.err),
-    serializer: scuff.Serializer[A] = new scuff.JavaSerializer[A]) =
-    this(channelName, info, scuff.ThreadFactory(classOf[RedisChannel[_]].getName), errorHandler, serializer)
+  serializer: Serializer[A],
+  publishCtx: concurrent.ExecutionContext)
+    extends Channel {
 
   type F = A
   type L = A ⇒ Unit
@@ -44,26 +27,18 @@ class RedisChannel[A](
     val exclusive = rwLock.writeLock
     (rwLock.readLock, exclusive, exclusive.newCondition)
   }
-  private def whenLocked[T](l: Lock)(f: ⇒ T): T = {
-    l.lock()
-    try { f } finally {
-      l.unlock()
+  private class FilteredSubscriber(sub: L, doTell: F ⇒ Boolean) {
+    def tell(a: A) = if (doTell(a)) {
+      publishCtx execute new Runnable { def run = sub(a) }
     }
   }
-  private class FilteredSubscriber(sub: L, allow: F ⇒ Boolean) {
-    def apply(a: A) = if (allow(a)) sub(a)
-  }
-  private val subscribers = collection.mutable.Buffer[FilteredSubscriber]()
+  private[this] val subscribers = collection.mutable.Buffer[FilteredSubscriber]()
 
-  private val jedisSubscriber = new BinaryJedisPubSub {
-    def onMessage(channel: Array[Byte], msg: Array[Byte]) {
-      val aMsg = serializer.back(msg)
-      whenLocked(shared) {
-        subscribers.foreach { sub ⇒
-          try { sub(aMsg) } catch {
-            case e: Exception ⇒ errorHandler(e)
-          }
-        }
+  private[this] val jedisSubscriber = new BinaryJedisPubSub {
+    def onMessage(channel: Array[Byte], byteMsg: Array[Byte]) {
+      val msg = serializer.decode(byteMsg)
+      shared.whenLocked {
+        subscribers.foreach(_.tell(msg))
       }
     }
     def onPMessage(pattern: Array[Byte], channel: Array[Byte], msg: Array[Byte]) {}
@@ -74,38 +49,16 @@ class RedisChannel[A](
   }
 
   private[this] val jedis = new BinaryJedis(info)
-  subscriberThread execute new Runnable {
-    def run = while (!Thread.currentThread.isInterrupted) try {
-      awaitSubscribers()
-      consumeMessages()
-    } catch {
-      case _: InterruptedException ⇒ Thread.currentThread().interrupt()
-      case e: Exception ⇒ errorHandler(e)
-    }
-
-    def awaitSubscribers() = whenLocked(exclusive) {
-      while (subscribers.isEmpty) {
-        newSubscriber.await()
-      }
-    }
-
-    def consumeMessages() = try {
-      jedis.connect()
-      jedis.subscribe(jedisSubscriber, byteName)
-    } finally {
-      jedis.disconnect()
-    }
-  }
   def subscribe(subscriber: L, filter: A ⇒ Boolean) = {
     val filteredSub = new FilteredSubscriber(subscriber, filter)
-    whenLocked(exclusive) {
+    exclusive.whenLocked {
       if (subscribers.isEmpty) {
         newSubscriber.signal()
       }
       subscribers += filteredSub
     }
-    new scuff.Subscription {
-      def cancel() = whenLocked(exclusive) {
+    new Subscription {
+      def cancel() = exclusive.whenLocked {
         subscribers -= filteredSub
         if (subscribers.isEmpty) {
           jedisSubscriber.unsubscribe()
@@ -113,4 +66,72 @@ class RedisChannel[A](
       }
     }
   }
+
+  private def start() {
+    subscriberThread execute new Runnable {
+      def run = while (!Thread.currentThread.isInterrupted) try {
+        awaitSubscribers()
+        consumeMessages()
+      } catch {
+        case _: InterruptedException ⇒ Thread.currentThread().interrupt()
+        case e: Exception ⇒ publishCtx.reportFailure(e)
+      }
+
+      def awaitSubscribers() = exclusive.whenLocked {
+        while (subscribers.isEmpty) {
+          newSubscriber.await()
+        }
+      }
+
+      def consumeMessages() = try {
+        jedis.connect()
+        jedis.subscribe(jedisSubscriber, channelName)
+      } finally {
+        jedis.disconnect()
+      }
+    }
+  }
+
+}
+
+object RedisChannel {
+
+  /**
+   * @param server Redis server information
+   * @jedisSubscriberThread Subscription thread.
+   * This thread will be monopolized by Jedis, therefore,
+   * the `Executor` should not be a general purpose thread-pool.
+   * @serializer The byte array decoder
+   * @publishCtx The execution context used to publish messages
+   */
+  def apply[A](
+    channelName: String, server: JedisShardInfo, jedisSubscriberThread: Executor,
+    serializer: Serializer[A], publishCtx: concurrent.ExecutionContext): RedisChannel[A] = {
+    val rc = new RedisChannel(SafeEncoder.encode(channelName), server, jedisSubscriberThread, serializer, publishCtx)
+    rc.start()
+    rc
+  }
+
+  def apply[A](channelName: String, server: JedisShardInfo, subscriberThreadFactory: java.util.concurrent.ThreadFactory,
+    serializer: Serializer[A], publishCtx: concurrent.ExecutionContext): RedisChannel[A] = {
+    val subscriptionThread = Executors.newSingleThreadExecutor(subscriberThreadFactory)
+    apply(channelName, server, subscriptionThread, serializer, publishCtx)
+  }
+
+  def apply[A](channelName: String, server: JedisShardInfo, serializer: Serializer[A], publishCtx: concurrent.ExecutionContext): RedisChannel[A] = {
+    apply(channelName, server, Threads.factory(classOf[RedisChannel[_]].getName), serializer, publishCtx)
+  }
+
+  def apply[A](channelName: String, server: JedisShardInfo, publishCtx: concurrent.ExecutionContext): RedisChannel[A] = {
+    apply(channelName, server, new JavaSerializer[A], publishCtx)
+  }
+
+  def apply[A](channelName: String, server: JedisShardInfo, serializer: Serializer[A]): RedisChannel[A] = {
+    apply(channelName, server, serializer, SameThreadExecution)
+  }
+
+  def apply[A](channelName: String, server: JedisShardInfo): RedisChannel[A] = {
+    apply(channelName, server, new JavaSerializer[A], SameThreadExecution)
+  }
+
 }

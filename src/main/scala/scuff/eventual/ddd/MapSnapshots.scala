@@ -1,21 +1,21 @@
-package scuff.ddd.util
+package scuff.eventual.ddd
 
 import scuff.ddd._
 import concurrent._
 
 /**
- * Trait that enables snapshotting at particular
- * intervals, using a [[concurrent.Map]].
+ * Trait that stores snapshots in a a [[concurrent.Map]]. Should be
+ * used in conjunction with a limiter, something to determine if a given
+ * revision should be snapshotted, e.g. [[FixedIntervalSnapshots]] or [[LoadTimeSnapshots]].
  * NOTICE: Methods [[loadSnapshot]] and [[saveSnapshot]] are blocking calls,
- * with map access done on the calling thread. If this is not desirable,
+ * with map access done on the calling thread. This is done to avoid comparatively high
+ * latency on a potentially very cheap operation. If this is not desirable,
  * override either or both and flatMap that Future.
  */
-trait MapSnapshotting[ID, AR <: AggregateRoot, CAT] extends EventStoreRepository[ID, AR, CAT] {
+trait MapSnapshots[ID, AR <: AggregateRoot, CAT] extends EventStoreRepository[ID, AR, CAT] {
 
   /** Concurrent map implementation for snapshots. */
   protected def snapshots: collection.concurrent.Map[AR#ID, (S, Long)]
-  /** Interval between snapshots. */
-  protected def saveInterval: Int
 
   @annotation.tailrec
   private def trySave(id: AR#ID, value: (S, Long)) {
@@ -29,11 +29,7 @@ trait MapSnapshotting[ID, AR <: AggregateRoot, CAT] extends EventStoreRepository
         }
     }
   }
-  protected override def saveSnapshot(id: AR#ID, revision: Long, state: S) = {
-    if ((revision + 1) % saveInterval == 0) {
-      trySave(id, state -> revision)
-    }
-  }
+  protected override def saveSnapshot(id: AR#ID, revision: Long, state: S) = trySave(id, state -> revision)
   protected override def loadSnapshot(id: AR#ID) = Future.successful(snapshots.get(id))
 
 }

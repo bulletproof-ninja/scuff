@@ -1,20 +1,17 @@
-package scuff.es.util
+package scuff.eventual.mongo
 
 import scuff._
-import scuff.Mongolia._
+import Mongolia._
 import com.mongodb._
 import org.bson.types._
 import java.util.Date
-import scuff.es.DuplicateRevisionException
-import scuff.es.EventStore
-
 import concurrent._
 import scala.util._
 
 private object MongoEventStore {
   final val OrderByTime_asc = obj("time" := ASC)
   final val OrderByRevision_asc = obj("_id.rev" := ASC)
-  final val OrderByRevision_desc = ("_id.rev" := DESC)
+  //  final val OrderByRevision_desc = ( := DESC)
 
   def ensureIndicies(coll: RichDBCollection): RichDBCollection = {
     coll.ensureIndex("_id.stream" := ASC, "_id.rev" := ASC)
@@ -39,16 +36,12 @@ private object MongoEventStore {
  *   }
  * }}}
  */
-abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idConv: Transformer[ID, BsonValue], catConv: Transformer[CAT, BsonValue])
-    extends EventStore[ID, EVT, CAT] {
+abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idConv: Codec[ID, BsonValue], catConv: Codec[CAT, BsonValue])
+    extends eventual.EventStore[ID, EVT, CAT] {
 
   import MongoEventStore._
 
-  protected[this] implicit def execCtx: ExecutionContext
-  protected[this] implicit val idConvForth = idConv.forth _
-  protected[this] implicit val idConvBack = idConv.back _
-  protected[this] implicit val catConvForth = catConv.forth _
-  protected[this] implicit val catConvBack = catConv.back _
+  protected implicit def mongoExecCtx: ExecutionContext
 
   private[this] val store = ensureIndicies(dbColl)
 
@@ -65,7 +58,7 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
   }
 
   def replayStream[T](stream: ID)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
-    query("_id.stream" := stream, OrderByRevision_asc, callback)
+    query(obj("_id.stream" := stream), OrderByRevision_asc, callback)
   }
 
   def replayStreamSince[T](stream: ID, sinceRevision: Long)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
@@ -114,7 +107,7 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
 
   // TODO: Make non-blocking once supported by the driver.
   def record(category: CAT, stream: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Future[Unit] = Future {
-    val timestamp = new scuff.Timestamp
+    val timestamp = new Timestamp
     val doc = obj(
       "_id" := obj(
         "stream" := stream,
@@ -126,7 +119,7 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     try {
       store.safeInsert(doc)
     } catch {
-      case _: MongoException.DuplicateKey ⇒ throw new DuplicateRevisionException
+      case _: MongoException.DuplicateKey ⇒ throw new eventual.DuplicateRevisionException(stream, revision)
     }
     new Transaction(timestamp, category, stream, revision, metadata, events)
   }.andThen {
@@ -137,11 +130,11 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     record(category, stream, revision, events, metadata)
     revision
   }.recoverWith {
-    case _: DuplicateRevisionException ⇒ tryRecord(category, stream, revision + 1L, events, metadata)
+    case _: eventual.DuplicateRevisionException ⇒ tryRecord(category, stream, revision + 1L, events, metadata)
   }
 
   def append(category: CAT, stream: ID, events: List[_ <: EVT], metadata: Map[String, String]): Future[Long] = {
-    val revision = store.find("_id.stream" := stream).first(OrderByRevision_desc).map(_.apply("_id.rev").as[Long]).getOrElse(-1L) + 1L
+    val revision = store.find("_id.stream" := stream).last("_id.rev").map(_.getAs[Long]("_id.rev")).getOrElse(-1L) + 1L
     tryRecord(category, stream, revision, events, metadata)
   }
 
