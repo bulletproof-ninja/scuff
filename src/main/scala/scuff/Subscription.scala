@@ -7,5 +7,5 @@ trait Subscription {
 trait Channel {
   type F
   type L
-  def subscribe(s: L, filter: F ⇒ Boolean = f ⇒ true): Subscription
+  def subscribe(s: L, include: F ⇒ Boolean = _ ⇒ true): Subscription
 }
