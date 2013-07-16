@@ -118,6 +118,7 @@
 				<fileset dir="build/test">
 					<include name="**/*Test*.class" />
 					<exclude name="**/*$*.class" />
+					<exclude name="**/*Abstract*.class" />
 				</fileset>
 			</batchtest>
 		</junit>

@@ -15,7 +15,7 @@ import scuff.eventual.ddd.EventHandler
 import scuff.eventual.ddd.MapSnapshots
 import scuff.eventual.ddd.EventStoreRepository
 
-abstract class TestEventStoreRepository {
+abstract class AbstractEventStoreRepositoryTest {
 
   implicit def catConv(ar: Aggr) = ()
   implicit def idConv(id: String) = id
@@ -118,7 +118,7 @@ abstract class TestEventStoreRepository {
   def `concurrent update` = doAsync { done ⇒
     val executor = java.util.concurrent.Executors.newScheduledThreadPool(16)
     val insFut = repo.insert(Aggr.create("Foo"))
-    val map = new collection.concurrent.TrieMap[Int, Future[Long]]
+    val map = new scuff.LockFreeConcurrentMap[Int, Future[Long]]
     val range = 0 to 250
     insFut.foreach { _ ⇒
       for (i ← range) {
@@ -203,7 +203,7 @@ class AggrStateMutator(var state: AggrState = null, concurrentEvents: List[AggrE
   }
 }
 
-class TestEventStoreRepositoryNoSnapshots extends TestEventStoreRepository {
+class TestEventStoreRepositoryNoSnapshots extends AbstractEventStoreRepositoryTest {
 
   @Before
   def setup {
@@ -224,7 +224,7 @@ class TestEventStoreRepositoryNoSnapshots extends TestEventStoreRepository {
 
 }
 
-class TestEventStoreRepositoryWithSnapshots extends TestEventStoreRepository {
+class TestEventStoreRepositoryWithSnapshots extends AbstractEventStoreRepositoryTest {
 
   @Before
   def setup {
