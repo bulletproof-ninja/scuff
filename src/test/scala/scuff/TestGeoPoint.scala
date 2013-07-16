@@ -33,4 +33,11 @@ class TestGeoPoint {
   def `invalid` {
     assertTrue(GeoPoint.parse("23").isFailure)
   }
+
+  @Test
+  def distance {
+    val p1 = GeoPoint.parse("35.0303, -111.0286").get
+    val p2 = GeoPoint.parse("35.0255, -111.0161").get
+    assertEquals(1250f, p1.distance(p2), 10)
+  }
 }
