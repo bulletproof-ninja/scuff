@@ -20,7 +20,7 @@ final class EventStream[ID, EVT, CAT](
     consumerFailureReporter: Throwable ⇒ Unit = (t) ⇒ t.printStackTrace(),
     numConsumerThreads: Int = Runtime.getRuntime.availableProcessors) {
 
-  private type TXN = EventSource[ID, EVT, CAT]#Transaction
+  type Transaction = EventSource[ID, EVT, CAT]#Transaction
 
   trait Consumer {
     /**
@@ -29,13 +29,13 @@ final class EventStream[ID, EVT, CAT](
      */
     def expectedRevision(stream: ID): Long
     /** Consume transaction. */
-    def consume(txn: TXN)
+    def consume(txn: Transaction)
 
     final def resume(since: Option[Timestamp], categories: CAT*) = EventStream.this.resume(since, this, categories)
   }
 
-  private class ConsumerProxy(consumer: Consumer) extends (TXN ⇒ Unit) {
-    def apply(txn: TXN) = consumer.consume(txn)
+  private class ConsumerProxy(consumer: Consumer) extends (Transaction ⇒ Unit) {
+    def apply(txn: Transaction) = consumer.consume(txn)
   }
 
   private[this] val SerialExecCtx = new HashBasedSerialExecutionContext(numConsumerThreads, EventStream.ConsumerThreadFactory, consumerFailureReporter)
@@ -76,7 +76,7 @@ final class EventStream[ID, EVT, CAT](
     val starting = new Timestamp
     val categorySet = categories.toSet
       def categoryFilter(cat: CAT) = categorySet.isEmpty || categorySet.contains(cat)
-      def replayConsumer(txns: Iterator[TXN]): Option[Timestamp] = {
+      def replayConsumer(txns: Iterator[Transaction]): Option[Timestamp] = {
         var last: Timestamp = null
         txns.foreach { txn ⇒
           last = txn.timestamp
