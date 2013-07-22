@@ -691,7 +691,7 @@ object Mongolia {
     def isPartialObject: Boolean = underlying.isPartialObject
     def put(key: String, v: Any) = v match {
       case null if ignoreNulls ⇒ underlying.removeField(key)
-      case l: java.util.List[_] if ignoreEmpty && l.size == 0 ⇒ underlying.removeField(key)
+      case l: java.util.List[_] if ignoreEmpty && l.isEmpty ⇒ underlying.removeField(key)
       case _ ⇒ underlying.put(key, v)
     }
     def putAll(o: org.bson.BSONObject) = o match {
