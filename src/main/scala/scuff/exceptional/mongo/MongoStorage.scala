@@ -4,6 +4,7 @@ import scuff.exceptional.Storage
 import com.mongodb._
 import scuff.Mongolia._
 import org.bson.types._
+import java.util.Date
 
 class MongoStorage(stacktraces: DBCollection, incidents: DBCollection) extends Storage {
   type ID = ObjectId
@@ -16,9 +17,9 @@ class MongoStorage(stacktraces: DBCollection, incidents: DBCollection) extends S
 
   private[this] implicit val ste2bson = new scuff.Codec[StackTraceElement, BsonValue] {
     def encode(ste: StackTraceElement): BsonValue = {
-    val doc = obj("class" := ste.getClassName, "method" := ste.getMethodName)
-    if (ste.getLineNumber >= 0) doc.add("line" := ste.getLineNumber)
-    if (ste.getFileName != null) doc.add("file" := ste.getFileName)
+      val doc = obj("class" := ste.getClassName, "method" := ste.getMethodName)
+      if (ste.getLineNumber >= 0) doc.add("line" := ste.getLineNumber)
+      if (ste.getFileName != null) doc.add("file" := ste.getFileName)
       doc
     }
     def decode(b: BsonValue): StackTraceElement = sys.error("Not implemented")
@@ -46,15 +47,15 @@ class MongoStorage(stacktraces: DBCollection, incidents: DBCollection) extends S
 
   private[this] implicit val eref2bson = new scuff.Codec[ExceptionRef, BsonValue] {
     def encode(eref: ExceptionRef): BsonValue = {
-    val doc = obj("stackTrace" := eref.stackTraceId)
-    eref.message.foreach(msg ⇒ doc.add("message" := msg))
-    doc
-  }
+      val doc = obj("stackTrace" := eref.stackTraceId)
+      eref.message.foreach(msg ⇒ doc.add("message" := msg))
+      doc
+    }
     def decode(b: BsonValue): ExceptionRef = sys.error("Not implemented")
   }
 
-  def saveIncident(exceptionChain: List[ExceptionRef], time: Long, metadata: Map[String, String]) = {
-    val doc = obj("chain" := exceptionChain, "time" := new java.util.Date(time))
+  def saveIncident(exceptionChain: List[ExceptionRef], time: Date, metadata: Map[String, String]) = {
+    val doc = obj("chain" := exceptionChain, "time" := time)
     if (!metadata.isEmpty) doc.add("metadata" := metadata)
     incidents.insert(doc)
   }
