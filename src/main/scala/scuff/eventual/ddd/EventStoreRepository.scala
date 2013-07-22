@@ -9,11 +9,13 @@ import java.util.concurrent.TimeUnit
 /**
  * [[EventStore]]-based [[Repository]] implementation.
  */
-abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](implicit idConv: AR#ID ⇒ ESID, clock: scuff.Clock) extends Repository[AR] {
+abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](implicit idConv: AR#ID ⇒ ESID) extends Repository[AR] {
 
   implicit protected def execCtx: ExecutionContext = new SameThreadExecution {
     def reportFailure(t: Throwable) = t.printStackTrace()
   }
+
+  protected def clock: scuff.Clock = scuff.SystemClock
 
   protected val eventStore: EventStore[ESID, _ >: AR#EVT <: DomainEvent, CAT]
 
