@@ -7,7 +7,7 @@ import java.lang.{ Double ⇒ JD, Float ⇒ JF }
 final class Interval[T](
     val fromIncl: Boolean, val from: T,
     val toIncl: Boolean, val to: T,
-    stringRep: String = null)(implicit private val n: Numeric[T]) {
+    stringRep: String = null)(implicit private val n: Numeric[T]) extends Serializable {
 
   checkForNaN(from)
   checkForNaN(to)
@@ -49,6 +49,25 @@ final class Interval[T](
         this.n.equiv(this.to, that.to)
   }
   override def hashCode = from.hashCode ^ to.hashCode
+
+  private def writeObject(out: java.io.ObjectOutputStream) {
+    out.writeBoolean(fromIncl)
+    out.writeBoolean(toIncl)
+    out.writeObject(from)
+    out.writeObject(to)
+    out.writeObject(n)
+    out.writeObject(stringRep)
+  }
+  private def readObject(in: java.io.ObjectInputStream) {
+    val surgeon = new Surgeon(this)
+    surgeon.set('fromIncl, in.readBoolean)
+    surgeon.set('toIncl, in.readBoolean)
+    surgeon.set('from, in.readObject)
+    surgeon.set('to, in.readObject)
+    surgeon.set('n, in.readObject)
+    surgeon.set('stringRep, in.readObject)
+  }
+
 }
 
 object Interval {
