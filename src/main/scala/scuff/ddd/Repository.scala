@@ -35,16 +35,15 @@ trait Repository[AR <: AggregateRoot] {
 
   /**
    * Insert new aggregate root and publish committed events.
-   * <p>NOTICE: The aggregate root instance should not be
-   * used after it's been saved, as it can neither be re-inserted,
-   * nor further updated.
-   * Will throw [[IllegalStateException]] if aggregate already has a
-   * revision number.
-   * @param getAR Aggregate root to save
-   * @return Potential [[DuplicateIdException]]
+   * <p>NOTICE: No commands should be applied to the aggregate instance
+   * after it's been saved, as it can neither be persisted.
+   * @param aggr Aggregate root to save
+   * @return Aggregate instance or [[DuplicateIdException]] if the ID is already used
+   * or [[IllegalStateException]] if the instance has a revision number
    */
-  final def insert(getAR: ⇒ AR): Future[Unit] = insert(Map.empty[String, String])(getAR)
-  def insert(metadata: Map[String, String])(getAR: ⇒ AR): Future[Unit]
+  final def insert(aggr: AR): Future[AR] = insert(Map.empty[String, String])(aggr)
+  final def insert(aggr: AR, metadata: Map[String, String]): Future[AR] = insert(metadata)(aggr)
+  def insert(metadata: Map[String, String])(aggr: AR): Future[AR]
 }
 
 class UnknownIdException(val id: Any) extends RuntimeException("Unknown aggregate: " + id)
