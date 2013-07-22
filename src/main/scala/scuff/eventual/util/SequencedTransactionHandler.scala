@@ -1,8 +1,7 @@
 package scuff.eventual.util
 
-import scuff.MonotonicSequencer
-import scuff.LockFreeConcurrentMap
-import scuff.eventual._
+import scuff.{LockFreeConcurrentMap, MonotonicSequencer}
+import scuff.eventual.EventSource
 
 /**
  * Sequenced [[Transaction]] handler.
