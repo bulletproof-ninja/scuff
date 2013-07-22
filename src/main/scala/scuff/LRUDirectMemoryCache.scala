@@ -7,7 +7,8 @@ import java.nio._
   * This cache allows you to store arbitrary sized objects off 
   * the JVM heap, thereby not affecting GC times.
   */
-final class LRUDirectMemoryCache[K, V](maxCapacity: Int, val defaultTTL: Int, ser: Serializer[V], staleCheckFreq: Int = 10, lock: ReadWriteLock = new ReentrantReadWriteLock) extends Cache[K, V] {
+final class LRUDirectMemoryCache[K, V](maxCapacity: Int, val defaultTTL: Int, ser: Serializer[V], staleCheckFreq: Int = 10, lock: ReadWriteLock = new ReentrantReadWriteLock)
+    extends Cache[K, V] {
 
   private[this] val impl = new LRUHeapCache[K, ByteBuffer](maxCapacity, defaultTTL, staleCheckFreq, lock)
 
