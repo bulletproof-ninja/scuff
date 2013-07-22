@@ -4,35 +4,6 @@ import scuff._
 import concurrent.{ Promise, Future }
 import java.util.Date
 
-private object EventSource {
-  final def writeTransaction(t: AnyRef, out: java.io.ObjectOutputStream) {
-    val txn = t.asInstanceOf[EventSource[Any, Any, Any]#Transaction]
-    out.writeLong(txn.timestamp.asMillis)
-    out.writeObject(txn.category)
-    out.writeObject(txn.streamId)
-    out.writeLong(txn.revision)
-    if (txn.metadata.isEmpty) {
-      out.writeBoolean(false)
-    } else {
-      out.writeBoolean(true)
-      out.writeObject(txn.metadata)
-    }
-    out.writeObject(txn.events)
-  }
-
-  final def readTransaction(txn: AnyRef, in: java.io.ObjectInputStream) {
-    val surgeon = new Surgeon(txn)
-    surgeon.setField('timestamp, new Timestamp(in.readLong))
-    surgeon.setField('category, in.readObject)
-    surgeon.setField('streamId, in.readObject)
-    surgeon.setField('revision, in.readLong)
-    val metadata = if (in.readBoolean) in.readObject else Map.empty
-    surgeon.setField('metadata, metadata)
-    surgeon.setField('events, in.readObject)
-  }
-
-}
-
 /**
  * Event source.
  */
@@ -48,8 +19,30 @@ trait EventSource[ID, EVT, CAT] extends Channel {
     revision: Long,
     metadata: Map[String, String],
     events: List[EVT]) extends {
-    private def writeObject(out: java.io.ObjectOutputStream) = EventSource.writeTransaction(this, out)
-    private def readObject(in: java.io.ObjectInputStream) = EventSource.readTransaction(this, in)
+    private def writeObject(out: java.io.ObjectOutputStream) {
+      out.writeLong(this.timestamp.asMillis)
+      out.writeObject(this.category)
+      out.writeObject(this.streamId)
+      out.writeLong(this.revision)
+      if (this.metadata.isEmpty) {
+        out.writeBoolean(false)
+      } else {
+        out.writeBoolean(true)
+        out.writeObject(this.metadata)
+      }
+      out.writeObject(this.events)
+
+    }
+    private def readObject(in: java.io.ObjectInputStream) {
+      val surgeon = new Surgeon(this)
+      surgeon.set('timestamp, new Timestamp(in.readLong))
+      surgeon.set('category, in.readObject)
+      surgeon.set('streamId, in.readObject)
+      surgeon.set('revision, in.readLong)
+      val metadata = if (in.readBoolean) in.readObject else Map.empty
+      surgeon.set('metadata, metadata)
+      surgeon.set('events, in.readObject)
+    }
   }
 
   def replayStream[T](stream: ID)(callback: Iterator[Transaction] ⇒ T): Future[T]
