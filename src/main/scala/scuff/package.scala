@@ -3,8 +3,6 @@ import java.util.Locale
 package object scuff {
   import scala.math._
 
-  implicit def DefaultClock: Clock = SystemClock
-
   implicit class ScuffString(val str: String) extends AnyVal {
     /**
      * Calculate Levenshtein distance.
