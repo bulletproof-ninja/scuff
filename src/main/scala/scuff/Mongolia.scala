@@ -364,10 +364,15 @@ object Mongolia {
 
   implicit def id2obj(oid: ObjectId): DBObject = obj("_id" := oid)
 
-  def obj(ignoreNulls: Boolean): RichDBObject = new RichDBObject(ignoreNulls = ignoreNulls)
-  def obj(props: BsonProp*): RichDBObject = {
+  def obj(ignoreNulls: Boolean = false, ignoreEmpty: Boolean = false): RichDBObject = new RichDBObject(ignoreNulls = ignoreNulls, ignoreEmpty = ignoreEmpty)
+  def obj(props: Seq[BsonProp]): RichDBObject = {
     val map = new RichDBObject
     props.foreach(p ⇒ if (map.put(p.key, p.raw) != null) throw new IllegalArgumentException("Field \"%s\" occurs multiple times".format(p.key)))
+    map
+  }
+  def obj(head: BsonProp, tail: BsonProp*): RichDBObject = {
+    val map = new RichDBObject(new BasicDBObject(head.key, head.raw))
+    tail.foreach(p ⇒ if (map.put(p.key, p.raw) != null) throw new IllegalArgumentException("Field \"%s\" occurs multiple times".format(p.key)))
     map
   }
   def arr(values: BsonValue*): RichDBList = seq2bsonlist(values)(Codec.noop)
@@ -566,11 +571,11 @@ object Mongolia {
 
     def ensureIndex(key: String): Unit = ensureIndex(obj(key := ASC))
     def ensureIndex(key: String, idxType: String): Unit = underlying.ensureIndex(obj(key := idxType))
-    def ensureIndex(keys: BsonIntProp*): Unit = underlying.ensureIndex(obj(keys: _*))
+    def ensureIndex(keyHead: BsonIntProp, keyTail: BsonIntProp*): Unit = underlying.ensureIndex(obj(keyHead, keyTail: _*))
     def ensureUniqueIndex(key: String): Unit = underlying.ensureIndex(obj(key := ASC), obj("unique" := true))
     def ensureSparseIndex(key: String): Unit = underlying.ensureIndex(obj(key := ASC), obj("sparse" := true))
     def ensureUniqueSparseIndex(key: String): Unit = underlying.ensureIndex(obj(key := ASC), obj("sparse" := true, "unique" := true))
-    def ensureUniqueIndex(keys: BsonIntProp*): Unit = underlying.ensureIndex(obj(keys: _*), obj("unique" := true))
+    def ensureUniqueIndex(keyHead: BsonIntProp, keyTail: BsonIntProp*): Unit = underlying.ensureIndex(obj(keyHead, keyTail: _*), obj("unique" := true))
     def findOne(anyRef: Object) = anyRef match {
       case key: DBObject ⇒ underlying.findOne(key)
       case prop: BsonProp ⇒ underlying.findOne(obj(prop))
@@ -679,12 +684,16 @@ object Mongolia {
     sb.toString
   }
 
-  final class RichDBObject(private val underlying: DBObject = new BasicDBObject, ignoreNulls: Boolean = false) extends DBObject with BsonValue {
+  final class RichDBObject(private val underlying: DBObject = new BasicDBObject, ignoreNulls: Boolean = false, ignoreEmpty: Boolean = false) extends DBObject with BsonValue {
     import collection.JavaConverters._
     if (underlying == null) throw new NullPointerException("Document is null")
     def markAsPartialObject = underlying.markAsPartialObject
     def isPartialObject: Boolean = underlying.isPartialObject
-    def put(key: String, v: Any) = if (ignoreNulls && v == null) underlying.removeField(key) else underlying.put(key, v)
+    def put(key: String, v: Any) = v match {
+      case null if ignoreNulls ⇒ underlying.removeField(key)
+      case l: java.util.List[_] if ignoreEmpty && l.size == 0 ⇒ underlying.removeField(key)
+      case _ ⇒ underlying.put(key, v)
+    }
     def putAll(o: org.bson.BSONObject) = o match {
       case m: java.util.Map[_, _] ⇒ putAll(m: java.util.Map[_, _])
       case _ ⇒ for (k ← o.keySet.asScala) put(k, o.get(k))
@@ -723,7 +732,14 @@ object Mongolia {
       }
     }
     def raw = this
-    def ignoreNulls(ignore: Boolean): RichDBObject = if (ignore == this.ignoreNulls) this else new RichDBObject(underlying, ignore)
+    /**
+     * Ignore `null` values, i.e. don't put them into doc.
+     */
+    def ignoreNulls(ignore: Boolean): RichDBObject = if (ignore == this.ignoreNulls) this else new RichDBObject(underlying, ignore, this.ignoreEmpty)
+    /**
+     * Ignore empty arrays, i.e. don't put them into doc.
+     */
+    def ignoreEmpty(ignore: Boolean): RichDBObject = if (ignore == this.ignoreEmpty) this else new RichDBObject(underlying, this.ignoreNulls, ignore)
     def keys: Iterable[String] = underlying.keySet.asScala
     /**
      * Much faster and more compact serialization,
@@ -764,8 +780,8 @@ object Mongolia {
     }
 
     def like[T](implicit tag: ClassTag[T]): T = like(Map.empty[Class[_], Codec[_, BsonValue]])
-    def like[T](converters: Map[Class[_], Codec[_, BsonValue]])(implicit tag: ClassTag[T]): T =
-      if (tag.runtimeClass.isInterface) getProxy(this, converters) else throw new IllegalArgumentException("%s must be an interface".format(tag.runtimeClass))
+    def like[T](mapping: Map[Class[_], Codec[_, BsonValue]])(implicit tag: ClassTag[T]): T =
+      if (tag.runtimeClass.isInterface) getProxy(this, mapping) else throw new IllegalArgumentException("%s must be an interface".format(tag.runtimeClass))
 
     def isEmpty = underlying match {
       case m: java.util.Map[_, _] ⇒ m.isEmpty
@@ -852,7 +868,7 @@ object Mongolia {
     }
     def first(key: String): Option[RichDBObject] = top(key := ASC)
     def last(key: String): Option[RichDBObject] = top(key := DESC)
-    def top(sorting: BsonIntProp*): Option[RichDBObject] = cursor.sort(obj(sorting: _*)).limit(1).nextOpt()
+    def top(sorting: BsonIntProp, more: BsonIntProp*): Option[RichDBObject] = cursor.sort(obj(sorting, more: _*)).limit(1).nextOpt()
     def nextOpt(): Option[RichDBObject] = if (cursor.hasNext) Some(cursor.next) else None
     def foreach(f: RichDBObject ⇒ Unit) {
       try {
@@ -919,7 +935,8 @@ object Mongolia {
   def $nor[T](exprs: T*)(implicit codec: Codec[T, BsonValue]) = "$nor" := arr(exprs.map(t ⇒ codec.encode(t)): _*)
   def $each[T](values: T*)(implicit codec: Codec[T, BsonValue]) = "$each" := arr(values.map(t ⇒ codec.encode(t)): _*)
   def $exists(exists: Boolean): BsonProp = "$exists" := exists
-  def $set(props: BsonProp*) = "$set" := obj(props: _*)
+  def $set(props: Seq[BsonProp]) = "$set" := obj(props)
+  def $set(prop: BsonProp, more: BsonProp*) = "$set" := obj(prop, more: _*)
   def $unset(names: String*) = {
     val unsets = new RichDBObject
     names.foreach { name ⇒
@@ -928,15 +945,19 @@ object Mongolia {
     "$unset" := unsets
   }
   def $mod(modBy: Int, equalsTo: Int) = "$mod" := arr(IntCdc.encode(modBy), IntCdc.encode(equalsTo))
-  def $not(props: BsonProp*) = "$not" := obj(props: _*)
-  def $inc(props: BsonNumProp*) = "$inc" := obj(props: _*)
-  def $push(props: BsonProp*) = "$push" := obj(props: _*)
+  def $not(props: Seq[BsonProp]) = "$not" := obj(props)
+  def $not(prop: BsonProp, more: BsonProp*) = "$not" := obj(prop, more: _*)
+  def $inc(props: Seq[BsonNumProp]) = "$inc" := obj(props)
+  def $inc(prop: BsonNumProp, more: BsonNumProp*) = "$inc" := obj(prop, more: _*)
+  def $push(props: Seq[BsonProp]) = "$push" := obj(props)
+  def $push(prop: BsonProp, more: BsonProp*) = "$push" := obj(prop, more: _*)
   def $addToSet(prop: BsonProp) = "$addToSet" := obj(prop)
   def $pushAll(prop: BsonProp) = "$pushAll" := obj(prop)
   def $pop(prop: BsonIntProp): BsonProp = "$pop" := obj(prop)
   def $pop(name: String): BsonProp = "$pop" := obj(name := LAST)
   def $pull(prop: BsonProp) = "$pull" := obj(prop)
-  def $elemMatch(props: BsonProp*) = "$elemMatch" := obj(props: _*)
+  def $elemMatch(props: Seq[BsonProp]) = "$elemMatch" := obj(props)
+  def $elemMatch(prop: BsonProp, more: BsonProp*) = "$elemMatch" := obj(prop, more: _*)
   def $near(point: GeoPoint): BsonProp = {
     val geoDbo = geo2Dbo(point)
     val near = obj("$geometry" := geoDbo)
@@ -1015,7 +1036,7 @@ object Mongolia {
     case a ⇒ None
   }
 
-  private val DefaultProxyConverters: Map[Class[_], Codec[_, BsonValue]] = Map(
+  private val DefaultProxyMapping: Map[Class[_], Codec[_, BsonValue]] = Map(
     classOf[String] -> StrCdc,
     classOf[Double] -> DblCdc,
     classOf[Float] -> FltCdc,
@@ -1038,11 +1059,11 @@ object Mongolia {
     classOf[java.net.URL] -> UrlCdc,
     classOf[java.net.URI] -> UriCdc)
 
-  private def convertProxyValue(value: BsonField, asType: Class[_], converters: Map[Class[_], Codec[_, BsonValue]]) = converters.get(asType) match {
+  private def convertProxyValue(value: BsonField, asType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]) = mapping.get(asType) match {
     case Some(converter) ⇒ value.as(converter)
     case None ⇒
       if (asType.isInterface) {
-        getProxy(value.as[DBObject], converters)(ClassTag(asType))
+        getProxy(value.as[DBObject], mapping)(ClassTag(asType))
       } else {
         value match {
           case value: Value ⇒ value.raw
@@ -1050,32 +1071,49 @@ object Mongolia {
         }
       }
   }
-  private def convertProxyOption(value: BsonField, optType: Class[_], converters: Map[Class[_], Codec[_, BsonValue]]) = converters.get(optType) match {
+  private def convertProxyOption(value: BsonField, optType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]) = mapping.get(optType) match {
     case Some(converter) ⇒ value.opt(converter)
     case None ⇒
       if (optType.isInterface) {
-        value.opt[DBObject].map(getProxy(_, converters)(ClassTag(optType)))
+        value.opt[DBObject].map(getProxy(_, mapping)(ClassTag(optType)))
       } else {
         value match {
-          case value: Value ⇒ Option(convertProxyValue(value, optType, converters))
+          case value: Value ⇒ Option(convertProxyValue(value, optType, mapping))
           case _ ⇒ None
         }
       }
   }
-  private def convertProxySeq(shouldBeList: BsonField, seqType: Class[_], converters: Map[Class[_], Codec[_, BsonValue]]) = converters.get(seqType) match {
+  private def convertProxySeq(shouldBeList: BsonField, seqType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): Seq[_] = mapping.get(seqType) match {
     case Some(converter) ⇒ shouldBeList.asSeq(converter)
     case None ⇒
       if (seqType.isInterface) {
-        shouldBeList.asSeq[DBObject].map(getProxy(_, converters)(ClassTag(seqType)))
+        shouldBeList.asSeq[DBObject].map(getProxy(_, mapping)(ClassTag(seqType)))
       } else {
         shouldBeList match {
           case value: Value ⇒ value.raw match {
             case list: java.util.ArrayList[_] ⇒
               import collection.JavaConverters._
-              list.asScala.map(elem ⇒ convertProxyValue(BsonField(elem), seqType, converters))
-            case _ ⇒ Seq(convertProxyValue(value, seqType, converters))
+              list.asScala.map(elem ⇒ convertProxyValue(BsonField(elem), seqType, mapping))
+            case _ ⇒ Seq(convertProxyValue(value, seqType, mapping))
           }
           case _ ⇒ Seq.empty
+        }
+      }
+  }
+  private def convertProxyList(shouldBeList: BsonField, seqType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): List[_] = mapping.get(seqType) match {
+    case Some(converter) ⇒ shouldBeList.asList(converter)
+    case None ⇒
+      if (seqType.isInterface) {
+        shouldBeList.asList[DBObject].map(getProxy(_, mapping)(ClassTag(seqType)))
+      } else {
+        shouldBeList match {
+          case value: Value ⇒ value.raw match {
+            case list: java.util.ArrayList[_] ⇒
+              import collection.JavaConverters._
+              list.asScala.map(elem ⇒ convertProxyValue(BsonField(elem), seqType, mapping)).toList
+            case _ ⇒ List(convertProxyValue(value, seqType, mapping))
+          }
+          case _ ⇒ Nil
         }
       }
   }
@@ -1083,10 +1121,10 @@ object Mongolia {
   private def getGenericReturnClass(method: java.lang.reflect.Method) =
     method.getGenericReturnType().asInstanceOf[java.lang.reflect.ParameterizedType].getActualTypeArguments().head.asInstanceOf[Class[_]]
 
-  private def getProxy[T: ClassTag](dbo: RichDBObject, userConverters: Map[Class[_], Codec[_, BsonValue]]): T = {
+  private def getProxy[T: ClassTag](dbo: RichDBObject, userMapping: Map[Class[_], Codec[_, BsonValue]]): T = {
     val fp = new Proxylicious[T]
-    val converters = DefaultProxyConverters ++ userConverters
-    fp.proxify {
+    val mapping = DefaultProxyMapping ++ userMapping
+    val proxy = fp.proxify {
       case (_, method, args) if args == null || args.length == 0 ⇒
         if (method.getName == "toString") {
           dbo.toJson()
@@ -1095,16 +1133,20 @@ object Mongolia {
           val rt = method.getReturnType
           if (rt == classOf[Option[_]]) {
             val rtt = getGenericReturnClass(method)
-            convertProxyOption(value, rtt, converters)
+            convertProxyOption(value, rtt, mapping)
           } else if (rt.isAssignableFrom(classOf[Seq[_]])) {
             val rtt = getGenericReturnClass(method)
-            convertProxySeq(value, rtt, converters)
+            convertProxySeq(value, rtt, mapping)
+          } else if (rt == classOf[List[_]]) {
+            val rtt = getGenericReturnClass(method)
+            convertProxyList(value, rtt, mapping)
           } else {
-            convertProxyValue(value, rt, converters)
+            convertProxyValue(value, rt, mapping)
           }
         }
       case (_, method, _) ⇒ throw new IllegalAccessException("Cannot proxy methods with arguments: " + method)
     }
+    fp.sandwich(proxy, fp.EqualsHashCodeOverride)
   }
 
 }
