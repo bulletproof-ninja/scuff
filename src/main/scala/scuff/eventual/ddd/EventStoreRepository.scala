@@ -125,14 +125,18 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
     case Some(revision) ⇒ loadRevision(id, revision)
   }
 
-  def insert(metadata: Map[String, String])(getAR: ⇒ AR): Future[Unit] = {
-    val ar = getAR
+  def insert(metadata: Map[String, String])(ar: AR): Future[AR] = {
+    import scala.util.{ Success, Failure }
 
-    if (ar.revision.nonEmpty) throw new IllegalStateException("Cannot insert. %s already has revision %d".format(ar.id, ar.revision.get))
-    if (ar.events.isEmpty) throw new IllegalStateException("Cannot insert. %s has produced no events.".format(ar.id))
-
-    eventStore.record(ar, ar.id, 0L, ar.events, metadata).recover {
-      case _: DuplicateRevisionException ⇒ throw new DuplicateIdException(ar.id)
+    if (ar.revision.nonEmpty) {
+      Future.failed(new IllegalStateException("Cannot insert. %s already has revision %d".format(ar.id, ar.revision.get)))
+    } else if (ar.events.isEmpty) {
+      Future.failed(new IllegalStateException("Cannot insert. %s has produced no events.".format(ar.id)))
+    } else {
+      val future = eventStore.record(ar, ar.id, 0L, ar.events, metadata)
+      future.map(_ ⇒ ar).recover {
+        case _: DuplicateRevisionException ⇒ throw new DuplicateIdException(ar.id)
+      }
     }
   }
 
