@@ -12,74 +12,50 @@ import java.lang.reflect.{ Array ⇒ _, _ }
  */
 class Surgeon[T <: AnyRef](patient: T) {
 
-  private val patientType: Class[T] = patient.getClass.asInstanceOf[Class[T]]
-
-  private def findField(name: Symbol): Field = {
-
-      @tailrec
-      def find(name: String, fromClass: Class[_ >: T]): Field = {
-
-          @tailrec
-          def check(idx: Int, fields: Array[Field]): Field = {
-            if (idx == fields.length) {
-              null
-            } else if (fields(idx).getName == name) {
-              fields(idx)
-            } else {
-              check(idx + 1, fields)
-            }
-          }
-
-        if (fromClass == null) {
-          null
-        } else {
-          check(0, fromClass.getDeclaredFields) match {
-            case null ⇒ find(name, fromClass.getSuperclass)
-            case field ⇒ field.setAccessible(true); field
-          }
-        }
-
-      }
-    find(name.name, patientType)
-  }
+  private[this] val fields = Surgeon.getFields(patient.getClass)
 
   /**
    * Set field value reflectively.
    * @param name Field name
    * @param value Field value
    */
-  def setField(name: Symbol, value: Any) {
-    findField(name).set(patient, value)
+  def set(field: Symbol, value: Any) {
+    fields(field).set(patient, value)
   }
+
   /**
    * Get field value reflectively.
    * @param name Field name
    * @return Field value
    */
-  def getField[T](name: Symbol): T = findField(name).get(patient).asInstanceOf[T]
+  def get[T](field: Symbol): T = fields(field).get(patient).asInstanceOf[T]
 }
 
-object Surgeon {
-  
-  private def isSerializable(f: Field) = !Modifier.isStatic(f.getModifiers) && !Modifier.isTransient(f.getModifiers)
-  
-  /**
-   * Check if class has non-transient, non-static fields declared.
-   */
-  def hasSerializableFields(cls: Class[_]): Boolean = {
-    if (cls == null) {
-      false
-    } else {
-      val fields = cls.getDeclaredFields
-      if (fields.length == 0) {
-        hasSerializableFields(cls.getSuperclass)
-      } else if (isSerializable(fields(0))) {
-        true
-      } else if (fields.filterNot(isSerializable).length == fields.length) { // All fields are not serializable
-        hasSerializableFields(cls.getSuperclass)
-      } else {
-        true
-      }
+private object Surgeon {
+
+  def getFields(cls: Class[_]): Map[Symbol, Field] = {
+    fields.get(cls) match {
+      case Some(map) ⇒ map
+      case _ ⇒
+        val map = new LockFreeConcurrentMap[Symbol, Field]
+        saveFields(cls, map)
+        fields.putIfAbsent(cls, map.snapshot) match {
+          case None ⇒ map.snapshot
+          case Some(other) ⇒ other
+        }
     }
   }
+
+  @annotation.tailrec
+  private def saveFields(cls: Class[_], map: LockFreeConcurrentMap[Symbol, Field]) {
+    if (cls != null) {
+      cls.getDeclaredFields.foreach { field ⇒
+        field.setAccessible(true)
+        map.putIfAbsent(Symbol(field.getName), field)
+      }
+      saveFields(cls.getSuperclass, map)
+    }
+  }
+
+  private val fields = new LockFreeConcurrentMap[Class[_], Map[Symbol, Field]]
 }
