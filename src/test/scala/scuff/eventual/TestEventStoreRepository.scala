@@ -29,7 +29,7 @@ abstract class AbstractEventStoreRepositoryTest {
   private def doAsync(f: Promise[Any] ⇒ Unit) {
     val something = Promise[Any]
     f(something)
-    Await.result(something.future, 5.seconds) match {
+    Await.result(something.future, 15.seconds) match {
       case t: Throwable ⇒ throw t
       case Failure(t) ⇒ throw t
       case _ ⇒
@@ -99,7 +99,6 @@ abstract class AbstractEventStoreRepositoryTest {
     repo.insert(aggrWithRevision).onComplete {
       case Failure(e: IllegalStateException) ⇒
         assertTrue(e.getMessage().contains("FooBar") && e.getMessage.contains("42"))
-      //        countdown.countDown()
       case c ⇒
         fail("Should not happen: " + c)
     }(SameThreadExecution)
@@ -107,22 +106,16 @@ abstract class AbstractEventStoreRepositoryTest {
     repo.insert(aggrWithNoEvents).onComplete {
       case Failure(e: IllegalStateException) ⇒
         assertTrue(e.getMessage().contains("FooBar"))
-      //        countdown.countDown()
       case c ⇒
         fail("Should not happen: " + c)
     }(SameThreadExecution)
     val aggrWithEventNoRevision = Aggr.create("FooBar")
     repo.insert(aggrWithEventNoRevision).onComplete {
       case Success(_) ⇒
-        done.success(Unit) //countdown.countDown()
+        done.success(Unit)
       case c ⇒
         fail("Should not happen: " + c)
     }(SameThreadExecution)
-    //    if (countdown.await(5, SECONDS)) {
-    //      done.success(Unit)
-    //    } else {
-    //      fail("Timed out")
-    //    }
   }
   @Test
   def `duplicate id` = doAsync { done ⇒
