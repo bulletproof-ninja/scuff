@@ -11,8 +11,8 @@ import concurrent.duration._
  * Uses this collection format:
  * ```
  * {  _id: <stream>,
- *    rev: 123, // Latest revision
- *    time: <timestamp>, // Transaction timestamp
+ *    _rev: 123, // Latest revision
+ *    _time: <timestamp>, // Transaction timestamp
  * }
  * ```
  * @param dbColl MongoDB collection. Set whatever WriteConcern is appropriate before passing
@@ -21,25 +21,34 @@ import concurrent.duration._
 final class EventStreamTracker[ID](dbColl: DBCollection, clockSkew: Duration = 2.seconds)(implicit idCdc: scuff.Codec[ID, BsonValue]) {
 
   def resumeFrom: Option[scuff.Timestamp] = {
-    dbColl.find(obj(), obj("_id" := EXCLUDE, "time" := INCLUDE)).last("time").map { doc ⇒
-      val time = doc("time").as[Long]
+    dbColl.find(obj(), obj("_id" := EXCLUDE, "_time" := INCLUDE)).last("_time").map { doc ⇒
+      val time = doc("_time").as[Long]
       new scuff.Timestamp(time - clockSkew.toMillis)
     }
   }
 
-  private[this] final val RevReadFields = obj("_id" := EXCLUDE, "rev" := INCLUDE)
+  private[this] final val RevReadFields = obj("_id" := EXCLUDE, "_rev" := INCLUDE)
 
   def expectedRevision(streamId: ID): Long = {
     dbColl.findOne(obj("_id" := streamId), RevReadFields) match {
       case null ⇒ 0
-      case doc ⇒ doc.getAs[Long]("rev")
+      case doc ⇒ doc.getAs[Long]("_rev")
     }
   }
 
-  def markAsProcessed(streamId: ID, revision: Long, time: scuff.Timestamp) {
-    val doc = obj("_id" := streamId)
-    doc.put("rev", revision) // Raw type
-    doc.put("time", time) // Raw type
-    dbColl.save(doc)
+  /**
+   * Mark stream/revision as processed.
+   * @param streamId Transaction stream id
+   * @param revision Transaction stream revision
+   * @param time Transaction timestamp
+   * @param save Optional save data.
+   * Should not contain fields "_id", "_rev", "_time"
+   * as those will be overwritten anyway.
+   */
+  def markAsProcessed(streamId: ID, revision: Long, time: scuff.Timestamp, save: DBObject = obj()) {
+    save.add("_id" := streamId)
+    save.put("_rev", revision) // Raw type
+    save.put("_time", time) // Raw type
+    dbColl.save(save)
   }
 }
