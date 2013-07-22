@@ -25,7 +25,7 @@ object typed {
     superState.getClass.getDeclaredFields.withFilter(f ⇒ classOf[State].isAssignableFrom(f.getType)).foreach { field ⇒
       field.setAccessible(true)
       val subState = field.get(superState)
-      new scuff.Surgeon(subState).setField('parent, parent)
+      new scuff.Surgeon(subState).set('parent, parent)
       subState match {
           case ss: typed.SuperState[T] ⇒ assignParenthood(ss)
         case _ ⇒ // Ignore
