@@ -17,7 +17,11 @@ import java.util.concurrent.locks.{ ReadWriteLock, ReentrantReadWriteLock }
  * @param staleCheckFreq Frequency in seconds of background thread checking for stale cache entries. Defaults to 10 seconds.
  * @param lock Optional. Alternative read/write lock.
  */
-final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: Int, staleCheckFreq: Int = 10, lock: ReadWriteLock = new ReentrantReadWriteLock) extends Cache[K, V] {
+final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: Int, staleCheckFreq: Int = 10, lock: ReadWriteLock = new ReentrantReadWriteLock)
+    extends Cache[K, V] {
+
+  @inline implicit private def Millis = concurrent.duration.MILLISECONDS
+  @inline private def clock = SystemClock
 
   override def toString = map.toString
   
@@ -101,8 +105,8 @@ final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: Int, staleCheck
     refresh(ttl)
 
     @volatile var expiryMillis: Long = _
-    def isStale(now: Long = System.currentTimeMillis) = expiryMillis < now
-    def refresh(ttl: Int) = expiryMillis = if (ttl > 0) System.currentTimeMillis + ttl * 1000 else Long.MaxValue
+    def isStale(now: Long = clock.now) = expiryMillis < now
+    def refresh(ttl: Int) = expiryMillis = if (ttl > 0) clock.now + ttl * 1000 else Long.MaxValue
 
   }
 
@@ -126,7 +130,7 @@ final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: Int, staleCheck
     override def run {
       while (!isInterrupted) {
         val staleKeys = readLock {
-          val now = System.currentTimeMillis
+          val now = clock.now
           map.entrySet.asScala.withFilter(_.getValue.isStale(now)).map(_.getKey)
         }
         if (!staleKeys.isEmpty) {
