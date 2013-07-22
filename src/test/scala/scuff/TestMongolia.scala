@@ -22,9 +22,10 @@ class TestMongolia {
       "id" := oid,
       "array" := Array("one", "two", "three"),
       "uuid" := uuid,
+      "emptyList" := List[Int](),
       "bytes" := Array[Byte](5, 23, 46, 45, 2, 23, -4, -53))
     doc.put("foo", List("abc", "def", "ghi"))
-    assertEquals("""{"nothing":null,"none":null,"list":["a","b"],"now":{"$date":1349276592614},"id":{"$oid":"506c53b0a025ec577423ef92"},"array":["one","two","three"],"uuid":{"$uuid":"650c1d1c-3a1d-479c-a3fd-9c707e9288c4"},"bytes":{ "$binary" : "BRcuLQIX/Ms=" , "$type" : 0},"foo":["abc","def","ghi"]}""", doc.toJson)
+    assertEquals("""{"nothing":null,"none":null,"list":["a","b"],"now":{"$date":1349276592614},"id":{"$oid":"506c53b0a025ec577423ef92"},"array":["one","two","three"],"uuid":{"$uuid":"650c1d1c-3a1d-479c-a3fd-9c707e9288c4"},"emptyList":[],"bytes":{ "$binary" : "BRcuLQIX/Ms=" , "$type" : 0},"foo":["abc","def","ghi"]}""", doc.toJson)
   }
 
   @Test
@@ -158,6 +159,9 @@ class TestMongolia {
     doc.add("foo" := null)
     assertEquals(None, doc("foo").opt[Int])
     assertEquals("{}", doc.toJson)
+    val doc2 = obj(ignoreEmpty = true)
+    doc2.add("foo" := null, "bar" := List.empty[Int])
+    assertEquals("""{"foo":null}""", doc2.toJson)
   }
 
   @Test
@@ -267,6 +271,7 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
         def two: Int
         def three: Long
         def fortytwo: Double
+        def baz: Option[String]
       }
       def maybe: Option[Int]
       def list: Seq[String]
@@ -282,13 +287,31 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
         assertEquals(Seq(), foo.list)
         assertEquals(666, foo.definite.get)
         assertEquals(Seq(1d, 2d, 3d), foo.list2)
-        assertEquals("""{"foo":"bar","nested":{"two":2,"three":3,"fortytwo":42},"definite":666,"list2":[1.0,2.0,3.0]}""", foo.toString)
+        assertEquals("""{"foo":"bar","nested":{"two":2,"three":3,"fortytwo":42,"baz":null},"definite":666,"list2":[1.0,2.0,3.0]}""", foo.toString)
       }
-    val doc = obj("foo" := "bar", "nested" := obj("two" := 2, "three" := 3, "fortytwo" := 42), "definite" := 666, "list2" := arr(1, 2f, 3L))
-    assertStuff(doc.like[Foo])
-    parseJsonObject("""{"foo":"bar","nested":{"two":2,"three":3,"fortytwo":42},"definite":666,"list2":[1.0,2.0,3.0]}""").map(_.like[Foo]) match {
+    val doc = obj("foo" := "bar", "nested" := obj("two" := 2, "three" := 3, "fortytwo" := 42, "baz" := null), "definite" := 666, "list2" := arr(1, 2f, 3L))
+    val foo = doc.like[Foo]
+    assertStuff(foo)
+    assertEquals(None, foo.nested.baz)
+    parseJsonObject("""{"foo":"bar","nested":{"two":2,"three":3,"fortytwo":42,"baz":null},"definite":666,"list2":[1.0,2.0,3.0]}""").map(_.like[Foo]) match {
       case None ⇒ fail("Where's the object?")
       case Some(foo) ⇒ assertStuff(foo)
+    }
+  }
+
+  @Test
+  def `interface mismatch` {
+    trait Foo {
+      def baz: Option[String]
+      def barbarbar: String
+    }
+    val foo = obj().like[Foo]
+    assertEquals(None, foo.baz)
+    try {
+      foo.barbarbar
+      fail("Should fail on unknown property")
+    } catch {
+      case e: Exception ⇒ assertTrue(e.getMessage.contains("barbarbar"))
     }
   }
 

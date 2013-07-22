@@ -16,8 +16,7 @@ class TestInterval {
       }
     Seq(
       "[45.00;59.00)", "[45.00;59.00[", "[45.00,59.00)", "[45.00,59.00[",
-      "[45,00;59,00)", "[45,00;59,00["
-    ).map(s ⇒ s -> Interval.parse(s)).foreach {
+      "[45,00;59,00)", "[45,00;59,00[").map(s ⇒ s -> Interval.parse(s)).foreach {
         case (str, si) ⇒
           si match {
             case None ⇒ fail("Should be valid interval string: " + str)
@@ -111,6 +110,18 @@ class TestInterval {
     } catch {
       case e: IllegalArgumentException ⇒ assertTrue(e.getMessage.contains("NaN"))
     }
+  }
+
+  @Test
+  def serialization {
+    val i = Interval(1d to Double.PositiveInfinity)
+    val ba = new java.io.ByteArrayOutputStream
+    val out = new java.io.ObjectOutputStream(ba)
+    out.writeObject(i)
+    val bytes = new java.io.ByteArrayInputStream(ba.toByteArray)
+    val in = new java.io.ObjectInputStream(bytes)
+    val copy = in.readObject().asInstanceOf[Interval[Double]]
+    assertEquals(i, copy)
   }
 
 }

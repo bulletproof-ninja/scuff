@@ -14,9 +14,12 @@ import scuff.eventual.ddd.StateMutator
 import scuff.eventual.ddd.EventHandler
 import scuff.eventual.ddd.MapSnapshots
 import scuff.eventual.ddd.EventStoreRepository
+import scuff.SameThreadExecution
+import scuff.SystemClock
 
 abstract class AbstractEventStoreRepositoryTest {
 
+  implicit def clock = SystemClock
   implicit def catConv(ar: Aggr) = ()
   implicit def idConv(id: String) = id
 
@@ -92,15 +95,34 @@ abstract class AbstractEventStoreRepositoryTest {
   }
   @Test
   def `programmer error` = doAsync { done ⇒
-    Try { repo.insert(new Aggr("FooBar", new EventHandler(new AggrStateMutator), Some(42))) } match {
-      case Failure(e: IllegalStateException) ⇒ assertTrue(e.getMessage().contains("FooBar") && e.getMessage.contains("42"))
-    }
-    Try { repo.insert(new Aggr("FooBar", new EventHandler(new AggrStateMutator), None)) } match {
-      case Failure(e: IllegalStateException) ⇒ assertTrue(e.getMessage().contains("FooBar"))
-    }
-    repo.insert(Aggr.create("FooBar")).onComplete {
-      case Success(_) ⇒ done.success(Unit)
-    }
+    val aggrWithRevision = new Aggr("FooBar", new EventHandler(new AggrStateMutator), Some(42))
+    repo.insert(aggrWithRevision).onComplete {
+      case Failure(e: IllegalStateException) ⇒
+        assertTrue(e.getMessage().contains("FooBar") && e.getMessage.contains("42"))
+      //        countdown.countDown()
+      case c ⇒
+        fail("Should not happen: " + c)
+    }(SameThreadExecution)
+    val aggrWithNoEvents = new Aggr("FooBar", new EventHandler(new AggrStateMutator), None)
+    repo.insert(aggrWithNoEvents).onComplete {
+      case Failure(e: IllegalStateException) ⇒
+        assertTrue(e.getMessage().contains("FooBar"))
+      //        countdown.countDown()
+      case c ⇒
+        fail("Should not happen: " + c)
+    }(SameThreadExecution)
+    val aggrWithEventNoRevision = Aggr.create("FooBar")
+    repo.insert(aggrWithEventNoRevision).onComplete {
+      case Success(_) ⇒
+        done.success(Unit) //countdown.countDown()
+      case c ⇒
+        fail("Should not happen: " + c)
+    }(SameThreadExecution)
+    //    if (countdown.await(5, SECONDS)) {
+    //      done.success(Unit)
+    //    } else {
+    //      fail("Timed out")
+    //    }
   }
   @Test
   def `duplicate id` = doAsync { done ⇒

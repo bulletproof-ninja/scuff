@@ -5,6 +5,8 @@ import org.junit.Assert._
 
 import java.lang.reflect.Method
 
+import scala.util._
+
 class TestProxylicious {
 
   @Test def `general test` {
@@ -20,10 +22,10 @@ class TestProxylicious {
         }
       }
       def before(proxy: Arithmetic, method: Method, args: Array[Any]) {}
-      def after(proxy: Arithmetic, method: Method, args: Array[Any], result: Either[Throwable, Any]): Any = {
+      def after(proxy: Arithmetic, method: Method, args: Array[Any], result: Try[Any]): Any = {
         result match {
-          case Left(t) ⇒ throw t
-          case Right(r: Int) ⇒ r * 2
+          case Failure(t) ⇒ throw t
+          case Success(r: Int) ⇒ r * 2
         }
       }
     }
@@ -74,6 +76,30 @@ class TestProxylicious {
       else
         super.apply(a, b)
     }
+  }
+
+  @Test
+  def `value class` {
+    trait Values {
+      def a: String
+      def b: Int
+      def c: Timestamp
+    }
+    class ValuesImpl(val a: String, val b: Int, val c: Timestamp) extends Values
+    val now = new Timestamp
+    val x = new ValuesImpl("nils", 42, now)
+    val y = new ValuesImpl("nils", 42, now)
+    val z = new ValuesImpl("nils", 43, now)
+    assertNotEquals(x, y)
+    assertNotEquals(x.hashCode, y.hashCode)
+    val p = new Proxylicious[Values]
+    val x2 = p.sandwich(x, p.EqualsHashCodeOverride)
+    val y2 = p.sandwich(y, p.EqualsHashCodeOverride)
+    val z2 = p.sandwich(z, p.EqualsHashCodeOverride)
+    assertEquals(x2, y2)
+    assertEquals(x2.hashCode, y2.hashCode)
+    assertNotEquals(x2, z2)
+    assertNotEquals(x2.hashCode, z2.hashCode)
   }
 
 }
