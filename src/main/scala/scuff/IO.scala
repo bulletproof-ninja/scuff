@@ -28,18 +28,26 @@ object IO {
   final val DefaultBufferSize = 16 * 1024
 
   /**
-    * Copies from inputstream to outputstream,
-    * until inputstream is exhausted (returns -1 on read).
-    * Neither stream is flushed nor closed.
-    */
+   * Copies from inputstream to outputstream,
+   * until inputstream is exhausted (returns -1 on read).
+   * Neither stream is flushed nor closed.
+   */
   def copyStream(io: (InputStream, OutputStream), bufferSize: Int = DefaultBufferSize) {
     val (in, out) = io
     val buffer = new Array[Byte](bufferSize)
-    transfer(in, out, buffer)
+    try {
+      transfer(in, out, buffer)
+    } catch {
+      case eof: EOFException ⇒ // Some faulty implementations throw EOF
+    }
   }
   def copyChars(io: (Reader, Writer), bufferSize: Int = DefaultBufferSize) {
     val (in, out) = io
     val buffer = new Array[Char](bufferSize)
-    transfer(in, out, buffer)
+    try {
+      transfer(in, out, buffer)
+    } catch {
+      case eof: EOFException ⇒ // Some faulty implementations throw EOF
+    }
   }
 }
