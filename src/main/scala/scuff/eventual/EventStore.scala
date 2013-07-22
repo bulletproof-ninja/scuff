@@ -82,7 +82,7 @@ trait EventStore[ID, EVT, CAT] extends EventSource[ID, EVT, CAT] {
    * @param events The events
    * @return Potential DuplicateRevisionException if the expected revision has already been committed. Try, try again.
    */
-  def record(category: CAT, streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String] = Map.empty): Future[Unit]
+  def record(category: CAT, streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String] = Map.empty): Future[Transaction]
 
   /**
    * Append events into a particular stream, then publish the transaction to subscribers.
@@ -92,5 +92,5 @@ trait EventStore[ID, EVT, CAT] extends EventSource[ID, EVT, CAT] {
    * @param metadata Optional metadata
    * @return revision Event stream revision that was committed
    */
-  def append(category: CAT, streamID: ID, events: List[_ <: EVT], metadata: Map[String, String] = Map.empty): Future[Long]
+  def append(category: CAT, streamID: ID, events: List[_ <: EVT], metadata: Map[String, String] = Map.empty): Future[Transaction]
 }
