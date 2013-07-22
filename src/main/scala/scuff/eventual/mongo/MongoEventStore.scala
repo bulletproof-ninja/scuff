@@ -106,7 +106,7 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
   }
 
   // TODO: Make non-blocking once supported by the driver.
-  def record(category: CAT, stream: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Future[Unit] = Future {
+  def record(category: CAT, stream: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = Future {
     val timestamp = new Timestamp
     val doc = obj(
       "_id" := obj(
@@ -124,18 +124,19 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     new Transaction(timestamp, category, stream, revision, metadata, events)
   }.andThen {
     case Success(txn) ⇒ publish(txn)
-  }.map(_ ⇒ Unit)
+  }
 
-  private def tryRecord(category: CAT, stream: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Future[Long] = Future {
+  private def tryRecord(category: CAT, stream: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = {
     record(category, stream, revision, events, metadata)
-    revision
   }.recoverWith {
     case _: eventual.DuplicateRevisionException ⇒ tryRecord(category, stream, revision + 1L, events, metadata)
   }
 
-  def append(category: CAT, stream: ID, events: List[_ <: EVT], metadata: Map[String, String]): Future[Long] = {
+  def append(category: CAT, stream: ID, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = {
     val revision = store.find("_id.stream" := stream).last("_id.rev").map(_.getAs[Long]("_id.rev")).getOrElse(-1L) + 1L
     tryRecord(category, stream, revision, events, metadata)
+  }.andThen {
+    case Success(txn) ⇒ publish(txn)
   }
 
   // TODO: Make non-blocking once supported by the driver.

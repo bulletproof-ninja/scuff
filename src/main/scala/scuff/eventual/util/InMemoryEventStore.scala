@@ -31,39 +31,31 @@ abstract class InMemoryEventStore[ID, EVT, CAT](implicit execCtx: ExecutionConte
     }
   }
 
-  def record(category: CAT, streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Future[Unit] = {
-    val futureTxn = Future {
-      txnList.synchronized {
-        val expectedRevision = findCurrentRevision(streamId).getOrElse(-1L) + 1L
-        if (revision == expectedRevision) {
-          val txn = new Transaction(new Timestamp, category, streamId, revision, metadata, events)
-          txnList += txn
-          txn
-        } else if (expectedRevision > revision) {
-          throw new eventual.DuplicateRevisionException(streamId, revision)
-        } else {
-          throw new IllegalStateException
-        }
-      }
-    }
-    futureTxn.andThen {
-      case Success(txn) ⇒ publish(txn)
-      case _ ⇒ // Ignore
-    }.map(_ ⇒ Unit)
-  }
-  def append(category: CAT, streamId: ID, events: List[_ <: EVT], metadata: Map[String, String]): Future[Long] = {
-    val futureTxn = Future {
-      txnList.synchronized {
-        val revision = findCurrentRevision(streamId).getOrElse(-1L) + 1L
+  def record(category: CAT, streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = Future {
+    txnList.synchronized {
+      val expectedRevision = findCurrentRevision(streamId).getOrElse(-1L) + 1L
+      if (revision == expectedRevision) {
         val txn = new Transaction(new Timestamp, category, streamId, revision, metadata, events)
         txnList += txn
         txn
+      } else if (expectedRevision > revision) {
+        throw new eventual.DuplicateRevisionException(streamId, revision)
+      } else {
+        throw new IllegalStateException
       }
     }
-    futureTxn.andThen {
-      case Success(txn) ⇒ publish(txn)
-      case _ ⇒ // Ignore
-    }.map(_.revision)
+  }.andThen {
+    case Success(txn) ⇒ publish(txn)
+  }
+  def append(category: CAT, streamId: ID, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = Future {
+    txnList.synchronized {
+      val revision = findCurrentRevision(streamId).getOrElse(-1L) + 1L
+      val txn = new Transaction(new Timestamp, category, streamId, revision, metadata, events)
+      txnList += txn
+      txn
+    }
+  }.andThen {
+    case Success(txn) ⇒ publish(txn)
   }
   def replayStream[T](stream: ID)(callback: Iterator[Transaction] ⇒ T): Future[T] = Future {
     txnList.synchronized {
