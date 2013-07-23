@@ -13,7 +13,7 @@ final class Timestamp private (time: Long, toStr: String) extends Date(time) {
   def this(time: Long) = this(time, null)
   def this(time: Date) = this(time.getTime, time.toString)
 
-  override def toString = if (toStr != null) toStr else Timestamp.Formatter.format(this)
+  override def toString = if (toStr != null) toStr else Timestamp.format(this)
 
   def asMillis = getTime
 
@@ -49,6 +49,13 @@ final class Timestamp private (time: Long, toStr: String) extends Date(time) {
   override def setYear(y: Int) = throw new UnsupportedOperationException
 }
 
-private object Timestamp {
-  private final val Formatter = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+object Timestamp {
+  import scala.util.Try
+  private[this] final val spinLock = new SpinLock
+  private[this] final val Formatter = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+  private def format(time: Timestamp): String = spinLock.whenLocked(Formatter.format(time))
+  def parseISO(str: String): Try[Timestamp] = Try {
+    val date = spinLock.whenLocked(Formatter.parse(str))
+    new Timestamp(date.getTime, str)
+  }
 }
