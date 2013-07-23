@@ -11,7 +11,6 @@ trait EventSource[ID, EVT, CAT] extends Channel {
   final type F = CAT
   type L = Transaction ⇒ Unit
 
-  // NOTICE: See above for reflective field access, so beware of name changes
   case class Transaction(
     timestamp: Timestamp,
     category: CAT,
