@@ -35,6 +35,15 @@ package object scuff {
         lock.unlock()
       }
     }
-
   }
+
+  import scala.util.{ Try, Success, Failure }
+  import concurrent.Future
+  implicit class ScuffTry[T](val t: Try[T]) extends AnyVal {
+    def toFuture: Future[T] = t match {
+      case Success(res) ⇒ Future.successful(res)
+      case Failure(e) ⇒ Future.failed(e)
+    }
+  }
+
 }
