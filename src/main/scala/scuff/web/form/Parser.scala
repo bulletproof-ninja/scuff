@@ -1,5 +1,6 @@
 package scuff.web.form
 
+import scuff.ScuffAny
 import reflect.ClassTag
 import scuff.Proxylicious
 import util._
@@ -73,29 +74,9 @@ class Parser[T](implicit tag: ClassTag[T]) {
    */
   protected def convert(name: String, value: String, toType: Class[_]): Any = {
     converters.get(toType) match {
-      case None ⇒
-        import java.lang.reflect.{ Constructor, Modifier }
-        val constructors = toType.getConstructors().filter { ctor ⇒
-          val parmTypes = ctor.getParameterTypes()
-          parmTypes.length == 1 && parmTypes(0) == classOf[String]
-        }
-        constructors match {
-          case Array(ctor) ⇒ ctor.newInstance(value)
-          case _ ⇒
-            val factoryMethods = toType.getMethods().filter { method ⇒
-              Modifier.isStatic(method.getModifiers) &&
-                method.getReturnType() == toType &&
-                {
-                  val parmTypes = method.getParameterTypes()
-                  parmTypes.length == 1 && parmTypes(0) == classOf[String]
-                }
-            }
-            factoryMethods match {
-              case Array(factoryMethod) ⇒ factoryMethod.invoke(null, value)
-              case _ ⇒ // None or ambiguous
-                sys.error("Cannot convert \"" + value + "\" to " + toType)
-            }
-        }
+      case None ⇒ value.coerceTo(ClassTag(toType)).getOrElse {
+        throw new IllegalArgumentException("Cannot coerce %s into %s".format(value, toType.getName))
+      }
       case Some(conv) ⇒ conv(value)
     }
   }

@@ -273,7 +273,7 @@ object Mongolia {
       case _ ⇒ Some(codec.decode(b))
     }
   }
-  implicit def DBObjectCdc = DboCdc
+  implicit def DBObjectCdc: Codec[DBObject, BsonValue] = DboCdc
   private[this] val DboCdc = new Codec[DBObject, BsonValue] {
     def encode(a: DBObject): BsonValue = a match {
       case l: RichDBList ⇒ l
@@ -284,6 +284,15 @@ object Mongolia {
       case list: org.bson.LazyDBList ⇒ list
       case dbo: DBObject ⇒ dbo.enrich: DBObject
       case _ ⇒ throw new RuntimeException("Cannot coerce %s into DBObject".format(b.raw.getClass.getName))
+    }
+  }
+  implicit def RichDBObjectCdc: Codec[RichDBObject, BsonValue] = RDboCdc
+  private[this] val RDboCdc = new Codec[RichDBObject, BsonValue] {
+    def encode(a: RichDBObject): BsonValue = a
+    def decode(b: BsonValue): RichDBObject = b.raw match {
+      case dbo: RichDBObject ⇒ dbo
+      case dbo: DBObject ⇒ dbo.enrich
+      case _ ⇒ throw new RuntimeException("Cannot coerce %s into RichDBObject".format(b.raw.getClass.getName))
     }
   }
   implicit def MapCdc[T](implicit codec: Codec[T, BsonValue]) = new Codec[Map[String, T], BsonValue] {
@@ -573,6 +582,7 @@ object Mongolia {
     def ensureIndex(key: String, idxType: String): Unit = underlying.ensureIndex(obj(key := idxType))
     def ensureIndex(keyHead: BsonIntProp, keyTail: BsonIntProp*): Unit = underlying.ensureIndex(obj(keyHead, keyTail: _*))
     def ensureUniqueIndex(key: String): Unit = underlying.ensureIndex(obj(key := ASC), obj("unique" := true))
+    def ensureHashedIndex(key: String): Unit = underlying.ensureIndex(obj(key := "hashed"))
     def ensureSparseIndex(key: String): Unit = underlying.ensureIndex(obj(key := ASC), obj("sparse" := true))
     def ensureUniqueSparseIndex(key: String): Unit = underlying.ensureIndex(obj(key := ASC), obj("sparse" := true, "unique" := true))
     def ensureUniqueIndex(keyHead: BsonIntProp, keyTail: BsonIntProp*): Unit = underlying.ensureIndex(obj(keyHead, keyTail: _*), obj("unique" := true))
@@ -781,7 +791,7 @@ object Mongolia {
 
     def like[T](implicit tag: ClassTag[T]): T = like(Map.empty[Class[_], Codec[_, BsonValue]])
     def like[T](mapping: Map[Class[_], Codec[_, BsonValue]])(implicit tag: ClassTag[T]): T =
-      if (tag.runtimeClass.isInterface) getProxy(this, mapping) else throw new IllegalArgumentException("%s must be an interface".format(tag.runtimeClass))
+      if (tag.runtimeClass.isInterface) Proxying.getProxy(this, mapping) else throw new IllegalArgumentException("%s must be an interface".format(tag.runtimeClass))
 
     def isEmpty = underlying match {
       case m: java.util.Map[_, _] ⇒ m.isEmpty
@@ -1036,117 +1046,127 @@ object Mongolia {
     case a ⇒ None
   }
 
-  private val DefaultProxyMapping: Map[Class[_], Codec[_, BsonValue]] = Map(
-    classOf[String] -> StrCdc,
-    classOf[Double] -> DblCdc,
-    classOf[Float] -> FltCdc,
-    classOf[Long] -> LongCdc,
-    classOf[Int] -> IntCdc,
-    classOf[Byte] -> ByteCdc,
-    classOf[Boolean] -> BoolCdc,
-    classOf[Short] -> ShrtCdc,
-    classOf[UUID] -> UUIDCdc,
-    classOf[BigDecimal] -> BDCdc,
-    classOf[ObjectId] -> OIDCdc,
-    classOf[Array[Byte]] -> BACdc,
-    classOf[Timestamp] -> TsCdc,
-    classOf[java.util.Date] -> DateCdc,
-    classOf[java.util.TimeZone] -> TzCdc,
-    classOf[java.util.Locale] -> LocCdc,
-    classOf[Number] -> BDCdc,
-    classOf[EmailAddress] -> EmlCdc,
-    classOf[Password] -> PwdCdc,
-    classOf[java.net.URL] -> UrlCdc,
-    classOf[java.net.URI] -> UriCdc)
+  private object Proxying {
 
-  private def convertProxyValue(value: BsonField, asType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]) = mapping.get(asType) match {
-    case Some(converter) ⇒ value.as(converter)
-    case None ⇒
-      if (asType.isInterface) {
-        getProxy(value.as[DBObject], mapping)(ClassTag(asType))
-      } else {
-        value match {
-          case value: Value ⇒ value.raw
-          case _ ⇒ null
-        }
-      }
-  }
-  private def convertProxyOption(value: BsonField, optType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]) = mapping.get(optType) match {
-    case Some(converter) ⇒ value.opt(converter)
-    case None ⇒
-      if (optType.isInterface) {
-        value.opt[DBObject].map(getProxy(_, mapping)(ClassTag(optType)))
-      } else {
-        value match {
-          case value: Value ⇒ Option(convertProxyValue(value, optType, mapping))
-          case _ ⇒ None
-        }
-      }
-  }
-  private def convertProxySeq(shouldBeList: BsonField, seqType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): Seq[_] = mapping.get(seqType) match {
-    case Some(converter) ⇒ shouldBeList.asSeq(converter)
-    case None ⇒
-      if (seqType.isInterface) {
-        shouldBeList.asSeq[DBObject].map(getProxy(_, mapping)(ClassTag(seqType)))
-      } else {
-        shouldBeList match {
-          case value: Value ⇒ value.raw match {
-            case list: java.util.ArrayList[_] ⇒
-              import collection.JavaConverters._
-              list.asScala.map(elem ⇒ convertProxyValue(BsonField(elem), seqType, mapping))
-            case _ ⇒ Seq(convertProxyValue(value, seqType, mapping))
-          }
-          case _ ⇒ Seq.empty
-        }
-      }
-  }
-  private def convertProxyList(shouldBeList: BsonField, seqType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): List[_] = mapping.get(seqType) match {
-    case Some(converter) ⇒ shouldBeList.asList(converter)
-    case None ⇒
-      if (seqType.isInterface) {
-        shouldBeList.asList[DBObject].map(getProxy(_, mapping)(ClassTag(seqType)))
-      } else {
-        shouldBeList match {
-          case value: Value ⇒ value.raw match {
-            case list: java.util.ArrayList[_] ⇒
-              import collection.JavaConverters._
-              list.asScala.map(elem ⇒ convertProxyValue(BsonField(elem), seqType, mapping)).toList
-            case _ ⇒ List(convertProxyValue(value, seqType, mapping))
-          }
-          case _ ⇒ Nil
-        }
-      }
-  }
+    private val DefaultProxyMapping: Map[Class[_], Codec[_, BsonValue]] = Map(
+      classOf[String] -> StrCdc,
+      classOf[Double] -> DblCdc,
+      classOf[Float] -> FltCdc,
+      classOf[Long] -> LongCdc,
+      classOf[Int] -> IntCdc,
+      classOf[Byte] -> ByteCdc,
+      classOf[Boolean] -> BoolCdc,
+      classOf[Short] -> ShrtCdc,
+      classOf[UUID] -> UUIDCdc,
+      classOf[BigDecimal] -> BDCdc,
+      classOf[ObjectId] -> OIDCdc,
+      classOf[Array[Byte]] -> BACdc,
+      classOf[Timestamp] -> TsCdc,
+      classOf[java.util.Date] -> DateCdc,
+      classOf[java.util.TimeZone] -> TzCdc,
+      classOf[java.util.Locale] -> LocCdc,
+      classOf[Number] -> BDCdc,
+      classOf[EmailAddress] -> EmlCdc,
+      classOf[Password] -> PwdCdc,
+      classOf[java.net.URL] -> UrlCdc,
+      classOf[java.net.URI] -> UriCdc)
 
-  private def getGenericReturnClass(method: java.lang.reflect.Method) =
-    method.getGenericReturnType().asInstanceOf[java.lang.reflect.ParameterizedType].getActualTypeArguments().head.asInstanceOf[Class[_]]
-
-  private def getProxy[T: ClassTag](dbo: RichDBObject, userMapping: Map[Class[_], Codec[_, BsonValue]]): T = {
-    val fp = new Proxylicious[T]
-    val mapping = DefaultProxyMapping ++ userMapping
-    val proxy = fp.proxify {
-      case (_, method, args) if args == null || args.length == 0 ⇒
-        if (method.getName == "toString") {
-          dbo.toJson()
+    private def convertProxyValue(value: BsonField, asType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]) = mapping.get(asType) match {
+      case Some(converter) ⇒ value.as(converter)
+      case None ⇒
+        if (asType.isInterface) {
+          getProxy(value.as[DBObject], mapping)(ClassTag(asType))
         } else {
-          val value = dbo(method.getName)
-          val rt = method.getReturnType
-          if (rt == classOf[Option[_]]) {
-            val rtt = getGenericReturnClass(method)
-            convertProxyOption(value, rtt, mapping)
-          } else if (rt.isAssignableFrom(classOf[Seq[_]])) {
-            val rtt = getGenericReturnClass(method)
-            convertProxySeq(value, rtt, mapping)
-          } else if (rt == classOf[List[_]]) {
-            val rtt = getGenericReturnClass(method)
-            convertProxyList(value, rtt, mapping)
-          } else {
-            convertProxyValue(value, rt, mapping)
+          import scuff._
+          value match {
+            case value: Value ⇒
+              if (asType.isInstance(value.raw)) {
+                value.raw
+              } else {
+                value.raw.coerceTo[Any](ClassTag(asType)).getOrElse(value.raw)
+              }
+            case _ ⇒ null
           }
         }
-      case (_, method, _) ⇒ throw new IllegalAccessException("Cannot proxy methods with arguments: " + method)
     }
-    fp.sandwich(proxy, fp.EqualsHashCodeOverride)
+    private def convertProxyOption(value: BsonField, optType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]) = mapping.get(optType) match {
+      case Some(converter) ⇒ value.opt(converter)
+      case None ⇒
+        if (optType.isInterface) {
+          value.opt[DBObject].map(getProxy(_, mapping)(ClassTag(optType)))
+        } else {
+          value match {
+            case value: Value ⇒ Option(convertProxyValue(value, optType, mapping))
+            case _ ⇒ None
+          }
+        }
+    }
+    private def convertProxySeq(shouldBeList: BsonField, seqType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): Seq[_] = mapping.get(seqType) match {
+      case Some(converter) ⇒ shouldBeList.asSeq(converter)
+      case None ⇒
+        if (seqType.isInterface) {
+          shouldBeList.asSeq[DBObject].map(getProxy(_, mapping)(ClassTag(seqType)))
+        } else {
+          shouldBeList match {
+            case value: Value ⇒ value.raw match {
+              case list: java.util.ArrayList[_] ⇒
+                import collection.JavaConverters._
+                list.asScala.map(elem ⇒ convertProxyValue(BsonField(elem), seqType, mapping))
+              case _ ⇒ Seq(convertProxyValue(value, seqType, mapping))
+            }
+            case _ ⇒ Seq.empty
+          }
+        }
+    }
+    private def convertProxyList(shouldBeList: BsonField, seqType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): List[_] = mapping.get(seqType) match {
+      case Some(converter) ⇒ shouldBeList.asList(converter)
+      case None ⇒
+        if (seqType.isInterface) {
+          shouldBeList.asList[DBObject].map(getProxy(_, mapping)(ClassTag(seqType)))
+        } else {
+          shouldBeList match {
+            case value: Value ⇒ value.raw match {
+              case list: java.util.ArrayList[_] ⇒
+                import collection.JavaConverters._
+                list.asScala.map(elem ⇒ convertProxyValue(BsonField(elem), seqType, mapping)).toList
+              case _ ⇒ List(convertProxyValue(value, seqType, mapping))
+            }
+            case _ ⇒ Nil
+          }
+        }
+    }
+
+    private def getGenericReturnClass(method: java.lang.reflect.Method) =
+      method.getGenericReturnType().asInstanceOf[java.lang.reflect.ParameterizedType].getActualTypeArguments().head.asInstanceOf[Class[_]]
+
+    def getProxy[T: ClassTag](dbo: RichDBObject, userMapping: Map[Class[_], Codec[_, BsonValue]]): T = {
+      val fp = new Proxylicious[T]
+      val mapping = DefaultProxyMapping ++ userMapping
+      val proxy = fp.proxify {
+        case (_, method, args) if args == null || args.length == 0 ⇒
+          if (method.getName == "toString") {
+            dbo.toJson()
+          } else {
+            val value = dbo(method.getName)
+            val rt = method.getReturnType
+            if (rt == classOf[Option[_]]) {
+              val rtt = getGenericReturnClass(method)
+              convertProxyOption(value, rtt, mapping)
+            } else if (rt.isAssignableFrom(classOf[Seq[_]])) {
+              val rtt = getGenericReturnClass(method)
+              convertProxySeq(value, rtt, mapping)
+            } else if (rt == classOf[List[_]]) {
+              val rtt = getGenericReturnClass(method)
+              convertProxyList(value, rtt, mapping)
+            } else {
+              convertProxyValue(value, rt, mapping)
+            }
+          }
+        case (_, method, _) ⇒ throw new IllegalAccessException("Cannot proxy methods with arguments: " + method)
+      }
+      fp.sandwich(proxy, fp.EqualsHashCodeOverride)
+    }
+
   }
 
 }
