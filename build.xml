@@ -1,4 +1,4 @@
-<project name="scuff" default="make-jar" xmlns:ivy="antlib:org.apache.ivy.ant">
+<project name="scuff" default="full-build" xmlns:ivy="antlib:org.apache.ivy.ant">
 
 	<target name="ivy-download" depends="init">
 		<mkdir dir="lib" />
@@ -49,9 +49,8 @@
 		<delete dir="build" />
 	</target>
 
-	<target name="compile-main" depends="init, resolve-deps, scala-taskdef">
-		<mkdir dir="${build.destdir}" />
-		<scalac srcdir="src/main" destdir="${build.destdir}" unchecked="yes" addparams="${scalac.params}">
+	<target name="scalac">
+		<scalac srcdir="${srcdir}" destdir="${build.destdir}" addparams="${scalac.params}">
 			<bootclasspath>
 				<pathelement location="${scala-comp.jar}" />
 				<pathelement location="${scala-lib.jar}" />
@@ -59,44 +58,42 @@
 			</bootclasspath>
 
 			<classpath>
+				<pathelement path="${build.destdir}" />
 				<fileset dir="lib">
 					<include name="**/*.jar" />
 					<exclude name="scala-*" />
 				</fileset>
 			</classpath>
 			<include name="scala/**/*.scala" />
-			<!--include name="java/**/*.java" /-->
 		</scalac>
 	</target>
 
-	<target name="compile-test" depends="init, resolve-deps, scala-taskdef">
+	<target name="compile-for-jar" depends="init, resolve-deps, scala-taskdef">
+		<mkdir dir="build/main" />
+		<antcall target="scalac">
+			<param name="srcdir" value="src/main" />
+			<param name="build.destdir" value="build/main" />
+			<param name="scalac.params" value="-optimise -unchecked -deprecation -explaintypes -Xdisable-assertions" />
+		</antcall>
+	</target>
+
+	<target name="compile-for-test" depends="init, resolve-deps, scala-taskdef">
 		<property name="build.destdir" value="build/test" />
-		<property name="scalac.params" value="-nowarn -optimise -language:implicitConversions" />
-		<mkdir dir="build/test" />
-		<antcall target="compile-main">
+		<property name="scalac.params" value="-nowarn" />
+		<mkdir dir="${build.destdir}" />
+		<antcall target="scalac">
+			<param name="srcdir" value="src/main" />
 			<param name="build.destdir" value="${build.destdir}" />
 			<param name="scalac.params" value="${scalac.params}" />
 		</antcall>
-		<scalac srcdir="src/test" destdir="${build.destdir}" addparams="${scalac.params}">
-			<bootclasspath>
-				<pathelement location="${scala-comp.jar}" />
-				<pathelement location="${scala-lib.jar}" />
-				<pathelement location="${scala-refl.jar}" />
-			</bootclasspath>
-
-			<classpath>
-				<pathelement location="${build.destdir}" />
-				<fileset dir="lib">
-					<include name="**/*.jar" />
-					<exclude name="scala-*" />
-				</fileset>
-			</classpath>
-			<include name="scala/**/*.scala" />
-			<!--include name="java/**/*.java" /-->
-		</scalac>
+		<antcall target="scalac">
+			<param name="srcdir" value="src/test" />
+			<param name="build.destdir" value="${build.destdir}" />
+			<param name="scalac.params" value="${scalac.params}" />
+		</antcall>
 	</target>
 
-	<target name="run-junit" depends="compile-test" description="Run JUnit tests">
+	<target name="run-junit" depends="compile-for-test" description="Run JUnit tests">
 		<copy todir="build/test">
 			<fileset dir="src/main/resources" />
 			<fileset dir="src/test/resources" />
@@ -124,12 +121,9 @@
 		</junit>
 	</target>
 
-	<target name="make-jar" depends="init">
-		<mkdir dir="build/main" />
-		<antcall target="compile-main">
-			<param name="build.destdir" value="build/main" />
-			<param name="scalac.params" value="–unchecked -deprecation –explaintypes –Xdisable-assertions -feature -optimise -language:implicitConversions -Yinline-warnings" />
-		</antcall>
+	<target name="full-build" depends="run-junit, make-jar" />
+
+	<target name="make-jar" depends="compile-for-jar">
 		<tstamp />
 		<manifest file="build/MANIFEST.MF">
 			<attribute name="Built-By" value="${user.name}" />
