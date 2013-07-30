@@ -10,6 +10,11 @@ import concurrent.duration._
  * <p>This class is immutable.
  * <p>See <a href="http://java.sun.com/j2se/1.5.0/docs/guide/security/CryptoSpec.html#AppA">
  * Java Cryptography Reference</a> for standard names of digest algorithms.
+  * <p>A String password is digested in the following manner:
+  *   1. Convert to bytes using UTF-8 encoding
+  *   2. Append salt
+  *   3. Digest
+  *   4. For iterations > 1, repeat from 2, using the digest output as input
  * @author Nils Kilden-Pedersen
  * @see java.security.MessageDigest
  */
