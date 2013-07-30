@@ -34,7 +34,12 @@ abstract class CoffeeScriptServlet extends HttpServlet {
     }
   }
 
-  /** Max age, in seconds. */
+  /**
+    * Max age, in seconds.
+    * @param req The HTTP request.
+    * Passed for querying, in case max-age depends on the request.
+    * Ignore if max-age is fixed.
+    */
   protected def maxAge(req: HttpServletRequest): Int
 
   override def doGet(req: HttpServletRequest, res: HttpServletResponse) {
@@ -50,11 +55,8 @@ abstract class CoffeeScriptServlet extends HttpServlet {
       }
     } catch {
       case e: Exception ⇒
-        res.setContentType("text/plain")
+        log("Failed to compile: " + req.getServletPath, e)
         res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
-        val writer = res.getWriter
-        writer.println("Failed to compile: " + req.getServletPath)
-        e.printStackTrace(writer)
     }
   }
 
