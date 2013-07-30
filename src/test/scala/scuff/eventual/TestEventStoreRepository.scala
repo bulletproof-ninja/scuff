@@ -66,7 +66,7 @@ abstract class AbstractEventStoreRepositoryTest {
     }
     val update1 = insert.flatMap {
       case _ ⇒
-        repo.update("Foo" -> 0) { foo ⇒
+        repo.update("Foo", 0) { foo ⇒
           foo(AddNewNumber(42))
           assertEquals(0, foo.events.size)
           foo(AddNewNumber(99))
@@ -159,7 +159,7 @@ abstract class AbstractEventStoreRepositoryTest {
     repo.insert(Aggr.create("Foo")).onSuccess {
       case _ ⇒
         var twoPlusTwo = 0
-        repo.update("Foo" -> 0) { foo ⇒
+        repo.update("Foo", 0) { foo ⇒
           twoPlusTwo = 2 + 2
         }.onSuccess {
           case storedRev ⇒
