@@ -29,9 +29,9 @@ trait Repository[AR <: AggregateRoot] {
    * @return The last committed revision or [[UnknownIdException]]
    */
   def update(id: AR#ID, basedOnRevision: Long, metadata: Map[String, String])(updateBlock: AR ⇒ Unit): Future[Long]
+  final def update(id: AR#ID)(updateBlock: AR ⇒ Unit): Future[Long] = update(id, Long.MaxValue, Map.empty)(updateBlock)
   final def update(id: AR#ID, basedOnRevision: Long)(updateBlock: AR ⇒ Unit): Future[Long] = update(id, basedOnRevision, Map.empty)(updateBlock)
-  final def update(id: (AR#ID, Long))(updateBlock: AR ⇒ Unit): Future[Long] = update(id._1, id._2, Map.empty)(updateBlock)
-  final def update(id: (AR#ID, Long), metadata: Map[String, String])(updateBlock: AR ⇒ Unit): Future[Long] = update(id._1, id._2, metadata)(updateBlock)
+  final def update(id: AR#ID, metadata: Map[String, String])(updateBlock: AR ⇒ Unit): Future[Long] = update(id, Long.MaxValue, metadata)(updateBlock)
 
   /**
    * Insert new aggregate root and publish committed events.
