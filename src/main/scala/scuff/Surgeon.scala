@@ -19,8 +19,9 @@ class Surgeon[T <: AnyRef](patient: T) {
    * @param name Field name
    * @param value Field value
    */
-  def set(field: Symbol, value: Any) {
+  def set(field: Symbol, value: Any): this.type = {
     fields(field).set(patient, value)
+    this
   }
 
   /**
