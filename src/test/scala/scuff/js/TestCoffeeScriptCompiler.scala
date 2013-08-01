@@ -48,7 +48,6 @@ boo = sqr 15
     val js = compiler.compile(coffee).replaceAll("\\s", "")
     val expected =
       """
-"use strict";
 var arr, bar, boo, foo;
 
 arr = [3, 5, 23, 67, 34];

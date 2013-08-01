@@ -16,7 +16,7 @@ object CoffeeScriptCompiler {
 
   private val coffeeScriptCodeVarName = "coffeeScriptCode"
 
-  def apply(options: (Symbol, Any)*): CoffeeScriptCompiler = apply(Some(Use.Strict), false, options: _*)
+  def apply(options: (Symbol, Any)*): CoffeeScriptCompiler = apply(None, false, options: _*)
   def apply(iced: Boolean, options: (Symbol, Any)*): CoffeeScriptCompiler = apply(None, iced, options: _*)
   def apply(useDirective: Use, options: (Symbol, Any)*): CoffeeScriptCompiler = apply(Some(useDirective), false, options: _*)
   def apply(useDirective: Use, iced: Boolean, options: (Symbol, Any)*): CoffeeScriptCompiler = apply(Some(useDirective), iced, options: _*)
