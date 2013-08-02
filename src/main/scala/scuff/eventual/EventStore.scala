@@ -89,7 +89,7 @@ trait EventStore[ID, EVT, CAT] extends EventSource[ID, EVT, CAT] {
    * @param streamID Event stream identifier
    * @param events The events
    * @param metadata Optional metadata
-   * @return revision Event stream revision that was committed
+   * @return Event stream transaction that was committed
    */
   def append(category: CAT, streamID: ID, events: List[_ <: EVT], metadata: Map[String, String] = Map.empty): Future[Transaction]
 }
