@@ -38,7 +38,7 @@ final class EventStream[ID, EVT, CAT](
     def apply(txn: Transaction) = consumer.consume(txn)
   }
 
-  private[this] val SerialExecCtx = new HashBasedSerialExecutionContext(numConsumerThreads, EventStream.ConsumerThreadFactory, consumerFailureReporter)
+  private[this] val SerialExecCtx = HashBasedSerialExecutionContext(numConsumerThreads, EventStream.ConsumerThreadFactory, consumerFailureReporter)
   private[this] val pendingReplays = new LockFreeConcurrentMap[ID, ScheduledFuture[_]]
 
   /**

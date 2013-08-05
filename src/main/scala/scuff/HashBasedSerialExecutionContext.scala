@@ -16,20 +16,12 @@ import scala.concurrent.ExecutionContext
  * execution, negating the purpose of this class.
  */
 final class HashBasedSerialExecutionContext(
-  numThreads: Int,
-  threadFactory: java.util.concurrent.ThreadFactory,
+  threads: IndexedSeq[Executor],
   failureReporter: Throwable ⇒ Unit = t ⇒ t.printStackTrace)
     extends ExecutionContext {
 
+  private[this] val numThreads = threads.size
   require(numThreads > 0, "Must have at least one thread")
-
-  private[this] val threads = {
-    val array = new Array[Executor](numThreads)
-    for (idx ← 0 until numThreads) {
-      array(idx) = Executors.newSingleThreadExecutor(threadFactory)
-    }
-    array
-  }
 
   /**
    * Runs a block of code on this execution context, using
@@ -53,5 +45,12 @@ final class HashBasedSerialExecutionContext(
 }
 
 object HashBasedSerialExecutionContext {
-  val global = new HashBasedSerialExecutionContext(Runtime.getRuntime.availableProcessors, Threads.daemonFactory(classOf[HashBasedSerialExecutionContext].getName + ".global"))
+  val global = HashBasedSerialExecutionContext(Runtime.getRuntime.availableProcessors, Threads.daemonFactory(classOf[HashBasedSerialExecutionContext].getName + ".global"))
+  def apply(numThreads: Int, threadFactory: java.util.concurrent.ThreadFactory, failureReporter: Throwable ⇒ Unit = t ⇒ t.printStackTrace) = {
+    val threads = new Array[Executor](numThreads)
+    for (idx ← 0 until numThreads) {
+      threads(idx) = Executors.newSingleThreadExecutor(threadFactory)
+    }
+    new HashBasedSerialExecutionContext(threads, failureReporter)
+  }
 }
