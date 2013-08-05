@@ -523,12 +523,16 @@ object Mongolia {
 
   final class RichDB(underlying: DB) {
     def impoverish = underlying
-    def apply(collection: String) = underlying.getCollection(collection): RichDBCollection
+    def apply(collection: String, wc: WriteConcern = null) = {
+      val dbColl = underlying.getCollection(collection): RichDBCollection
+      if (wc != null) dbColl.setWriteConcern(wc)
+      dbColl
+    }
     def enrich: RichDB = this
   }
 
   final class RichDBCollection(underlying: DBCollection) {
-    def impoverish = underlying
+    implicit def impoverish = underlying
     private def SAFE = if (underlying.getWriteConcern.getW >= WriteConcern.SAFE.getW) underlying.getWriteConcern else WriteConcern.SAFE
     def safeInsert(dbo: DBObject) = underlying.insert(dbo, SAFE)
     def safeInsert(dbos: DBObject*) = underlying.insert(dbos.toArray, SAFE)
@@ -817,6 +821,7 @@ object Mongolia {
       case any ⇒ ObjectId.massageToObjectId(any)
     }
     def apply(key: String): BsonField = BsonField(getAs(key), underlying, key)
+    def apply(head: BsonProp, tail: BsonProp*): RichDBObject = add(head, tail: _*)
     def has(key: String) = this.contains(key)
     def getAs[T](name: String): T = {
       if (name.indexOf('.') == -1) {
@@ -971,12 +976,12 @@ object Mongolia {
   def $near(point: GeoPoint): BsonProp = {
     val geoDbo = geo2Dbo(point)
     val near = obj("$geometry" := geoDbo)
-    if (point.radius > 0f) near.add("$maxDistance" := point.radius)
+    if (point.radius > 0f) near("$maxDistance" := point.radius)
     "$near" := near
   }
   def $regex(regex: String, options: String = "") = {
     val dbo = obj("$regex" := regex)
-    if (options.length != 0) dbo.add("$options" := options)
+    if (options.length != 0) dbo("$options" := options)
     dbo
   }
   def $where(jsExpr: String) = "$where" := jsExpr
