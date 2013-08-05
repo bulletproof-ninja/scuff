@@ -41,14 +41,13 @@ final class EventStreamTracker[ID](dbColl: DBCollection, clockSkew: Duration = 2
    * @param streamId Transaction stream id
    * @param revision Transaction stream revision
    * @param time Transaction timestamp
-   * @param save Optional save data.
-   * Should not contain fields "_id", "_rev", "_time"
-   * as those will be overwritten anyway.
+   * @param update Optional update content.
    */
-  def markAsProcessed(streamId: ID, revision: Long, time: scuff.Timestamp, save: DBObject = obj()) {
-    save.add("_id" := streamId)
-    save.put("_rev", revision) // Raw type
-    save.put("_time", time) // Raw type
-    dbColl.save(save)
+  def markAsProcessed(streamId: ID, revision: Long, time: scuff.Timestamp, update: DBObject = obj()) {
+    val key = "_id" := streamId
+    update.add(key)
+    update.add($set("_rev" := revision))
+    update.add($set("_time" := time)) // Raw type
+    dbColl.upsert(key, update)
   }
 }
