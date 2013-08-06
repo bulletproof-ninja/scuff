@@ -302,16 +302,31 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
   @Test
   def `interface mismatch` {
     trait Foo {
-      def baz: Option[String]
+      def baz: Option[Integer]
       def barbarbar: String
     }
-    val foo = obj().like[Foo]
-    assertEquals(None, foo.baz)
+    val missing = obj().like[Foo]
+    assertEquals(None, missing.baz)
     try {
-      foo.barbarbar
+      missing.barbarbar
       fail("Should fail on unknown property")
     } catch {
-      case e: Exception ⇒ assertTrue(e.getMessage.contains("barbarbar"))
+      case e: UnavailableValueException ⇒ assertEquals("barbarbar", e.fieldName)
+    }
+    val asNull = obj("baz" := null, "barbarbar" := null).like[Foo]
+    assertEquals(None, asNull.baz)
+    try {
+      asNull.barbarbar
+      fail("Should fail on null property")
+    } catch {
+      case e: UnavailableValueException ⇒ assertEquals("barbarbar", e.fieldName)
+    }
+    val invalidInt = obj("baz" := "dsfgasdfasd").like[Foo]
+    try {
+      val notHappening = invalidInt.baz
+      fail("Should fail on invalid Int: " + notHappening)
+    } catch {
+      case e: InvalidValueTypeException ⇒ assertEquals("baz", e.fieldName)
     }
   }
 

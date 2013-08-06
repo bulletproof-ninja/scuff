@@ -7,10 +7,12 @@ import scala.collection.GenTraversableOnce
 import scala.reflect.ClassTag
 
 /**
- * A few MongoDB helper methods.
+ * Convenience DSL for the MongoDB Java driver.
  */
-
 object Mongolia {
+
+  class UnavailableValueException(val fieldName: String, message: String) extends RuntimeException(message)
+  class InvalidValueTypeException(val fieldName: String, message: String) extends RuntimeException(message)
 
   private lazy val coffeeCompiler = js.CoffeeScriptCompiler('bare -> true)
 
@@ -458,8 +460,8 @@ object Mongolia {
   final class Null private[Mongolia] (fieldName: Option[String]) extends BsonField {
     def opt[T](implicit codec: Codec[T, BsonValue]) = None
     def as[T](implicit codec: Codec[T, BsonValue]): T = fieldName match {
-      case None ⇒ throw new IllegalStateException("Field value is null")
-      case Some(name) ⇒ throw new IllegalStateException("Field \"%s\" value is null".format(name))
+      case None ⇒ throw new UnavailableValueException("", "Field value is null")
+      case Some(name) ⇒ throw new UnavailableValueException(name, "Field \"%s\" value is null".format(name))
     }
     def asSeqOfOption[T](implicit codec: Codec[T, BsonValue]) = IndexedSeq.empty
     def asSeq[T](implicit codec: Codec[T, BsonValue]) = IndexedSeq.empty
@@ -468,8 +470,8 @@ object Mongolia {
   final class Missing private[Mongolia] (fieldName: Option[String]) extends BsonField {
     def opt[T](implicit codec: Codec[T, BsonValue]) = None
     def as[T](implicit codec: Codec[T, BsonValue]): T = fieldName match {
-      case None ⇒ throw new IllegalStateException("Unknown field")
-      case Some(name) ⇒ throw new IllegalStateException("Unknown field: \"%s\"".format(name))
+      case None ⇒ throw new UnavailableValueException("", "Unknown field")
+      case Some(name) ⇒ throw new UnavailableValueException(name, "Unknown field: \"%s\"".format(name))
     }
     def asSeqOfOption[T](implicit codec: Codec[T, BsonValue]) = IndexedSeq.empty
     def asSeq[T](implicit codec: Codec[T, BsonValue]) = IndexedSeq.empty
@@ -1076,7 +1078,7 @@ object Mongolia {
       classOf[java.net.URL] -> UrlCdc,
       classOf[java.net.URI] -> UriCdc)
 
-    private def convertProxyValue(value: BsonField, asType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]) = mapping.get(asType) match {
+    private def convertProxyValue(name: String, value: BsonField, asType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]) = mapping.get(asType) match {
       case Some(converter) ⇒ value.as(converter)
       case None ⇒
         if (asType.isInterface) {
@@ -1088,25 +1090,25 @@ object Mongolia {
               if (asType.isInstance(value.raw)) {
                 value.raw
               } else {
-                value.raw.coerceTo[Any](ClassTag(asType)).getOrElse(value.raw)
+                value.raw.coerceTo[Any](ClassTag(asType)).getOrElse(throw new InvalidValueTypeException(name, "Cannot convert %s to %s".format(value.raw, asType.getName)))
               }
-            case _ ⇒ null
+            case _ ⇒ throw new UnavailableValueException(name, "Field %s is unavailable".format(name))
           }
         }
     }
-    private def convertProxyOption(value: BsonField, optType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]) = mapping.get(optType) match {
+    private def convertProxyOption(name: String, value: BsonField, optType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]) = mapping.get(optType) match {
       case Some(converter) ⇒ value.opt(converter)
       case None ⇒
         if (optType.isInterface) {
           value.opt[DBObject].map(getProxy(_, mapping)(ClassTag(optType)))
         } else {
           value match {
-            case value: Value ⇒ Option(convertProxyValue(value, optType, mapping))
+            case value: Value ⇒ Option(convertProxyValue(name, value, optType, mapping))
             case _ ⇒ None
           }
         }
     }
-    private def convertProxySeq(shouldBeList: BsonField, seqType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): Seq[_] = mapping.get(seqType) match {
+    private def convertProxySeq(name: String, shouldBeList: BsonField, seqType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): Seq[_] = mapping.get(seqType) match {
       case Some(converter) ⇒ shouldBeList.asSeq(converter)
       case None ⇒
         if (seqType.isInterface) {
@@ -1116,14 +1118,14 @@ object Mongolia {
             case value: Value ⇒ value.raw match {
               case list: java.util.ArrayList[_] ⇒
                 import collection.JavaConverters._
-                list.asScala.map(elem ⇒ convertProxyValue(BsonField(elem), seqType, mapping))
-              case _ ⇒ Seq(convertProxyValue(value, seqType, mapping))
+                list.asScala.map(elem ⇒ convertProxyValue(name, BsonField(elem), seqType, mapping))
+              case _ ⇒ Seq(convertProxyValue(name, value, seqType, mapping))
             }
             case _ ⇒ Seq.empty
           }
         }
     }
-    private def convertProxyList(shouldBeList: BsonField, seqType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): List[_] = mapping.get(seqType) match {
+    private def convertProxyList(name: String, shouldBeList: BsonField, seqType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): List[_] = mapping.get(seqType) match {
       case Some(converter) ⇒ shouldBeList.asList(converter)
       case None ⇒
         if (seqType.isInterface) {
@@ -1133,8 +1135,8 @@ object Mongolia {
             case value: Value ⇒ value.raw match {
               case list: java.util.ArrayList[_] ⇒
                 import collection.JavaConverters._
-                list.asScala.map(elem ⇒ convertProxyValue(BsonField(elem), seqType, mapping)).toList
-              case _ ⇒ List(convertProxyValue(value, seqType, mapping))
+                list.asScala.map(elem ⇒ convertProxyValue(name, BsonField(elem), seqType, mapping)).toList
+              case _ ⇒ List(convertProxyValue(name, value, seqType, mapping))
             }
             case _ ⇒ Nil
           }
@@ -1156,15 +1158,15 @@ object Mongolia {
             val rt = method.getReturnType
             if (rt == classOf[Option[_]]) {
               val rtt = getGenericReturnClass(method)
-              convertProxyOption(value, rtt, mapping)
+              convertProxyOption(method.getName, value, rtt, mapping)
             } else if (rt.isAssignableFrom(classOf[Seq[_]])) {
               val rtt = getGenericReturnClass(method)
-              convertProxySeq(value, rtt, mapping)
+              convertProxySeq(method.getName, value, rtt, mapping)
             } else if (rt == classOf[List[_]]) {
               val rtt = getGenericReturnClass(method)
-              convertProxyList(value, rtt, mapping)
+              convertProxyList(method.getName, value, rtt, mapping)
             } else {
-              convertProxyValue(value, rt, mapping)
+              convertProxyValue(method.getName, value, rt, mapping)
             }
           }
         case (_, method, _) ⇒ throw new IllegalAccessException("Cannot proxy methods with arguments: " + method)
