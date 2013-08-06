@@ -1,7 +1,7 @@
 package scuff
 
 /**
- * Geographical point.
+ * Geographical 2D point.
  * @param latitude The decimal latitude
  * @param longitude The decimal longitude
  * @param radius The radius in meters. Cannot be negative or NaN. Defaults to 0.

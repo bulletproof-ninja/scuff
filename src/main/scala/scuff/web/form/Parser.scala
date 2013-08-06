@@ -40,7 +40,7 @@ object Parser {
 
 class Parser[T](implicit tag: ClassTag[T]) {
 
-  require(tag.runtimeClass.isInterface, "Not an interface")
+  require(tag.runtimeClass.isInterface, "Must be an interface")
 
   private class ReturnType(cls: Class[_], genType: java.lang.reflect.Type) {
     private def genericType: Option[Class[_]] = genType match {

@@ -98,11 +98,11 @@ object RedisChannel {
 
   /**
    * @param server Redis server information
-   * @jedisSubscriberThread Subscription thread.
+   * @param jedisSubscriberThread Subscription thread.
    * This thread will be monopolized by Jedis, therefore,
    * the `Executor` should not be a general purpose thread-pool.
-   * @serializer The byte array decoder
-   * @publishCtx The execution context used to publish messages
+   * @param serializer The byte array decoder
+   * @param publishCtx The execution context used to publish messages
    */
   def apply[A](
     channelName: String, server: JedisShardInfo, jedisSubscriberThread: Executor,

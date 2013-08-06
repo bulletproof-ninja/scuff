@@ -18,7 +18,7 @@ trait CookieMonster {
    */
   final val SessionOnly = -1
 
-  /** Max age in seconds. */
+  /** Max-age in seconds. */
   protected def maxAge: Int
   /** Convert Expires timestamp to MaxAge seconds, using current time. */
   protected final def toMaxAge(expires: Long, unit: TimeUnit) = (unit toSeconds clock.durationUntil(expires)(unit)).asInstanceOf[Int]

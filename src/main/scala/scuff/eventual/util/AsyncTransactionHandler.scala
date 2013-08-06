@@ -3,7 +3,7 @@ package scuff.eventual.util
 import scuff.eventual._
 
 /**
- * Asynchronous [[Transaction]] handler.
+ * Asynchronous [[scuff.eventual.EventSource#Transaction]] handler.
  * NOTICE: This trait supports [[HashBasedSerialExecutionContext]]
  * to ensure predictable thread execution per stream.
  */

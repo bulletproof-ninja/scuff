@@ -1,5 +1,8 @@
 package scuff
 
+/**
+ * Lock-free concurrent Map.
+ */
 final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) extends collection.concurrent.Map[A, B] {
 
   require(initialMap != null, "Initial map cannot be null")

@@ -4,7 +4,7 @@ import scuff.{LockFreeConcurrentMap, MonotonicSequencer}
 import scuff.eventual.EventSource
 
 /**
- * Sequenced [[Transaction]] handler.
+ * Sequenced [[scuff.eventual.EventSource#Transaction]] handler.
  * This trait guarantees transactions ordered
  * by revision.
  * NOTICE: This trait expects processing of streams

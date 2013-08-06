@@ -8,6 +8,7 @@ import scuff.js._
 /**
  * Perform on-the-fly conversion of CoffeeScript
  * to JavaScript.
+ * <p>Use with [[scuff.web.Ice]] for Iced CoffeeScript.
  */
 abstract class CoffeeScriptServlet extends HttpServlet {
   import CoffeeScriptCompiler.Use

@@ -6,15 +6,15 @@ import scuff.Mongolia._
 import concurrent.duration._
 
 /**
- * Keep track of handled [[Transaction]]s, so process can resume
+ * Keep track of handled [[scuff.eventual.EventSource#Transaction]]s, so process can resume
  * after shutdown.
  * Uses this collection format:
- * ```
+ * {{{
  * {  _id: <stream>,
  *    _rev: 123, // Latest revision
  *    _time: <timestamp>, // Transaction timestamp
  * }
- * ```
+ * }}}
  * @param dbColl MongoDB collection. Set whatever WriteConcern is appropriate before passing
  * @param clockSkew Worst case clock skew in a sharded environment. Used for resuming without dropping transactions. Defaults to 2 seconds.
  */
@@ -41,7 +41,7 @@ final class EventStreamTracker[ID](dbColl: DBCollection, clockSkew: Duration = 2
    * @param streamId Transaction stream id
    * @param revision Transaction stream revision
    * @param time Transaction timestamp
-   * @param update Optional update content.
+   * @param update Optional update object.
    */
   def markAsProcessed(streamId: ID, revision: Long, time: scuff.Timestamp, update: DBObject = obj()) {
     val key = "_id" := streamId

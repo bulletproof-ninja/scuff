@@ -9,11 +9,12 @@ import scala.concurrent.ExecutionContext
  * parallel processing is generally desirable, but not
  * within a given subset. Defining such subset through a
  * hash will force execution to a particular thread.
- * NOTICE: Use either `execute(Runnable, Int)` or
+ * <p>NOTICE: Use either `execute(Runnable, Int)` or
  * `execute(Runnable)` with `hashCode()` being overridden
  * for the passed `Runnable`. Calling the latter without
  * overriding `hashCode()` will lead to arbitrary thread
  * execution, negating the purpose of this class.
+ * @param threads the `Executor`s used. Must be single threaded executors.
  */
 final class HashBasedSerialExecutionContext(
   threads: IndexedSeq[Executor],
@@ -46,6 +47,11 @@ final class HashBasedSerialExecutionContext(
 
 object HashBasedSerialExecutionContext {
   val global = HashBasedSerialExecutionContext(Runtime.getRuntime.availableProcessors, Threads.daemonFactory(classOf[HashBasedSerialExecutionContext].getName + ".global"))
+  /**
+   * @param numThreads Number of threads used for parallelism
+   * @param threadFactory The thread factory used to create the threads
+   * @param failureReporter Sink for exceptions
+   */
   def apply(numThreads: Int, threadFactory: java.util.concurrent.ThreadFactory, failureReporter: Throwable ⇒ Unit = t ⇒ t.printStackTrace) = {
     val threads = new Array[Executor](numThreads)
     for (idx ← 0 until numThreads) {

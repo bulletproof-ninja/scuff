@@ -12,7 +12,7 @@ trait Repository[AR <: AggregateRoot] {
    * Any modifications cannot be saved.
    * @param id The instance ID
    * @param revision Load a specific revision, or None for most current
-   * @return The requested revision or [[UnknownIdException]]
+   * @return The requested revision or [[scuff.ddd.UnknownIdException]]
    */
   def load(id: AR#ID, revision: Option[Long] = None): Future[AR]
   final def load(id: (AR#ID, Long)): Future[AR] = load(id._1, Some(id._2))
@@ -26,7 +26,7 @@ trait Repository[AR <: AggregateRoot] {
    * @param id The aggregate ID
    * @param basedOnRevision Revision, which update will be based on
    * @param updateBlock The transaction code block. This may be executed multiple times if concurrent updates occur
-   * @return The last committed revision or [[UnknownIdException]]
+   * @return The last committed revision or [[scuff.ddd.UnknownIdException]]
    */
   def update(id: AR#ID, basedOnRevision: Long, metadata: Map[String, String])(updateBlock: AR ⇒ Unit): Future[Long]
   final def update(id: AR#ID)(updateBlock: AR ⇒ Unit): Future[Long] = update(id, Long.MaxValue, Map.empty)(updateBlock)
@@ -38,7 +38,7 @@ trait Repository[AR <: AggregateRoot] {
    * <p>NOTICE: No commands should be applied to the aggregate instance
    * after it's been saved, as it can neither be persisted.
    * @param aggr Aggregate root to save
-   * @return Aggregate instance or [[DuplicateIdException]] if the ID is already used
+   * @return Aggregate instance or [[scuff.ddd.DuplicateIdException]] if the ID is already used
    * or [[IllegalStateException]] if the instance has a revision number
    */
   final def insert(aggr: AR): Future[AR] = insert(Map.empty[String, String])(aggr)

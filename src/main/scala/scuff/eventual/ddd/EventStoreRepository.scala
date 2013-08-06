@@ -7,7 +7,7 @@ import scuff.SameThreadExecution
 import java.util.concurrent.TimeUnit
 
 /**
- * [[EventStore]]-based [[Repository]] implementation.
+ * [[scuff.eventual.EventStore]]-based [[scuff.ddd.Repository]] implementation.
  */
 abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](implicit idConv: AR#ID ⇒ ESID) extends Repository[AR] {
 

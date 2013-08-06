@@ -3,6 +3,9 @@ package scuff
 import _root_.redis.clients.jedis._
 import _root_.redis.clients.util.Pool
 
+/**
+ * This package requires the Jedis project.
+ */
 package object redis {
   implicit def uri2Info(uri: java.net.URI) = {
     val userInfo: Option[(String, Option[String])] = Option(uri.getUserInfo).map { userInfo ⇒

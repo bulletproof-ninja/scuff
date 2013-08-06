@@ -2,6 +2,9 @@ package scuff
 
 import java.util.concurrent.ThreadFactory
 
+/**
+ * Thread helper class.
+ */
 object Threads {
   val SystemThreadGroup = rootThreadGroup(Thread.currentThread.getThreadGroup)
   private def rootThreadGroup(group: ThreadGroup): ThreadGroup = {

@@ -4,16 +4,15 @@ import javax.servlet._
 import javax.servlet.http._
 
 /**
- * This trait can be applied to any filter
- * to further discriminate URL matching which
- * cannot be done by the servlet spec.
+ * Apply to any filter to further discriminate 
+ * URL matching which cannot be done by the servlet spec.
  * <p>E.g. one can have a filter that matches
- * on all Javascript files using "*.js", but
- * exclude a specific file, e.g. "special.js"
+ * on all Javascript files using `"*.js"`, but
+ * exclude a specific file, e.g. `"special.js"`
  * by adding that as an exclusion pattern:
- * ```
+ * {{{
  * val exclusionPatterns = """special\.js""".r :: Nil
- * ```
+ * }}}
  *
  */
 trait URLExclusion extends Filter {
