@@ -2,13 +2,13 @@
 
 	<target name="ivy-download" depends="init">
 		<mkdir dir="lib" />
-		<get src="http://repo2.maven.org/maven2/org/apache/ivy/ivy/${ivy.version}/ivy-${ivy.version}.jar" dest="${ivy.jar}" usetimestamp="true" />
+		<get src="http://repo1.maven.org/maven2/org/apache/ivy/ivy/${ivy.version}/ivy-${ivy.version}.jar" dest="${ivy.jar}" skipexisting="true" />
 	</target>
 
 	<target name="scala-download" depends="init">
 		<mkdir dir="lib" />
-		<get src="http://repo2.maven.org/maven2/org/scala-lang/scala-library/${scala.version}/scala-library-${scala.version}.jar" dest="${scala-lib.jar}" usetimestamp="true" />
-		<get src="http://repo2.maven.org/maven2/org/scala-lang/scala-compiler/${scala.version}/scala-compiler-${scala.version}.jar" dest="${scala-comp.jar}" usetimestamp="true" />
+		<get src="http://repo1.maven.org/maven2/org/scala-lang/scala-library/${scala.version}/scala-library-${scala.version}.jar" dest="${scala-lib.jar}" skipexisting="true" />
+		<get src="http://repo1.maven.org/maven2/org/scala-lang/scala-compiler/${scala.version}/scala-compiler-${scala.version}.jar" dest="${scala-comp.jar}" skipexisting="true" />
 	</target>
 
 	<target name="ivy-taskdef" depends="ivy-download">
@@ -121,7 +121,7 @@
 		</junit>
 	</target>
 
-	<target name="full-build" depends="run-junit, make-jar" />
+	<target name="full-build" depends="run-junit, scaladocs, make-jar" />
 
 	<target name="make-jar" depends="compile-for-jar">
 		<tstamp />
@@ -140,7 +140,7 @@
 		<jar basedir="build/main" destfile="build/${ant.project.name}-${scuff.version}-scala-${scala.major-minor}.jar" index="true" manifest="build/MANIFEST.MF" />
 	</target>
 
-	<target name="scaladocs" depends="init">
+	<target name="scaladocs" depends="init, scala-taskdef">
 		<mkdir dir="build/api" />
 		<scaladoc destdir="build/api">
 			<classpath>
