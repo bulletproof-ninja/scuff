@@ -14,7 +14,8 @@ import scala.concurrent.ExecutionContext
  * for the passed `Runnable`. Calling the latter without
  * overriding `hashCode()` will lead to arbitrary thread
  * execution, negating the purpose of this class.
- * @param threads the `Executor`s used. Must be single threaded executors.
+ * @param threads the `Executor`s used.
+ * It is essential, for this class to work, that they are single-threaded.
  */
 final class HashBasedSerialExecutionContext(
   threads: IndexedSeq[Executor],
@@ -34,7 +35,7 @@ final class HashBasedSerialExecutionContext(
    * Runs a block of code on this execution context, using
    * the provided hash.
    */
-  final def execute(runnable: Runnable, hash: Int): Unit = threads(hash % numThreads) execute new Runnable {
+  def execute(runnable: Runnable, hash: Int): Unit = threads(hash % numThreads) execute new Runnable {
     def run = try {
       runnable.run()
     } catch {
