@@ -364,4 +364,21 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
     assertEquals("{}", doc.toJson)
   }
 
+  @Test
+  def `interface with Set` {
+    val codec = new Codec[GeoPoint, BsonValue] {
+      def encode(gp: GeoPoint): BsonValue = StrCdc.encode("%d %d".format(gp.latitude, gp.longitude))
+      def decode(str: BsonValue): GeoPoint = GeoPoint.parse(StrCdc.decode(str)).get
+    }
+    trait Foo {
+      def pts: Set[GeoPoint]
+    }
+    val doc = obj("pts" := arr("23.532 54.2342"))
+    assertEquals("""{"pts":["23.532 54.2342"]}""", doc.toJson)
+    val mapping: Map[Class[_], Codec[_, BsonValue]] = Map(classOf[GeoPoint] -> codec)
+    val foo = doc.like[Foo](mapping)
+    val set = Set(new GeoPoint(23.532f, 54.2342f))
+    assertEquals(set, foo.pts)
+  }
+
 }

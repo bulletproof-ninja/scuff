@@ -1108,6 +1108,23 @@ object Mongolia {
           }
         }
     }
+    private def convertProxySet(name: String, shouldBeSet: BsonField, setType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): Set[_] = mapping.get(setType) match {
+      case Some(converter) ⇒ shouldBeSet.asSeq(converter).toSet
+      case None ⇒
+        if (setType.isInterface) {
+          shouldBeSet.asSeq[DBObject].map(getProxy(_, mapping)(ClassTag(setType))).toSet
+        } else {
+          shouldBeSet match {
+            case value: Value ⇒ value.raw match {
+              case list: java.util.ArrayList[_] ⇒
+                import collection.JavaConverters._
+                list.asScala.map(elem ⇒ convertProxyValue(name, BsonField(elem), setType, mapping)).toSet
+              case _ ⇒ Set(convertProxyValue(name, value, setType, mapping))
+            }
+            case _ ⇒ Set.empty
+          }
+        }
+    }
     private def convertProxySeq(name: String, shouldBeList: BsonField, seqType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): Seq[_] = mapping.get(seqType) match {
       case Some(converter) ⇒ shouldBeList.asSeq(converter)
       case None ⇒
@@ -1165,6 +1182,9 @@ object Mongolia {
             } else if (rt == classOf[List[_]]) {
               val rtt = getGenericReturnClass(method)
               convertProxyList(method.getName, value, rtt, mapping)
+            } else if (rt.isAssignableFrom(classOf[Set[_]])) {
+              val rtt = getGenericReturnClass(method)
+              convertProxySet(method.getName, value, rtt, mapping)
             } else {
               convertProxyValue(method.getName, value, rt, mapping)
             }
