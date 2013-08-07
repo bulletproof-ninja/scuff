@@ -380,5 +380,17 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
     val set = Set(new GeoPoint(23.532f, 54.2342f))
     assertEquals(set, foo.pts)
   }
+  @Test
+  def `interface with Map` {
+    trait Foo {
+      def map: Map[String, Integer]
+    }
+    val doc = obj(
+      "map" := obj("one" := 1, "two" := 2, "three" := 3))
+    val foo = doc.like[Foo]
+    assertEquals(1, foo.map("one"))
+    assertEquals(2, foo.map("two"))
+    assertEquals(3, foo.map("three"))
+  }
 
 }

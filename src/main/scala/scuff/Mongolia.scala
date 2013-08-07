@@ -94,7 +94,10 @@ object Mongolia {
   }
   implicit val IntCdc = new Codec[Int, BsonValue] {
     def encode(a: Int): BsonValue = new Value(a)
-    def decode(b: BsonValue) = org.bson.BSON.toInt(b.raw)
+    def decode(b: BsonValue) = b.raw match {
+      case str: String ⇒ str.toInt
+      case _ ⇒ org.bson.BSON.toInt(b.raw)
+    }
   }
   implicit val LongCdc = new Codec[Long, BsonValue] {
     def encode(a: Long): BsonValue = new Value(a)
@@ -478,6 +481,7 @@ object Mongolia {
     def asList[T](implicit codec: Codec[T, BsonValue]) = Nil
   }
   final class Value private[Mongolia] (val raw: Any) extends BsonField with BsonValue {
+    override def toString() = "%s = %s".format(raw.getClass.getName, raw)
     def opt[T](implicit codec: Codec[T, BsonValue]): Option[T] = Some(codec.decode(this))
     def as[T](implicit codec: Codec[T, BsonValue]): T = codec.decode(this)
     def asSeqOfOption[T](implicit codec: Codec[T, BsonValue]): IndexedSeq[Option[T]] = {
@@ -1058,12 +1062,19 @@ object Mongolia {
     private val DefaultProxyMapping: Map[Class[_], Codec[_, BsonValue]] = Map(
       classOf[String] -> StrCdc,
       classOf[Double] -> DblCdc,
+      classOf[java.lang.Double] -> DblCdc,
       classOf[Float] -> FltCdc,
+      classOf[java.lang.Float] -> FltCdc,
       classOf[Long] -> LongCdc,
+      classOf[java.lang.Long] -> LongCdc,
       classOf[Int] -> IntCdc,
+      classOf[Integer] -> IntCdc,
       classOf[Byte] -> ByteCdc,
+      classOf[java.lang.Byte] -> ByteCdc,
       classOf[Boolean] -> BoolCdc,
+      classOf[java.lang.Boolean] -> BoolCdc,
       classOf[Short] -> ShrtCdc,
+      classOf[java.lang.Short] -> ShrtCdc,
       classOf[UUID] -> UUIDCdc,
       classOf[BigDecimal] -> BDCdc,
       classOf[ObjectId] -> OIDCdc,
@@ -1125,6 +1136,26 @@ object Mongolia {
           }
         }
     }
+    private def convertProxyMap(name: String, shouldBeMap: BsonField, mapType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): Map[String, _] = {
+      import language.existentials
+      shouldBeMap match {
+        case value: Value ⇒ mapping.get(mapType) match {
+          case Some(converter) ⇒ MapCdc(converter).decode(value)
+          case None ⇒ value.raw match {
+            case dbo: DBObject ⇒
+              var map = Map.empty[String, Any]
+              dbo.keys.foreach { key ⇒
+                val value = convertProxyValue(key, dbo(key), mapType, mapping)
+                map += key -> value
+              }
+              map
+            case _ ⇒ throw new InvalidValueTypeException(name, "Cannot convert %s to Map[String, %s]".format(value.raw, mapType.getName))
+          }
+        }
+        case _ ⇒ Map.empty
+      }
+    }
+
     private def convertProxySeq(name: String, shouldBeList: BsonField, seqType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): Seq[_] = mapping.get(seqType) match {
       case Some(converter) ⇒ shouldBeList.asSeq(converter)
       case None ⇒
@@ -1160,8 +1191,10 @@ object Mongolia {
         }
     }
 
-    private def getGenericReturnClass(method: java.lang.reflect.Method) =
-      method.getGenericReturnType().asInstanceOf[java.lang.reflect.ParameterizedType].getActualTypeArguments().head.asInstanceOf[Class[_]]
+    private def getGenericReturnClass(method: java.lang.reflect.Method) = {
+      val typeArgs = method.getGenericReturnType().asInstanceOf[java.lang.reflect.ParameterizedType].getActualTypeArguments()
+      typeArgs(typeArgs.length - 1).asInstanceOf[Class[_]]
+    }
 
     def getProxy[T: ClassTag](dbo: RichDBObject, userMapping: Map[Class[_], Codec[_, BsonValue]]): T = {
       val fp = new Proxylicious[T]
@@ -1170,7 +1203,7 @@ object Mongolia {
         case (_, method, args) if args == null || args.length == 0 ⇒
           if (method.getName == "toString") {
             dbo.toJson()
-          } else {
+          } else try {
             val value = dbo(method.getName)
             val rt = method.getReturnType
             if (rt == classOf[Option[_]]) {
@@ -1185,9 +1218,15 @@ object Mongolia {
             } else if (rt.isAssignableFrom(classOf[Set[_]])) {
               val rtt = getGenericReturnClass(method)
               convertProxySet(method.getName, value, rtt, mapping)
+            } else if (rt.isAssignableFrom(classOf[Map[_, _]])) {
+              val rtt = getGenericReturnClass(method)
+              convertProxyMap(method.getName, value, rtt, mapping)
             } else {
               convertProxyValue(method.getName, value, rt, mapping)
             }
+          } catch {
+            case e: UnavailableValueException ⇒ throw e
+            case e: Exception ⇒ throw new InvalidValueTypeException(method.getName, e.getMessage)
           }
         case (_, method, _) ⇒ throw new IllegalAccessException("Cannot proxy methods with arguments: " + method)
       }
