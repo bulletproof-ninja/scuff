@@ -51,7 +51,7 @@ package object scuff {
 
   private val primitiveToWrapper: Map[Class[_], Class[_]] = Map(
     classOf[Boolean] -> classOf[java.lang.Boolean],
-    classOf[Character] -> classOf[java.lang.Character],
+    classOf[Char] -> classOf[java.lang.Character],
     classOf[Short] -> classOf[java.lang.Short],
     classOf[Byte] -> classOf[java.lang.Byte],
     classOf[Int] -> classOf[java.lang.Integer],
@@ -100,6 +100,16 @@ package object scuff {
 
   implicit class ScuffAny(val any: Any) extends AnyVal {
     def coerceTo[T](implicit tag: ClassTag[T]): Option[T] = coerce[T](any.asInstanceOf[AnyRef], tag.runtimeClass.asInstanceOf[Class[T]])
+  }
+
+  implicit class ScuffMap[A, B](val map: Map[A, B]) extends AnyVal {
+    def merge(other: Map[A, B], collisionHandler: (B, B) ⇒ B): Map[A, B] = {
+      val merged = map.keySet.intersect(other.keySet).toSeq.map { key ⇒
+        val merged = collisionHandler(map(key), other(key))
+        key -> merged
+      }.toMap
+      map ++ other ++ merged
+    }
   }
 
 }
