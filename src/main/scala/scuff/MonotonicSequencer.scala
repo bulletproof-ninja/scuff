@@ -4,14 +4,16 @@ import reflect.ClassTag
 
 /**
  * Monotonic sequencer.
- * <p>If your events can arrive out of sequence, this class can be used to ensure proper sequencing.
+ * <p>If your events/messages/whatever can arrive out of sequence, this class can be used to ensure proper sequencing.
  * <p>It expects monotonically increasing sequence numbers and will not work if gaps are expected as part of the sequence number generation
  * <p>A buffer limit can be supplied to ensure that the buffer doesn't grow indefinitely if events go missing.
  * <p>NOTICE: This sequencer is not thread-safe.
  * @param consumer The pass-through consumer
  * @param expectedSeqNum The first expected sequence number
- * @param bufferLimit The buffer limit. Optional, defaults to 0, which means no limit. A buffer limit might be necessary to deal with dropped sequence numbers, otherwise the buffer will grow indefinitely.
- * @param dupeConsumer Duplicate consumer. Optional, defaults to throwing a [DuplicateSequenceReceived].
+ * @param bufferLimit The buffer limit. Optional, defaults to 0, which means no limit. A buffer limit might be necessary to deal with dropped sequence numbers,
+ * otherwise the buffer will grow indefinitely.
+ * @param gapHandler Callback interface that is notified when gaps are detected and when closed
+ * @param dupeConsumer Duplicate consumer. Optional, defaults to throwing a [[scuff.MonotonicSequencer.DuplicateSequenceReceived]].
  * If a lower than expected sequence number is received, this function is called instead of the pass-through consumer.
  */
 final class MonotonicSequencer[@specialized(Int, Long) S, T >: Null <: AnyRef](
@@ -21,6 +23,14 @@ final class MonotonicSequencer[@specialized(Int, Long) S, T >: Null <: AnyRef](
     gapHandler: MonotonicSequencer.GapHandler[S] = MonotonicSequencer.NoOpGapHandler[S],
     dupeConsumer: (S, T) ⇒ Unit = (s: S, t: T) ⇒ throw new MonotonicSequencer.DuplicateSequenceNumberException(s))(implicit seqType: Numeric[S], manifest: ClassTag[T]) {
 
+  /**
+   * @param consumer The pass-through consumer
+   * @param expectedSeqNum The first expected sequence number
+   * @param bufferLimit The buffer limit. Optional, defaults to 0, which means no limit. A buffer limit might be necessary to deal with dropped sequence numbers,
+   * otherwise the buffer will grow indefinitely.
+   * @param dupeConsumer Duplicate consumer. Optional, defaults to throwing a [[scuff.MonotonicSequencer.DuplicateSequenceReceived]].
+   * If a lower than expected sequence number is received, this function is called instead of the pass-through consumer.
+   */
   def this(consumer: (S, T) ⇒ Unit, expectedSeqNum: S, bufferLimit: Int, dupeConsumer: (S, T) ⇒ Unit)(implicit seqType: Numeric[S], manifest: ClassTag[T]) =
     this(consumer, expectedSeqNum, bufferLimit, MonotonicSequencer.NoOpGapHandler[S], dupeConsumer)
 
