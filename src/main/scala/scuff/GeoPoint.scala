@@ -40,6 +40,7 @@ object GeoPoint {
   import scala.util.Try
   private val regex = """^(-?\d{1,3})(?:[.,·'](\d*))?[^\d-]+(-?\d{1,3})(?:[.,·'](\d*))?$""".r
   private def verify(name: String, latLon: Float) = require(-180f <= latLon && latLon <= 180f, "%s must be within ±180 degrees: %f".format(name, latLon))
+
   /**
    * Parse string of decimal latitude then longitude, e.g.
    * "35.027311, -111.023075"

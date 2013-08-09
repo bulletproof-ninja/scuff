@@ -5,11 +5,11 @@ import java.io._
 import java.net._
 
 /**
-  * Supports the following wildcard resource syntax:
-  * * Wildcard (resources read in alphabetical order): "dir/foo*bar.js",
-  *   matches any filename in dir that starts with "foo" and ends with "bar" and has the ".js" extension
-  * * Listed (resources read in listed order): "dir/(foo+bar+baz+hmm).js
-  */
+ * Supports the following wildcard resource syntax:
+ * * Wildcard (resources read in alphabetical order): "dir/foo*bar.js",
+ *   matches any filename in dir that starts with "foo" and ends with "bar" and has the ".js" extension
+ * * Listed (resources read in listed order): "dir/(foo+bar+baz+hmm).js
+ */
 class ResourceConcatFilter extends Filter {
   private final val ConcatNamesMatcher = """^\((.*)\)(\..+)?$""".r
   private final val NameSplitter = """\+""".r
@@ -61,16 +61,24 @@ class ResourceConcatFilter extends Filter {
             file.lastModified
         }
       }.max
-      if (lastMod != 0L) {
+      if (req.IfModifiedSince(lastMod)) {
         res.setDateHeader(HttpHeaders.LastModified, lastMod)
-      }
-      paths.foreach { servletPath ⇒
-        val proxyReq = new HttpServletRequestWrapper(req) {
-          override def getServletPath = servletPath
+        paths.foreach { servletPath ⇒
+          val proxyReq = new HttpServletRequestWrapper(req) {
+            import collection.JavaConverters._
+            override def getServletPath = servletPath
+            private def isIfModifiedSince(name: String) = name.equalsIgnoreCase(HttpHeaders.IfModifiedSince)
+            override def getDateHeader(name: String) = if (isIfModifiedSince(name)) -1 else super.getDateHeader(name)
+            override def getHeader(name: String) = if (isIfModifiedSince(name)) null else super.getHeader(name)
+            override def getHeaders(name: String) = if (isIfModifiedSince(name)) null else super.getHeaders(name)
+            override def getHeaderNames = super.getHeaderNames().asScala.filterNot(isIfModifiedSince(_)).asJavaEnumeration
+          }
+          ctx.getRequestDispatcher(servletPath).include(proxyReq, res)
         }
-        ctx.getRequestDispatcher(servletPath).include(proxyReq, res)
+        res.flushBuffer()
+      } else {
+        res.setStatus(HttpServletResponse.SC_NOT_MODIFIED)
       }
-      res.flushBuffer()
     } catch {
       case e: Exception ⇒
         e.printStackTrace()

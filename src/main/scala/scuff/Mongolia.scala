@@ -1068,7 +1068,7 @@ object Mongolia {
       classOf[Long] -> LongCdc,
       classOf[java.lang.Long] -> LongCdc,
       classOf[Int] -> IntCdc,
-      classOf[Integer] -> IntCdc,
+      classOf[java.lang.Integer] -> IntCdc,
       classOf[Byte] -> ByteCdc,
       classOf[java.lang.Byte] -> ByteCdc,
       classOf[Boolean] -> BoolCdc,

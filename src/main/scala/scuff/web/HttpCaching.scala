@@ -57,11 +57,14 @@ private[web] sealed trait HttpCaching {
   protected[web] def respond(cacheKey: Any, req: RichRequest, res: HttpServletResponse)(getResource: HttpServletResponse ⇒ Unit) =
     try {
       val cached = theCache.lookupOrStore(cacheKey)(fetchResource(res, getResource))
-      val expectedLastMod = req.IfModifiedSince()
-      if ((expectedLastMod.isDefined && cached.lastModified == expectedLastMod) || req.IfNoneMatch().exists(_ == cached.eTag)) {
-        res.setStatus(SC_NOT_MODIFIED)
-      } else {
+      val isModified = cached.lastModified match {
+        case Some(lastModified) ⇒ req.IfModifiedSince(lastModified)
+        case None ⇒ !req.IfNoneMatch(cached.eTag)
+      }
+      if (isModified) {
         cached.flushTo(res)
+      } else {
+        res.setStatus(SC_NOT_MODIFIED)
       }
     } catch {
       case NotOkException ⇒ // Response already populated
