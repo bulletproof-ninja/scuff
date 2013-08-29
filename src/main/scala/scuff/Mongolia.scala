@@ -71,6 +71,11 @@ object Mongolia {
       case _ ⇒ throw new RuntimeException("Cannot coerce %s into BsonProp".format(b.raw.getClass.getName))
     }
   }
+  implicit val ClzCdc = new Codec[Class[_], BsonValue] {
+    def encode(a: Class[_]) = StrCdc.encode(a.getName)
+    def decode(b: BsonValue): Class[_] = Class.forName(StrCdc.decode(b))
+  }
+
   implicit val IntPropCdc = new Codec[BsonIntProp, BsonValue] {
     def encode(a: BsonIntProp) = PropCdc.encode(a)
     def decode(b: BsonValue) = {
@@ -341,7 +346,7 @@ object Mongolia {
     array
   }
 
-  implicit def seq2bsonlist[T](seq: GenTraversableOnce[T])(implicit codec: Codec[T, BsonValue]) = {
+  private def seq2bsonlist[T](seq: GenTraversableOnce[T])(implicit codec: Codec[T, BsonValue]) = {
     val list = new RichDBList
     seq.foreach(t ⇒ list += codec.encode(t).raw)
     list
@@ -354,6 +359,10 @@ object Mongolia {
   implicit def IdxSeqListCdc[T](implicit codec: Codec[T, BsonValue], tag: ClassTag[T]) = new Codec[IndexedSeq[T], BsonValue] {
     def encode(a: IndexedSeq[T]): BsonValue = seq2bsonlist(a)
     def decode(b: BsonValue): IndexedSeq[T] = any2Array(b.raw)(codec, tag)
+  }
+  implicit def iIdxSeqListCdc[T](implicit codec: Codec[T, BsonValue], tag: ClassTag[T]) = new Codec[collection.immutable.IndexedSeq[T], BsonValue] {
+    def encode(a: collection.immutable.IndexedSeq[T]): BsonValue = seq2bsonlist(a)
+    def decode(b: BsonValue): collection.immutable.IndexedSeq[T] = Vector(any2Array(b.raw)(codec, tag): _*)
   }
   implicit def SeqListCdc[T](implicit codec: Codec[T, BsonValue], tag: ClassTag[T]) = new Codec[Seq[T], BsonValue] {
     def encode(a: Seq[T]): BsonValue = seq2bsonlist(a)
@@ -553,7 +562,7 @@ object Mongolia {
       key.put("$atomic", true)
       underlying.updateMulti(key, upd)
     }
-    def upsert(key: DBObject, upd: DBObject) = underlying.update(key, upd, true, false)
+    def upsert(key: DBObject, upd: DBObject, concern: WriteConcern = underlying.getWriteConcern) = underlying.update(key, upd, true, false, concern)
     def safeUpsert(key: DBObject, upd: DBObject) = underlying.update(key, upd, true, false, SAFE)
     def safeRemove(key: DBObject) = underlying.remove(key, SAFE)
     def safeRemoveAtomic(key: DBObject) = {
@@ -799,8 +808,7 @@ object Mongolia {
       }
     }
 
-    def like[T](implicit tag: ClassTag[T]): T = like(Map.empty[Class[_], Codec[_, BsonValue]])
-    def like[T](mapping: Map[Class[_], Codec[_, BsonValue]])(implicit tag: ClassTag[T]): T =
+    def like[T](implicit tag: ClassTag[T], mapping: Map[Class[_], Codec[_, BsonValue]] = Map.empty): T =
       if (tag.runtimeClass.isInterface) Proxying.getProxy(this, mapping) else throw new IllegalArgumentException("%s must be an interface".format(tag.runtimeClass))
 
     def isEmpty = underlying match {
@@ -810,8 +818,6 @@ object Mongolia {
     def prop(key: String): BsonProp = new BsonProp(key, new Value(underlying.get(key)))
     def asSeq[T](implicit codec: Codec[T, BsonValue]) = new Value(underlying).asSeq[T]
     def asSeqOfOption[T](implicit codec: Codec[T, BsonValue]) = new Value(underlying).asSeqOfOption[T]
-    def +=(prop: BsonProp): Unit = this.put(prop.key, prop.raw)
-    def -=(key: String): Unit = this.removeField(key)
     def add(head: BsonProp, tail: BsonProp*): RichDBObject = {
       this.put(head.key, head.raw)
       tail.foreach { prop ⇒
@@ -958,6 +964,8 @@ object Mongolia {
   def $exists(exists: Boolean): BsonProp = "$exists" := exists
   def $set(props: Seq[BsonProp]) = "$set" := obj(props)
   def $set(prop: BsonProp, more: BsonProp*) = "$set" := obj(prop, more: _*)
+  def $setOnInsert(props: Seq[BsonProp]) = "$setOnInsert" := obj(props)
+  def $setOnInsert(prop: BsonProp, more: BsonProp*) = "$setOnInsert" := obj(prop, more: _*)
   def $unset(names: String*) = {
     val unsets = new RichDBObject
     names.foreach { name ⇒
@@ -1086,6 +1094,7 @@ object Mongolia {
       classOf[Number] -> BDCdc,
       classOf[EmailAddress] -> EmlCdc,
       classOf[Password] -> PwdCdc,
+      classOf[GeoPoint] -> GeoCdc,
       classOf[java.net.URL] -> UrlCdc,
       classOf[java.net.URI] -> UriCdc)
 

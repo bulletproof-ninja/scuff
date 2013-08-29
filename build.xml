@@ -5,12 +5,6 @@
 		<get src="http://repo1.maven.org/maven2/org/apache/ivy/ivy/${ivy.version}/ivy-${ivy.version}.jar" dest="${ivy.jar}" skipexisting="true" />
 	</target>
 
-	<!--target name="scala-download" depends="init">
-		<mkdir dir="lib" />
-		<get src="http://repo1.maven.org/maven2/org/scala-lang/scala-library/${scala.version}/scala-library-${scala.version}.jar" dest="${scala-lib.jar}" skipexisting="true" />
-		<get src="http://repo1.maven.org/maven2/org/scala-lang/scala-compiler/${scala.version}/scala-compiler-${scala.version}.jar" dest="${scala-comp.jar}" skipexisting="true" />
-	</target-->
-
 	<target name="ivy-taskdef" depends="ivy-download">
 		<path id="ivy.lib.path">
 			<pathelement location="${ivy.jar}" />

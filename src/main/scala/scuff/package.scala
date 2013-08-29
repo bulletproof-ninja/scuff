@@ -110,6 +110,10 @@ package object scuff {
       }.toMap
       map ++ other ++ merged
     }
+    def intersectEquals(other: Map[A, B]): Boolean = {
+      val intersection = map.keySet.intersect(other.keySet)
+      intersection.nonEmpty && intersection.forall { key ⇒ map(key) == other(key) }
+    }
   }
 
 }

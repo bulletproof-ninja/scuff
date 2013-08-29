@@ -31,6 +31,8 @@ abstract class InMemoryEventStore[ID, EVT, CAT](implicit execCtx: ExecutionConte
     }
   }
 
+  def exists(stream: ID): Future[Boolean] = txnList.synchronized(Future.successful(txnList.find(_.streamId == stream).isDefined))
+
   def record(category: CAT, streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = Future {
     txnList.synchronized {
       val expectedRevision = findCurrentRevision(streamId).getOrElse(-1L) + 1L

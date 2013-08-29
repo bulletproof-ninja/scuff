@@ -57,6 +57,10 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
       toBsonList(tail, list)
   }
 
+  def exists(stream: ID): Future[Boolean] = Future {
+    store.find(obj("_id.stream" := stream)).limit(1).size() != 0
+  }
+
   def replayStream[T](stream: ID)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
     query(obj("_id.stream" := stream), OrderByRevision_asc, callback)
   }
@@ -126,17 +130,14 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     case Success(txn) ⇒ publish(txn)
   }
 
-  private def tryRecord(category: CAT, stream: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = {
-    record(category, stream, revision, events, metadata)
-  }.recoverWith {
-    case _: eventual.DuplicateRevisionException ⇒ tryRecord(category, stream, revision + 1L, events, metadata)
-  }
+  private def tryAppend(category: CAT, stream: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] =
+    record(category, stream, revision, events, metadata).recoverWith {
+      case _: eventual.DuplicateRevisionException ⇒ tryAppend(category, stream, revision + 1L, events, metadata)
+    }
 
   def append(category: CAT, stream: ID, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = {
     val revision = store.find("_id.stream" := stream).last("_id.rev").map(_.getAs[Long]("_id.rev")).getOrElse(-1L) + 1L
-    tryRecord(category, stream, revision, events, metadata)
-  }.andThen {
-    case Success(txn) ⇒ publish(txn)
+    tryAppend(category, stream, revision, events, metadata)
   }
 
   // TODO: Make non-blocking once supported by the driver.

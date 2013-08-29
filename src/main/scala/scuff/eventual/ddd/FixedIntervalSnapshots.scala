@@ -13,7 +13,7 @@ trait FixedIntervalSnapshots[ID, AR <: AggregateRoot, CAT] extends EventStoreRep
    */
   protected def revisionInterval: Int
 
-  protected override def assumeCurrentSnapshot = revisionInterval == 1
+  protected override def assumeSnapshotCurrent = revisionInterval <= 2
 
   protected abstract override def saveSnapshot(id: AR#ID, revision: Long, state: S) {
     if ((revision + 1) % revisionInterval == 0) {

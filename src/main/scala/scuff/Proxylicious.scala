@@ -69,6 +69,25 @@ class Proxylicious[T](implicit tag: ClassTag[T]) {
 
   private def isSingleObjectArg(args: Array[Class[_]]) = args.length == 1 && args(0) == classOf[Object]
 
+  def ToStringOverride: Sandwich = new Sandwich {
+    def include(method: Method) = method.getParameterTypes.length == 0 && method.getReturnType == classOf[String] && method.getName == "toString"
+    def before(proxy: T, method: Method, args: Array[Any]) {}
+    def after(proxy: T, method: Method, args: Array[Any], result: Try[Any]): Any = {
+      val sb = new StringBuffer
+      sb append tag.runtimeClass.getSimpleName append '('
+      val getters = tag.runtimeClass.getMethods().filter(_.getParameterTypes.length == 0)
+      getters.foreach { getter ⇒
+        sb append getter.getName append '=' append String.valueOf(getter.invoke(proxy)) append ','
+      }
+      if (getters.length > 0) {
+        sb.setCharAt(sb.length - 1, ')')
+      } else {
+        sb append ')'
+      }
+      sb.toString
+    }
+  }
+
   /**
    * Override equals/hashCode like a value class, i.e.
    * equality is based on all accessible values, not

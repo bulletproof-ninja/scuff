@@ -102,4 +102,19 @@ class TestProxylicious {
     assertNotEquals(x2.hashCode, z2.hashCode)
   }
 
+  @Test
+  def `ToStringOverride` {
+    trait Values {
+      def a: String
+      def b: Int
+    }
+    val values = new Values {
+      val a = "Foo"
+      val b = 42
+    }
+    val p = new Proxylicious[Values]
+    val valuesP = p.sandwich(values, p.ToStringOverride)
+    assertEquals("Values$2(b=42,a=Foo)", valuesP.toString)
+  }
+
 }

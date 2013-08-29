@@ -17,7 +17,7 @@ import java.util.concurrent.{ TimeUnit, ScheduledFuture }
 final class EventStream[ID, EVT, CAT](
     es: EventSource[ID, EVT, CAT],
     gapReplayDelay: duration.Duration,
-    consumerFailureReporter: Throwable ⇒ Unit = (t) ⇒ t.printStackTrace(),
+    consumerFailureHandler: Throwable ⇒ Unit = (t) ⇒ t.printStackTrace(),
     numConsumerThreads: Int = Runtime.getRuntime.availableProcessors) {
 
   type Transaction = EventSource[ID, EVT, CAT]#Transaction
@@ -38,7 +38,7 @@ final class EventStream[ID, EVT, CAT](
     def apply(txn: Transaction) = consumer.consume(txn)
   }
 
-  private[this] val SerialExecCtx = HashBasedSerialExecutionContext(numConsumerThreads, EventStream.ConsumerThreadFactory, consumerFailureReporter)
+  private[this] val SerialExecCtx = HashBasedSerialExecutionContext(numConsumerThreads, EventStream.ConsumerThreadFactory, consumerFailureHandler)
   private[this] val pendingReplays = new LockFreeConcurrentMap[ID, ScheduledFuture[_]]
 
   /**
@@ -47,7 +47,7 @@ final class EventStream[ID, EVT, CAT](
    * message latency, when using a non-ordered messaging implementation.
    */
 
-  private def SafeConsumer(consumer: Consumer) =
+  private def AsyncSequencedConsumer(consumer: Consumer) =
     new ConsumerProxy(consumer) with util.SequencedTransactionHandler[ID, EVT, CAT] with util.AsyncTransactionHandler[ID, EVT, CAT] { self: ConsumerProxy ⇒
       def asyncTransactionCtx = SerialExecCtx
       def onGapDetected(id: ID, expectedRev: Long, actualRev: Long) {
@@ -88,13 +88,12 @@ final class EventStream[ID, EVT, CAT](
       case None ⇒ es.replay(categories: _*)(replayConsumer)
       case Some(lastTime) ⇒ es.replayFrom(lastTime, categories: _*)(replayConsumer)
     }
-    implicit val PiggyBack = SameThreadExecution
     futureReplay.flatMap { lastTime ⇒
-      val safeConsumer = SafeConsumer(consumer)
+      val safeConsumer = AsyncSequencedConsumer(consumer)
       val sub = es.subscribe(safeConsumer, categoryFilter)
       // Close the race condition; replay anything missed between replay and subscription
-      es.replayFrom(lastTime.getOrElse(starting), categories: _*)(_.foreach(safeConsumer)).map(_ ⇒ sub)
-    }
+      es.replayFrom(lastTime.getOrElse(starting), categories: _*)(_.foreach(safeConsumer)).map(_ ⇒ sub)(SameThreadExecution)
+    }(SameThreadExecution)
   }
 }
 

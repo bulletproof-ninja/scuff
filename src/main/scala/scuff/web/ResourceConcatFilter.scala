@@ -80,9 +80,9 @@ class ResourceConcatFilter extends Filter {
         res.setStatus(HttpServletResponse.SC_NOT_MODIFIED)
       }
     } catch {
-      case e: Exception ⇒
-        e.printStackTrace()
-        res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage)
+      case t: Throwable ⇒
+        req.getServletContext.log(getClass.getName, t)
+        res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
     }
   }
 

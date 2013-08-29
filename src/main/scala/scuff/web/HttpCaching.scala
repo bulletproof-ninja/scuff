@@ -71,7 +71,7 @@ private[web] sealed trait HttpCaching {
     }
 }
 
-trait HttpCachingServletMixin extends HttpServlet with HttpCaching {
+trait HttpCachingMixin extends HttpServlet with HttpCaching {
   import HttpCaching._
 
   abstract override def destroy {

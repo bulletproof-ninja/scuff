@@ -1,7 +1,9 @@
 package scuff
 
-import java.util.concurrent._
-import scala.concurrent.ExecutionContext
+import concurrent.ExecutionContext
+import math.abs
+
+import java.util.concurrent.{Executor, Executors}
 
 /**
  * `ExecutionContext`, which serializes execution of `Runnable`
@@ -35,7 +37,7 @@ final class HashBasedSerialExecutionContext(
    * Runs a block of code on this execution context, using
    * the provided hash.
    */
-  def execute(runnable: Runnable, hash: Int): Unit = threads(hash % numThreads) execute new Runnable {
+  def execute(runnable: Runnable, hash: Int): Unit = threads(abs(hash % numThreads)) execute new Runnable {
     def run = try {
       runnable.run()
     } catch {

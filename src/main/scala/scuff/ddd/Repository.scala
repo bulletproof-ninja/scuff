@@ -7,6 +7,8 @@ import scala.concurrent.Future
  */
 trait Repository[AR <: AggregateRoot] {
 
+  def exists(id: AR#ID): Future[Boolean]
+
   /**
    * Load aggregate. Only for reading the aggregate.
    * Any modifications cannot be saved.
@@ -28,10 +30,7 @@ trait Repository[AR <: AggregateRoot] {
    * @param updateBlock The transaction code block. This may be executed multiple times if concurrent updates occur
    * @return The last committed revision or [[scuff.ddd.UnknownIdException]]
    */
-  def update(id: AR#ID, basedOnRevision: Long, metadata: Map[String, String])(updateBlock: AR ⇒ Unit): Future[Long]
-  final def update(id: AR#ID)(updateBlock: AR ⇒ Unit): Future[Long] = update(id, Long.MaxValue, Map.empty)(updateBlock)
-  final def update(id: AR#ID, basedOnRevision: Long)(updateBlock: AR ⇒ Unit): Future[Long] = update(id, basedOnRevision, Map.empty)(updateBlock)
-  final def update(id: AR#ID, metadata: Map[String, String])(updateBlock: AR ⇒ Unit): Future[Long] = update(id, Long.MaxValue, metadata)(updateBlock)
+  def update(id: AR#ID, basedOnRevision: Long = Long.MaxValue)(updateBlock: AR ⇒ Unit)(implicit metadata: Map[String, String] = Map.empty): Future[Long]
 
   /**
    * Insert new aggregate root and publish committed events.
@@ -41,9 +40,7 @@ trait Repository[AR <: AggregateRoot] {
    * @return Aggregate instance or [[scuff.ddd.DuplicateIdException]] if the ID is already used
    * or [[IllegalStateException]] if the instance has a revision number
    */
-  final def insert(aggr: AR): Future[AR] = insert(Map.empty[String, String])(aggr)
-  final def insert(aggr: AR, metadata: Map[String, String]): Future[AR] = insert(metadata)(aggr)
-  def insert(metadata: Map[String, String])(aggr: AR): Future[AR]
+  def insert(aggr: AR)(implicit metadata: Map[String, String] = Map.empty): Future[AR]
 }
 
 class UnknownIdException(val id: Any) extends RuntimeException("Unknown aggregate: " + id)

@@ -133,7 +133,7 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
     contentType = delegate.getContentType()
     characterEncoding = delegate.getCharacterEncoding()
     locale = delegate.getLocale()
-    status = delegate.getStatus()
+    status = SC_OK
     contentLength = None
     resetBuffer()
   }

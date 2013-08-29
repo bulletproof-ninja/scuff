@@ -3,10 +3,11 @@ package scuff
 import java.util.Locale
 
 /**
- * Container for localized content, 
+ * Container for localized content,
  * with default fallback.
  */
 class Localized[T](val byLocale: Map[Locale, T], val defaultLocale: Locale) extends Serializable {
+  require(byLocale.contains(defaultLocale), "Must contain default locale %s: %s".format(defaultLocale, byLocale.keySet))
   def this(byLocale: Map[Locale, T]) = this(byLocale, byLocale.head._1)
   def this(default: (Locale, T), others: (Locale, T)*) = this((others :+ default).toMap, default._1)
 

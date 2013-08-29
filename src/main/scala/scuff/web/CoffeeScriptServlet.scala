@@ -59,6 +59,7 @@ abstract class CoffeeScriptServlet extends HttpServlet {
           res.setCharacterEncoding("UTF-8")
           res.setContentType("text/javascript")
           res.getWriter.print(js)
+          res.setStatus(HttpServletResponse.SC_OK)
         } else {
           res.setStatus(HttpServletResponse.SC_NOT_MODIFIED)
         }

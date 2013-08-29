@@ -44,6 +44,8 @@ trait EventSource[ID, EVT, CAT] extends Channel {
     }
   }
 
+  def exists(stream: ID): Future[Boolean]
+
   def replayStream[T](stream: ID)(callback: Iterator[Transaction] ⇒ T): Future[T]
   def replayStreamSince[T](stream: ID, sinceRevision: Long)(callback: Iterator[Transaction] ⇒ T): Future[T]
   def replayStreamTo[T](stream: ID, toRevision: Long)(callback: Iterator[Transaction] ⇒ T): Future[T]

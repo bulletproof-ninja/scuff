@@ -9,7 +9,8 @@ object ClosureCompiler {
 
   final val Encoding = "UTF-8"
 
-  private val DefaultOptions = {
+  private val DefaultOptions = defaultOptions
+  def defaultOptions = {
     val opts = new CompilerOptions
     opts.aggressiveVarCheck = CheckLevel.ERROR
     opts.checkSuspiciousCode = true
@@ -19,7 +20,7 @@ object ClosureCompiler {
     opts.reportMissingOverride = CheckLevel.ERROR
     opts.checkUnreachableCode = CheckLevel.ERROR
     opts.optimizeReturns = true
-    opts.variableRenaming = VariableRenamingPolicy.LOCAL
+    opts.variableRenaming = VariableRenamingPolicy.ALL
     opts.markNoSideEffectCalls = true
     opts.propertyRenaming = PropertyRenamingPolicy.OFF
     opts.inlineConstantVars = true
@@ -29,6 +30,9 @@ object ClosureCompiler {
     opts.collapseProperties = true
     opts.devirtualizePrototypeMethods = true
     opts.moveFunctionDeclarations = true
+    opts.aliasAllStrings = true
+    opts.deadAssignmentElimination = true
+    opts.setSmartNameRemoval(true)
     opts.setLanguageIn(CompilerOptions.LanguageMode.ECMASCRIPT5_STRICT)
     opts.setLanguageOut(CompilerOptions.LanguageMode.ECMASCRIPT5_STRICT)
     opts.setOutputCharset(Encoding)

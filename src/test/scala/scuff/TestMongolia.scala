@@ -83,7 +83,7 @@ class TestMongolia {
   def `implicit list` {
     val dboList: Seq[DBObject] = Seq(
       obj("foo" := 5), obj("bar" := 89))
-    assertEquals("""[{"foo":5},{"bar":89}]""", dboList.toJson)
+    assertEquals("""[{"foo":5},{"bar":89}]""", arr(dboList: _*).toJson)
   }
 
   @Test
@@ -375,8 +375,8 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
     }
     val doc = obj("pts" := arr("23.532 54.2342"))
     assertEquals("""{"pts":["23.532 54.2342"]}""", doc.toJson)
-    val mapping: Map[Class[_], Codec[_, BsonValue]] = Map(classOf[GeoPoint] -> codec)
-    val foo = doc.like[Foo](mapping)
+    implicit val mapping: Map[Class[_], Codec[_, BsonValue]] = Map(classOf[GeoPoint] -> codec)
+    val foo = doc.like[Foo]
     val set = Set(new GeoPoint(23.532f, 54.2342f))
     assertEquals(set, foo.pts)
   }
@@ -393,4 +393,10 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
     assertEquals(3, foo.map("three"))
   }
 
+  @Test
+  def `nested list in map` {
+    val map: Map[String, collection.immutable.IndexedSeq[String]] = Map("foo" -> Vector("1", "2"), "bar" -> Vector("3", "4"))
+    val doc = obj("map" := map)
+    assertEquals("""{"map":{"foo":["1","2"],"bar":["3","4"]}}""", doc.toJson)
+  }
 }

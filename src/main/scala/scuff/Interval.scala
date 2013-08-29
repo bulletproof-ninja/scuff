@@ -7,7 +7,7 @@ import java.lang.{ Double ⇒ JD, Float ⇒ JF }
 final class Interval[T](
     val fromIncl: Boolean, val from: T,
     val toIncl: Boolean, val to: T,
-    stringRep: String = null)(implicit private val n: Numeric[T]) extends Serializable {
+    stringRep: String = null)(implicit private val n: Ordering[T]) extends Serializable {
 
   checkForNaN(from)
   checkForNaN(to)
@@ -41,12 +41,14 @@ final class Interval[T](
     "%s%s,%s%s".format(openBracket, numStr(from), numStr(to), closeBracket)
 
   override def equals(any: Any) = any match {
-    case that: Interval[_] if this.n == that.n ⇒
+    case that: Interval[_] ⇒
       val that = any.asInstanceOf[Interval[T]]
-      this.fromIncl == that.fromIncl &&
+      this.n == that.n &&
+        this.fromIncl == that.fromIncl &&
         this.toIncl == that.toIncl &&
         this.n.equiv(this.from, that.from) &&
         this.n.equiv(this.to, that.to)
+    case _ ⇒ false
   }
   override def hashCode = from.hashCode ^ to.hashCode
 
@@ -97,13 +99,13 @@ object Interval {
     case _: Exception ⇒ None
   }
 
-  def apply[T](t: (T, T))(implicit n: Numeric[T]): Interval[T] = {
+  def apply[T](t: (T, T))(implicit n: Ordering[T]): Interval[T] = {
     new Interval(true, t._1, false, t._2)
   }
-  def apply[T](r: Range): Interval[Int] = {
+  def apply(r: Range): Interval[Int] = {
     new Interval(true, r.start, r.isInclusive, r.end)
   }
-  def apply[T](r: NumericRange[T])(implicit n: Numeric[T]): Interval[T] = {
+  def apply[T](r: NumericRange[T])(implicit n: Ordering[T]): Interval[T] = {
     val fromIncl = r.start match {
       case d: Double ⇒ !JD.isInfinite(d)
       case f: Float ⇒ !JF.isInfinite(f)
@@ -125,8 +127,8 @@ object Interval {
     apply(range)
   }
 
-  implicit def tuple[T](t: (T, T))(implicit n: Numeric[T]): Interval[T] = apply(t)
-  implicit def range[T](r: Range): Interval[Int] = apply(r)
-  implicit def numRange[T](r: NumericRange[T])(implicit n: Numeric[T]): Interval[T] = apply(r)
+  implicit def tuple[T](t: (T, T))(implicit n: Ordering[T]): Interval[T] = apply(t)
+  implicit def range(r: Range): Interval[Int] = apply(r)
+  implicit def numRange[T](r: NumericRange[T])(implicit n: Ordering[T]): Interval[T] = apply(r)
   implicit def partialRange[T](partial: Range.Partial[T, NumericRange[T]])(implicit n: Numeric[T]): Interval[T] = apply(partial)
 }
