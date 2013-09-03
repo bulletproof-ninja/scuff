@@ -9,6 +9,8 @@ import scala.util.{ Try, Success, Failure }
  */
 class Proxylicious[T](implicit tag: ClassTag[T]) {
 
+  private[this] val getters = tag.runtimeClass.getMethods().filter(m ⇒ m.getParameterTypes.length == 0 && m.getReturnType != classOf[Unit]).toSeq
+
   private def newProxy(ih: InvocationHandler) = Proxy.newProxyInstance(tag.runtimeClass.getClassLoader, Array(tag.runtimeClass), ih).asInstanceOf[T]
 
   def proxify(handler: (T, Method, Array[AnyRef]) ⇒ Any): T = {
@@ -41,6 +43,15 @@ class Proxylicious[T](implicit tag: ClassTag[T]) {
     }
     newProxy(handler)
   }
+
+  def withToStringOverride(meat: T, className: String = tag.runtimeClass.getSimpleName): T = sandwich(meat, newToStringOverrideSandwich(className))
+  /**
+   * Override equals/hashCode like a value object, i.e.
+   * equality is based on all accessible values, not
+   * identity. Same with hash code.
+   */
+  def withEqualsHashCodeOverride(meat: T): T = sandwich(meat, newEqualsHashCodeOverrideSandwich)
+
   trait Sandwich {
     class DSLMethod(method: Method) {
       def named(methodName: Symbol) = new DSLString(method, methodName.name)
@@ -69,13 +80,12 @@ class Proxylicious[T](implicit tag: ClassTag[T]) {
 
   private def isSingleObjectArg(args: Array[Class[_]]) = args.length == 1 && args(0) == classOf[Object]
 
-  def ToStringOverride: Sandwich = new Sandwich {
-    def include(method: Method) = method.getParameterTypes.length == 0 && method.getReturnType == classOf[String] && method.getName == "toString"
+  private def newToStringOverrideSandwich(className: String): Sandwich = new Sandwich {
+    def include(method: Method) = method.getParameterTypes.length == 0 && method.getName == "toString" && method.getReturnType == classOf[String]
     def before(proxy: T, method: Method, args: Array[Any]) {}
     def after(proxy: T, method: Method, args: Array[Any], result: Try[Any]): Any = {
-      val sb = new StringBuffer
-      sb append tag.runtimeClass.getSimpleName append '('
-      val getters = tag.runtimeClass.getMethods().filter(_.getParameterTypes.length == 0)
+      val sb = new java.lang.StringBuilder(getters.size * 16)
+      sb append className append '('
       getters.foreach { getter ⇒
         sb append getter.getName append '=' append String.valueOf(getter.invoke(proxy)) append ','
       }
@@ -88,36 +98,28 @@ class Proxylicious[T](implicit tag: ClassTag[T]) {
     }
   }
 
-  /**
-   * Override equals/hashCode like a value class, i.e.
-   * equality is based on all accessible values, not
-   * identity. Same with hash code.
-   */
-  def EqualsHashCodeOverride: Sandwich = new Sandwich {
+  private def newEqualsHashCodeOverrideSandwich: Sandwich = new Sandwich {
     def include(method: Method) =
       (isSingleObjectArg(method.getParameterTypes) && method.getName == "equals" && method.getReturnType == classOf[Boolean]) ||
         (method.getParameterTypes.length == 0 && method.getName == "hashCode" && method.getReturnType == classOf[Int])
     def before(proxy: T, method: Method, args: Array[Any]) {}
     def after(proxy: T, method: Method, args: Array[Any], result: Try[Any]): Any = {
-      val getters = tag.runtimeClass.getMethods().filter(_.getParameterTypes.length == 0)
       method.getName match {
-        case "equals" ⇒ allEqual(proxy, args(0), getters)
-        case "hashCode" ⇒ calcHash(proxy, getters)
+        case "equals" ⇒
+          args(0) match {
+            case that: T ⇒ that != null && tag.runtimeClass.isInstance(that) && Try(getters.forall(m ⇒ m.invoke(proxy) == m.invoke(that))).getOrElse(false)
+            case _ ⇒ false
+          }
+        case "hashCode" ⇒ getters.foldLeft(17) { (hash, m) ⇒
+          m.invoke(proxy) match {
+            case null ⇒ 31 * hash
+            case value ⇒ 31 * hash + value.hashCode
+          }
+        }
         case _ ⇒ result match {
           case Success(res) ⇒ res
           case Failure(t) ⇒ throw t
         }
-      }
-    }
-    private def allEqual(t1: T, t2: Any, getters: Seq[Method]): Boolean = getters.forall { m ⇒
-      val v1 = m.invoke(t1)
-      val v2 = m.invoke(t2)
-      v1 == v2
-    }
-    private def calcHash(t: T, getters: Seq[Method]): Int = getters.foldLeft(17) { (hash, m) ⇒
-      m.invoke(t) match {
-        case null ⇒ 31 * hash
-        case value ⇒ 31 * hash + value.hashCode
       }
     }
 

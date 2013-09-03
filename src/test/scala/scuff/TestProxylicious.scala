@@ -93,9 +93,9 @@ class TestProxylicious {
     assertNotEquals(x, y)
     assertNotEquals(x.hashCode, y.hashCode)
     val p = new Proxylicious[Values]
-    val x2 = p.sandwich(x, p.EqualsHashCodeOverride)
-    val y2 = p.sandwich(y, p.EqualsHashCodeOverride)
-    val z2 = p.sandwich(z, p.EqualsHashCodeOverride)
+    val x2 = p.withEqualsHashCodeOverride(x)
+    val y2 = p.withEqualsHashCodeOverride(y)
+    val z2 = p.withEqualsHashCodeOverride(z)
     assertEquals(x2, y2)
     assertEquals(x2.hashCode, y2.hashCode)
     assertNotEquals(x2, z2)
@@ -113,8 +113,8 @@ class TestProxylicious {
       val b = 42
     }
     val p = new Proxylicious[Values]
-    val valuesP = p.sandwich(values, p.ToStringOverride)
-    assertEquals("Values$2(b=42,a=Foo)", valuesP.toString)
+    val valuesP = p.withToStringOverride(values, "Values")
+    assertEquals("Values(b=42,a=Foo)", valuesP.toString)
   }
 
 }
