@@ -4,10 +4,10 @@ import scala.collection.immutable.Range.Partial
 import scala.collection.immutable.NumericRange
 import java.lang.{ Double ⇒ JD, Float ⇒ JF }
 
-final class Interval[T](
+final class Interval[@specialized(Short, Int, Long, Float, Double) T](
     val fromIncl: Boolean, val from: T,
     val toIncl: Boolean, val to: T,
-    stringRep: String = null)(implicit private val n: Ordering[T]) extends Serializable {
+    stringRep: String = null)(implicit private val ord: Ordering[T]) extends Serializable {
 
   checkForNaN(from)
   checkForNaN(to)
@@ -20,8 +20,8 @@ final class Interval[T](
   }
 
   def contains(c: T) =
-    (fromIncl && n.gteq(c, from) || n.gt(c, from)) &&
-      (toIncl && n.lteq(c, to) || n.lt(c, to))
+    (fromIncl && ord.gteq(c, from) || ord.gt(c, from)) &&
+      (toIncl && ord.lteq(c, to) || ord.lt(c, to))
 
   private def openBracket = if (fromIncl) "[" else "("
   private def closeBracket = if (toIncl) "]" else ")"
@@ -43,11 +43,11 @@ final class Interval[T](
   override def equals(any: Any) = any match {
     case that: Interval[_] ⇒
       val that = any.asInstanceOf[Interval[T]]
-      this.n == that.n &&
+      this.ord == that.ord &&
         this.fromIncl == that.fromIncl &&
         this.toIncl == that.toIncl &&
-        this.n.equiv(this.from, that.from) &&
-        this.n.equiv(this.to, that.to)
+        this.ord.equiv(this.from, that.from) &&
+        this.ord.equiv(this.to, that.to)
     case _ ⇒ false
   }
   override def hashCode = from.hashCode ^ to.hashCode
@@ -57,7 +57,7 @@ final class Interval[T](
     out.writeBoolean(toIncl)
     out.writeObject(from)
     out.writeObject(to)
-    out.writeObject(n)
+    out.writeObject(ord)
     out.writeObject(stringRep)
   }
   private def readObject(in: java.io.ObjectInputStream) {
@@ -66,13 +66,15 @@ final class Interval[T](
     surgeon.set('toIncl, in.readBoolean)
     surgeon.set('from, in.readObject)
     surgeon.set('to, in.readObject)
-    surgeon.set('n, in.readObject)
+    surgeon.set(Interval.field_ord_name, in.readObject)
     surgeon.set('stringRep, in.readObject)
   }
 
 }
 
 object Interval {
+
+  private val field_ord_name = Symbol(classOf[Interval[_]].getDeclaredFields().find(f ⇒ classOf[Ordering[_]] == f.getType).get.getName)
 
   val Unbounded = new Interval(false, Double.NegativeInfinity, false, Double.PositiveInfinity)
 
@@ -99,13 +101,13 @@ object Interval {
     case _: Exception ⇒ None
   }
 
-  def apply[T](t: (T, T))(implicit n: Ordering[T]): Interval[T] = {
+  def apply[@specialized(Short, Int, Long, Float, Double) T](t: (T, T))(implicit n: Ordering[T]): Interval[T] = {
     new Interval(true, t._1, false, t._2)
   }
   def apply(r: Range): Interval[Int] = {
     new Interval(true, r.start, r.isInclusive, r.end)
   }
-  def apply[T](r: NumericRange[T])(implicit n: Ordering[T]): Interval[T] = {
+  def apply[@specialized(Short, Int, Long, Float, Double) T](r: NumericRange[T])(implicit n: Ordering[T]): Interval[T] = {
     val fromIncl = r.start match {
       case d: Double ⇒ !JD.isInfinite(d)
       case f: Float ⇒ !JF.isInfinite(f)
@@ -118,7 +120,7 @@ object Interval {
     }
     new Interval(fromIncl, r.start, toIncl, r.end)
   }
-  def apply[T](partial: Range.Partial[T, NumericRange[T]])(implicit n: Numeric[T]): Interval[T] = {
+  def apply[@specialized(Short, Int, Long, Float, Double) T](partial: Range.Partial[T, NumericRange[T]])(implicit n: Numeric[T]): Interval[T] = {
     val range = try {
       partial.by(n.negate(n.one))
     } catch {
@@ -127,8 +129,8 @@ object Interval {
     apply(range)
   }
 
-  implicit def tuple[T](t: (T, T))(implicit n: Ordering[T]): Interval[T] = apply(t)
+  implicit def tuple[@specialized(Short, Int, Long, Float, Double) T](t: (T, T))(implicit n: Ordering[T]): Interval[T] = apply(t)
   implicit def range(r: Range): Interval[Int] = apply(r)
-  implicit def numRange[T](r: NumericRange[T])(implicit n: Ordering[T]): Interval[T] = apply(r)
-  implicit def partialRange[T](partial: Range.Partial[T, NumericRange[T]])(implicit n: Numeric[T]): Interval[T] = apply(partial)
+  implicit def numRange[@specialized(Short, Int, Long, Float, Double) T](r: NumericRange[T])(implicit n: Ordering[T]): Interval[T] = apply(r)
+  implicit def partialRange[@specialized(Short, Int, Long, Float, Double) T](partial: Range.Partial[T, NumericRange[T]])(implicit n: Numeric[T]): Interval[T] = apply(partial)
 }
