@@ -394,6 +394,18 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
   }
 
   @Test
+  def `nested interface proxying` {
+    trait Foo {
+      trait Bar {
+        def baz: Int
+      }
+      def bar: Option[Bar]
+    }
+    val foo = obj("bar" := obj("baz" := 666)).like[Foo]
+    assertEquals(666, foo.bar.get.baz)
+  }
+
+  @Test
   def `nested list in map` {
     val map: Map[String, collection.immutable.IndexedSeq[String]] = Map("foo" -> Vector("1", "2"), "bar" -> Vector("3", "4"))
     val doc = obj("map" := map)

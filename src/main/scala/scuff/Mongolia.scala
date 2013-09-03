@@ -12,7 +12,10 @@ import scala.reflect.ClassTag
 object Mongolia {
 
   class UnavailableValueException(val fieldName: String, message: String) extends RuntimeException(message)
-  class InvalidValueTypeException(val fieldName: String, message: String) extends RuntimeException(message)
+  class InvalidValueTypeException(val fieldName: String, cause: Throwable, message: String) extends RuntimeException(message, cause) {
+    def this(fieldName: String, cause: Throwable) = this(fieldName, cause, cause.getMessage)
+    def this(fieldName: String, message: String) = this(fieldName, null, message)
+  }
 
   private lazy val coffeeCompiler = js.CoffeeScriptCompiler('bare -> true)
 
@@ -1102,7 +1105,7 @@ object Mongolia {
       case Some(converter) ⇒ value.as(converter)
       case None ⇒
         if (asType.isInterface) {
-          getProxy(value.as[DBObject], mapping)(ClassTag(asType))
+          getProxy(value.as[DBObject], mapping)(ClassTag[Any](asType))
         } else {
           import scuff._
           value match {
@@ -1120,7 +1123,7 @@ object Mongolia {
       case Some(converter) ⇒ value.opt(converter)
       case None ⇒
         if (optType.isInterface) {
-          value.opt[DBObject].map(getProxy(_, mapping)(ClassTag(optType)))
+          value.opt[DBObject].map(getProxy(_, mapping)(ClassTag[Any](optType)))
         } else {
           value match {
             case value: Value ⇒ Option(convertProxyValue(name, value, optType, mapping))
@@ -1132,7 +1135,7 @@ object Mongolia {
       case Some(converter) ⇒ shouldBeSet.asSeq(converter).toSet
       case None ⇒
         if (setType.isInterface) {
-          shouldBeSet.asSeq[DBObject].map(getProxy(_, mapping)(ClassTag(setType))).toSet
+          shouldBeSet.asSeq[DBObject].map(getProxy(_, mapping)(ClassTag[Any](setType))).toSet
         } else {
           shouldBeSet match {
             case value: Value ⇒ value.raw match {
@@ -1158,7 +1161,7 @@ object Mongolia {
                 map += key -> value
               }
               map
-            case _ ⇒ throw new InvalidValueTypeException(name, "Cannot convert %s to Map[String, %s]".format(value.raw, mapType.getName))
+            case e: Exception ⇒ throw new InvalidValueTypeException(name, e, "Cannot convert %s to Map[String, %s]".format(value.raw, mapType.getName))
           }
         }
         case _ ⇒ Map.empty
@@ -1169,7 +1172,7 @@ object Mongolia {
       case Some(converter) ⇒ shouldBeList.asSeq(converter)
       case None ⇒
         if (seqType.isInterface) {
-          shouldBeList.asSeq[DBObject].map(getProxy(_, mapping)(ClassTag(seqType)))
+          shouldBeList.asSeq[DBObject].map(getProxy(_, mapping)(ClassTag[Any](seqType)))
         } else {
           shouldBeList match {
             case value: Value ⇒ value.raw match {
@@ -1186,7 +1189,7 @@ object Mongolia {
       case Some(converter) ⇒ shouldBeList.asList(converter)
       case None ⇒
         if (seqType.isInterface) {
-          shouldBeList.asList[DBObject].map(getProxy(_, mapping)(ClassTag(seqType)))
+          shouldBeList.asList[DBObject].map(getProxy(_, mapping)(ClassTag[Any](seqType)))
         } else {
           shouldBeList match {
             case value: Value ⇒ value.raw match {
@@ -1235,11 +1238,11 @@ object Mongolia {
             }
           } catch {
             case e: UnavailableValueException ⇒ throw e
-            case e: Exception ⇒ throw new InvalidValueTypeException(method.getName, e.getMessage)
+            case e: Exception ⇒ throw new InvalidValueTypeException(method.getName, e)
           }
         case (_, method, _) ⇒ throw new IllegalAccessException("Cannot proxy methods with arguments: " + method)
       }
-      fp.sandwich(proxy, fp.EqualsHashCodeOverride)
+      fp.withEqualsHashCodeOverride(proxy)
     }
 
   }
