@@ -551,7 +551,10 @@ object Mongolia {
 
   final class RichDBCollection(underlying: DBCollection) {
     implicit def impoverish = underlying
-    private def SAFE = if (underlying.getWriteConcern.getW >= WriteConcern.SAFE.getW) underlying.getWriteConcern else WriteConcern.SAFE
+    private def SAFE = underlying.getWriteConcern.getWObject.asInstanceOf[Any] match {
+      case w: Int if w < WriteConcern.SAFE.getW ⇒ WriteConcern.SAFE
+      case _ ⇒ underlying.getWriteConcern
+    }
     def safeInsert(dbo: DBObject) = underlying.insert(dbo, SAFE)
     def safeInsert(dbos: DBObject*) = underlying.insert(dbos.toArray, SAFE)
     def safeSave(dbo: DBObject) = underlying.save(dbo, SAFE)
