@@ -28,12 +28,12 @@ trait StreamingSerializer[T] extends Serializer[T] {
     out.toByteArray()
   }
   @inline def decode(bytes: Array[Byte]) = decodeFrom(new ByteArrayInputStream(bytes))
-  @inline protected final def asObjectInput(in: InputStream): ObjectInput = in match {
-    case oi: ObjectInput ⇒ oi
+  @inline protected final def asObjectInput(in: InputStream): ObjectInputStream = in match {
+    case oi: ObjectInputStream ⇒ oi
     case _ ⇒ new ObjectInputStream(in)
   }
-  @inline protected final def asObjectOutput(out: OutputStream): ObjectOutput = out match {
-    case ou: ObjectOutput ⇒ ou
+  @inline protected final def asObjectOutput(out: OutputStream): ObjectOutputStream = out match {
+    case ou: ObjectOutputStream ⇒ ou
     case _ ⇒ new ObjectOutputStream(out)
   }
   def encodeInto(out: OutputStream)(t: T)
