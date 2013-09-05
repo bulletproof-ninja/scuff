@@ -9,15 +9,14 @@ class TestCookieMonster {
   @Test
   def `max age` {
     var expires = 9999
-    object CM extends CookieMonster {
+    object CM extends CookieMonster[String] {
       def name = "Testing"
-      type T = String
       def codec = Codec.noop
       override val clock = new Clock {
         def precision = concurrent.duration.MILLISECONDS
         def now(implicit tu: concurrent.duration.TimeUnit) = 0
       }
-      def maxAge = toMaxAge(expires, clock.precision)
+      override def maxAge = toMaxAge(expires, clock.precision)
     }
     assertEquals(9, CM.maxAge)
   }

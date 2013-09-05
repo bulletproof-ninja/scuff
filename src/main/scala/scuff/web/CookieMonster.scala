@@ -6,10 +6,8 @@ import scuff._
 /**
  * Typed cookie definition.
  */
-trait CookieMonster {
+trait CookieMonster[T] {
   import java.util.concurrent.TimeUnit
-
-  type T
 
   protected def clock: Clock = SystemClock
 
@@ -18,8 +16,8 @@ trait CookieMonster {
    */
   final val SessionOnly = -1
 
-  /** Max-age in seconds. */
-  protected def maxAge: Int
+  /** Max-age in seconds. Defaults to -1, which is session duration. */
+  protected def maxAge: Int = SessionOnly
   /** Convert Expires timestamp to MaxAge seconds, using current time. */
   protected final def toMaxAge(expires: Long, unit: TimeUnit) = (unit toSeconds clock.durationUntil(expires)(unit)).asInstanceOf[Int]
   protected def codec: Codec[T, String]
@@ -38,7 +36,7 @@ trait CookieMonster {
   /**
    * Set value as cookie on response.
    */
-  def set(res: http.HttpServletResponse, value: T) {
+  def set(res: http.HttpServletResponse, value: T, maxAge: Int = this.maxAge) {
     val cookie = new http.Cookie(name, codec.encode(value))
     cookie.setMaxAge(maxAge)
     for (path ← Option(path)) cookie.setPath(path)
