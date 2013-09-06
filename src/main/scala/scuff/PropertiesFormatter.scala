@@ -20,7 +20,7 @@ import java.nio.charset.Charset
  *   val msg = messages("label.hello", new java.util.Date)
  *   println(msg)
  * }}}
- * This class will have fallback behavior per key.
+ * This class has per-key fallback behavior.
  * This means that more specific locale files (country and variant)
  * need not have all the keys, but merely the keys that differ.
  * @see java.text.MessageFormat
@@ -29,16 +29,17 @@ import java.nio.charset.Charset
  * For locale specific `.properties` file name syntax
  * @author Nils Kilden-Pedersen
  */
-class PropertiesFormatter private (_baseName: Option[String], desiredLocale: Locale, charset: Charset) {
+class PropertiesFormatter private (_baseName: Option[String], desiredLocale: Locale, charset: Charset)
+    extends ((String, Any*) ⇒ String) {
 
   /**
-    * Subclass constructor. Used when sub-classing is used for location and naming.
-    * @param desiredLocale The desired locale. May use a fallback locale if specific locale is not found
-    * @param charset Override default properties charset of UTF-8
-    */
+   * Subclass constructor. Used when sub-classing is used for location and naming.
+   * @param desiredLocale The desired locale. May use a fallback locale if specific locale is not found
+   * @param charset Override default properties charset of UTF-8
+   */
   protected def this(desiredLocale: Locale = Locale.ROOT, charset: Charset = PropertiesFormatter.ISO_8859_1) = this(None, desiredLocale, charset)
 
-  private[this] val control = new CharsetControl(charset)
+  private[this] val control = new CharsetControl(charset, getClass.getClassLoader)
 
   private[this] val baseName = _baseName match {
     case Some(bn) ⇒ bn
@@ -172,7 +173,7 @@ object PropertiesFormatter {
     val packagePrefix = location.map(_.getName concat ".").getOrElse("")
     new PropertiesFormatter(Some(packagePrefix concat baseName), desiredLocale, charset)
   }
-  
+
   def root(name: String, desiredLocale: Locale = Locale.getDefault, charset: Charset = ISO_8859_1) = {
     new PropertiesFormatter(Some(name), desiredLocale, charset)
   }
@@ -189,66 +190,71 @@ object PropertiesFormatter {
 
 }
 
-private class CharsetControl(charset: Charset) extends ResourceBundle.Control {
+private class CharsetControl(charset: Charset, altLoader: ClassLoader) extends ResourceBundle.Control {
   import java.io._
   import java.security._
   override def newBundle(baseName: String, locale: Locale, format: String, loader: ClassLoader, reload: Boolean): ResourceBundle = {
     val bundleName = toBundleName(baseName, locale)
     var bundle: ResourceBundle = null
-    if (format.equals("java.class")) {
-      try {
-        val bundleClass = loader.loadClass(bundleName).asInstanceOf[Class[_ <: ResourceBundle]]
-        // If the class isn't a ResourceBundle subclass, throw a
-        // ClassCastException.
-        if (classOf[ResourceBundle].isAssignableFrom(bundleClass)) {
-          bundle = bundleClass.newInstance()
-        } else {
-          throw new ClassCastException(bundleClass.getName()
-            + " cannot be cast to ResourceBundle")
-        }
-      } catch {
-        case _: ClassNotFoundException ⇒ // Ignore
-      }
-    } else if (format.equals("java.properties")) {
-      val resourceName = toResourceName(bundleName, "properties")
-      val classLoader = loader
-      val reloadFlag = reload
-      var stream: InputStream = null
-      try {
-        stream = AccessController.doPrivileged(
-          new PrivilegedExceptionAction[InputStream] {
-            def run: InputStream = {
-              var is: InputStream = null
-              if (reloadFlag) {
-                val url = classLoader.getResource(resourceName)
-                if (url != null) {
-                  val connection = url.openConnection()
-                  if (connection != null) {
-                    // Disable caches to get fresh data for
-                    // reloading.
-                    connection.setUseCaches(false)
-                    is = connection.getInputStream()
-                  }
-                }
-              } else {
-                is = classLoader.getResourceAsStream(resourceName)
-              }
-              return is
-            }
-          })
-      } catch {
-        case e: PrivilegedActionException ⇒ throw e.getException()
-      }
-      if (stream != null) {
+    format match {
+      case "java.class" ⇒
         try {
-          bundle = new PropertyResourceBundle(new InputStreamReader(stream, charset))
-        } finally {
-          stream.close()
+          val bundleClass = loader.loadClass(bundleName).asInstanceOf[Class[_ <: ResourceBundle]]
+          // If the class isn't a ResourceBundle subclass, throw a
+          // ClassCastException.
+          if (classOf[ResourceBundle].isAssignableFrom(bundleClass)) {
+            bundle = bundleClass.newInstance()
+          } else {
+            throw new ClassCastException(bundleClass.getName()
+              + " cannot be cast to ResourceBundle")
+          }
+        } catch {
+          case _: ClassNotFoundException ⇒ // Ignore
         }
-      }
-    } else {
-      throw new IllegalArgumentException("unknown format: " + format)
+      case "java.properties" ⇒
+        val resourceName = toResourceName(bundleName, "properties")
+        val classLoader = loader
+        val reloadFlag = reload
+        var stream: InputStream = null
+        try {
+          stream = AccessController.doPrivileged(
+            new PrivilegedExceptionAction[InputStream] {
+              def run: InputStream = {
+                var is: InputStream = null
+                if (reloadFlag) {
+                  val url = classLoader.getResource(resourceName)
+                  if (url != null) {
+                    val connection = url.openConnection()
+                    if (connection != null) {
+                      // Disable caches to get fresh data for
+                      // reloading.
+                      connection.setUseCaches(false)
+                      is = connection.getInputStream()
+                    }
+                  }
+                } else {
+                  is = classLoader.getResourceAsStream(resourceName)
+                }
+                return is
+              }
+            })
+        } catch {
+          case e: PrivilegedActionException ⇒ throw e.getException()
+        }
+        if (stream != null) {
+          try {
+            bundle = new PropertyResourceBundle(new InputStreamReader(stream, charset))
+          } finally {
+            stream.close()
+          }
+        }
+      case _ ⇒
+        throw new IllegalArgumentException("unknown format: " + format)
     }
-    return bundle
+    if (bundle == null && loader != altLoader) {
+      newBundle(baseName, locale, format, altLoader, reload)
+    } else {
+      bundle
+    }
   }
 }
