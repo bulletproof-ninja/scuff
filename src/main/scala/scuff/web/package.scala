@@ -1,6 +1,7 @@
 package scuff
 
 import javax.servlet.http._
+import java.util.Locale
 
 package object web {
   private val RFC822Pool = new ThreadLocal[java.text.SimpleDateFormat] {
@@ -41,6 +42,10 @@ package object web {
         case None ⇒ false
         case Some(reqETag) ⇒ reqETag == etag
       }
+    }
+    def userLocales: Seq[Locale] = {
+      import collection.JavaConverters._
+      req.getLocales().asScala.toSeq
     }
   }
 
