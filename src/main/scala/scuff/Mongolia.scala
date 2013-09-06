@@ -103,6 +103,7 @@ object Mongolia {
   implicit val IntCdc = new Codec[Int, BsonValue] {
     def encode(a: Int): BsonValue = new Value(a)
     def decode(b: BsonValue) = b.raw match {
+      case n: Number ⇒ n.intValue
       case str: String ⇒ str.toInt
       case _ ⇒ org.bson.BSON.toInt(b.raw)
     }
@@ -149,10 +150,12 @@ object Mongolia {
     }
   }
   implicit val BoolCdc = new Codec[Boolean, BsonValue] {
+    val TrueStrings = Set("1", "true", "on", "yes", "y")
     def encode(a: Boolean): BsonValue = new Value(a)
     def decode(b: BsonValue) = b.raw match {
       case b: java.lang.Boolean ⇒ b.booleanValue
-      case _ ⇒ IntCdc.decode(b) != 0
+      case i: Int ⇒ IntCdc.decode(b) != 0
+      case s: String ⇒ TrueStrings.contains(s.toLowerCase)
     }
   }
   implicit val BACdc = new Codec[Array[Byte], BsonValue] {
