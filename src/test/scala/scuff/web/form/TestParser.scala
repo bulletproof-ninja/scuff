@@ -63,7 +63,7 @@ class TestParser {
     object Parser extends Parser[Beano2]
     val form = Map("latLng" -> Seq("181:-45.1234"))
     Parser.onePass(form) match {
-      case Left(errors) ⇒ assertTrue(errors.contains(Invalid("latLng")))
+      case Left(errors) ⇒ assertTrue(errors.contains(Failure("latLng", FailureType.Syntax)))
       case Right(b2) ⇒ fail("Should have failed")
     }
     Parser.onePass(form.updated("latLng", Seq("123.4433 : -45.1234"))) match {
@@ -78,14 +78,14 @@ class TestParser {
     val form = Map("age" -> Seq("36"), "perhaps" -> Seq("false"))
     Parser.twoPass(form) { b ⇒
       if (b.year.isEmpty && b.name.isEmpty) {
-        Left(Set(Required("name")))
+        Left(Set(Failure("name", FailureType.Missing)))
       } else {
         Right(b)
       }
     } match {
       case Left(errors) ⇒
         assertEquals(1, errors.size)
-        assertTrue(errors.contains(Required("name")))
+        assertTrue(errors.contains(Failure("name", FailureType.Missing)))
       case Right(b) ⇒ fail("Should fail because both name and year is missing")
     }
   }
