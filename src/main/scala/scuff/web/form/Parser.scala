@@ -15,8 +15,8 @@ object Parser {
   private def toLong(s: String) = s.toLong
   private def toBD(s: String) = BigDecimal(s)
   private def toBoolean(s: String) = s.toLowerCase match {
-    case "true" | "1" | "yes" ⇒ true
-    case "false" | "0" | "no" ⇒ false
+    case "on" | "true" | "1" | "yes" ⇒ true
+    case "off" | "false" | "0" | "no" ⇒ false
   }
   private def toGeoPoint(s: String) = scuff.GeoPoint.parse(s).get
 
@@ -33,8 +33,9 @@ object Parser {
     classOf[java.lang.Double] -> toDouble,
     classOf[Long] -> toLong,
     classOf[java.lang.Long] -> toLong,
-    classOf[BigDecimal] -> toBD,
     classOf[Boolean] -> toBoolean,
+    classOf[java.lang.Boolean] -> toBoolean,
+    classOf[BigDecimal] -> toBD,
     classOf[scuff.GeoPoint] -> toGeoPoint)
 }
 
@@ -81,16 +82,16 @@ class Parser[T](implicit tag: ClassTag[T]) {
     }
   }
 
-  def twoPass[A](form: Map[String, Seq[String]])(secondPass: T ⇒ Either[Set[Problem], A]): Either[Set[Problem], A] = {
+  def twoPass[A](form: Map[String, Seq[String]])(secondPass: T ⇒ Either[Set[Failure], A]): Either[Set[Failure], A] = {
     var values: Map[String, Any] = Map.empty
-    var errors: Set[Problem] = Set.empty
+    var errors: Set[Failure] = Set.empty
     getters.foreach {
       case (name, rt) ⇒
         def convertOrFail(conv: ⇒ Any) {
             try {
               values += name -> conv
             } catch {
-              case e: Exception ⇒ errors += Invalid(name, e)
+              case e: Exception ⇒ errors += Failure(name, FailureType.Syntax)
             }
           }
         val withContent = {
@@ -109,7 +110,7 @@ class Parser[T](implicit tag: ClassTag[T]) {
             } else if (rt.isOption) {
               values += (name -> None)
             } else {
-              errors += Required(name)
+              errors += Failure(name, FailureType.Missing)
             }
           case head :: _ ⇒
             if (rt.isOption) {
@@ -131,6 +132,6 @@ class Parser[T](implicit tag: ClassTag[T]) {
       secondPass(t)
     } else Left(errors)
   }
-  def onePass(form: Map[String, Seq[String]]): Either[Set[Problem], T] = twoPass[T](form)(t ⇒ Right(t))
+  def onePass(form: Map[String, Seq[String]]): Either[Set[Failure], T] = twoPass[T](form)(t ⇒ Right(t))
 
 }
