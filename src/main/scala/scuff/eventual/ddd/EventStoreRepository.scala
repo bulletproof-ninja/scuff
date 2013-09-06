@@ -147,19 +147,19 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
     eventStore.record(ar, ar.id, newRevision, ar.events, metadata).map(_ ⇒ newRevision)
   }
 
-  private def loadAndUpdate(id: AR#ID, basedOnRevision: Long, metadata: Map[String, String], doAssume: Boolean, handler: AR ⇒ Unit): Future[Long] = {
+  private def loadAndUpdate[T](id: AR#ID, basedOnRevision: Long, metadata: Map[String, String], doAssume: Boolean, handler: AR ⇒ T): Future[(T, Long)] = {
     loadLatest(id, doAssume, basedOnRevision).flatMap { ar ⇒
-      handler.apply(ar)
+      val t = handler.apply(ar)
       if (ar.events.isEmpty) {
-        Future.successful(ar.revision.get)
+        Future.successful(t -> ar.revision.get)
       } else {
-        recordUpdate(ar, metadata).recoverWith {
+        recordUpdate(ar, metadata).map(r ⇒ t -> r).recoverWith {
           case _: DuplicateRevisionException ⇒ loadAndUpdate(id, basedOnRevision, metadata, false, handler)
         }
       }
     }
   }
-  def update(id: AR#ID, basedOnRevision: Long)(updateBlock: AR ⇒ Unit)(implicit metadata: Map[String, String]): Future[Long] =
+  def update[T](id: AR#ID, basedOnRevision: Long)(updateBlock: AR ⇒ T)(implicit metadata: Map[String, String]): Future[(T, Long)] =
     loadAndUpdate(id, basedOnRevision, metadata, true, updateBlock)
 
 }

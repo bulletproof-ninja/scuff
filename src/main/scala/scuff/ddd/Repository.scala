@@ -28,9 +28,8 @@ trait Repository[AR <: AggregateRoot] {
    * @param id The aggregate ID
    * @param basedOnRevision Revision, which update will be based on
    * @param updateBlock The transaction code block. This may be executed multiple times if concurrent updates occur
-   * @return The last committed revision or [[scuff.ddd.UnknownIdException]]
    */
-  def update(id: AR#ID, basedOnRevision: Long = Long.MaxValue)(updateBlock: AR ⇒ Unit)(implicit metadata: Map[String, String] = Map.empty): Future[Long]
+  def update[T](id: AR#ID, basedOnRevision: Long = Long.MaxValue)(updateBlock: AR ⇒ T)(implicit metadata: Map[String, String] = Map.empty): Future[(T, Long)]
 
   /**
    * Insert new aggregate root and publish committed events.
