@@ -24,25 +24,42 @@ trait StreamingSerializer[T] extends Serializer[T] {
   @inline def encode(t: T): Array[Byte] = {
     val out = new ByteArrayOutputStream
     encodeInto(out)(t)
-    out.close()
     out.toByteArray()
   }
   @inline def decode(bytes: Array[Byte]) = decodeFrom(new ByteArrayInputStream(bytes))
-  @inline protected final def asObjectInput(in: InputStream): ObjectInputStream = in match {
-    case oi: ObjectInputStream ⇒ oi
-    case _ ⇒ new ObjectInputStream(in)
+  @inline protected final def asDataInput[T](in: InputStream)(handle: DataInputStream ⇒ T): T = in match {
+    case oi: DataInputStream ⇒ handle(oi)
+    case _ ⇒ handle(new DataInputStream(in))
   }
-  @inline protected final def asObjectOutput(out: OutputStream): ObjectOutputStream = out match {
-    case ou: ObjectOutputStream ⇒ ou
-    case _ ⇒ new ObjectOutputStream(out)
+  @inline protected final def asDataOutput(out: OutputStream)(handle: DataOutputStream ⇒ Unit): Unit = {
+    out match {
+      case ou: DataOutputStream ⇒ handle(ou)
+      case _ ⇒
+        val ou = new DataOutputStream(out)
+        handle(ou)
+        ou.flush()
+    }
   }
   def encodeInto(out: OutputStream)(t: T)
   def decodeFrom(in: InputStream): T
 }
 
 class JavaSerializer[T] extends StreamingSerializer[T] {
-  @inline def encodeInto(out: OutputStream)(obj: T) = asObjectOutput(out).writeObject(obj)
-  @inline def decodeFrom(in: InputStream): T = asObjectInput(in).readObject().asInstanceOf[T]
+  @inline def encodeInto(out: OutputStream)(obj: T) = out match {
+    case oos: ObjectOutput ⇒
+      oos.writeObject(obj)
+    case _ ⇒
+      val oos = new ObjectOutputStream(out)
+      oos.writeObject(obj)
+      oos.flush()
+  }
+  @inline def decodeFrom(in: InputStream): T = {
+    val obj = in match {
+      case ois: ObjectInput ⇒ ois.readObject()
+      case _ ⇒ new ObjectInputStream(in).readObject()
+    }
+    obj.asInstanceOf[T]
+  }
 }
 
 object JavaSerializer extends JavaSerializer[AnyRef]
