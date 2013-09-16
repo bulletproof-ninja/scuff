@@ -127,11 +127,11 @@ object RedisChannel {
   }
 
   def apply[A](channelName: String, server: JedisShardInfo, serializer: Serializer[A]): RedisChannel[A] = {
-    apply(channelName, server, serializer, SameThreadExecution)
+    apply(channelName, server, serializer, Threads.PiggyBack)
   }
 
   def apply[A](channelName: String, server: JedisShardInfo): RedisChannel[A] = {
-    apply(channelName, server, new JavaSerializer[A], SameThreadExecution)
+    apply(channelName, server, new JavaSerializer[A], Threads.PiggyBack)
   }
 
 }
