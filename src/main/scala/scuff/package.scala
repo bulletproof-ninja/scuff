@@ -116,4 +116,11 @@ package object scuff {
     }
   }
 
+  implicit class ScuffLong(val l: Long) extends AnyVal {
+    def toByteArray() = BitsBytes.longToBytes(l)
+  }
+  implicit class ScuffByteArray(val a: Array[Byte]) extends AnyVal {
+    def toLong() = BitsBytes.bytesToLong(a)
+  }
+
 }
