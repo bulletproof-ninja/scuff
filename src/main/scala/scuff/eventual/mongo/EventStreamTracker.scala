@@ -17,16 +17,10 @@ import concurrent.duration._
  * }}}
  * @param dbColl MongoDB collection. Set whatever WriteConcern is appropriate before passing
  * @param clockSkew Worst case clock skew in a sharded environment. Used for resuming without dropping transactions. Defaults to 2 seconds.
- * @param outOfSeqHandler If supplied, revision numbers will be checked for correct sequence,
- * and if not expected sequence, the handler will be called and revision will NOT be marked as processed. Throw an exception to
- * percolate up to caller of `markAsProcessed`.
  */
 final class EventStreamTracker[ID](
     dbColl: DBCollection,
-    clockSkew: Duration = 2.seconds,
-    outOfSeqHandler: Option[EventStreamTracker.OutOfSeqHandler[ID]] = None)(implicit idCdc: scuff.Codec[ID, BsonValue]) {
-
-  private[this] val outOfSeq = outOfSeqHandler.orNull
+    clockSkew: Duration = 2.seconds)(implicit idCdc: scuff.Codec[ID, BsonValue]) {
 
   def resumeFrom: Option[scuff.Timestamp] = {
     dbColl.find(obj(), obj("_id" := EXCLUDE, "_time" := INCLUDE)).last("_time").map { doc ⇒
@@ -37,10 +31,16 @@ final class EventStreamTracker[ID](
 
   private[this] final val RevReadFields = obj("_id" := EXCLUDE, "_rev" := INCLUDE)
 
-  def expectedRevision(streamId: ID): Long = {
+  def nextExpectedRevision(streamId: ID): Long = {
     dbColl.findOne(obj("_id" := streamId), RevReadFields) match {
       case null ⇒ 0
-      case doc ⇒ doc.getAs[Long]("_rev")
+      case doc ⇒ doc.getAs[Long]("_rev") + 1L
+    }
+  }
+
+  def lookup(streamId: ID): Option[(Long, DBObject)] = {
+    dbColl.findOpt(obj("_id" := streamId), obj("_id" := EXCLUDE, "_time" := EXCLUDE)).map { doc ⇒
+      doc.remove("_rev").as[Long] -> doc
     }
   }
 
@@ -58,24 +58,8 @@ final class EventStreamTracker[ID](
     if (revision == 0L) {
       // Use `upsert` here because it allows modifiers in the `update` object, which `insert` doesn't
       dbColl.upsert(key, update)
-    } else if (outOfSeq == null) {
-      dbColl.update(key, update)
     } else {
-      key.put("_rev", revision - 1L)
-      val notUpdated = dbColl.update(key, update).getN == 0
-      if (notUpdated) {
-        key.removeField("_rev")
-        val expected = dbColl.findOne(key, RevReadFields) match {
-          case null ⇒ 0L
-          case doc ⇒ doc.getAs[Long]("_rev") + 1L
-        }
-        outOfSeq.onSequenceViolation(streamId, expected, revision)
-      }
+      dbColl.update(key, update)
     }
-  }
-}
-object EventStreamTracker {
-  trait OutOfSeqHandler[ID] {
-    def onSequenceViolation(id: ID, expected: Long, actual: Long)
   }
 }

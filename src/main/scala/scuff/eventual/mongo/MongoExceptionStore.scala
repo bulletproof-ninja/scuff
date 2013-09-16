@@ -6,7 +6,7 @@ import com.mongodb.DBObject
 import collection.JavaConverters._
 import com.mongodb.{ DB, DBObject }
 import redis.clients.jedis.{ JedisPool, JedisShardInfo }
-import scuff.SameThreadExecution
+import scuff.Threads.PiggyBack
 import scuff.Mongolia.{ enrich, impoverish }
 import scuff.redis.{ RedisChannel, RedisConnectionPool, RedisPublisher, threadSafe }
 import com.mongodb.WriteConcern

@@ -3,19 +3,18 @@ package scuff.eventual.ddd
 import scuff.ddd._
 import scuff.eventual._
 import scala.concurrent._
-import scuff.SameThreadExecution
+import scuff.Threads.PiggyBack
 import java.util.concurrent.TimeUnit
 import scala.util.Failure
 import scala.util.Success
+import scuff.Threads
 
 /**
  * [[scuff.eventual.EventStore]]-based [[scuff.ddd.Repository]] implementation.
  */
 abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](implicit idConv: AR#ID ⇒ ESID) extends Repository[AR] {
 
-  implicit protected def exeCtx: ExecutionContext = new SameThreadExecution {
-    def reportFailure(t: Throwable) = t.printStackTrace()
-  }
+  implicit protected def exeCtx: ExecutionContext = Threads.PiggyBack
 
   protected def clock: scuff.Clock = scuff.SystemClock
 
@@ -69,7 +68,7 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
    * Can be used for statistics gathering,
    * or to determine snapshotting.
    */
-  protected def onLoadNotification(id: AR#ID, revision: Long, timeMs: Long) {}
+  protected def onLoadNotification(id: AR#ID, revision: Long, category: CAT, timeMs: Long) {}
 
   /**
    * Optimistically assume any snapshot returned is the most current.
@@ -119,9 +118,11 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
     futureState.map {
       case None ⇒ throw new UnknownIdException(id)
       case Some((state, revision, concurrentUpdates)) ⇒
-        onLoadNotification(id, revision, clock.durationSince(startTime))
+        val loadTime = clock.durationSince(startTime)
         saveSnapshot(id, revision, state)
-        newAggregateRoot(id, revision, state, concurrentUpdates)
+        val ar = newAggregateRoot(id, revision, state, concurrentUpdates)
+        onLoadNotification(id, revision, ar, loadTime)
+        ar
     }
   }
 

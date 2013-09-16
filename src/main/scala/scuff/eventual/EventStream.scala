@@ -27,7 +27,7 @@ final class EventStream[ID, EVT, CAT](
      * Expected revision for a given stream.
      * If unknown stream, return 0.
      */
-    def expectedRevision(stream: ID): Long
+    def nextExpectedRevision(stream: ID): Long
     /** Consume transaction. */
     def consume(txn: Transaction)
 
@@ -67,7 +67,7 @@ final class EventStream[ID, EVT, CAT](
           case _ ⇒ // Ignore
         }
       }
-      def expectedRevision(streamId: ID): Long = consumer.expectedRevision(streamId)
+      def nextExpectedRevision(streamId: ID): Long = consumer.nextExpectedRevision(streamId)
     }
 
   private def resume(since: Option[Timestamp], consumer: Consumer, categories: Seq[CAT]): Future[Subscription] = {
@@ -92,8 +92,8 @@ final class EventStream[ID, EVT, CAT](
       val safeConsumer = AsyncSequencedConsumer(consumer)
       val sub = es.subscribe(safeConsumer, categoryFilter)
       // Close the race condition; replay anything missed between replay and subscription
-      es.replayFrom(lastTime.getOrElse(starting), categories: _*)(_.foreach(safeConsumer)).map(_ ⇒ sub)(SameThreadExecution)
-    }(SameThreadExecution)
+      es.replayFrom(lastTime.getOrElse(starting), categories: _*)(_.foreach(safeConsumer)).map(_ ⇒ sub)(Threads.PiggyBack)
+    }(Threads.PiggyBack)
   }
 }
 
