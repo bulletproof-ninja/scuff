@@ -3,6 +3,7 @@ package scuff
 import java.util.{ Locale, ResourceBundle, PropertyResourceBundle, MissingResourceException, MissingFormatArgumentException }
 import java.text.MessageFormat
 import java.nio.charset.Charset
+import scala.util.Try
 
 /**
  * Class that combines a `.properties` file with a formatter.
@@ -29,7 +30,7 @@ import java.nio.charset.Charset
  * For locale specific `.properties` file name syntax
  * @author Nils Kilden-Pedersen
  */
-class PropertiesFormatter private (_baseName: Option[String], desiredLocale: Locale, charset: Charset)
+class PropertiesFormatter private (_baseName: Option[String], desiredLocales: Seq[Locale], charset: Charset)
     extends ((String, Any*) ⇒ String) {
 
   /**
@@ -37,7 +38,7 @@ class PropertiesFormatter private (_baseName: Option[String], desiredLocale: Loc
    * @param desiredLocale The desired locale. May use a fallback locale if specific locale is not found
    * @param charset Override default properties charset of UTF-8
    */
-  protected def this(desiredLocale: Locale = Locale.ROOT, charset: Charset = PropertiesFormatter.ISO_8859_1) = this(None, desiredLocale, charset)
+  protected def this(desiredLocales: Seq[Locale] = Seq(Locale.getDefault), charset: Charset = PropertiesFormatter.ISO_8859_1) = this(None, desiredLocales, charset)
 
   private[this] val control = new CharsetControl(charset, getClass.getClassLoader)
 
@@ -49,33 +50,37 @@ class PropertiesFormatter private (_baseName: Option[String], desiredLocale: Loc
     }
   }
 
-  private class Message(strFmt: String) {
+  private class Message(strFmt: String, locale: Locale) {
     val parmCount = PropertiesFormatter.countParms(strFmt)
-    val stringFormat = if (parmCount == 0) strFmt.replace("''", "'") else strFmt
+    val stringFormat = if (parmCount == 0) strFmt else strFmt.replace("'", "''")
     val formatter = new ThreadLocal[MessageFormat]() {
-      override def initialValue = new MessageFormat(stringFormat, desiredLocale)
+      override def initialValue = new MessageFormat(stringFormat, locale)
     }
-    override def toString = strFmt
+    override def toString = {
+      val lang = locale.toString match {
+        case "" ⇒ "ROOT"
+        case lang ⇒ lang
+      }
+      "%s: \"%s\"".format(lang, strFmt)
+    }
   }
 
   private val map: Map[String, Message] = {
-      def findText(key: String, bundles: Seq[ResourceBundle]): Option[String] = {
-        var text: String = null
-        val iter = bundles.iterator
-        while (text == null && iter.hasNext) try {
-          text = iter.next.getString(key)
-        } catch {
-          case _: MissingResourceException ⇒ // Ignore
+      def findText(key: String, bundles: Seq[ResourceBundle]): Option[(String, Locale)] = {
+        bundles.iterator.map { bundle ⇒
+          Try(bundle.getString(key) -> bundle.getLocale).toOption
+        }.collectFirst {
+          case Some(t) ⇒ t
         }
-        Option(text)
       }
-    val bundles = PropertiesFormatter.toResourceBundles(baseName, desiredLocale, control)
+    val bundles = PropertiesFormatter.toResourceBundles(baseName, desiredLocales, control)
+    val allKeys = bundles.flatMap(e ⇒ collection.JavaConversions.enumerationAsScalaIterator(e.getKeys).toSeq).toSet
+    val iter = allKeys.iterator
     var map: Map[String, Message] = Map.empty
-    val iter = bundles.flatMap(e ⇒ collection.JavaConversions.enumerationAsScalaIterator(e.getKeys).toSeq).toSet.iterator
     while (iter.hasNext) {
       val key = iter.next
       findText(key, bundles).foreach { text ⇒
-        map += (key -> new Message(text))
+        map += (key -> new Message(text._1, text._2))
       }
     }
     map
@@ -135,30 +140,32 @@ object PropertiesFormatter {
     }
     set.size
   }
-  private def toResourceBundles(baseName: String, locale: Locale, control: CharsetControl): Seq[ResourceBundle] = {
-      def appendBundle(buffer: collection.mutable.Buffer[ResourceBundle], locale: Locale) {
+  private def toResourceBundles(baseName: String, locales: Seq[Locale], control: CharsetControl): Seq[ResourceBundle] = {
+    val expandedLocales =
+      locales ++
+        locales.flatMap { locale ⇒
+          val buffer = new collection.mutable.ArrayBuffer[Locale](2)
+          if (locale.getVariant.length > 0) {
+            buffer += new Locale(locale.getLanguage, locale.getCountry)
+          }
+          if (locale.getCountry.length > 0) {
+            buffer += new Locale(locale.getLanguage)
+          }
+          buffer
+        } :+ Locale.ROOT
+    expandedLocales.distinct.foldLeft(Array[ResourceBundle]()) {
+      case (list, locale) ⇒
         try {
           val bundle = ResourceBundle.getBundle(baseName, locale, control)
-          if (bundle.getLocale == locale) buffer += bundle
+          if (bundle.getLocale == locale) {
+            list :+ bundle
+          } else {
+            list
+          }
         } catch {
-          case e: MissingResourceException ⇒ // Ignore
+          case e: MissingResourceException ⇒ list
         }
-      }
-    val buffer = new collection.mutable.ArrayBuffer[ResourceBundle](4)
-    appendBundle(buffer, locale)
-    if (locale.getVariant.length > 0) {
-      appendBundle(buffer, new Locale(locale.getLanguage, locale.getCountry))
     }
-    if (locale.getCountry.length > 0) {
-      appendBundle(buffer, new Locale(locale.getLanguage))
-    }
-    if (locale.getLanguage.length > 0) {
-      appendBundle(buffer, Locale.ROOT)
-    }
-    if (buffer.isEmpty) {
-      throw new IllegalStateException("Cannot find resource for: " + baseName)
-    }
-    buffer
   }
 
   /**
@@ -169,13 +176,13 @@ object PropertiesFormatter {
    * @param charset The properties encoding
    * @return new instance
    */
-  def apply(location: Option[Package], baseName: String, desiredLocale: Locale, charset: Charset) = {
+  def apply(location: Option[Package], baseName: String, desiredLocales: Seq[Locale], charset: Charset) = {
     val packagePrefix = location.map(_.getName concat ".").getOrElse("")
-    new PropertiesFormatter(Some(packagePrefix concat baseName), desiredLocale, charset)
+    new PropertiesFormatter(Some(packagePrefix concat baseName), desiredLocales, charset)
   }
 
-  def root(name: String, desiredLocale: Locale = Locale.getDefault, charset: Charset = ISO_8859_1) = {
-    new PropertiesFormatter(Some(name), desiredLocale, charset)
+  def root(name: String, desiredLocales: Seq[Locale] = Seq(Locale.getDefault), charset: Charset = ISO_8859_1) = {
+    new PropertiesFormatter(Some(name), desiredLocales, charset)
   }
 
   /**
@@ -185,8 +192,8 @@ object PropertiesFormatter {
    * @param desiredLocale The preferred locale
    * @return new instance
    */
-  def apply(baseName: Class[_], desiredLocale: Locale = Locale.getDefault, charset: Charset = ISO_8859_1) =
-    new PropertiesFormatter(Some(baseName.getName), desiredLocale, charset)
+  def apply(baseName: Class[_], desiredLocales: Seq[Locale] = Seq(Locale.getDefault), charset: Charset = ISO_8859_1) =
+    new PropertiesFormatter(Some(baseName.getName), desiredLocales, charset)
 
 }
 
