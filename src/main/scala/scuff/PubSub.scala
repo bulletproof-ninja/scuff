@@ -3,9 +3,9 @@ package scuff
 import concurrent._
 
 /**
-  * Simple publish/subscribe mechanism.
+ * Simple publish/subscribe mechanism.
  */
-class PubSub[G, E <% G](executor: ExecutionContext = SameThreadExecution)
+class PubSub[G, E <% G](executor: ExecutionContext = Threads.PiggyBack)
     extends Channel {
 
   type F = G

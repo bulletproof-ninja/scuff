@@ -6,6 +6,18 @@ import java.util.concurrent.ThreadFactory
  * Thread helper class.
  */
 object Threads {
+
+  /**
+   * `ExecutionContext`, which executes on the same thread.
+   */
+  abstract class SameThreadExecutor extends concurrent.ExecutionContextExecutor {
+    def execute(runnable: Runnable) = runnable.run()
+  }
+
+  val PiggyBack = new SameThreadExecutor {
+    def reportFailure(t: Throwable) = throw t
+  }
+
   val SystemThreadGroup = rootThreadGroup(Thread.currentThread.getThreadGroup)
   private def rootThreadGroup(group: ThreadGroup): ThreadGroup = {
     if (group.getParent == null) group
