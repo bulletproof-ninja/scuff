@@ -117,7 +117,7 @@
 
 	<target name="full-build" depends="run-junit, scaladocs, make-jar" />
 
-	<target name="make-jar" depends="compile-for-jar">
+	<target name="make-jar" depends="compile-for-jar" description="Make JAR">
 		<tstamp />
 		<manifest file="build/MANIFEST.MF">
 			<attribute name="Built-By" value="${user.name}" />
