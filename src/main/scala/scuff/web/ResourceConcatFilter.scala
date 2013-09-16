@@ -10,7 +10,7 @@ import java.net._
  *   matches any filename in dir that starts with "foo" and ends with "bar" and has the ".js" extension
  * * Listed (resources read in listed order): "dir/(foo+bar+baz+hmm).js
  */
-class ResourceConcatFilter extends Filter {
+abstract class ResourceConcatFilter extends Filter {
   private final val ConcatNamesMatcher = """^\((.*)\)(\..+)?$""".r
   private final val NameSplitter = """\+""".r
 
@@ -41,6 +41,9 @@ class ResourceConcatFilter extends Filter {
   def init(config: FilterConfig) {}
   def destroy() {}
 
+  protected def asComment(servletPath: String): Option[String]
+  protected def printComment(comment: String, res: HttpServletResponse) = res.getOutputStream().println(comment)
+
   def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = (req, res) match {
     case (req: HttpServletRequest, res: HttpServletResponse) ⇒ httpFilter(req, res, chain)
     case _ ⇒ chain.doFilter(req, res)
@@ -48,7 +51,7 @@ class ResourceConcatFilter extends Filter {
 
   private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
     val paths = servletPaths(req)
-    if (paths.size == 1) {
+    if (paths.size == 1 && paths.head == req.getServletPath) {
       chain.doFilter(req, res)
     } else try {
       val ctx = req.getServletContext()
@@ -72,6 +75,9 @@ class ResourceConcatFilter extends Filter {
             override def getHeader(name: String) = if (isIfModifiedSince(name)) null else super.getHeader(name)
             override def getHeaders(name: String) = if (isIfModifiedSince(name)) null else super.getHeaders(name)
             override def getHeaderNames = super.getHeaderNames().asScala.filterNot(isIfModifiedSince(_)).asJavaEnumeration
+          }
+          asComment(servletPath).foreach { comment ⇒
+            printComment(comment, res)
           }
           ctx.getRequestDispatcher(servletPath).include(proxyReq, res)
         }
