@@ -7,7 +7,7 @@ import java.nio.charset.Charset
 
 class TestPropertiesFormatter {
 
-  def SomeText(locale: Locale) = PropertiesFormatter(Some(getClass.getPackage), "SomeText", locale, PropertiesFormatter.ISO_8859_1)
+  def SomeText(locale: Locale*) = PropertiesFormatter(Some(getClass.getPackage), "SomeText", locale, PropertiesFormatter.ISO_8859_1)
 
   sealed abstract class PropNameEnum(val name: String)
 
@@ -22,10 +22,10 @@ class TestPropertiesFormatter {
     val props = PropertiesFormatter.root("FooBar")
     assertEquals("Hello", props("say"))
   }
-  
+
   @Test
   def german() {
-    val german = SomeText(Locale.GERMAN)
+    val german = SomeText(Locale.GERMAN, Locale.CANADA_FRENCH)
     val text = german(BeerRequest.name, "Zwei")
     assertEquals("Zwei Bier, bitte", text)
   }
@@ -72,7 +72,7 @@ class TestPropertiesFormatter {
     val beer = oz(BeerRequest.name, "Two")
     assertEquals("Two beers, mate. Oy, I said Two beers matey.", beer)
   }
-  
+
   @Test
   def number() {
     val de = SomeText(Locale.GERMAN)
@@ -81,7 +81,7 @@ class TestPropertiesFormatter {
     assertEquals("5.432,10", de("number", number))
     assertEquals("5,432.10", en("number", number))
   }
-  
+
   @Test
   def apostrophes {
     val en = SomeText(Locale.ENGLISH)
@@ -89,5 +89,12 @@ class TestPropertiesFormatter {
     assertEquals("You're welcome!", greet1)
     val greet2 = en("welcome_name", "Nils")
     assertEquals("You're welcome, Nils!", greet2)
+  }
+
+  @Test
+  def escaping {
+    val foo = SomeText()
+    val text = foo("escape_confusion", "John Mapplethorpe", "a jewel thief", "that one movie")
+    assertEquals("You're John Mapplethorpe, right? Didn't you play a jewel thief in that one movie?", text)
   }
 }

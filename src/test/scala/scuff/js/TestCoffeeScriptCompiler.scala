@@ -58,4 +58,28 @@ boo = sqr(15);
 """.replaceAll("\\s", "")
     assertEquals(expected, js)
   }
+
+  @Test
+  def redux() {
+    val coffee = """
+arr = [3,5,23,67,34]
+[foo, bar] = arr
+#sqr = (a) -> a*3
+boo = sqr 15
+"""
+    val compiler = CoffeeScriptCompiler(Fork.Redux, 'bare -> true)
+    val js = compiler.compile(coffee).replaceAll("\\s", "")
+    val expected =
+      """
+var arr, bar, boo, foo;
+
+arr = [3, 5, 23, 67, 34];
+
+foo = arr[0], bar = arr[1];
+
+boo = sqr(15);
+""".replaceAll("\\s", "")
+    assertEquals(expected, js)
+  }
+
 }
