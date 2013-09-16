@@ -34,6 +34,7 @@ package object redis {
     new JedisPool(config, info.getHost, info.getPort, Protocol.DEFAULT_TIMEOUT, info.getPassword)
   }
 
+  /** Perform atomic operation, using existing connection. */
   def atomic[T](conn: Jedis)(block: Transaction ⇒ T): T = {
     val txn = conn.multi()
     try {
@@ -45,6 +46,7 @@ package object redis {
     }
   }
 
+  /** Perform transaction. */
   def transaction[T](block: Transaction ⇒ T)(implicit conn: (Jedis ⇒ T) ⇒ T): T = conn(atomic(_)(block))
 
   type CONNECTION = (Jedis ⇒ Any) ⇒ Any
