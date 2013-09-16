@@ -57,7 +57,7 @@ trait SequencedTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CA
       // Out-of-sequence mode
       case Some(sequencer) ⇒ sequencer(txn.revision, txn)
       // In-sequence mode
-      case None ⇒ expectedRevision(txn.streamId) match {
+      case None ⇒ nextExpectedRevision(txn.streamId) match {
         case -1L ⇒ super.apply(txn)
         case expected ⇒
           if (txn.revision == expected) {
@@ -80,6 +80,6 @@ trait SequencedTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CA
    *   1. If only interested in new events, return -1
    *   2. If always interested in full stream, return 0
    */
-  protected def expectedRevision(streamId: ID): Long
+  protected def nextExpectedRevision(streamId: ID): Long
 
 }

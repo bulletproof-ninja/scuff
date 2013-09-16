@@ -35,12 +35,12 @@ abstract class InMemoryEventStore[ID, EVT, CAT](implicit execCtx: ExecutionConte
 
   def record(category: CAT, streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = Future {
     txnList.synchronized {
-      val expectedRevision = findCurrentRevision(streamId).getOrElse(-1L) + 1L
-      if (revision == expectedRevision) {
+      val nextExpectedRevision = findCurrentRevision(streamId).getOrElse(-1L) + 1L
+      if (revision == nextExpectedRevision) {
         val txn = new Transaction(new Timestamp, category, streamId, revision, metadata, events)
         txnList += txn
         txn
-      } else if (expectedRevision > revision) {
+      } else if (nextExpectedRevision > revision) {
         throw new eventual.DuplicateRevisionException(streamId, revision)
       } else {
         throw new IllegalStateException
