@@ -5,6 +5,7 @@ import reflect.ClassTag
 import scuff.Proxylicious
 import util._
 import java.lang.reflect.Method
+import scuff.EmailAddress
 
 object Parser {
   private def passthrough(s: String) = s
@@ -14,6 +15,7 @@ object Parser {
   private def toDouble(s: String) = s.toDouble
   private def toLong(s: String) = s.toLong
   private def toBD(s: String) = BigDecimal(s)
+  private def toEmail(s: String) = new EmailAddress(s)
   private def toBoolean(s: String) = s.toLowerCase match {
     case "on" | "true" | "1" | "yes" ⇒ true
     case "off" | "false" | "0" | "no" ⇒ false
@@ -36,7 +38,8 @@ object Parser {
     classOf[Boolean] -> toBoolean,
     classOf[java.lang.Boolean] -> toBoolean,
     classOf[BigDecimal] -> toBD,
-    classOf[scuff.GeoPoint] -> toGeoPoint)
+    classOf[scuff.GeoPoint] -> toGeoPoint,
+    classOf[EmailAddress] -> toEmail)
 }
 
 class Parser[T](implicit tag: ClassTag[T]) {
