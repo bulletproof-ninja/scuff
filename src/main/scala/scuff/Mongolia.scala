@@ -177,20 +177,22 @@ object Mongolia {
   implicit val DateCdc = new Codec[Date, BsonValue] {
     def encode(a: Date): BsonValue = new Value(a)
     def decode(b: BsonValue): Date = b.raw match {
+      case n: Number ⇒ new Date(n.longValue)
       case ts: Timestamp ⇒ new Date(ts.asMillis)
       case d: Date ⇒ d
-      case l: Long ⇒ new Date(l.longValue)
       case oid: ObjectId ⇒ new Date(oid.getTime)
+      case str: String => new Date(Date.parse(str))
       case _ ⇒ throw new RuntimeException("Cannot coerce %s into Date".format(b.raw.getClass.getName))
     }
   }
   implicit val TsCdc = new Codec[Timestamp, BsonValue] {
     def encode(a: Timestamp): BsonValue = new Value(a)
     def decode(b: BsonValue) = b.raw match {
+      case n: Number ⇒ new Timestamp(n.longValue)
       case ts: Timestamp ⇒ ts
       case d: Date ⇒ new Timestamp(d)
-      case l: Long ⇒ new Timestamp(l.longValue)
       case oid: ObjectId ⇒ new Timestamp(oid.getTime)
+      case str: String => Timestamp.parseISO(str).get
       case _ ⇒ throw new RuntimeException("Cannot coerce %s into Timestamp".format(b.raw.getClass.getName))
     }
   }
