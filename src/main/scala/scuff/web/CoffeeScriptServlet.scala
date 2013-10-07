@@ -5,6 +5,8 @@ import http._
 import HttpHeaders._
 import scuff.js._
 import java.net.URL
+import scuff.js.CoffeeScriptCompiler
+import CoffeeScriptCompiler._
 
 /**
  * Perform on-the-fly conversion of CoffeeScript
@@ -14,7 +16,7 @@ import java.net.URL
 abstract class CoffeeScriptServlet extends HttpServlet {
   import CoffeeScriptCompiler.Use
 
-  protected def newCoffeeCompiler() = CoffeeScriptCompiler(Use.Strict, false, 'bare -> false)
+  protected def newCoffeeCompiler() = CoffeeScriptCompiler(Use.Strict, Fork.Original, 'bare -> false)
 
   protected def coffeeCompilation(coffeeScript: String, filename: String): String = newCoffeeCompiler().compile(coffeeScript, filename)
 
@@ -80,5 +82,10 @@ abstract class CoffeeScriptServlet extends HttpServlet {
 
 trait Ice { self: CoffeeScriptServlet ⇒
   import CoffeeScriptCompiler.Use
-  final override def newCoffeeCompiler() = CoffeeScriptCompiler(Use.Strict, true, 'bare -> false)
+  final override def newCoffeeCompiler() = CoffeeScriptCompiler(Use.Strict, Fork.Iced, 'bare -> false)
+}
+
+trait Redux { self: CoffeeScriptServlet ⇒
+  import CoffeeScriptCompiler.Use
+  final override def newCoffeeCompiler() = CoffeeScriptCompiler(Use.Strict, Fork.Redux, 'bare -> false)
 }

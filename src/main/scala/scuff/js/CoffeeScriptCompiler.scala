@@ -8,6 +8,13 @@ import java.io.{ Reader, InputStreamReader, BufferedReader }
 
 object CoffeeScriptCompiler {
 
+  sealed trait Fork
+  case object Fork {
+    case object Original extends Fork
+    case object Iced extends Fork
+    case object Redux extends Fork
+  }
+
   sealed abstract class Use(val directive: String)
   object Use {
     case object Strict extends Use("\"use strict\";\n")
@@ -16,28 +23,32 @@ object CoffeeScriptCompiler {
 
   private val coffeeScriptCodeVarName = "coffeeScriptCode"
 
-  def apply(options: (Symbol, Any)*): CoffeeScriptCompiler = apply(None, false, options: _*)
-  def apply(iced: Boolean, options: (Symbol, Any)*): CoffeeScriptCompiler = apply(None, iced, options: _*)
-  def apply(useDirective: Use, options: (Symbol, Any)*): CoffeeScriptCompiler = apply(Some(useDirective), false, options: _*)
-  def apply(useDirective: Use, iced: Boolean, options: (Symbol, Any)*): CoffeeScriptCompiler = apply(Some(useDirective), iced, options: _*)
-  def apply(useDirective: Option[Use], iced: Boolean, options: (Symbol, Any)*): CoffeeScriptCompiler = {
-    val reader = {
-      val src = if (iced) "/META-INF/script/iced-coffee-script.js" else "/META-INF/script/coffee-script.js"
+  def apply(options: (Symbol, Any)*): CoffeeScriptCompiler = apply(None, Fork.Original, options: _*)
+  def apply(fork: Fork, options: (Symbol, Any)*): CoffeeScriptCompiler = apply(None, fork, options: _*)
+  def apply(useDirective: Use, options: (Symbol, Any)*): CoffeeScriptCompiler = apply(Some(useDirective), Fork.Original, options: _*)
+  def apply(useDirective: Use, fork: Fork, options: (Symbol, Any)*): CoffeeScriptCompiler = apply(Some(useDirective), fork, options: _*)
+  def apply(useDirective: Option[Use], fork: Fork, options: (Symbol, Any)*): CoffeeScriptCompiler = {
+    val (src, reader) = {
+      val src = fork match {
+        case Fork.Original ⇒ "/META-INF/script/coffee-script.js"
+        case Fork.Iced ⇒ "/META-INF/script/iced-coffee-script.js"
+        case Fork.Redux ⇒ "/META-INF/script/CoffeeScriptRedux.js"
+      }
       Option(getClass().getResourceAsStream(src)) match {
-        case Some(stream) ⇒ new InputStreamReader(stream, "UTF-8")
+        case Some(stream) ⇒ src.substring(src.lastIndexOf("/")+1) -> new InputStreamReader(stream, "UTF-8")
         case None ⇒ throw new IllegalStateException("Cannot find compiler script in classpath: " + src)
       }
 
     }
-    this.apply(reader, useDirective, options: _*)
+    this.apply(src, reader, useDirective, options: _*)
   }
-  def apply(coffeeScriptCompilerSource: Reader, useDirective: Option[Use], options: (Symbol, Any)*): CoffeeScriptCompiler = {
-    new CoffeeScriptCompiler(coffeeScriptCompilerSource, useDirective.map(_.directive).getOrElse(""), options)
+  def apply(coffeeScriptCompilerName: String, coffeeScriptCompiler: Reader, useDirective: Option[Use], options: (Symbol, Any)*): CoffeeScriptCompiler = {
+    new CoffeeScriptCompiler(coffeeScriptCompilerName, coffeeScriptCompiler, useDirective.map(_.directive).getOrElse(""), options)
   }
 
 }
 
-class CoffeeScriptCompiler private (compilerSource: Reader, useDirective: String, options: Seq[(Symbol, Any)]) {
+class CoffeeScriptCompiler private (compilerName: String, compilerSource: Reader, useDirective: String, options: Seq[(Symbol, Any)]) {
   import CoffeeScriptCompiler._
 
   private val defaultOptions = options.toMap
@@ -50,7 +61,7 @@ class CoffeeScriptCompiler private (compilerSource: Reader, useDirective: String
   private val globalScope = try {
     withContext { context ⇒
       val globalScope = context.initStandardObjects()
-      context.evaluateReader(globalScope, compilerSource, "coffee-script.js", 0, null)
+      context.evaluateReader(globalScope, compilerSource, compilerName, 0, null)
       globalScope
     }
   } finally {
