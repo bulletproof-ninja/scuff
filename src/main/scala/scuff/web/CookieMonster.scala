@@ -20,8 +20,8 @@ trait CookieMonster[T] {
   protected def maxAge: Int = SessionOnly
   /** Convert Expires timestamp to MaxAge seconds, using current time. */
   protected final def toMaxAge(expires: Long, unit: TimeUnit) = (unit toSeconds clock.durationUntil(expires)(unit)).asInstanceOf[Int]
-  protected def codec: Codec[T, String]
-  protected def name: String
+  def codec: Codec[T, String]
+  def name: String
   /**
    * URL scope for cookie. Default is root.
    */
