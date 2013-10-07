@@ -31,7 +31,7 @@
 		<property name="scala.rev" value="2" />
 		<property name="scala.version" value="${scala.major-minor}.${scala.rev}" />
 		<property name="ivy.version" value="2.3.0" />
-		<property name="scuff.version" value="1.2-SNAPSHOT" />
+		<property name="scuff.version" value="1.3-SNAPSHOT" />
 		<property name="ivy.jar" value="lib/ivy-${ivy.version}.jar" />
 		<property name="scala-lib.jar" value="lib/scala-library-${scala.version}.jar" />
 		<property name="scala-comp.jar" value="lib/scala-compiler-${scala.version}.jar" />
