@@ -14,7 +14,7 @@ object Threads {
     def execute(runnable: Runnable) = runnable.run()
   }
 
-  val PiggyBack = new SameThreadExecutor {
+  implicit val PiggyBack = new SameThreadExecutor {
     def reportFailure(t: Throwable) = throw t
   }
 
