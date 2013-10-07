@@ -59,7 +59,7 @@ boo = sqr(15);
     assertEquals(expected, js)
   }
 
-  @Test
+  @Test @Ignore
   def redux() {
     val coffee = """
 arr = [3,5,23,67,34]
