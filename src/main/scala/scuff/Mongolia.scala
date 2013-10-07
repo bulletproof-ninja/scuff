@@ -181,7 +181,7 @@ object Mongolia {
       case ts: Timestamp ⇒ new Date(ts.asMillis)
       case d: Date ⇒ d
       case oid: ObjectId ⇒ new Date(oid.getTime)
-      case str: String => new Date(Date.parse(str))
+      case str: String ⇒ new Date(Date.parse(str))
       case _ ⇒ throw new RuntimeException("Cannot coerce %s into Date".format(b.raw.getClass.getName))
     }
   }
@@ -192,7 +192,7 @@ object Mongolia {
       case ts: Timestamp ⇒ ts
       case d: Date ⇒ new Timestamp(d)
       case oid: ObjectId ⇒ new Timestamp(oid.getTime)
-      case str: String => Timestamp.parseISO(str).get
+      case str: String ⇒ Timestamp.parseISO(str).get
       case _ ⇒ throw new RuntimeException("Cannot coerce %s into Timestamp".format(b.raw.getClass.getName))
     }
   }
@@ -906,8 +906,12 @@ object Mongolia {
     }
     def first(key: String): Option[RichDBObject] = top(key := ASC)
     def last(key: String): Option[RichDBObject] = top(key := DESC)
-    def top(sorting: BsonIntProp, more: BsonIntProp*): Option[RichDBObject] = cursor.sort(obj(sorting, more: _*)).limit(1).nextOpt()
-    def nextOpt(): Option[RichDBObject] = if (cursor.hasNext) Some(cursor.next) else None
+    def top(sorting: BsonIntProp, more: BsonIntProp*): Option[RichDBObject] = try {
+      val cursor = this.cursor.sort(obj(sorting, more: _*)).limit(1)
+      if (cursor.hasNext) Some(cursor.next) else None
+    } finally {
+      cursor.close()
+    }
     def foreach(f: RichDBObject ⇒ Unit) {
       try {
         while (cursor.hasNext) {
