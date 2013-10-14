@@ -15,10 +15,10 @@ import concurrent._
 trait MapSnapshots[ID, AR <: AggregateRoot, CAT] extends EventStoreRepository[ID, AR, CAT] {
 
   /** Concurrent map implementation for snapshots. */
-  protected def snapshots: collection.concurrent.Map[AR#ID, (S, Long)]
+  protected def snapshots: collection.concurrent.Map[AR#ID, (S, Int)]
 
   @annotation.tailrec
-  private def trySave(id: AR#ID, value: (S, Long)) {
+  private def trySave(id: AR#ID, value: (S, Int)) {
     snapshots.putIfAbsent(id, value) match {
       case None ⇒ // Success
       case Some(other) ⇒
@@ -29,7 +29,7 @@ trait MapSnapshots[ID, AR <: AggregateRoot, CAT] extends EventStoreRepository[ID
         }
     }
   }
-  protected override def saveSnapshot(id: AR#ID, revision: Long, state: S) = trySave(id, state -> revision)
+  protected override def saveSnapshot(id: AR#ID, revision: Int, state: S) = trySave(id, state -> revision)
   protected override def loadSnapshot(id: AR#ID) = Future.successful(snapshots.get(id))
 
 }

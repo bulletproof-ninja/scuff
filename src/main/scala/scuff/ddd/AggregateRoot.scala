@@ -12,7 +12,7 @@ trait AggregateRoot {
   /** Unique identifier. */
   def id: ID
   /** Current revision. */
-  def revision: Option[Long]
+  def revision: Option[Int]
   /** Events produced. */
   def events: List[_ <: EVT]
 }

@@ -65,21 +65,21 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     query(obj("_id.stream" := stream), OrderByRevision_asc, callback)
   }
 
-  def replayStreamSince[T](stream: ID, sinceRevision: Long)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
+  def replayStreamSince[T](stream: ID, sinceRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
     val filter = obj(
       "_id" := obj(
         "stream" := stream,
         "rev" := $gt(sinceRevision)))
     query(filter, OrderByRevision_asc, callback)
   }
-  def replayStreamTo[T](stream: ID, toRevision: Long)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
+  def replayStreamTo[T](stream: ID, toRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
     val filter = obj(
       "_id" := obj(
         "stream" := stream,
         "rev" := $lte(toRevision)))
     query(filter, OrderByRevision_asc, callback)
   }
-  def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.NumericRange[Long])(callback: Iterator[Transaction] ⇒ T): Future[T] = {
+  def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.Range)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
     val lowerBound = $gte(revisionRange.head)
     val upperBound = if (revisionRange.isInclusive) $lte("_id.rev" := revisionRange.last) else $lt("_id.rev" := revisionRange.last)
     val filter = obj(
@@ -110,7 +110,7 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
   }
 
   // TODO: Make non-blocking once supported by the driver.
-  def record(category: CAT, stream: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = Future {
+  def record(category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = Future {
     val timestamp = new Timestamp
     val doc = obj(
       "_id" := obj(
@@ -125,18 +125,18 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     } catch {
       case _: MongoException.DuplicateKey ⇒ throw new eventual.DuplicateRevisionException(stream, revision)
     }
-    new Transaction(timestamp, category, stream, revision, metadata, events)
+    new Transaction(timestamp.asMillis, category, stream, revision, metadata, events)
   }.andThen {
     case Success(txn) ⇒ publish(txn)
   }
 
-  private def tryAppend(category: CAT, stream: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] =
+  private def tryAppend(category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] =
     record(category, stream, revision, events, metadata).recoverWith {
-      case _: eventual.DuplicateRevisionException ⇒ tryAppend(category, stream, revision + 1L, events, metadata)
+      case _: eventual.DuplicateRevisionException ⇒ tryAppend(category, stream, revision + 1, events, metadata)
     }
 
   def append(category: CAT, stream: ID, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = {
-    val revision = store.find("_id.stream" := stream).last("_id.rev").map(_.getAs[Long]("_id.rev")).getOrElse(-1L) + 1L
+    val revision = store.find("_id.stream" := stream).last("_id.rev").map(_.getAs[Int]("_id.rev")).getOrElse(-1) + 1
     tryAppend(category, stream, revision, events, metadata)
   }
 
@@ -153,9 +153,9 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
   }
 
   private def toTransaction(doc: RichDBObject): Transaction = {
-    val timestamp = doc("time").as[Timestamp]
+    val timestamp = doc("time").as[Long]
     val category = doc("category").as[CAT]
-    val (id, revision) = doc("_id").as[DBObject].map { id ⇒ (id("stream").as[ID], id.getAs[Long]("rev")) }
+    val (id, revision) = doc("_id").as[DBObject].map { id ⇒ (id("stream").as[ID], id.getAs[Int]("rev")) }
     val metadata = doc("metadata").opt[Map[String, String]].getOrElse(Map.empty)
     val events = doc("events").asSeq[DBObject].map(toEvent)
     new Transaction(timestamp, category, id, revision, metadata, events.toList)

@@ -13,16 +13,16 @@ trait LoadTimeSnapshots[ID, AR <: AggregateRoot, CAT] extends EventStoreReposito
    */
   protected def loadThreshold: Long
 
-  private[this] val doSnapshot = new scuff.LockFreeConcurrentMap[AR#ID, Long]
+  private[this] val doSnapshot = new scuff.LockFreeConcurrentMap[AR#ID, Int]
 
-  protected abstract override def onLoadNotification(id: AR#ID, revision: Long, category: CAT, timeMs: Long) {
+  protected abstract override def onLoadNotification(id: AR#ID, revision: Int, category: CAT, timeMs: Long) {
     if (timeMs >= loadThreshold) {
       doSnapshot.putIfAbsent(id, revision)
     }
     super.onLoadNotification(id, revision, category, timeMs)
   }
 
-  protected abstract override def saveSnapshot(id: AR#ID, revision: Long, state: S) {
+  protected abstract override def saveSnapshot(id: AR#ID, revision: Int, state: S) {
     if (doSnapshot.remove(id, revision)) {
       super.saveSnapshot(id, revision, state)
     }

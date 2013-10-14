@@ -16,7 +16,7 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
 
   implicit protected def exeCtx: ExecutionContext = Threads.PiggyBack
 
-  protected def clock: scuff.Clock = scuff.SystemClock
+  protected def clock: scuff.Clock = scuff.Clock.System
 
   protected val eventStore: EventStore[ESID, _ >: AR#EVT <: DomainEvent, CAT]
 
@@ -39,13 +39,13 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
    * control over concurrent updates if needed, or can either be ignored (for last-man-wins updates) or
    * always prevent update (first-man-wins) for a conservative update strategy.
    */
-  protected def newAggregateRoot(id: AR#ID, revision: Long, state: S, concurrentUpdates: List[_ <: AR#EVT]): AR
+  protected def newAggregateRoot(id: AR#ID, revision: Int, state: S, concurrentUpdates: List[_ <: AR#EVT]): AR
 
   private[this] val NoFuture = Future.successful(None)
-  protected def loadSnapshot(id: AR#ID): Future[Option[(S, Long)]] = NoFuture
-  protected def saveSnapshot(id: AR#ID, revision: Long, state: S) {}
+  protected def loadSnapshot(id: AR#ID): Future[Option[(S, Int)]] = NoFuture
+  protected def saveSnapshot(id: AR#ID, revision: Int, state: S) {}
 
-  private[this] def loadRevision(id: AR#ID, revision: Long): Future[AR] = {
+  private[this] def loadRevision(id: AR#ID, revision: Int): Future[AR] = {
     eventStore.replayStreamTo(id, revision) { txns ⇒
       val stateBuilder = newStateMutator(None)
       var last: TXN = null
@@ -68,7 +68,7 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
    * Can be used for statistics gathering,
    * or to determine snapshotting.
    */
-  protected def onLoadNotification(id: AR#ID, revision: Long, category: CAT, timeMs: Long) {}
+  protected def onLoadNotification(id: AR#ID, revision: Int, category: CAT, timeMs: Long) {}
 
   /**
    * Optimistically assume any snapshot returned is the most current.
@@ -76,7 +76,7 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
    */
   protected def assumeSnapshotCurrent = false
 
-  private def loadLatest(id: AR#ID, doAssume: Boolean, lastSeenRevision: Long = Long.MaxValue): Future[AR] = {
+  private def loadLatest(id: AR#ID, doAssume: Boolean, lastSeenRevision: Int = Int.MaxValue): Future[AR] = {
     implicit val Millis = TimeUnit.MILLISECONDS
     val startTime = clock.now
     val futureMutator = loadSnapshot(id).map { snapshot ⇒
@@ -87,8 +87,8 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
     }
     val futureState = futureMutator.flatMap {
       case (stateBuilder, snapshotRevision) ⇒
-        val applyEventsAfter = snapshotRevision.getOrElse(-1L)
-          def handler(txns: Iterator[eventStore.Transaction]): Option[(S, Long, List[_ <: AR#EVT])] = {
+        val applyEventsAfter = snapshotRevision.getOrElse(-1)
+          def handler(txns: Iterator[eventStore.Transaction]): Option[(S, Int, List[_ <: AR#EVT])] = {
             var concurrentUpdates: List[AR#EVT] = Nil
             var last: TXN = null
             txns.foreach { txn ⇒
@@ -126,7 +126,7 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
     }
   }
 
-  def load(id: AR#ID, revision: Option[Long]): Future[AR] = revision match {
+  def load(id: AR#ID, revision: Option[Int]): Future[AR] = revision match {
     case None ⇒ loadLatest(id, true)
     case Some(revision) ⇒ loadRevision(id, revision)
   }
@@ -137,18 +137,18 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
     } else if (ar.events.isEmpty) {
       Future.failed(new IllegalStateException("Cannot insert. %s has produced no events.".format(ar.id)))
     } else {
-      eventStore.record(ar, ar.id, 0L, ar.events, metadata).map(_ ⇒ ar).recover {
+      eventStore.record(ar, ar.id, 0, ar.events, metadata).map(_ ⇒ ar).recover {
         case _: DuplicateRevisionException ⇒ throw new DuplicateIdException(ar.id)
       }
     }
   }
 
-  private[this] def recordUpdate(ar: AR, metadata: Map[String, String]): Future[Long] = {
-    val newRevision = ar.revision.getOrElse(-1L) + 1L
+  private[this] def recordUpdate(ar: AR, metadata: Map[String, String]): Future[Int] = {
+    val newRevision = ar.revision.getOrElse(-1) + 1
     eventStore.record(ar, ar.id, newRevision, ar.events, metadata).map(_ ⇒ newRevision)
   }
 
-  private def loadAndUpdate[T](id: AR#ID, basedOnRevision: Long, metadata: Map[String, String], doAssume: Boolean, handler: AR ⇒ T): Future[(T, Long)] = {
+  private def loadAndUpdate[T](id: AR#ID, basedOnRevision: Int, metadata: Map[String, String], doAssume: Boolean, handler: AR ⇒ T): Future[(T, Int)] = {
     loadLatest(id, doAssume, basedOnRevision).flatMap { ar ⇒
       val t = handler.apply(ar)
       if (ar.events.isEmpty) {
@@ -160,7 +160,7 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
       }
     }
   }
-  def update[T](id: AR#ID, basedOnRevision: Long)(updateBlock: AR ⇒ T)(implicit metadata: Map[String, String]): Future[(T, Long)] =
+  def update[T](id: AR#ID, basedOnRevision: Int)(updateBlock: AR ⇒ T)(implicit metadata: Map[String, String]): Future[(T, Int)] =
     loadAndUpdate(id, basedOnRevision, metadata, true, updateBlock)
 
 }

@@ -36,6 +36,12 @@ object BitsBytes {
       ((arr(offset + 6): Long) & 0xff) << 8 |
       ((arr(offset + 7): Long) & 0xff)
 
+  def bytesToInt(arr: Array[Byte], offset: Int = 0): Int =
+    (arr(offset): Int) << 24 |
+      ((arr(offset + 1): Int) & 0xff) << 16 |
+      ((arr(offset + 2): Int) & 0xff) << 8 |
+      ((arr(offset + 3): Int) & 0xff)
+
   def longToBytes(long: Long, arr: Array[Byte] = new Array[Byte](8), offset: Int = 0): Array[Byte] = {
     arr(offset) = (long >> 56).asInstanceOf[Byte]
     arr(offset + 1) = (long >> 48).asInstanceOf[Byte]
@@ -46,6 +52,52 @@ object BitsBytes {
     arr(offset + 6) = (long >> 8).asInstanceOf[Byte]
     arr(offset + 7) = (long).asInstanceOf[Byte]
     arr
+  }
+
+  def intToBytes(int: Int, arr: Array[Byte] = new Array[Byte](4), offset: Int = 0): Array[Byte] = {
+    arr(offset) = (int >> 24).asInstanceOf[Byte]
+    arr(offset + 1) = (int >> 16).asInstanceOf[Byte]
+    arr(offset + 2) = (int >> 8).asInstanceOf[Byte]
+    arr(offset + 3) = (int).asInstanceOf[Byte]
+    arr
+  }
+
+  trait Stopper {
+    def apply(c: Char): Boolean
+  }
+  object NonStop extends Stopper {
+    def apply(c: Char) = false
+  }
+  object NonDigit extends Stopper {
+    def apply(c: Char) = c < '0' || c > '9'
+  }
+
+  @annotation.tailrec
+  final def toLong(str: String, idx: Int = 0, acc: Long = 0)(implicit stop: Stopper = NonDigit): Long = {
+    if (idx == str.length) {
+      acc
+    } else {
+      val c = str.charAt(idx)
+      if (stop(c)) {
+        acc
+      } else {
+        toLong(str, idx + 1, acc * 10 + (c - '0'))
+      }
+    }
+  }
+
+  @annotation.tailrec
+  final def toInt(str: String, idx: Int = 0, acc: Int = 0)(implicit stop: Stopper = NonDigit): Int = {
+    if (idx == str.length) {
+      acc
+    } else {
+      val c = str.charAt(idx)
+      if (stop(c)) {
+        acc
+      } else {
+        toInt(str, idx + 1, acc * 10 + (c - '0'))
+      }
+    }
   }
 
 }

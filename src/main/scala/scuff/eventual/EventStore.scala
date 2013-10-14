@@ -12,17 +12,17 @@ trait EventSource[ID, EVT, CAT] extends Channel {
   type L = Transaction ⇒ Unit
 
   case class Transaction(
-    timestamp: Timestamp,
+    timestamp: Long,
     category: CAT,
     streamId: ID,
-    revision: Long,
+    revision: Int,
     metadata: Map[String, String],
     events: List[EVT]) extends {
     private def writeObject(out: java.io.ObjectOutputStream) {
-      out.writeLong(this.timestamp.asMillis)
+      out.writeLong(this.timestamp)
       out.writeObject(this.category)
       out.writeObject(this.streamId)
-      out.writeLong(this.revision)
+      out.writeInt(this.revision)
       if (this.metadata.isEmpty) {
         out.writeBoolean(false)
       } else {
@@ -34,10 +34,10 @@ trait EventSource[ID, EVT, CAT] extends Channel {
     }
     private def readObject(in: java.io.ObjectInputStream) {
       val surgeon = new Surgeon(this)
-      surgeon.set('timestamp, new Timestamp(in.readLong))
+      surgeon.set('timestamp, in.readLong)
       surgeon.set('category, in.readObject)
       surgeon.set('streamId, in.readObject)
-      surgeon.set('revision, in.readLong)
+      surgeon.set('revision, in.readInt)
       val metadata = if (in.readBoolean) in.readObject else Map.empty
       surgeon.set('metadata, metadata)
       surgeon.set('events, in.readObject)
@@ -47,9 +47,9 @@ trait EventSource[ID, EVT, CAT] extends Channel {
   def exists(stream: ID): Future[Boolean]
 
   def replayStream[T](stream: ID)(callback: Iterator[Transaction] ⇒ T): Future[T]
-  def replayStreamSince[T](stream: ID, sinceRevision: Long)(callback: Iterator[Transaction] ⇒ T): Future[T]
-  def replayStreamTo[T](stream: ID, toRevision: Long)(callback: Iterator[Transaction] ⇒ T): Future[T]
-  def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.NumericRange[Long])(callback: Iterator[Transaction] ⇒ T): Future[T]
+  def replayStreamSince[T](stream: ID, sinceRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T]
+  def replayStreamTo[T](stream: ID, toRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T]
+  def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.Range)(callback: Iterator[Transaction] ⇒ T): Future[T]
 
   /**
    * Play back transactions, optionally filtered by one or more categories.
@@ -83,7 +83,7 @@ trait EventStore[ID, EVT, CAT] extends EventSource[ID, EVT, CAT] {
    * @param events The events
    * @return Potential DuplicateRevisionException if the expected revision has already been committed. Try, try again.
    */
-  def record(category: CAT, streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String] = Map.empty): Future[Transaction]
+  def record(category: CAT, streamId: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String] = Map.empty): Future[Transaction]
 
   /**
    * Append events into a particular stream, then publish the transaction to subscribers.

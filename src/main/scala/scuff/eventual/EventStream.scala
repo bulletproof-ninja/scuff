@@ -3,7 +3,6 @@ package scuff.eventual
 import scuff._
 import scala.concurrent._
 import scala.util._
-import collection.immutable.NumericRange
 import java.util.concurrent.{ TimeUnit, ScheduledFuture }
 
 /**
@@ -27,7 +26,7 @@ final class EventStream[ID, EVT, CAT](
      * Expected revision for a given stream.
      * If unknown stream, return 0.
      */
-    def nextExpectedRevision(stream: ID): Long
+    def nextExpectedRevision(stream: ID): Int
     /** Consume transaction. */
     def consume(txn: Transaction)
 
@@ -50,7 +49,7 @@ final class EventStream[ID, EVT, CAT](
   private def AsyncSequencedConsumer(consumer: Consumer) =
     new ConsumerProxy(consumer) with util.SequencedTransactionHandler[ID, EVT, CAT] with util.AsyncTransactionHandler[ID, EVT, CAT] { self: ConsumerProxy ⇒
       def asyncTransactionCtx = SerialExecCtx
-      def onGapDetected(id: ID, expectedRev: Long, actualRev: Long) {
+      def onGapDetected(id: ID, expectedRev: Int, actualRev: Int) {
         if (!pendingReplays.contains(id)) {
           val replayer = new Runnable {
             def run = es.replayStreamRange(id, expectedRev until actualRev)(_.foreach(self))
@@ -67,7 +66,7 @@ final class EventStream[ID, EVT, CAT](
           case _ ⇒ // Ignore
         }
       }
-      def nextExpectedRevision(streamId: ID): Long = consumer.nextExpectedRevision(streamId)
+      def nextExpectedRevision(streamId: ID): Int = consumer.nextExpectedRevision(streamId)
     }
 
   private def resume(since: Option[Timestamp], consumer: Consumer, categories: Seq[CAT]): Future[Subscription] = {
@@ -77,12 +76,12 @@ final class EventStream[ID, EVT, CAT](
     val categorySet = categories.toSet
       def categoryFilter(cat: CAT) = categorySet.isEmpty || categorySet.contains(cat)
       def replayConsumer(txns: Iterator[Transaction]): Option[Timestamp] = {
-        var last: Timestamp = null
+        var lastTs: Long = -1L
         txns.foreach { txn ⇒
-          last = txn.timestamp
+          lastTs = txn.timestamp
           consumer.consume(txn)
         }
-        Option(last)
+        if (lastTs == -1L) None else Some(new Timestamp(lastTs))
       }
     val futureReplay: Future[Option[Timestamp]] = since match {
       case None ⇒ es.replay(categories: _*)(replayConsumer)

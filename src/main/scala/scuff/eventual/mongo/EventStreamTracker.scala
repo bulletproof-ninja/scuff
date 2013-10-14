@@ -4,6 +4,7 @@ import scuff.eventual._
 import com.mongodb._
 import scuff.Mongolia._
 import concurrent.duration._
+import java.util.Date
 
 /**
  * Keep track of handled [[scuff.eventual.EventSource#Transaction]]s, so process can resume
@@ -31,16 +32,16 @@ final class EventStreamTracker[ID](
 
   private[this] final val RevReadFields = obj("_id" := EXCLUDE, "_rev" := INCLUDE)
 
-  def nextExpectedRevision(streamId: ID): Long = {
+  def nextExpectedRevision(streamId: ID): Int = {
     dbColl.findOne(obj("_id" := streamId), RevReadFields) match {
       case null ⇒ 0
-      case doc ⇒ doc.getAs[Long]("_rev") + 1L
+      case doc ⇒ doc.getAs[Int]("_rev") + 1
     }
   }
 
-  def lookup(streamId: ID): Option[(Long, DBObject)] = {
+  def lookup(streamId: ID): Option[(Int, DBObject)] = {
     dbColl.findOpt(obj("_id" := streamId), obj("_id" := EXCLUDE, "_time" := EXCLUDE)).map { doc ⇒
-      doc.remove("_rev").as[Long] -> doc
+      doc.remove("_rev").as[Int] -> doc
     }
   }
 
@@ -51,10 +52,10 @@ final class EventStreamTracker[ID](
    * @param time Transaction timestamp
    * @param update Optional update object.
    */
-  def markAsProcessed(streamId: ID, revision: Long, time: scuff.Timestamp, update: DBObject = obj()) {
+  def markAsProcessed(streamId: ID, revision: Int, time: Long, update: DBObject = obj()) {
     val key = obj("_id" := streamId)
     update.put("$set", new BasicDBObject("_rev", revision))
-    update.put("$set", new BasicDBObject("_time", time))
+    update.put("$set", new BasicDBObject("_time", new Date(time)))
     if (revision == 0L) {
       // Use `upsert` here because it allows modifiers in the `update` object, which `insert` doesn't
       dbColl.upsert(key, update)

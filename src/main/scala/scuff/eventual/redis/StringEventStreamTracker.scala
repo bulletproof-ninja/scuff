@@ -6,7 +6,7 @@ import java.io.{ ByteArrayInputStream, ByteArrayOutputStream }
 
 import redis.clients.jedis.Jedis
 import redis.clients.util.SafeEncoder
-import scuff.{ BitsBytes, ScuffByteArray, ScuffLong, StreamingSerializer, Timestamp }
+import scuff.{ BitsBytes, ScuffByteArray, ScuffInt, StreamingSerializer, Timestamp }
 
 /**
  * Keep track of handled [[scuff.eventual.EventSource#Transaction]]s, so process can resume
@@ -24,7 +24,7 @@ final class StringEventStreamTracker[ID](
   implicit private def connection[T] = jedis.asInstanceOf[(Jedis ⇒ T) ⇒ T]
 
   @annotation.tailrec
-  private def toLongWithRest(str: String, idx: Int = 0, acc: Long = 0): (Long, String) = {
+  private def toIntWithMore(str: String, idx: Int = 0, acc: Int = 0): (Int, String) = {
     if (idx == str.length) {
       (acc, "")
     } else {
@@ -32,44 +32,33 @@ final class StringEventStreamTracker[ID](
       if (c == SEP) {
         (acc, str.substring(idx + 1))
       } else {
-        toLongWithRest(str, idx + 1, acc + (c - '0'))
+        toIntWithMore(str, idx + 1, acc * 10 + (c - '0'))
       }
     }
   }
-  @annotation.tailrec
-  private def toLong(str: String, idx: Int = 0, acc: Long = 0): Long = {
-    if (idx == str.length) {
-      acc
-    } else {
-      val c = str.charAt(idx)
-      if (c == SEP) {
-        acc
-      } else {
-        toLong(str, idx + 1, acc + (c - '0'))
-      }
-    }
+  implicit private val StopOnSEP = new BitsBytes.Stopper {
+    def apply(c: Char) = c == SEP
   }
-
   def resumeFrom: Option[scuff.Timestamp] = {
     connection { conn ⇒
       Option(conn.get(TimeKey)).map { str ⇒
-        new Timestamp(toLong(str) - clockSkew.toMillis)
+        new Timestamp(BitsBytes.toLong(str) - clockSkew.toMillis)
       }
     }
   }
 
-  def nextExpectedRevision(streamId: ID): Long = {
+  def nextExpectedRevision(streamId: ID): Int = {
     connection { conn ⇒
       conn.hget(HashKey, idCdc.encode(streamId)) match {
-        case null ⇒ 0L
-        case str ⇒ toLong(str) + 1L
+        case null ⇒ 0
+        case str ⇒ BitsBytes.toInt(str) + 1
       }
     }
   }
 
-  def lookup[T](streamId: ID): Option[(Long, String)] = {
+  def lookup[T](streamId: ID): Option[(Int, String)] = {
     connection { conn ⇒
-      Option(conn.hget(HashKey, idCdc.encode(streamId))).map(toLongWithRest(_))
+      Option(conn.hget(HashKey, idCdc.encode(streamId))).map(toIntWithMore(_))
     }
   }
 
@@ -80,7 +69,7 @@ final class StringEventStreamTracker[ID](
    * @param time Transaction timestamp
    * @param state Optional update object.
    */
-  def markAsProcessed[T](streamId: ID, revision: Long, time: Timestamp, state: String = null) {
+  def markAsProcessed[T](streamId: ID, revision: Int, time: Timestamp, state: String = null) {
 
     val valueStr = state match {
       case null ⇒ String valueOf revision

@@ -3,15 +3,17 @@ package scuff.eventual.util
 //import scuff.ddd._
 import scuff._
 import java.util.Date
-//import scuff.eventual._
-
 import concurrent._
 import scala.util._
+import java.util.concurrent.TimeUnit
 
 /**
  * Non-persistent implementation, probably only useful for testing.
  */
 abstract class InMemoryEventStore[ID, EVT, CAT](implicit execCtx: ExecutionContext) extends eventual.EventStore[ID, EVT, CAT] {
+
+  implicit private[this] val Millis = TimeUnit.MILLISECONDS
+  protected def clock: Clock
 
   protected[this] def txn2cat(txn: Transaction): CAT
 
@@ -23,7 +25,7 @@ abstract class InMemoryEventStore[ID, EVT, CAT](implicit execCtx: ExecutionConte
 
   private[this] val txnList = collection.mutable.Buffer[Transaction]()
 
-  private def findCurrentRevision(id: ID): Option[Long] = {
+  private def findCurrentRevision(id: ID): Option[Int] = {
     if (txnList.isEmpty) {
       None
     } else {
@@ -33,11 +35,11 @@ abstract class InMemoryEventStore[ID, EVT, CAT](implicit execCtx: ExecutionConte
 
   def exists(stream: ID): Future[Boolean] = txnList.synchronized(Future.successful(txnList.find(_.streamId == stream).isDefined))
 
-  def record(category: CAT, streamId: ID, revision: Long, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = Future {
+  def record(category: CAT, streamId: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = Future {
     txnList.synchronized {
-      val nextExpectedRevision = findCurrentRevision(streamId).getOrElse(-1L) + 1L
+      val nextExpectedRevision = findCurrentRevision(streamId).getOrElse(-1) + 1
       if (revision == nextExpectedRevision) {
-        val txn = new Transaction(new Timestamp, category, streamId, revision, metadata, events)
+        val txn = new Transaction(clock.now, category, streamId, revision, metadata, events)
         txnList += txn
         txn
       } else if (nextExpectedRevision > revision) {
@@ -51,8 +53,8 @@ abstract class InMemoryEventStore[ID, EVT, CAT](implicit execCtx: ExecutionConte
   }
   def append(category: CAT, streamId: ID, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = Future {
     txnList.synchronized {
-      val revision = findCurrentRevision(streamId).getOrElse(-1L) + 1L
-      val txn = new Transaction(new Timestamp, category, streamId, revision, metadata, events)
+      val revision = findCurrentRevision(streamId).getOrElse(-1) + 1
+      val txn = new Transaction(clock.now, category, streamId, revision, metadata, events)
       txnList += txn
       txn
     }
@@ -64,17 +66,17 @@ abstract class InMemoryEventStore[ID, EVT, CAT](implicit execCtx: ExecutionConte
       callback(txnList.iterator.withFilter(t ⇒ t.streamId == stream))
     }
   }
-  def replayStreamSince[T](stream: ID, sinceRevision: Long)(callback: Iterator[Transaction] ⇒ T): Future[T] = Future {
+  def replayStreamSince[T](stream: ID, sinceRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T] = Future {
     txnList.synchronized {
       callback(txnList.iterator.withFilter(t ⇒ t.streamId == stream && t.revision > sinceRevision))
     }
   }
-  def replayStreamTo[T](stream: ID, toRevision: Long)(callback: Iterator[Transaction] ⇒ T): Future[T] = Future {
+  def replayStreamTo[T](stream: ID, toRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T] = Future {
     txnList.synchronized {
       callback(txnList.iterator.withFilter(t ⇒ t.streamId == stream && t.revision <= toRevision))
     }
   }
-  def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.NumericRange[Long])(callback: Iterator[Transaction] ⇒ T): Future[T] = Future {
+  def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.Range)(callback: Iterator[Transaction] ⇒ T): Future[T] = Future {
     txnList.synchronized {
       callback(txnList.iterator.withFilter(t ⇒ t.streamId == stream && revisionRange.contains(t.revision)))
     }
@@ -93,10 +95,10 @@ abstract class InMemoryEventStore[ID, EVT, CAT](implicit execCtx: ExecutionConte
   def replayFrom[T](fromTime: Date, categories: CAT*)(callback: Iterator[Transaction] ⇒ T): Future[T] = Future {
     txnList.synchronized {
       val iter = if (categories.isEmpty) {
-        txnList.iterator.withFilter(_.timestamp.getTime >= fromTime.getTime)
+        txnList.iterator.withFilter(_.timestamp >= fromTime.getTime)
       } else {
         val catSet = categories.toSet
-        txnList.iterator.withFilter(txn ⇒ catSet.contains(txn.category) && txn.timestamp.getTime >= fromTime.getTime)
+        txnList.iterator.withFilter(txn ⇒ catSet.contains(txn.category) && txn.timestamp >= fromTime.getTime)
       }
       callback(iter)
     }

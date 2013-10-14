@@ -21,7 +21,7 @@ final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: Int, staleCheck
     extends Cache[K, V] {
 
   @inline implicit private def Millis = concurrent.duration.MILLISECONDS
-  @inline private def clock = SystemClock
+  @inline private def clock = Clock.System
 
   override def toString = readLock(map.toString)
   

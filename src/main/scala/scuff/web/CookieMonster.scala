@@ -9,7 +9,7 @@ import scuff._
 trait CookieMonster[T] {
   import java.util.concurrent.TimeUnit
 
-  protected def clock: Clock = SystemClock
+  protected def clock: Clock = Clock.System
 
   /**
    * Use with `maxAge` for session cookies.

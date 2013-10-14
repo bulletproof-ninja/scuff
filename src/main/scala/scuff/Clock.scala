@@ -10,7 +10,10 @@ trait Clock {
   @inline final def durationUntil(future: Long)(implicit toPrecision: TimeUnit): Long = future - now
 }
 
-object SystemClock extends Clock {
-  @inline final def precision = TimeUnit.MILLISECONDS
-  final def now(implicit toPrecision: TimeUnit): Long = toPrecision.convert(System.currentTimeMillis(), precision)
+object Clock {
+  val System = new Clock {
+    @inline final def precision = TimeUnit.MILLISECONDS
+    final def now(implicit toPrecision: TimeUnit): Long = toPrecision.convert(java.lang.System.currentTimeMillis(), precision)
+  }
 }
+

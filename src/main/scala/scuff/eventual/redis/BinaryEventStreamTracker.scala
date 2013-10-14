@@ -6,7 +6,7 @@ import java.io.{ ByteArrayInputStream, ByteArrayOutputStream }
 
 import redis.clients.jedis.Jedis
 import redis.clients.util.SafeEncoder
-import scuff.{ BitsBytes, ScuffByteArray, ScuffLong, StreamingSerializer, Timestamp }
+import scuff.{ BitsBytes, ScuffByteArray, ScuffLong, ScuffInt, StreamingSerializer, Timestamp }
 
 /**
  * Keep track of handled [[scuff.eventual.EventSource#Transaction]]s, so process can resume
@@ -24,25 +24,25 @@ final class BinaryEventStreamTracker[ID](
 
   def resumeFrom: Option[scuff.Timestamp] = {
     connection { conn ⇒
-      Option(conn.get(TimeKey)).map(arr ⇒ new Timestamp(BitsBytes.bytesToLong(arr) - clockSkew.toMillis))
+      Option(conn.get(TimeKey)).map(arr ⇒ new Timestamp(BitsBytes.bytesToInt(arr) - clockSkew.toMillis))
     }
   }
 
-  def nextExpectedRevision(streamId: ID): Long = {
+  def nextExpectedRevision(streamId: ID): Int = {
     connection { conn ⇒
       conn.hget(HashKey, idCdc.encode(streamId)) match {
-        case null ⇒ 0L
-        case arr ⇒ arr.toLong + 1L
+        case null ⇒ 0
+        case arr ⇒ arr.toInt + 1
       }
     }
   }
 
-  def lookup[T](streamId: ID)(implicit tCdc: StreamingSerializer[T]): Option[(Long, Option[T])] = {
+  def lookup[T](streamId: ID)(implicit tCdc: StreamingSerializer[T]): Option[(Int, Option[T])] = {
     connection { conn ⇒
       conn.hget(HashKey, idCdc.encode(streamId)) match {
         case null ⇒ None
         case arr ⇒
-          val rev = arr.toLong
+          val rev = arr.toInt
           if (arr.length == 8) {
             Some(rev -> None)
           } else {
@@ -61,7 +61,7 @@ final class BinaryEventStreamTracker[ID](
    * @param time Transaction timestamp
    * @param state Optional update object.
    */
-  def markAsProcessed[T](streamId: ID, revision: Long, time: Timestamp, state: T = null)(implicit tCdc: StreamingSerializer[T] = null) {
+  def markAsProcessed[T](streamId: ID, revision: Int, time: Timestamp, state: T = null)(implicit tCdc: StreamingSerializer[T] = null) {
     val revBytes = revision.toByteArray
     val timeBytes = time.asMillis.toByteArray
 

@@ -20,24 +20,24 @@ trait SequencedTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CA
    * Callback on duplicate transaction.
    */
   protected def onDuplicate(txn: TXN) {}
-  private def dupeHandler(rev: Long, txn: TXN) = onDuplicate(txn)
+  private def dupeHandler(rev: Int, txn: TXN) = onDuplicate(txn)
 
   /**
    * Notification that gap is detected. This can be used to initiate
    * replay either immediately or after a certain delay if out-of-order
    * is expected.
    */
-  protected def onGapDetected(id: ID, expectedRev: Long, actualRev: Long)
+  protected def onGapDetected(id: ID, expectedRev: Int, actualRev: Int)
   protected def onGapClosed(id: ID)
 
   /* Called for all buffered transactions, when gap is closed. */
-  private def gapClosedConsumer(rev: Long, txn: TXN) = super.apply(txn)
+  private def gapClosedConsumer(rev: Int, txn: TXN) = super.apply(txn)
 
-  private[this] val sequencers = new LockFreeConcurrentMap[ID, MonotonicSequencer[Long, TXN]]
+  private[this] val sequencers = new LockFreeConcurrentMap[ID, MonotonicSequencer[Int, TXN]]
 
-  private def newSequencer(id: ID, expected: Long) = {
-    val gapHandler = new MonotonicSequencer.GapHandler[Long] {
-      def gapDetected(expectedRev: Long, actualRev: Long) {
+  private def newSequencer(id: ID, expected: Int) = {
+    val gapHandler = new MonotonicSequencer.GapHandler[Int] {
+      def gapDetected(expectedRev: Int, actualRev: Int) {
         onGapDetected(id, expectedRev, actualRev)
       }
       def gapClosed() {
@@ -45,7 +45,7 @@ trait SequencedTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CA
         sequencers -= id
       }
     }
-    val seq = new MonotonicSequencer[Long, TXN](gapClosedConsumer, expected, bufferLimit = 0, gapHandler, dupeHandler)
+    val seq = new MonotonicSequencer[Int, TXN](gapClosedConsumer, expected, bufferLimit = 0, gapHandler, dupeHandler)
     sequencers.putIfAbsent(id, seq) match {
       case None ⇒ seq
       case Some(otherSeq) ⇒ otherSeq
@@ -80,6 +80,6 @@ trait SequencedTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CA
    *   1. If only interested in new events, return -1
    *   2. If always interested in full stream, return 0
    */
-  protected def nextExpectedRevision(streamId: ID): Long
+  protected def nextExpectedRevision(streamId: ID): Int
 
 }
