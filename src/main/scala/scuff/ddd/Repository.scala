@@ -30,6 +30,11 @@ trait Repository[AR <: AggregateRoot] {
    * @param updateBlock The transaction code block. This may be executed multiple times if concurrent updates occur
    */
   def update[T](id: AR#ID, basedOnRevision: Int = Int.MaxValue)(updateBlock: AR ⇒ T)(implicit metadata: Map[String, String] = Map.empty): Future[(T, Int)]
+  def update[T](id: AR#ID, basedOnRevision: Option[Int])(updateBlock: AR ⇒ T)(implicit metadata: Map[String, String] = Map.empty): Future[(T, Int)] =
+    basedOnRevision match {
+      case Some(revision) ⇒ update(id, revision)(updateBlock)
+      case _ ⇒ update(id)(updateBlock)
+    }
 
   /**
    * Insert new aggregate root and publish committed events.
