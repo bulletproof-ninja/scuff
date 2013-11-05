@@ -40,12 +40,6 @@ final class EventStream[ID, EVT, CAT](
   private[this] val SerialExecCtx = HashBasedSerialExecutionContext(numConsumerThreads, EventStream.ConsumerThreadFactory, consumerFailureHandler)
   private[this] val pendingReplays = new LockFreeConcurrentMap[ID, ScheduledFuture[_]]
 
-  /**
-   * Delay before replaying transactions when gaps are detected.
-   * This number should be slightly higher than the expected
-   * message latency, when using a non-ordered messaging implementation.
-   */
-
   private def AsyncSequencedConsumer(consumer: Consumer) =
     new ConsumerProxy(consumer) with util.SequencedTransactionHandler[ID, EVT, CAT] with util.AsyncTransactionHandler[ID, EVT, CAT] { self: ConsumerProxy ⇒
       def asyncTransactionCtx = SerialExecCtx
