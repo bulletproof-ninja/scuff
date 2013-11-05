@@ -181,7 +181,6 @@ object Mongolia {
       case ts: Timestamp ⇒ new Date(ts.asMillis)
       case d: Date ⇒ d
       case oid: ObjectId ⇒ new Date(oid.getTime)
-      case str: String ⇒ new Date(Date.parse(str))
       case _ ⇒ throw new RuntimeException("Cannot coerce %s into Date".format(b.raw.getClass.getName))
     }
   }
