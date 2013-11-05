@@ -18,6 +18,7 @@ final class StringEventStreamTracker[ID](
     clockSkew: Duration = 2.seconds)(implicit idCdc: scuff.Codec[ID, String]) {
 
   private final val SEP = ':'
+  private final val SEP_str = String valueOf SEP
 
   private[this] final val TimeKey = "T"
 
@@ -69,20 +70,17 @@ final class StringEventStreamTracker[ID](
    * @param time Transaction timestamp
    * @param state Optional update object.
    */
-  def markAsProcessed[T](streamId: ID, revision: Int, time: Timestamp, state: String = null) {
+  def markAsProcessed[T](streamId: ID, revision: Int, time: Long, state: String = null) {
 
     val valueStr = state match {
       case null ⇒ String valueOf revision
-      case state ⇒
-        val sb = new java.lang.StringBuilder
-        sb append revision append SEP append state
-        sb.toString
+      case state ⇒ String valueOf revision concat SEP_str concat state
     }
 
     connection { conn ⇒
       val pl = conn.pipelined()
       pl.hset(HashKey, idCdc.encode(streamId), valueStr)
-      pl.hset(HashKey, TimeKey, String valueOf time.asMillis)
+      pl.hset(HashKey, TimeKey, String valueOf time)
       pl.sync()
     }
   }

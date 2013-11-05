@@ -61,9 +61,9 @@ final class BinaryEventStreamTracker[ID](
    * @param time Transaction timestamp
    * @param state Optional update object.
    */
-  def markAsProcessed[T](streamId: ID, revision: Int, time: Timestamp, state: T = null)(implicit tCdc: StreamingSerializer[T] = null) {
+  def markAsProcessed[T](streamId: ID, revision: Int, time: Long, state: T = null)(implicit tCdc: StreamingSerializer[T] = null) {
     val revBytes = revision.toByteArray
-    val timeBytes = time.asMillis.toByteArray
+    val timeBytes = time.toByteArray
 
     val updateBytes = state match {
       case null ⇒ revBytes
