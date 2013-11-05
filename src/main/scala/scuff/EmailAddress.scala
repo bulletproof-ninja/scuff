@@ -1,12 +1,12 @@
 package scuff
 
 /**
-  * Simple email address, defined by user name and domain.
-  * Although strictly incorrect, this class defines equality in a
-  * case insensitive way, to comply with real-world usage.
-  * <p>This class is immutable.
-  * @author Nils Kilden-Pedersen
-  */
+ * Simple email address, defined by user name and domain.
+ * Although strictly incorrect, this class defines equality in a
+ * case insensitive way, to comply with real-world usage.
+ * <p>This class is immutable.
+ * @author Nils Kilden-Pedersen
+ */
 final case class EmailAddress @throws(classOf[IllegalArgumentException]) (user: String, domain: String) extends Comparable[EmailAddress] {
 
   import EmailAddress._
@@ -15,9 +15,9 @@ final case class EmailAddress @throws(classOf[IllegalArgumentException]) (user: 
   private def this(userDomain: (String, String)) = this(userDomain._1, userDomain._2)
 
   /**
-    * Construct instance from single password string. E.g. "user@domain.com".
-    * @param address Full email address as one string
-    */
+   * Construct instance from single password string. E.g. "user@domain.com".
+   * @param address Full email address as one string
+   */
   @throws(classOf[IllegalArgumentException])
   def this(address: String) = this(EmailAddress.split(address))
 
@@ -26,16 +26,16 @@ final case class EmailAddress @throws(classOf[IllegalArgumentException]) (user: 
   require(isValidDomain(domain), "Invalid domain name: " + domain)
 
   override val toString = user + "@" + domain
-  private val lowerCase = toString.toLowerCase
+  val toLowerCase = toString.toLowerCase
 
-  def compareTo(that: EmailAddress) = this.lowerCase compareTo that.lowerCase
+  def compareTo(that: EmailAddress) = this.toLowerCase compareTo that.toLowerCase
 
   override def equals(any: Any) = any match {
-    case that: EmailAddress ⇒ this.lowerCase == that.lowerCase
+    case that: EmailAddress ⇒ this.toLowerCase == that.toLowerCase
     case _ ⇒ false
   }
 
-  override def hashCode = lowerCase.hashCode
+  override def hashCode = toLowerCase.hashCode
 
 }
 
