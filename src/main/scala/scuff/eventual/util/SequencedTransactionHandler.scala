@@ -76,9 +76,12 @@ trait SequencedTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CA
   /**
    * Expected revision for a given stream. Should generally
    * be last seen revision + 1. If unknown stream, there are
-   * two choices, depending on strategy:
-   *   1. If only interested in new events, return -1
-   *   2. If always interested in full stream, return 0
+   * three choices, depending on strategy:
+   *   1. If only interested in new events, return `-1`
+   *   2. If always interested in complete stream, return `0`
+   *   3. If not interested, ever, return `Int.MaxValue`
+   * NOTICE: When using option 3, transactions will be interpreted as duplicates,
+   * so make sure duplicates are ignored.
    */
   protected def nextExpectedRevision(streamId: ID): Int
 

@@ -3,7 +3,6 @@ package scuff.web
 import scuff.redis.RedisConnectionPool
 import javax.servlet._
 import javax.servlet.http._
-import scuff.redis.util.RedisStringKeyHashMap
 import scuff.JavaSerializer
 
 /**
@@ -35,13 +34,13 @@ trait RedisHttpSessionFilter extends Filter {
   }
 }
 
-class RedisHttpSession(redis: RedisConnectionPool, delegate: HttpSession) extends HttpSession {
+class RedisHttpSession(redis: RedisConnectionPool, delegate: HttpSession, keyPrefix: String = "HttpSession") extends HttpSession {
   import scuff.redis._
   import collection.JavaConverters._
-  private[this] var _map: RedisStringKeyHashMap[AnyRef] = _
+  private[this] var _map: BinaryRedisHashMap[String, AnyRef] = _
   private def map = {
     if (_map == null) {
-      _map = threadSafe(redis)(new RedisStringKeyHashMap(delegate.getId, _, JavaSerializer))
+      _map = threadSafe(redis)(new BinaryRedisHashMap(delegate.getId, _, new StringSerializer(keyPrefix), JavaSerializer))
     }
     _map
   }

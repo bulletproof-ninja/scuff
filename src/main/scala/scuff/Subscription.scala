@@ -4,7 +4,7 @@ trait Subscription {
   def cancel()
 }
 
-trait Channel {
+trait Faucet {
   type F
   type L
   def subscribe(s: L, include: F ⇒ Boolean = _ ⇒ true): Subscription

@@ -6,6 +6,7 @@ import java.util.Date
 import concurrent._
 import scala.util._
 import java.util.concurrent.TimeUnit
+import language.implicitConversions
 
 /**
  * Non-persistent implementation, probably only useful for testing.
@@ -15,9 +16,9 @@ abstract class InMemoryEventStore[ID, EVT, CAT](implicit execCtx: ExecutionConte
   implicit private[this] val Millis = TimeUnit.MILLISECONDS
   protected def clock: Clock
 
-  protected[this] def txn2cat(txn: Transaction): CAT
+  implicit protected[this] def txn2cat(txn: Transaction): CAT
 
-  private[this] val pubSub = new PubSub[CAT, Transaction]()(txn2cat)
+  private[this] val pubSub = new PubSub[CAT, Transaction](execCtx)
 
   def subscribe(subscriber: Transaction ⇒ Unit, filter: CAT ⇒ Boolean) = pubSub.subscribe(subscriber, filter)
 

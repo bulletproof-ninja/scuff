@@ -7,7 +7,7 @@ import java.util.Date
 /**
  * Event source.
  */
-trait EventSource[ID, EVT, CAT] extends Channel {
+trait EventSource[ID, EVT, CAT] extends Faucet {
   final type F = CAT
   type L = Transaction ⇒ Unit
 
@@ -17,7 +17,7 @@ trait EventSource[ID, EVT, CAT] extends Channel {
     streamId: ID,
     revision: Int,
     metadata: Map[String, String],
-    events: List[EVT]) extends {
+    events: List[EVT]) {
     private def writeObject(out: java.io.ObjectOutputStream) {
       out.writeLong(this.timestamp)
       out.writeObject(this.category)

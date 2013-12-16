@@ -10,7 +10,8 @@ import reflect.ClassTag
  * <p>NOTICE: This sequencer is not thread-safe.
  * @param consumer The pass-through consumer
  * @param expectedSeqNum The first expected sequence number
- * @param bufferLimit The buffer limit. Optional, defaults to 0, which means no limit. A buffer limit might be necessary to deal with dropped sequence numbers,
+ * @param bufferLimit The buffer limit. Optional, defaults to 0, which means no limit. 
+ * A buffer limit might be necessary to deal with dropped sequence numbers,
  * otherwise the buffer will grow indefinitely.
  * @param gapHandler Callback interface that is notified when gaps are detected and when closed
  * @param dupeConsumer Duplicate consumer. Optional, defaults to throwing a [[scuff.MonotonicSequencer.DuplicateSequenceReceived]].

@@ -1,13 +1,13 @@
 package scuff
 
-import java.io._
+import java.io.{BufferedWriter, ByteArrayOutputStream, File, FileInputStream, OutputStream, OutputStreamWriter}
+import java.net.{InetAddress, InetSocketAddress}
+
+import language.implicitConversions
 
 import javax.activation.DataHandler
-
-import java.net.{ InetSocketAddress, InetAddress }
-
-import javax.mail._
-import javax.mail.internet._
+import javax.mail.{Address, Message, MessagingException, PasswordAuthentication, Session, Transport}
+import javax.mail.internet.{InternetAddress, MimeBodyPart, MimeMessage, MimeMultipart}
 import javax.mail.util.ByteArrayDataSource
 
 class MailRoom(session: Session, headers: (String, String)*) {

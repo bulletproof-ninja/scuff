@@ -10,7 +10,7 @@ private object HttpCaching {
     require(bytes.length > 0, "Empty content of type %s".format(contentType))
     lazy val eTag = {
       val digest = java.security.MessageDigest.getInstance("MD5").digest(bytes)
-      val tag = scuff.BitsBytes.hexEncode(digest).toString
+      val tag = scuff.Numbers.hexEncode(digest).toString
       new ETag(tag)(false)
     }
     def flushTo(res: HttpServletResponse) {

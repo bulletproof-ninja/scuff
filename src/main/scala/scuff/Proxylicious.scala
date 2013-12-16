@@ -1,8 +1,10 @@
 package scuff
 
-import java.lang.reflect.{ InvocationHandler, Proxy, Method, UndeclaredThrowableException, InvocationTargetException }
+import java.lang.reflect.{InvocationHandler, InvocationTargetException, Method, Proxy, UndeclaredThrowableException}
+
+import language.implicitConversions
 import reflect.ClassTag
-import scala.util.{ Try, Success, Failure }
+import scala.util.{Failure, Success, Try}
 
 /**
  * Interface proxy factory.

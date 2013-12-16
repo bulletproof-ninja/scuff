@@ -2,6 +2,7 @@ package scuff
 
 import _root_.redis.clients.jedis._
 import _root_.redis.clients.util.Pool
+import language.implicitConversions
 
 /**
  * This package requires the Jedis project.
@@ -45,17 +46,24 @@ package object redis {
       case e: Exception ⇒ try { txn.discard() } catch { case _: Exception ⇒ /* Ignore */ }; throw e
     }
   }
-
+  
   /** Perform transaction. */
   def transaction[T](block: Transaction ⇒ T)(implicit conn: (Jedis ⇒ T) ⇒ T): T = conn(atomic(_)(block))
 
   type CONNECTION = (Jedis ⇒ Any) ⇒ Any
+  /** Construct object by using a thread-safe connection pool. */
   def threadSafe[T](pool: RedisConnectionPool)(factory: CONNECTION ⇒ T): T = factory(block ⇒ pool.connection(block))
+  /** Construct object by using an on-demand connection. */
   def singleThreaded[T](config: JedisShardInfo, db: Int = 0)(factory: CONNECTION ⇒ T): T = {
     val jedis = new Jedis(config)
-    jedis.select(db)
-    factory(block ⇒ block(jedis))
+    try {
+      jedis.select(db)
+      factory(block ⇒ block(jedis))
+    } finally {
+      jedis.disconnect()
+    }
   }
+  /** Construct object by using a non-shared existing connection. */
   def singleThreaded[T](jedis: Jedis, db: Option[Int])(factory: CONNECTION ⇒ T): T = {
     db.foreach(jedis.select)
     factory(block ⇒ block(jedis))

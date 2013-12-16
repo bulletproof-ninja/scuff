@@ -11,7 +11,7 @@ class TestPubSub {
 
   @Before
   def setup {
-    pubSub = new PubSub[Event, Event]
+    pubSub = new PubSub[Event, Event](Threads.PiggyBack)
   }
 
   @Test(timeout = 2000)

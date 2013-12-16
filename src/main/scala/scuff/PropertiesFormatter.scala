@@ -56,13 +56,7 @@ class PropertiesFormatter private (_baseName: Option[String], desiredLocales: Se
     val formatter = new ThreadLocal[MessageFormat]() {
       override def initialValue = new MessageFormat(stringFormat, locale)
     }
-    override def toString = {
-      val lang = locale.toString match {
-        case "" ⇒ "ROOT"
-        case lang ⇒ lang
-      }
-      "%s: \"%s\"".format(lang, strFmt)
-    }
+    override def toString = s"${locale.toLanguageTag}: $strFmt"
   }
 
   private val map: Map[String, Message] = {

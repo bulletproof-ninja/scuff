@@ -129,6 +129,8 @@ object Interval {
     apply(range)
   }
 
+  import language.implicitConversions
+  
   implicit def tuple[@specialized(Short, Int, Long, Float, Double) T](t: (T, T))(implicit n: Ordering[T]): Interval[T] = apply(t)
   implicit def range(r: Range): Interval[Int] = apply(r)
   implicit def numRange[@specialized(Short, Int, Long, Float, Double) T](r: NumericRange[T])(implicit n: Ordering[T]): Interval[T] = apply(r)

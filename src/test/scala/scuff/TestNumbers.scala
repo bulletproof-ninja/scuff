@@ -7,7 +7,7 @@ import java.io.ByteArrayOutputStream
 import java.io.ObjectOutputStream
 import java.util.Arrays
 
-class TestBitsBytes {
+class TestNumbers {
   val r = new scala.util.Random
 
   @Test
@@ -17,10 +17,10 @@ class TestBitsBytes {
       val arrI1 = new Array[Byte](4)
       r.nextBytes(arrL1)
       r.nextBytes(arrI1)
-      val l = BitsBytes.bytesToLong(arrL1)
-      val i = BitsBytes.bytesToInt(arrI1)
-      val arrL2 = BitsBytes.longToBytes(l)
-      val arrI2 = BitsBytes.intToBytes(i)
+      val l = Numbers.bytesToLong(arrL1)
+      val i = Numbers.bytesToInt(arrI1)
+      val arrL2 = Numbers.longToBytes(l)
+      val arrI2 = Numbers.intToBytes(i)
       assertTrue(Arrays.equals(arrL1, arrL2))
       assertTrue(Arrays.equals(arrI1, arrI2))
     }
@@ -31,10 +31,10 @@ class TestBitsBytes {
     for (_ ← 1 to 1000) {
       val l1 = r.nextLong
       val i1 = r.nextInt
-      val arrL = BitsBytes.longToBytes(l1)
-      val arrI = BitsBytes.intToBytes(i1)
-      val l2 = BitsBytes.bytesToLong(arrL)
-      val i2 = BitsBytes.bytesToInt(arrI)
+      val arrL = Numbers.longToBytes(l1)
+      val arrI = Numbers.intToBytes(i1)
+      val l2 = Numbers.bytesToLong(arrL)
+      val i2 = Numbers.bytesToInt(arrI)
       assertEquals(l1, l2)
       assertEquals(i1, i2)
     }
@@ -50,9 +50,9 @@ class TestBitsBytes {
       val bbL = ByteBuffer.allocate(8)
       val bbI = ByteBuffer.allocate(4)
       bbL.putLong(l)
-      BitsBytes.longToBytes(l, arrL)
+      Numbers.longToBytes(l, arrL)
       bbI.putInt(i)
-      BitsBytes.intToBytes(i, arrI)
+      Numbers.intToBytes(i, arrI)
       assertTrue(java.util.Arrays.equals(bbL.array, arrL))
       assertTrue(java.util.Arrays.equals(bbI.array, arrI))
     }
@@ -66,11 +66,22 @@ class TestBitsBytes {
       r.nextBytes(arrI)
       val bbLong = ByteBuffer.wrap(arrL).getLong()
       val bbInt = ByteBuffer.wrap(arrI).getInt()
-      val arrLong = BitsBytes.bytesToLong(arrL)
-      val arrInt = BitsBytes.bytesToInt(arrI)
+      val arrLong = Numbers.bytesToLong(arrL)
+      val arrInt = Numbers.bytesToInt(arrI)
       assertEquals(bbLong, arrLong)
       assertEquals(bbInt, arrInt)
     }
+  }
+
+  @Test
+  def parsing {
+    assertEquals(987065L, "987065".parseLong())
+    assertEquals(987065, "987065".parseInt())
+    assertEquals(987065L, "x987065".parseLong(offset = 1))
+    assertEquals(987065, "5987065".parseInt(offset = 1))
+    assertEquals(987065L, "987065x".parseLong(Numbers.NonDigit))
+    assertEquals(987065, "987065/".parseInt(Numbers.NonDigit))
+
   }
 
 }

@@ -4,9 +4,10 @@ import java.io._
 import javax.servlet._, http._
 import collection._
 import JavaConverters._
-import reflect.BeanProperty
+import beans.BeanProperty
 import HttpServletResponse._
 import java.util.Locale
+import language.implicitConversions
 
 class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServletResponse {
 

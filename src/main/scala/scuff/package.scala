@@ -27,6 +27,11 @@ package object scuff {
      */
     def lengthUnicode(): Int = str.codePointCount(0, str.length)
 
+    def parseInt(stopper: Numbers.Stopper = Numbers.NonStop, offset: Int = 0): Int =
+      Numbers.parseInt(str, offset)(stopper)
+    def parseLong(stopper: Numbers.Stopper = Numbers.NonStop, offset: Int = 0): Long =
+      Numbers.parseLong(str, offset)(stopper)
+
   }
 
   implicit class ScuffLock(val lock: java.util.concurrent.locks.Lock) extends AnyVal {
@@ -116,15 +121,28 @@ package object scuff {
     }
   }
 
+  implicit class ScuffByte(val b: Byte) extends AnyVal {
+    def unsigned() = Numbers.unsigned(b)
+  }
+  implicit class ScuffShort(val s: Short) extends AnyVal {
+    def unsigned() = Numbers.unsigned(s)
+  }
   implicit class ScuffLong(val l: Long) extends AnyVal {
-    def toByteArray() = BitsBytes.longToBytes(l)
+    def toByteArray() = Numbers.longToBytes(l)
+    def unsigned() = Numbers.unsigned(l)
   }
   implicit class ScuffInt(val i: Int) extends AnyVal {
-    def toByteArray() = BitsBytes.intToBytes(i)
+    def toByteArray() = Numbers.intToBytes(i)
+    def unsigned() = Numbers.unsigned(i)
   }
   implicit class ScuffByteArray(val arr: Array[Byte]) extends AnyVal {
-    def toLong() = BitsBytes.bytesToLong(arr)
-    def toInt() = BitsBytes.bytesToInt(arr)
+    def toLong() = Numbers.bytesToLong(arr)
+    def toInt() = Numbers.bytesToInt(arr)
+  }
+
+  implicit class ScuffArray[T](val arr: Array[T]) extends AnyVal {
+    def take2(): (T, T) = if (arr.length >= 2) arr(0) -> arr(1) else throw new NoSuchElementException
+    def take3(): (T, T, T) = if (arr.length >= 3) (arr(0), arr(1), arr(2)) else throw new NoSuchElementException
   }
 
 }

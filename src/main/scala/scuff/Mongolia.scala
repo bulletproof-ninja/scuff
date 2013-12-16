@@ -1,18 +1,27 @@
 package scuff
 
-import java.util.{ Date, UUID, Locale, TimeZone }
-import com.mongodb._
-import org.bson.types._
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+import java.util.UUID
+
 import scala.collection.GenTraversableOnce
+import scala.language.implicitConversions
 import scala.reflect.ClassTag
+
+import org.bson.types._
+
+import com.mongodb._
 
 /**
  * Convenience DSL for the MongoDB Java driver.
  */
 object Mongolia {
 
-  class UnavailableValueException(val fieldName: String, message: String) extends RuntimeException(message)
-  class InvalidValueTypeException(val fieldName: String, cause: Throwable, message: String) extends RuntimeException(message, cause) {
+  class UnavailableValueException(val fieldName: String, message: String)
+    extends RuntimeException(message)
+  class InvalidValueTypeException(val fieldName: String, cause: Throwable, message: String)
+      extends RuntimeException(message, cause) {
     def this(fieldName: String, cause: Throwable) = this(fieldName, cause, cause.getMessage)
     def this(fieldName: String, message: String) = this(fieldName, null, message)
   }
@@ -819,7 +828,7 @@ object Mongolia {
     }
 
     def like[T](implicit tag: ClassTag[T], mapping: Map[Class[_], Codec[_, BsonValue]] = Map.empty): T =
-      if (tag.runtimeClass.isInterface) Proxying.getProxy(this, mapping) else throw new IllegalArgumentException("%s must be an interface".format(tag.runtimeClass))
+      if (tag.runtimeClass.isInterface) Proxying.getProxy(this, mapping) else throw new IllegalArgumentException(s"${tag.runtimeClass} must be an interface")
 
     def isEmpty = underlying match {
       case m: java.util.Map[_, _] ⇒ m.isEmpty

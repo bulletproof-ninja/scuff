@@ -2,7 +2,7 @@ package scuff
 
 import collection.generic.Growable
 
-object BitsBytes {
+object Numbers {
   def unsigned(n: Int) = n & 0xFFFFFFFFL
   def unsigned(n: Short) = n & 0xFFFF
   def unsigned(n: Byte) = n & 0xFF
@@ -69,11 +69,11 @@ object BitsBytes {
     def apply(c: Char) = false
   }
   object NonDigit extends Stopper {
-    def apply(c: Char) = c < '0' || c > '9'
+    def apply(c: Char) = c > '9' || c < '0'
   }
 
   @annotation.tailrec
-  final def toLong(str: String, idx: Int = 0, acc: Long = 0)(implicit stop: Stopper = NonDigit): Long = {
+  final def parseLong(str: String, idx: Int = 0, acc: Long = 0)(implicit stop: Stopper = NonStop): Long = {
     if (idx == str.length) {
       acc
     } else {
@@ -81,13 +81,13 @@ object BitsBytes {
       if (stop(c)) {
         acc
       } else {
-        toLong(str, idx + 1, acc * 10 + (c - '0'))
+        parseLong(str, idx + 1, acc * 10 + (c - '0'))
       }
     }
   }
 
   @annotation.tailrec
-  final def toInt(str: String, idx: Int = 0, acc: Int = 0)(implicit stop: Stopper = NonDigit): Int = {
+  final def parseInt(str: String, idx: Int = 0, acc: Int = 0)(implicit stop: Stopper = NonStop): Int = {
     if (idx == str.length) {
       acc
     } else {
@@ -95,7 +95,7 @@ object BitsBytes {
       if (stop(c)) {
         acc
       } else {
-        toInt(str, idx + 1, acc * 10 + (c - '0'))
+        parseInt(str, idx + 1, acc * 10 + (c - '0'))
       }
     }
   }

@@ -1,12 +1,12 @@
 package scuff
 
-import concurrent._
+import concurrent.ExecutionContext
 
 /**
  * Simple publish/subscribe mechanism.
  */
-class PubSub[G, E <% G](executor: ExecutionContext = Threads.PiggyBack)
-    extends Channel {
+class PubSub[G, E <% G](executor: ExecutionContext)
+    extends Faucet {
 
   type F = G
   type L = E ⇒ Unit
@@ -24,10 +24,16 @@ class PubSub[G, E <% G](executor: ExecutionContext = Threads.PiggyBack)
   }
 
   private class FilteringSubscriber(sub: E ⇒ Unit, filter: F ⇒ Boolean) {
-    def handle(e: E) = if (filter(e)) {
-      executor execute new Runnable {
-        def run = sub(e)
+    def handle(e: E) = try {
+      if (filter(e)) {
+        executor execute new Runnable {
+          def run = sub(e)
+        }
       }
+    } catch {
+      case t: Throwable ⇒
+        subscribers.remove(this)
+        executor.reportFailure(t)
     }
   }
 

@@ -27,20 +27,34 @@ final class EventStream[ID, EVT, CAT](
      * If unknown stream, return 0.
      */
     def nextExpectedRevision(stream: ID): Int
+    /**
+     * Last processed timestamp.
+     */
+    def lastTimestamp: Option[Timestamp]
     /** Consume transaction. */
     def consume(txn: Transaction)
 
-    final def resume(since: Option[Timestamp], categories: CAT*) = EventStream.this.resume(since, this, categories)
+    /** Categories. Empty means all. */
+    def categoryFilter: Set[CAT]
   }
 
   private class ConsumerProxy(consumer: Consumer) extends (Transaction ⇒ Unit) {
-    def apply(txn: Transaction) = consumer.consume(txn)
+    private[EventStream] val subPromise = Promise[Subscription]
+    private val subscription: Future[Subscription] = subPromise.future
+
+    def apply(txn: Transaction) = try {
+      consumer.consume(txn)
+    } catch {
+      case e: Throwable ⇒
+        subscription.foreach(_.cancel)(Threads.PiggyBack)
+        throw e
+    }
   }
 
   private[this] val SerialExecCtx = HashBasedSerialExecutionContext(numConsumerThreads, EventStream.ConsumerThreadFactory, consumerFailureHandler)
   private[this] val pendingReplays = new LockFreeConcurrentMap[ID, ScheduledFuture[_]]
 
-  private def AsyncSequencedConsumer(consumer: Consumer) =
+  private def AsyncSequencedConsumer(consumer: Consumer): ConsumerProxy =
     new ConsumerProxy(consumer) with util.SequencedTransactionHandler[ID, EVT, CAT] with util.AsyncTransactionHandler[ID, EVT, CAT] { self: ConsumerProxy ⇒
       def asyncTransactionCtx = SerialExecCtx
       def onGapDetected(id: ID, expectedRev: Int, actualRev: Int) {
@@ -63,11 +77,11 @@ final class EventStream[ID, EVT, CAT](
       def nextExpectedRevision(streamId: ID): Int = consumer.nextExpectedRevision(streamId)
     }
 
-  private def resume(since: Option[Timestamp], consumer: Consumer, categories: Seq[CAT]): Future[Subscription] = {
+  def resume(consumer: Consumer): Future[Subscription] = {
     import scala.util._
 
     val starting = new Timestamp
-    val categorySet = categories.toSet
+    val categorySet = consumer.categoryFilter
       def categoryFilter(cat: CAT) = categorySet.isEmpty || categorySet.contains(cat)
       def replayConsumer(txns: Iterator[Transaction]): Option[Timestamp] = {
         var lastTs: Long = -1L
@@ -77,15 +91,16 @@ final class EventStream[ID, EVT, CAT](
         }
         if (lastTs == -1L) None else Some(new Timestamp(lastTs))
       }
-    val futureReplay: Future[Option[Timestamp]] = since match {
-      case None ⇒ es.replay(categories: _*)(replayConsumer)
-      case Some(lastTime) ⇒ es.replayFrom(lastTime, categories: _*)(replayConsumer)
+    val futureReplay: Future[Option[Timestamp]] = consumer.lastTimestamp match {
+      case None ⇒ es.replay(categorySet.toSeq: _*)(replayConsumer)
+      case Some(lastTime) ⇒ es.replayFrom(lastTime, categorySet.toSeq: _*)(replayConsumer)
     }
     futureReplay.flatMap { lastTime ⇒
       val safeConsumer = AsyncSequencedConsumer(consumer)
       val sub = es.subscribe(safeConsumer, categoryFilter)
+      safeConsumer.subPromise.success(sub)
       // Close the race condition; replay anything missed between replay and subscription
-      es.replayFrom(lastTime.getOrElse(starting), categories: _*)(_.foreach(safeConsumer)).map(_ ⇒ sub)(Threads.PiggyBack)
+      es.replayFrom(lastTime.getOrElse(starting), categorySet.toSeq: _*)(_.foreach(safeConsumer)).map(_ ⇒ sub)(Threads.PiggyBack)
     }(Threads.PiggyBack)
   }
 }

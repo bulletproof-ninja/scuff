@@ -137,8 +137,8 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
     } else if (ar.events.isEmpty) {
       Future.failed(new IllegalStateException("Cannot insert. %s has produced no events.".format(ar.id)))
     } else {
-      eventStore.record(ar, ar.id, 0, ar.events, metadata).map(_ ⇒ ar).recover {
-        case _: DuplicateRevisionException ⇒ throw new DuplicateIdException(ar.id)
+      eventStore.record(ar, ar.id, 0, ar.events, metadata).map(_ ⇒ ar).recoverWith {
+        case _: DuplicateRevisionException ⇒ Future.failed(new DuplicateIdException(ar.id))
       }
     }
   }
@@ -160,7 +160,10 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
       }
     }
   }
-  def update[T](id: AR#ID, basedOnRevision: Int)(updateBlock: AR ⇒ T)(implicit metadata: Map[String, String]): Future[(T, Int)] =
+  def update[T](id: AR#ID, basedOnRevision: Int)(updateBlock: AR ⇒ T)(implicit metadata: Map[String, String]): Future[(T, Int)] = try {
     loadAndUpdate(id, basedOnRevision, metadata, true, updateBlock)
+  } catch {
+    case e: Exception ⇒ Future.failed(e)
+  }
 
 }
