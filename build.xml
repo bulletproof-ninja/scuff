@@ -2,7 +2,7 @@
 
 	<target name="ivy-download" depends="clean, init">
 		<mkdir dir="lib" />
-		<get src="http://repo.maven.org/maven2/org/apache/ivy/ivy/${ivy.version}/ivy-${ivy.version}.jar" dest="${ivy.jar}" skipexisting="true" />
+		<get src="http://repo1.maven.org/maven2/org/apache/ivy/ivy/${ivy.version}/ivy-${ivy.version}.jar" dest="${ivy.jar}" skipexisting="true" />
 	</target>
 
 	<target name="ivy-taskdef" depends="ivy-download">
