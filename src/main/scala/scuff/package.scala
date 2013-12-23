@@ -141,8 +141,11 @@ package object scuff {
   }
 
   implicit class ScuffArray[T](val arr: Array[T]) extends AnyVal {
-    def take2(): (T, T) = if (arr.length >= 2) arr(0) -> arr(1) else throw new NoSuchElementException
-    def take3(): (T, T, T) = if (arr.length >= 3) (arr(0), arr(1), arr(2)) else throw new NoSuchElementException
+    @inline
+    private def NoSuchElement = new NoSuchElementException(s"Array.length = ${arr.length}")
+
+    def take2(): (T, T) = if (arr.length >= 2) arr(0) -> arr(1) else throw NoSuchElement
+    def take3(): (T, T, T) = if (arr.length >= 3) (arr(0), arr(1), arr(2)) else throw NoSuchElement
   }
 
 }

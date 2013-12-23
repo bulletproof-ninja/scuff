@@ -3,8 +3,8 @@ package scuff.eventual.ddd
 import scuff.ddd._
 
 /**
- * Trait that enables snapshotting if load time exceed a
- * certain threshold.
+ * Trait that enables snapshotting if load time 
+ * exceeds a certain threshold.
  */
 trait LoadTimeSnapshots[ID, AR <: AggregateRoot, CAT] extends EventStoreRepository[ID, AR, CAT] {
 

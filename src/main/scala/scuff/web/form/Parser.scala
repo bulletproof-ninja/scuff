@@ -85,16 +85,16 @@ class Parser[T](implicit tag: ClassTag[T]) {
     }
   }
 
-  def twoPass[A](form: Map[String, Seq[String]])(secondPass: T ⇒ Either[Set[Failure], A]): Either[Set[Failure], A] = {
+  def twoPass[A](form: Map[String, Seq[String]])(secondPass: T ⇒ Either[Set[Problem], A]): Either[Set[Problem], A] = {
     var values: Map[String, Any] = Map.empty
-    var errors: Set[Failure] = Set.empty
+    var errors: Set[Problem] = Set.empty
     getters.foreach {
       case (name, rt) ⇒
         def convertOrFail(conv: ⇒ Any) {
             try {
               values += name -> conv
             } catch {
-              case e: Exception ⇒ errors += Failure(name, FailureType.Syntax)
+              case e: Exception ⇒ errors += Problem(name, ProblemType.Syntax)
             }
           }
         val withContent = {
@@ -113,7 +113,7 @@ class Parser[T](implicit tag: ClassTag[T]) {
             } else if (rt.isOption) {
               values += (name -> None)
             } else {
-              errors += Failure(name, FailureType.Missing)
+              errors += Problem(name, ProblemType.Missing)
             }
           case head :: _ ⇒
             if (rt.isOption) {
@@ -135,6 +135,6 @@ class Parser[T](implicit tag: ClassTag[T]) {
       secondPass(t)
     } else Left(errors)
   }
-  def onePass(form: Map[String, Seq[String]]): Either[Set[Failure], T] = twoPass[T](form)(t ⇒ Right(t))
+  def onePass(form: Map[String, Seq[String]]): Either[Set[Problem], T] = twoPass[T](form)(t ⇒ Right(t))
 
 }

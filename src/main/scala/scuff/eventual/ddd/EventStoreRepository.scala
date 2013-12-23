@@ -101,14 +101,15 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
             }
             last match {
               case null ⇒ None
-              case last ⇒ Some(stateBuilder.state, last.revision, concurrentUpdates.reverse)
+              case last ⇒ Some((stateBuilder.state, last.revision, concurrentUpdates.reverse))
             }
           }
         snapshotRevision match {
           case None ⇒ eventStore.replayStream(id)(handler)
           case Some(snapshotRevision) ⇒
             if (doAssume && assumeSnapshotCurrent) {
-              Future.successful(Some(stateBuilder.state, snapshotRevision, Nil))
+              val result = (stateBuilder.state, snapshotRevision, Nil)
+              Future.successful(Some(result))
             } else {
               val replaySinceRev = math.min(snapshotRevision, lastSeenRevision)
               eventStore.replayStreamSince(id, replaySinceRev)(handler)
@@ -131,13 +132,13 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
     case Some(revision) ⇒ loadRevision(id, revision)
   }
 
-  def insert(ar: AR)(implicit metadata: Map[String, String] = Map.empty): Future[AR] = {
+  def insert(ar: AR)(implicit metadata: Map[String, String]): Future[AR#ID] = {
     if (ar.revision.nonEmpty) {
       Future.failed(new IllegalStateException("Cannot insert. %s already has revision %d".format(ar.id, ar.revision.get)))
     } else if (ar.events.isEmpty) {
       Future.failed(new IllegalStateException("Cannot insert. %s has produced no events.".format(ar.id)))
     } else {
-      eventStore.record(ar, ar.id, 0, ar.events, metadata).map(_ ⇒ ar).recoverWith {
+      eventStore.record(ar, ar.id, 0, ar.events, metadata).map(_ ⇒ ar.id).recoverWith {
         case _: DuplicateRevisionException ⇒ Future.failed(new DuplicateIdException(ar.id))
       }
     }
@@ -145,22 +146,22 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
 
   private[this] def recordUpdate(ar: AR, metadata: Map[String, String]): Future[Int] = {
     val newRevision = ar.revision.getOrElse(-1) + 1
-    eventStore.record(ar, ar.id, newRevision, ar.events, metadata).map(_ ⇒ newRevision)
+    eventStore.record(ar, ar.id, newRevision, ar.events, metadata).map(txn ⇒ txn.revision)
   }
 
-  private def loadAndUpdate[T](id: AR#ID, basedOnRevision: Int, metadata: Map[String, String], doAssume: Boolean, handler: AR ⇒ T): Future[(T, Int)] = {
+  private def loadAndUpdate(id: AR#ID, basedOnRevision: Int, metadata: Map[String, String], doAssume: Boolean, handler: AR ⇒ Unit): Future[Int] = {
     loadLatest(id, doAssume, basedOnRevision).flatMap { ar ⇒
       val t = handler.apply(ar)
       if (ar.events.isEmpty) {
-        Future.successful(t -> ar.revision.get)
+        Future.successful(ar.revision.get)
       } else {
-        recordUpdate(ar, metadata).map(r ⇒ t -> r).recoverWith {
+        recordUpdate(ar, metadata).recoverWith {
           case _: DuplicateRevisionException ⇒ loadAndUpdate(id, basedOnRevision, metadata, false, handler)
         }
       }
     }
   }
-  def update[T](id: AR#ID, basedOnRevision: Int)(updateBlock: AR ⇒ T)(implicit metadata: Map[String, String]): Future[(T, Int)] = try {
+  def update(id: AR#ID, basedOnRevision: Int)(updateBlock: AR ⇒ Unit)(implicit metadata: Map[String, String]): Future[Int] = try {
     loadAndUpdate(id, basedOnRevision, metadata, true, updateBlock)
   } catch {
     case e: Exception ⇒ Future.failed(e)

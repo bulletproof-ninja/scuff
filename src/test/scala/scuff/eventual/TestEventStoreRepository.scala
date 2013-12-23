@@ -16,9 +16,11 @@ import scuff.eventual.ddd.MapSnapshots
 import scuff.eventual.ddd.EventStoreRepository
 import scuff.Threads
 import scuff.Clock
+import language.implicitConversions
 
 abstract class AbstractEventStoreRepositoryTest {
 
+  implicit private val noMetadata = Map.empty[String, String]
   implicit def clock = Clock.System
   implicit def catConv(ar: Aggr) = ()
   implicit def idConv(id: String) = id
@@ -74,7 +76,7 @@ abstract class AbstractEventStoreRepositoryTest {
         }
     }
     update1.onSuccess {
-      case (_, revision) ⇒
+      case revision ⇒
         assertEquals(1L, revision)
         repo.load("Foo" -> 0).onSuccess {
           case foo ⇒
@@ -133,7 +135,7 @@ abstract class AbstractEventStoreRepositoryTest {
   def `concurrent update` = doAsync { done ⇒
     val executor = java.util.concurrent.Executors.newScheduledThreadPool(16)
     val insFut = repo.insert(Aggr.create("Foo"))
-    val map = new scuff.LockFreeConcurrentMap[Int, Future[Long]]
+    val map = new scuff.LockFreeConcurrentMap[Int, Future[Int]]
     val range = 0 to 250
     insFut.foreach { _ ⇒
       for (i ← range) {
@@ -142,7 +144,7 @@ abstract class AbstractEventStoreRepositoryTest {
             val fut = repo.update("Foo", 0) { foo ⇒
               foo(AddNewNumber(i))
             }
-            map += i -> fut.map(_._2)
+            map += i -> fut
           }
         }
         executor.schedule(runThis, 500, java.util.concurrent.TimeUnit.MILLISECONDS)
@@ -155,16 +157,16 @@ abstract class AbstractEventStoreRepositoryTest {
     }
   }
   @Test
-  def `noop update` = doAsync { done ⇒
+  def `noop update`() = doAsync { done ⇒
     repo.insert(Aggr.create("Foo")).onSuccess {
       case _ ⇒
         var twoPlusTwo = 0
         repo.update("Foo", 0) { foo ⇒
           twoPlusTwo = 2 + 2
         }.onSuccess {
-          case (_, storedRev) ⇒
+          case storedRev ⇒
             assertEquals(4, twoPlusTwo)
-            assertEquals(0L, storedRev)
+            assertEquals(0, storedRev)
             done.success(Unit)
         }
     }

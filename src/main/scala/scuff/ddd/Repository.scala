@@ -13,7 +13,7 @@ trait Repository[AR <: AggregateRoot] {
    * Load aggregate. Only for reading the aggregate.
    * Any modifications cannot be saved.
    * @param id The instance ID
-   * @param revision Load a specific revision, or None for most current
+   * @param revision Load a specific revision, or None for most current (default)
    * @return The requested revision or [[scuff.ddd.UnknownIdException]]
    */
   def load(id: AR#ID, revision: Option[Int] = None): Future[AR]
@@ -29,11 +29,11 @@ trait Repository[AR <: AggregateRoot] {
    * @param basedOnRevision Revision, which update will be based on
    * @param updateBlock The transaction code block. This may be executed multiple times if concurrent updates occur
    */
-  def update[T](id: AR#ID, basedOnRevision: Int = Int.MaxValue)(updateBlock: AR ⇒ T)(implicit metadata: Map[String, String] = Map.empty): Future[(T, Int)]
-  def update[T](id: AR#ID, basedOnRevision: Option[Int])(updateBlock: AR ⇒ T)(implicit metadata: Map[String, String] = Map.empty): Future[(T, Int)] =
+  def update(id: AR#ID, basedOnRevision: Int)(updateBlock: AR ⇒ Unit)(implicit metadata: Map[String, String]): Future[Int]
+  final def update(id: AR#ID, basedOnRevision: Option[Int])(updateBlock: AR ⇒ Unit)(implicit metadata: Map[String, String]): Future[Int] =
     basedOnRevision match {
       case Some(revision) ⇒ update(id, revision)(updateBlock)
-      case _ ⇒ update(id)(updateBlock)
+      case _ ⇒ update(id, Int.MaxValue)(updateBlock)
     }
 
   /**
@@ -44,7 +44,7 @@ trait Repository[AR <: AggregateRoot] {
    * @return Aggregate instance or [[scuff.ddd.DuplicateIdException]] if the ID is already used
    * or [[IllegalStateException]] if the instance has a revision number
    */
-  def insert(aggr: AR)(implicit metadata: Map[String, String] = Map.empty): Future[AR]
+  def insert(aggr: AR)(implicit metadata: Map[String, String]): Future[AR#ID]
 }
 
 class UnknownIdException(val id: Any) extends RuntimeException("Unknown aggregate: " + id)

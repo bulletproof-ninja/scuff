@@ -4,7 +4,8 @@ import scuff.ddd._
 
 /**
  * Trait that enables snapshotting at particular
- * revision intervals, using a [[concurrent.Map]].
+ * revision intervals. Does not implement snapshot
+ * storage.
  */
 trait FixedIntervalSnapshots[ID, AR <: AggregateRoot, CAT] extends EventStoreRepository[ID, AR, CAT] {
 
