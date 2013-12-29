@@ -1121,36 +1121,39 @@ object Mongolia {
       classOf[java.net.URL] -> UrlCdc,
       classOf[java.net.URI] -> UriCdc)
 
-    private def convertProxyValue(name: String, value: BsonField, asType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]) = mapping.get(asType) match {
-      case Some(converter) ⇒ value.as(converter)
-      case None ⇒
-        if (asType.isInterface) {
-          getProxy(value.as[DBObject], mapping)(ClassTag[Any](asType))
-        } else {
+    private def convertProxyValue(name: String, value: BsonField, asType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]) =
+      mapping.get(asType) match {
+        case Some(converter) ⇒ value.as(converter)
+        case None ⇒
           import scuff._
           value match {
             case value: Value ⇒
               if (asType.isInstance(value.raw)) {
                 value.raw
+              } else if (asType.isInterface) {
+                getProxy(value.as[DBObject], mapping)(ClassTag[Any](asType))
               } else {
-                value.raw.coerceTo[Any](ClassTag(asType)).getOrElse(throw new InvalidValueTypeException(name, "Cannot convert %s to %s".format(value.raw, asType.getName)))
+                value.raw.coerceTo[Any](ClassTag(asType)).getOrElse(throw new InvalidValueTypeException(name, s"Cannot convert ${value.raw} to ${asType.getName}"))
               }
             case _ ⇒ throw new UnavailableValueException(name, "Field %s is unavailable".format(name))
           }
-        }
-    }
-    private def convertProxyOption(name: String, value: BsonField, optType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]) = mapping.get(optType) match {
-      case Some(converter) ⇒ value.opt(converter)
-      case None ⇒
-        if (optType.isInterface) {
-          value.opt[DBObject].map(getProxy(_, mapping)(ClassTag[Any](optType)))
-        } else {
+      }
+    private def convertProxyOption(name: String, value: BsonField, optType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]) =
+      mapping.get(optType) match {
+        case Some(converter) ⇒ value.opt(converter)
+        case None ⇒
           value match {
-            case value: Value ⇒ Option(convertProxyValue(name, value, optType, mapping))
+            case value: Value ⇒
+              if (optType.isInstance(value.raw)) {
+                Some(value.raw)
+              } else if (optType.isInterface) {
+                value.opt[DBObject].map(getProxy(_, mapping)(ClassTag[Any](optType)))
+              } else {
+                Option(convertProxyValue(name, value, optType, mapping))
+              }
             case _ ⇒ None
           }
-        }
-    }
+      }
     private def convertProxySet(name: String, shouldBeSet: BsonField, setType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): Set[_] = mapping.get(setType) match {
       case Some(converter) ⇒ shouldBeSet.asSeq(converter).toSet
       case None ⇒
