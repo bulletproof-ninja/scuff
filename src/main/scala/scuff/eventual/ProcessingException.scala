@@ -4,7 +4,7 @@ class ProcessingException private (message: String, cause: Throwable) extends Ru
 
 object ProcessingException {
   def apply[A, B, C](cause: Throwable, txn: EventSource[A, B, C]#Transaction): ProcessingException = {
-    val msg = "Failed processing \"%s\" stream %s/%d: %s%nMetadata: %s".format(txn.category, txn.streamId, txn.revision, cause.getMessage, txn.metadata.mkString(" | "))
+    val msg = s"Failed processing ${txn.category} stream ${txn.streamId}/${txn.revision}: ${cause.getMessage}${compat.Platform.EOL}Metadata: ${txn.metadata.mkString(" | ")}"
     new ProcessingException(msg, cause)
   }
 }
