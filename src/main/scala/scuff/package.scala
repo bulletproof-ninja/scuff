@@ -6,7 +6,7 @@ import scala.reflect.ClassTag
 package object scuff {
   import scala.math._
 
-  implicit class ScuffString(val str: String) extends AnyVal {
+  implicit final class ScuffString(val str: String) extends AnyVal {
     /**
      * Calculate Levenshtein distance.
      * Taken, and modified, from:
@@ -34,7 +34,7 @@ package object scuff {
 
   }
 
-  implicit class ScuffLock(val lock: java.util.concurrent.locks.Lock) extends AnyVal {
+  implicit final class ScuffLock(val lock: java.util.concurrent.locks.Lock) extends AnyVal {
     def whenLocked[T](code: ⇒ T): T = {
       lock.lock()
       try {
@@ -47,14 +47,14 @@ package object scuff {
 
   import scala.util.{ Try, Success, Failure }
   import concurrent.Future
-  implicit class ScuffTry[T](val t: Try[T]) extends AnyVal {
+  implicit final class ScuffTry[T](val t: Try[T]) extends AnyVal {
     def toFuture: Future[T] = t match {
       case Success(res) ⇒ Future.successful(res)
       case Failure(e) ⇒ Future.failed(e)
     }
   }
 
-  private val primitiveToWrapper: Map[Class[_], Class[_]] = Map(
+  private[scuff] val primitiveToWrapper: Map[Class[_], Class[_]] = Map(
     classOf[Boolean] -> classOf[java.lang.Boolean],
     classOf[Char] -> classOf[java.lang.Character],
     classOf[Short] -> classOf[java.lang.Short],
@@ -103,11 +103,11 @@ package object scuff {
     }
   }
 
-  implicit class ScuffAny(val any: Any) extends AnyVal {
+  implicit final class ScuffAny(val any: Any) extends AnyVal {
     def coerceTo[T](implicit tag: ClassTag[T]): Option[T] = coerce[T](any.asInstanceOf[AnyRef], tag.runtimeClass.asInstanceOf[Class[T]])
   }
 
-  implicit class ScuffMap[A, B](val map: Map[A, B]) extends AnyVal {
+  implicit final class ScuffMap[A, B](val map: Map[A, B]) extends AnyVal {
     def merge(other: Map[A, B], collisionHandler: (B, B) ⇒ B): Map[A, B] = {
       val merged = map.keySet.intersect(other.keySet).toSeq.map { key ⇒
         val merged = collisionHandler(map(key), other(key))
@@ -121,26 +121,26 @@ package object scuff {
     }
   }
 
-  implicit class ScuffByte(val b: Byte) extends AnyVal {
+  implicit final class ScuffByte(val b: Byte) extends AnyVal {
     def unsigned() = Numbers.unsigned(b)
   }
-  implicit class ScuffShort(val s: Short) extends AnyVal {
+  implicit final class ScuffShort(val s: Short) extends AnyVal {
     def unsigned() = Numbers.unsigned(s)
   }
-  implicit class ScuffLong(val l: Long) extends AnyVal {
+  implicit final class ScuffLong(val l: Long) extends AnyVal {
     def toByteArray() = Numbers.longToBytes(l)
     def unsigned() = Numbers.unsigned(l)
   }
-  implicit class ScuffInt(val i: Int) extends AnyVal {
+  implicit final class ScuffInt(val i: Int) extends AnyVal {
     def toByteArray() = Numbers.intToBytes(i)
     def unsigned() = Numbers.unsigned(i)
   }
-  implicit class ScuffByteArray(val arr: Array[Byte]) extends AnyVal {
+  implicit final class ScuffByteArray(val arr: Array[Byte]) extends AnyVal {
     def toLong() = Numbers.bytesToLong(arr)
     def toInt() = Numbers.bytesToInt(arr)
   }
 
-  implicit class ScuffArray[T](val arr: Array[T]) extends AnyVal {
+  implicit final class ScuffArray[T](val arr: Array[T]) extends AnyVal {
     @inline
     private def NoSuchElement = new NoSuchElementException(s"Array.length = ${arr.length}")
 
