@@ -54,10 +54,14 @@ final class EventStreamTracker[ID](
    */
   def markAsProcessed(streamId: ID, revision: Int, time: Long, update: DBObject = obj()) {
     val key = obj("_id" := streamId)
-    update.put("$set", new BasicDBObject("_rev", revision))
-    update.put("$set", new BasicDBObject("_time", new Date(time)))
+    val $set = update("$set") match {
+      case v: Value ⇒ v.as[DBObject]
+      case _ ⇒ obj()
+    }
+    $set.add("_rev" := revision, "_time" := new Date(time))
+    update.put("$set", $set)
     if (revision == 0L) {
-      // Use `upsert` here because it allows modifiers in the `update` object, which `insert` doesn't
+      // Use `upsert` because it allows modifiers in the `update` object, which `insert` doesn't
       dbColl.upsert(key, update)
     } else {
       dbColl.update(key, update)
