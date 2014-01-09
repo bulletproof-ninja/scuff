@@ -30,6 +30,24 @@ class Surgeon[T <: AnyRef](patient: T) {
    * @return Field value
    */
   def get[T](field: Symbol): T = fields(field).get(patient).asInstanceOf[T]
+
+  def get[T](wantType: Class[T], exactClass: Boolean = false): Map[Symbol, T] = {
+    val filtered = fields.filter {
+      case (name, field) ⇒
+        if (exactClass) {
+          field.getType == wantType
+        } else {
+          //          val fieldType = if (field.getType.isPrimitive) scuff.primitiveToWrapper(field.getType) else field.getType
+          wantType.isAssignableFrom(field.getType) ||
+            field.getType.isPrimitive && wantType.isAssignableFrom(primitiveToWrapper(field.getType)) ||
+            wantType.isPrimitive && primitiveToWrapper(wantType).isAssignableFrom(field.getType)
+        }
+    }
+    filtered.map {
+      case (name, field) ⇒
+        name -> field.get(patient).asInstanceOf[T]
+    }
+  }
 }
 
 private object Surgeon {
