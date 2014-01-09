@@ -52,8 +52,11 @@ final class EventStreamTracker[ID](
    * @param time Transaction timestamp
    * @param update Optional update object.
    */
-  def markAsProcessed(streamId: ID, revision: Int, time: Long, update: DBObject = obj()) {
+  def markAsProcessed(streamId: ID, revision: Int, time: Long, update: DBObject = obj(), moreKey: BsonProp = null) {
     val key = obj("_id" := streamId)
+    if (moreKey != null) {
+      key.add(moreKey)
+    }
     val $set = update("$set") match {
       case v: Value ⇒ v.as[DBObject]
       case _ ⇒ obj()
