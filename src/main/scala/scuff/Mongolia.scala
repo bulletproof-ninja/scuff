@@ -1135,7 +1135,7 @@ object Mongolia {
               } else {
                 value.raw.coerceTo[Any](ClassTag(asType)).getOrElse(throw new InvalidValueTypeException(name, s"Cannot convert ${value.raw} to ${asType.getName}"))
               }
-            case _ ⇒ throw new UnavailableValueException(name, "Field %s is unavailable".format(name))
+            case _ ⇒ throw new UnavailableValueException(name, "Field %s is either null or missing".format(name))
           }
       }
     private def convertProxyOption(name: String, value: BsonField, optType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]) =
