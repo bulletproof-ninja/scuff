@@ -75,12 +75,12 @@ class TestNumbers {
 
   @Test
   def parsing {
-    assertEquals(987065L, "987065".parseLong())
-    assertEquals(987065, "987065".parseInt())
-    assertEquals(987065L, "x987065".parseLong(offset = 1))
-    assertEquals(987065, "5987065".parseInt(offset = 1))
-    assertEquals(987065L, "987065x".parseLong(Numbers.NonDigit))
-    assertEquals(987065, "987065/".parseInt(Numbers.NonDigit))
+    assertEquals(987065L, "987065".unsafeLong())
+    assertEquals(987065, "987065".unsafeInt())
+    assertEquals(987065L, "x987065".unsafeLong(offset = 1))
+    assertEquals(987065, "5987065".unsafeInt(offset = 1))
+    assertEquals(987065L, "987065x".unsafeLong(Numbers.NonDigit))
+    assertEquals(987065, "987065/".unsafeInt(Numbers.NonDigit))
 
   }
 

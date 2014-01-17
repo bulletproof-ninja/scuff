@@ -39,11 +39,11 @@ final class EventStreamTracker[ID](
     }
   }
 
-  def lookup(streamId: ID): Option[(Int, DBObject)] = {
-    dbColl.findOpt(obj("_id" := streamId), obj("_id" := EXCLUDE, "_time" := EXCLUDE)).map { doc ⇒
-      doc.remove("_rev").as[Int] -> doc
-    }
-  }
+//  def lookup(streamId: ID): Option[(Int, DBObject)] = {
+//    dbColl.findOpt(obj("_id" := streamId), obj("_id" := EXCLUDE, "_time" := EXCLUDE)).map { doc ⇒
+//      doc.remove("_rev").as[Int] -> doc
+//    }
+//  }
 
   /**
    * Mark stream/revision as processed.

@@ -21,31 +21,35 @@ class BinaryRedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Ser
 
   override def contains(field: K): Boolean = connection(_.hexists(hkey, keySer.encode(field)))
 
-  override def keySet(): Set[K] = keys.toSet
-  override def keys(): Iterable[K] = {
+  override def keySet: Set[K] = keys.toSet
+  override def keys: Iterable[K] = {
     val keys = connection(_.hkeys(hkey))
     keys.asScala.view.map(keySer.decode)
   }
-  override def values(): Iterable[V] = {
+  override def values: Iterable[V] = {
     val values = connection(_.hvals(hkey))
     values.asScala.view.map(valueSer.decode)
   }
 
   override def put(field: K, value: V): Option[V] = {
     val hfield = keySer.encode(field)
-    val prev = transaction { txn ⇒
-      val prev = txn.hget(hkey, hfield)
-      txn.hset(hkey, hfield, valueSer.encode(value))
-      prev
+    val prev = connection { conn ⇒
+      conn.transaction() { txn ⇒
+        val prev = txn.hget(hkey, hfield)
+        txn.hset(hkey, hfield, valueSer.encode(value))
+        prev
+      }
     }
     Option(prev.get).map(valueSer.decode)
   }
   override def remove(field: K): Option[V] = {
     val hfield = keySer.encode(field)
-    val removed = transaction { txn ⇒
-      val removed = txn.hget(hkey, hfield)
-      txn.hdel(hkey, hfield)
-      removed
+    val removed = connection { conn ⇒
+      conn.transaction() { txn ⇒
+        val removed = txn.hget(hkey, hfield)
+        txn.hdel(hkey, hfield)
+        removed
+      }
     }
     Option(removed.get).map(valueSer.decode)
   }
@@ -76,8 +80,10 @@ class BinaryRedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Ser
 
   def putIfAbsent(field: K, value: V): Option[V] = {
     val hfield = keySer.encode(field)
-    val (prevValResp, successResp) = transaction { txn ⇒
-      txn.hget(hkey, hfield) -> txn.hsetnx(hkey, hfield, valueSer.encode(value))
+    val (prevValResp, successResp) = connection { conn ⇒
+      conn.transaction() { txn ⇒
+        txn.hget(hkey, hfield) -> txn.hsetnx(hkey, hfield, valueSer.encode(value))
+      }
     }
     if (successResp.get == 1L) {
       None
@@ -88,7 +94,7 @@ class BinaryRedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Ser
 
   def del(field: K): Boolean = connection(_.hdel(hkey, keySer.encode(field)) == 1L)
 
-  def iterator(): Iterator[(K, V)] = {
+  def iterator: Iterator[(K, V)] = {
     val mapped = connection(_.hgetAll(hkey)).entrySet.asScala.view.map { entry ⇒
       keySer.decode(entry.getKey) -> valueSer.decode(entry.getValue)
     }

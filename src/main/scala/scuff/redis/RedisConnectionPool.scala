@@ -1,10 +1,16 @@
 package scuff.redis
 
-import _root_.redis.clients.jedis._, exceptions._
+import _root_.redis.clients.jedis._
 import _root_.redis.clients.util.Pool
+import scuff.Clock
+import scala.concurrent.Future
+import java.util.concurrent.TimeUnit
+import redis.clients.jedis.exceptions.JedisConnectionException
+import scuff.Threads
+import scala.concurrent.Promise
 
 class RedisConnectionPool(pool: Pool[Jedis], enforceDB: Option[Int]) extends CONNECTION {
-  def apply(code: Jedis => Any): Any = connection(code)
+  def apply(code: Jedis ⇒ Any): Any = connection(code)
   def this(pool: Pool[Jedis], enforceDB: Int) = this(pool, Some(enforceDB))
   private[this] val db = enforceDB.getOrElse(-1)
   def connection[T](code: Jedis ⇒ T): T = {
@@ -22,10 +28,66 @@ class RedisConnectionPool(pool: Pool[Jedis], enforceDB: Option[Int]) extends CON
       if (!returned) pool.returnResource(jedis)
     }
   }
-  def pipeline[T](block: Pipeline => T): T = connection { conn => 
+
+  def pipeline[T](block: Pipeline ⇒ T): T = connection { conn ⇒
     val pl = conn.pipelined()
     val t = block(pl)
     pl.sync()
     t
   }
+
+  def lock[T](lockKey: String, maxSeconds: Int)(whenLocked: Jedis ⇒ T)(implicit clock: Clock): Future[T] = {
+    connection { jedis ⇒
+      lock(lockKey, maxSeconds, whenLocked, jedis)
+    }
+  }
+
+  private def locked[T](lockKey: String, maxSeconds: Int, whenLocked: Jedis ⇒ T, jedis: Jedis): Future[T] = try {
+    jedis.expire(lockKey, maxSeconds)
+    try {
+      Future successful whenLocked(jedis)
+    } finally {
+      jedis.del(lockKey)
+    }
+  } catch {
+    case e: Exception ⇒ Future failed e
+  }
+
+  private def tryLockLater[T](lockKey: String, maxSeconds: Int, whenLocked: Jedis ⇒ T)(implicit clock: Clock): Future[T] = {
+    implicit val Seconds = TimeUnit.SECONDS
+    val promise = Promise[T]
+    val retry = new Runnable {
+      def run = promise completeWith lock(lockKey, maxSeconds)(whenLocked)
+    }
+    val delayMillis = Seconds.toMillis(maxSeconds) / 250
+    Threads.DefaultScheduler.schedule(retry, delayMillis, TimeUnit.MILLISECONDS)
+    promise.future
+
+  }
+  private def lock[T](lockKey: String, maxSeconds: Int, whenLocked: Jedis ⇒ T, jedis: Jedis)(implicit clock: Clock): Future[T] = {
+    implicit val Seconds = TimeUnit.SECONDS
+    val myExpiry = String.valueOf(clock.now + maxSeconds)
+    if (jedis.setnx(lockKey, myExpiry) == 1L) {
+      locked(lockKey, maxSeconds, whenLocked, jedis)
+    } else {
+      jedis.get(lockKey) match {
+        case null ⇒
+          lock(lockKey, maxSeconds)(whenLocked)
+        case otherExpiry ⇒
+          val expiry = otherExpiry.toLong
+          if (clock.now >= expiry) {
+            val myExpiry = String.valueOf(clock.now + maxSeconds)
+            val replacedExpiry = jedis.getSet(lockKey, myExpiry)
+            if (replacedExpiry == null || replacedExpiry == otherExpiry) {
+              locked(lockKey, maxSeconds, whenLocked, jedis)
+            } else {
+              tryLockLater(lockKey, maxSeconds, whenLocked)
+            }
+          } else {
+            tryLockLater(lockKey, maxSeconds, whenLocked)
+          }
+      }
+    }
+  }
+
 }

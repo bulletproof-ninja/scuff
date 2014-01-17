@@ -8,7 +8,14 @@ import scuff.Serializer
 
 class BinaryRedisPublisher[T](channelName: String, connection: CONNECTION, serializer: Serializer[T]) {
   private[this] val byteName = SafeEncoder.encode(channelName)
-  def publish(msg: T) {
-    connection(_.publish(byteName, serializer.encode(msg)))
+  def publish(msg: T)(implicit conn: Jedis = null) {
+    if (conn == null) {
+      connection(publishWith(_, msg))
+    } else {
+      publishWith(conn, msg)
+    }
+  }
+  private def publishWith(conn: Jedis, msg: T) {
+    conn.publish(byteName, serializer.encode(msg))
   }
 }

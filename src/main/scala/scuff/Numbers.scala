@@ -73,7 +73,7 @@ object Numbers {
   }
 
   @annotation.tailrec
-  final def parseLong(str: String, idx: Int = 0, acc: Long = 0)(implicit stop: Stopper = NonStop): Long = {
+  def unsafeLong(str: String, idx: Int = 0, acc: Long = 0)(implicit stop: Stopper = NonStop): Long = {
     if (idx == str.length) {
       acc
     } else {
@@ -81,13 +81,13 @@ object Numbers {
       if (stop(c)) {
         acc
       } else {
-        parseLong(str, idx + 1, acc * 10 + (c - '0'))
+        unsafeLong(str, idx + 1, acc * 10 + (c - '0'))
       }
     }
   }
 
   @annotation.tailrec
-  final def parseInt(str: String, idx: Int = 0, acc: Int = 0)(implicit stop: Stopper = NonStop): Int = {
+  def unsafeInt(str: String, idx: Int = 0, acc: Int = 0)(implicit stop: Stopper = NonStop): Int = {
     if (idx == str.length) {
       acc
     } else {
@@ -95,7 +95,7 @@ object Numbers {
       if (stop(c)) {
         acc
       } else {
-        parseInt(str, idx + 1, acc * 10 + (c - '0'))
+        unsafeInt(str, idx + 1, acc * 10 + (c - '0'))
       }
     }
   }

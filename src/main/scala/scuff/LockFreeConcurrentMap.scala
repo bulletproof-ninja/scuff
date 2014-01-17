@@ -134,8 +134,8 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) ext
   }
 
   override def contains(key: A) = mapRef.get.contains(key)
-  override def isEmpty() = mapRef.get.isEmpty
-  override def nonEmpty() = mapRef.get.nonEmpty
+  override def isEmpty = mapRef.get.isEmpty
+  override def nonEmpty = mapRef.get.nonEmpty
 
   override def toString() = "LockFreeConcurrent" concat super.toString()
 

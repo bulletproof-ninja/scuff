@@ -1,17 +1,16 @@
 package scuff.eventual.redis
 
+import concurrent.Future
 import concurrent.duration.{ Duration, DurationInt }
-import java.io.{ ByteArrayInputStream, ByteArrayOutputStream }
-import redis.clients.jedis.Jedis
-import redis.clients.util.SafeEncoder
-import scuff._
+import scuff.{ Codec, Numbers, ScuffString, Timestamp, redis }
+import _root_.redis.clients.jedis.Jedis
 
 /**
- * Keep track of handled [[scuff.eventual.EventSource#Transaction]]s, so process can resume
- * after shutdown.
+ * Keep track of handled [[scuff.eventual.EventSource#Transaction]]s,
+ * which is helpful for durable subscribers. For simplicity, an optional
+ * data string can be attached to each update, effectively keeping state.
  */
 final class EventStreamTracker[ID](
-    jedis: redis.RedisConnectionPool,
     HashKey: String,
     clockSkew: Duration = 2.seconds)(implicit idCdc: Codec[ID, String]) {
 
@@ -20,8 +19,10 @@ final class EventStreamTracker[ID](
 
   private[this] final val TimeKey = "T"
 
+  implicit private[this] final val TenSeconds = 10.seconds
+
   @annotation.tailrec
-  private def toIntWithMore(str: String, idx: Int = 0, acc: Int = 0): (Int, String) = {
+  private def unsafeIntAndData(str: String, idx: Int = 0, acc: Int = 0): (Int, String) = {
     if (idx == str.length) {
       (acc, "")
     } else {
@@ -29,56 +30,45 @@ final class EventStreamTracker[ID](
       if (c == SEP) {
         (acc, str.substring(idx + 1))
       } else {
-        toIntWithMore(str, idx + 1, acc * 10 + (c - '0'))
-      }
-    }
-  }
-  implicit private val StopOnSEP = new Numbers.Stopper {
-    def apply(c: Char) = c == SEP
-  }
-  def resumeFrom: Option[Timestamp] = {
-    jedis.connection { conn ⇒
-      Option(conn.get(TimeKey)).map { str ⇒
-        new Timestamp(str.parseLong() - clockSkew.toMillis)
+        unsafeIntAndData(str, idx + 1, acc * 10 + (c - '0'))
       }
     }
   }
 
-  def nextExpectedRevision(streamId: ID): Int = {
-    jedis.connection { conn ⇒
-      conn.hget(HashKey, idCdc.encode(streamId)) match {
-        case null ⇒ 0
-        case str ⇒ str.parseInt(StopOnSEP) + 1
-      }
+  def resumeFrom(implicit conn: Jedis): Option[Timestamp] =
+    Option(conn.get(TimeKey)).map { str ⇒
+      new Timestamp(str.toLong - clockSkew.toMillis)
     }
+
+  def lookupRevision[T](streamId: ID)(implicit conn: Jedis): Option[(Int, String)] =
+    conn.hget(HashKey, idCdc.encode(streamId)) match {
+      case null ⇒ None
+      case str ⇒ new Some(unsafeIntAndData(str))
+    }
+
+  private def toMap(streamId: ID, revision: Int, time: Long, state: String): java.util.Map[String, String] = {
+    val streamKey = idCdc encode streamId
+    val valueStr = state.length match {
+      case 0 ⇒ String valueOf revision
+      case _ ⇒ String valueOf revision concat SEP_str concat state
+    }
+    val map = new java.util.HashMap[String, String](4)
+    map.put(streamKey, valueStr)
+    map.put(TimeKey, String valueOf time)
+    map
   }
 
-  def lookup[T](streamId: ID): Option[(Int, String)] = {
-    jedis.connection { conn ⇒
-      conn.hget(HashKey, idCdc.encode(streamId)) match {
-        case null ⇒ None
-        case str ⇒ Some(toIntWithMore(str))
-      }
+  def process(streamId: ID, revision: Int, time: Long)(updater: String ⇒ String)(implicit conn: Jedis): String = {
+    val value = conn.hget(HashKey, idCdc.encode(streamId)) match {
+      case null ⇒ ""
+      case str ⇒ unsafeIntAndData(str)._2
     }
+    val updated = updater(value).trim
+    conn.hmset(HashKey, toMap(streamId, revision, time, updated))
+    updated
   }
 
-  /**
-   * Mark stream/revision as processed.
-   * @param streamId Transaction stream id
-   * @param revision Transaction stream revision
-   * @param time Transaction timestamp
-   * @param state Optional update object.
-   */
-  def markAsProcessed[T](streamId: ID, revision: Int, time: Long, state: String = null) {
-
-    val valueStr = state match {
-      case null ⇒ String valueOf revision
-      case state ⇒ String valueOf revision concat SEP_str concat state
-    }
-
-    jedis.pipeline { pl ⇒
-      pl.hset(HashKey, idCdc.encode(streamId), valueStr)
-      pl.hset(HashKey, TimeKey, String valueOf time)
-    }
+  def markAsProcessed(streamId: ID, revision: Int, time: Long)(implicit conn: Jedis) {
+    conn.hmset(HashKey, toMap(streamId, revision, time, ""))
   }
 }

@@ -6,6 +6,7 @@ import javax.servlet._
 import scala.concurrent.ExecutionContext
 
 object FuzzyScheduler {
+  lazy val global = new FuzzyScheduler(Threads.DefaultScheduler)
   trait FuzzyRunnable extends Runnable {
     @volatile private[this] var alive = true
     /**
@@ -43,7 +44,7 @@ object FuzzyScheduler {
  * Simple scheduler with built-in random jitter
  * to avoid pathological cases of clustering.
  */
-class FuzzyScheduler(scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1, Threads.factory(classOf[FuzzyScheduler].getName))) {
+class FuzzyScheduler(scheduler: ScheduledExecutorService) {
   import FuzzyScheduler.FuzzyRunnable
 
   def shutdownAll(): Unit = scheduler.shutdownNow()

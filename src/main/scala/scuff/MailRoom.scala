@@ -11,7 +11,7 @@ import javax.mail.internet.{InternetAddress, MimeBodyPart, MimeMessage, MimeMult
 import javax.mail.util.ByteArrayDataSource
 
 class MailRoom(session: Session, headers: (String, String)*) {
-  def this(smtpServer: InetSocketAddress, username: String, password: String, headers: (String, String)*) = this(MailRoom.makeSession(smtpServer, Some(username, password)), headers: _*)
+  def this(smtpServer: InetSocketAddress, username: String, password: String, headers: (String, String)*) = this(MailRoom.makeSession(smtpServer, Some((username, password))), headers: _*)
   def this(smtpServer: InetSocketAddress, headers: (String, String)*) = this(MailRoom.makeSession(smtpServer, None), headers: _*)
 
   import MailRoom._

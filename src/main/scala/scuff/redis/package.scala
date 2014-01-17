@@ -3,6 +3,8 @@ package scuff
 import _root_.redis.clients.jedis._
 import _root_.redis.clients.util.Pool
 import language.implicitConversions
+import java.util.concurrent.TimeUnit
+import scala.concurrent.Future
 
 /**
  * This package requires the Jedis project.
@@ -35,20 +37,40 @@ package object redis {
     new JedisPool(config, info.getHost, info.getPort, Protocol.DEFAULT_TIMEOUT, info.getPassword)
   }
 
-  /** Perform atomic operation, using existing connection. */
-  def atomic[T](conn: Jedis)(block: Transaction ⇒ T): T = {
-    val txn = conn.multi()
-    try {
-      val t = block(txn)
-      txn.exec()
-      t
-    } catch {
-      case e: Exception ⇒ try { txn.discard() } catch { case _: Exception ⇒ /* Ignore */ }; throw e
+  implicit final class ScuffJedis(val jedis: Jedis) extends AnyVal {
+    /**
+     * NOTICE: The transaction block may be executed multiple times,
+     * so make sure it's idempotent.
+     */
+    def transaction[T](keys: String*)(block: Transaction ⇒ T): T = {
+      if (keys.nonEmpty) jedis.watch(keys: _*)
+      val txn = jedis.multi()
+      try {
+        val t = block(txn)
+        if (txn.exec == null) {
+          transaction(keys: _*)(block)
+        } else {
+          t
+        }
+      } catch {
+        case e: Exception ⇒ try { txn.discard() } catch { case _: Exception ⇒ /* Ignore */ }; throw e
+      }
     }
   }
-  
-  /** Perform transaction. */
-  def transaction[T](block: Transaction ⇒ T)(implicit conn: (Jedis ⇒ T) ⇒ T): T = conn(atomic(_)(block))
+
+  //  def atomicUpdate(jedis: Jedis, key: String)(updater: String ⇒ String) {
+  //      def tryOptimistic(jedis: Jedis)(block: Transaction ⇒ Unit): Boolean = {
+  //        val txn = jedis.multi()
+  //        try {
+  //          block(txn)
+  //          txn.exec() != null
+  //        } catch {
+  //          case e: Exception ⇒ try { txn.discard() } catch { case _: Exception ⇒ /* Ignore */ }; throw e
+  //        }
+  //      }
+  //    jedis.watch(key)
+  //    val value = jedis.get(key)
+  //  }
 
   type CONNECTION = (Jedis ⇒ Any) ⇒ Any
   /** Construct object by using a thread-safe connection pool. */

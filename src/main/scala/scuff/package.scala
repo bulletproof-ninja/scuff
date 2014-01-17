@@ -2,6 +2,8 @@ import java.util.Locale
 import java.lang.reflect.Constructor
 import java.lang.reflect.Modifier
 import scala.reflect.ClassTag
+import scala.concurrent.duration.Duration
+import scala.concurrent.Await
 
 package object scuff {
   import scala.math._
@@ -27,10 +29,10 @@ package object scuff {
      */
     def lengthUnicode(): Int = str.codePointCount(0, str.length)
 
-    def parseInt(stopper: Numbers.Stopper = Numbers.NonStop, offset: Int = 0): Int =
-      Numbers.parseInt(str, offset)(stopper)
-    def parseLong(stopper: Numbers.Stopper = Numbers.NonStop, offset: Int = 0): Long =
-      Numbers.parseLong(str, offset)(stopper)
+    def unsafeInt(stopper: Numbers.Stopper = Numbers.NonStop, offset: Int = 0): Int =
+      Numbers.unsafeInt(str, offset)(stopper)
+    def unsafeLong(stopper: Numbers.Stopper = Numbers.NonStop, offset: Int = 0): Long =
+      Numbers.unsafeLong(str, offset)(stopper)
 
   }
 
@@ -146,6 +148,16 @@ package object scuff {
 
     def take2(): (T, T) = if (arr.length >= 2) arr(0) -> arr(1) else throw NoSuchElement
     def take3(): (T, T, T) = if (arr.length >= 3) (arr(0), arr(1), arr(2)) else throw NoSuchElement
+  }
+
+  implicit final class ScuffFuture[T](val f: concurrent.Future[T]) extends AnyVal {
+    def get(implicit maxWait: Duration): T =
+      if (f.isCompleted) {
+        f.value.get.get
+      } else {
+        Await.result(f, maxWait)
+      }
+
   }
 
 }

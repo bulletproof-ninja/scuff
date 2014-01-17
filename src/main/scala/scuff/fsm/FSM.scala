@@ -82,7 +82,7 @@ object typed {
 trait Event
 
 /** General state representation. */
-private[fsm] sealed class BaseState[-T] {
+sealed class BaseState[-T] {
   private[fsm] final val parent: Option[typed.SuperState[Any]] = None
   private[this] val assignedName: String = getClass.getSimpleName
   override def toString: String = parent.map(_.toString concat ".").getOrElse("") concat assignedName

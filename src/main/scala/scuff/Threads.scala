@@ -1,11 +1,14 @@
 package scuff
 
 import java.util.concurrent.ThreadFactory
+import java.util.concurrent.Executors
 
 /**
  * Thread helper class.
  */
 object Threads {
+
+  lazy val DefaultScheduler = Executors.newScheduledThreadPool(Runtime.getRuntime.availableProcessors, Threads.factory("scuff.DefaultScheduler"))
 
   /**
    * `ExecutionContext`, which executes on the same thread.

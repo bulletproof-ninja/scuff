@@ -46,17 +46,19 @@ class BinaryRedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueS
 
   private[this] final val ALL = encode("*")
 
-  override def keySet(): Set[K] = keys.toSet
-  override def keys(): Iterable[K] = connection(_.keys(ALL)).asScala.view.map(keySer.decode)
+  override def keySet: Set[K] = keys.toSet
+  override def keys: Iterable[K] = connection(_.keys(ALL)).asScala.view.map(keySer.decode)
 
   override def put(key: K, value: V): Option[V] = Option(connection(_.getSet(keySer.encode(key), valueSer.encode(value)))).map(valueSer.decode)
 
   override def remove(key: K): Option[V] = {
     val keyBytes = keySer.encode(key)
-    val removed = transaction { txn ⇒
-      val removed = txn.get(keyBytes)
-      txn.del(keyBytes)
-      removed
+    val removed = connection { conn ⇒
+      conn.transaction() { txn ⇒
+        val removed = txn.get(keyBytes)
+        txn.del(keyBytes)
+        removed
+      }
     }
     Option(removed.get).map(valueSer.decode)
   }
@@ -87,8 +89,10 @@ class BinaryRedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueS
 
   def putIfAbsent(key: K, value: V): Option[V] = {
     val keyBytes = keySer.encode(key)
-    val (prevValResp, successResp) = transaction { txn ⇒
-      txn.get(keyBytes) -> txn.setnx(keyBytes, valueSer.encode(value))
+    val (prevValResp, successResp) = connection { conn ⇒
+      conn.transaction() { txn ⇒
+        txn.get(keyBytes) -> txn.setnx(keyBytes, valueSer.encode(value))
+      }
     }
     if (successResp.get == 1L) {
       None
@@ -101,7 +105,7 @@ class BinaryRedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueS
 
   override def clear() = connection(_.flushDB())
 
-  def iterator(): Iterator[(K, V)] = {
+  def iterator: Iterator[(K, V)] = {
     connection { jedis ⇒
       val keys = jedis.keys(ALL).asScala.toIterable
       keys.map { key ⇒

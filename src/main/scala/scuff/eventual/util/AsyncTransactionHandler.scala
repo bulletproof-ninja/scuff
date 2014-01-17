@@ -11,6 +11,7 @@ trait AsyncTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CAT]#T
 
   /**
    * Execution context.
+   * Supports `HashBasedSerialExecutionContext`.
    */
   protected def asyncTransactionCtx: concurrent.ExecutionContext
 

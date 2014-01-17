@@ -28,7 +28,7 @@ final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: Int, staleCheck
   private[this] val map = new LRUMap
 
   private var disabled = false
-  private def checkDisabled = if (disabled) throw new IllegalStateException("Cache has been disabled.")
+  private def checkDisabled() = if (disabled) throw new IllegalStateException("Cache has been disabled.")
 
   private def writeLock[T](doIt: ⇒ T): T = {
     lock.writeLock.lock()

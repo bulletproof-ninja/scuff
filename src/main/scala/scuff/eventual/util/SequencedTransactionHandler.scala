@@ -25,7 +25,7 @@ trait SequencedTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CA
   /**
    * Notification that gap is detected. This can be used to initiate
    * replay either immediately or after a certain delay if out-of-order
-   * is expected.
+   * is expected and/or possible.
    */
   protected def onGapDetected(id: ID, expectedRev: Int, actualRev: Int)
   protected def onGapClosed(id: ID)
