@@ -10,10 +10,10 @@ import scuff.Threads
 import scala.concurrent.Promise
 
 class RedisConnectionPool(pool: Pool[Jedis], enforceDB: Option[Int]) extends CONNECTION {
-  def apply(code: Jedis ⇒ Any): Any = connection(code)
+  def apply(code: Jedis ⇒ Any): Any = connection(retry = true)(code)
   def this(pool: Pool[Jedis], enforceDB: Int) = this(pool, Some(enforceDB))
   private[this] val db = enforceDB.getOrElse(-1)
-  def connection[T](code: Jedis ⇒ T): T = {
+  def connection[T](retry: Boolean = true)(code: Jedis ⇒ T): T = {
     var returned = false
     val jedis = pool.getResource()
     try {
@@ -23,21 +23,20 @@ class RedisConnectionPool(pool: Pool[Jedis], enforceDB: Option[Int]) extends CON
       case je: JedisConnectionException ⇒
         pool.returnBrokenResource(jedis: Jedis)
         returned = true
-        throw je
+        if (retry) {
+          connection(retry = false)(code)
+        } else {
+          throw je
+        }
     } finally {
       if (!returned) pool.returnResource(jedis)
     }
   }
 
-  def pipeline[T](block: Pipeline ⇒ T): T = connection { conn ⇒
-    val pl = conn.pipelined()
-    val t = block(pl)
-    pl.sync()
-    t
-  }
+  def pipeline[T](retry: Boolean = true)(block: Pipeline ⇒ T): T = connection(retry)(_.pipeline(block))
 
-  def lock[T](lockKey: String, maxSeconds: Int)(whenLocked: Jedis ⇒ T)(implicit clock: Clock): Future[T] = {
-    connection { jedis ⇒
+  def lock[T](lockKey: String, maxSeconds: Int, retry: Boolean = true)(whenLocked: Jedis ⇒ T)(implicit clock: Clock): Future[T] = {
+    connection(retry) { jedis ⇒
       lock(lockKey, maxSeconds, whenLocked, jedis)
     }
   }

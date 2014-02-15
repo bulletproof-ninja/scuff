@@ -11,7 +11,7 @@ class TestPubSub {
 
   @Before
   def setup {
-    pubSub = new PubSub[Event, Event](Threads.PiggyBack)
+    pubSub = new PubSub[Event, Event](concurrent.ExecutionContext.global)
   }
 
   @Test(timeout = 2000)

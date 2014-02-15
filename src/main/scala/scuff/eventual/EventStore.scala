@@ -3,6 +3,7 @@ package scuff.eventual
 import scuff._
 import concurrent.{ Promise, Future }
 import java.util.Date
+import java.io.InvalidObjectException
 
 /**
  * Event source.
@@ -12,12 +13,12 @@ trait EventSource[ID, EVT, CAT] extends Faucet {
   type L = Transaction ⇒ Unit
 
   case class Transaction(
-    timestamp: Long,
-    category: CAT,
-    streamId: ID,
-    revision: Int,
-    metadata: Map[String, String],
-    events: List[EVT]) {
+      timestamp: Long,
+      category: CAT,
+      streamId: ID,
+      revision: Int,
+      metadata: Map[String, String],
+      events: List[EVT]) {
     private def writeObject(out: java.io.ObjectOutputStream) {
       out.writeLong(this.timestamp)
       out.writeObject(this.category)
@@ -42,6 +43,8 @@ trait EventSource[ID, EVT, CAT] extends Faucet {
       surgeon.set('metadata, metadata)
       surgeon.set('events, in.readObject)
     }
+
+    private def readObjectNoData(): Unit = throw new InvalidObjectException("Stream data required")
   }
 
   def exists(stream: ID): Future[Boolean]

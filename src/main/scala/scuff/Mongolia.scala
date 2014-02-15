@@ -117,6 +117,14 @@ object Mongolia {
       case _ ⇒ org.bson.BSON.toInt(b.raw)
     }
   }
+  implicit val JIntCdc = new Codec[Integer, BsonValue] {
+    def encode(a: Integer): BsonValue = new Value(a)
+    def decode(b: BsonValue): Integer = b.raw match {
+      case n: Number ⇒ n.intValue
+      case str: String ⇒ str.toInt
+      case _ ⇒ org.bson.BSON.toInt(b.raw)
+    }
+  }
   implicit val LongCdc = new Codec[Long, BsonValue] {
     def encode(a: Long): BsonValue = new Value(a)
     def decode(b: BsonValue): Long = b.raw match {
@@ -126,9 +134,26 @@ object Mongolia {
       case _ ⇒ throw new RuntimeException("Cannot coerce %s into Long".format(b.raw.getClass.getName))
     }
   }
+  implicit val JLongCdc = new Codec[java.lang.Long, BsonValue] {
+    def encode(a: java.lang.Long): BsonValue = new Value(a)
+    def decode(b: BsonValue): java.lang.Long = b.raw match {
+      case n: Number ⇒ n.longValue()
+      case d: java.util.Date ⇒ d.getTime
+      case s: String ⇒ s.toLong
+      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Long".format(b.raw.getClass.getName))
+    }
+  }
   implicit val DblCdc = new Codec[Double, BsonValue] {
     def encode(a: Double): BsonValue = new Value(a)
     def decode(b: BsonValue) = b.raw match {
+      case n: Number ⇒ n.doubleValue()
+      case s: String ⇒ s.toDouble
+      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Double".format(b.raw.getClass.getName))
+    }
+  }
+  implicit val JDblCdc = new Codec[java.lang.Double, BsonValue] {
+    def encode(a: java.lang.Double): BsonValue = new Value(a)
+    def decode(b: BsonValue): java.lang.Double = b.raw match {
       case n: Number ⇒ n.doubleValue()
       case s: String ⇒ s.toDouble
       case _ ⇒ throw new RuntimeException("Cannot coerce %s into Double".format(b.raw.getClass.getName))
@@ -226,13 +251,13 @@ object Mongolia {
     def encode(a: Password): BsonValue = {
       val dbo = obj("digest" := a.digest, "algo" := a.algorithm)
       if (a.salt.length > 0) dbo.add("salt" := a.salt)
-      if (a.iterations > 1) dbo.add("iter" := a.iterations)
+      if (a.workFactor > 1) dbo.add("work" := a.workFactor)
       new Value(dbo)
     }
     def decode(b: BsonValue) = b.raw match {
       case obj: DBObject ⇒
         val dbo = enrich(obj)
-        new Password(dbo("digest").as[Array[Byte]], dbo("algo").as[String], dbo("salt").opt[Array[Byte]].getOrElse(Array.empty), dbo("iter").opt[Int].getOrElse(1))
+        new Password(dbo("digest").as[Array[Byte]], dbo("algo").as[String], dbo("salt").opt[Array[Byte]].getOrElse(Array.empty), dbo("work").opt[Int].getOrElse(1))
       case _ ⇒ throw new RuntimeException("Cannot coerce %s into Password".format(b.raw.getClass.getName))
     }
   }
@@ -754,13 +779,6 @@ object Mongolia {
     def containsKey(s: String) = underlying.containsKey(s)
     def containsField(s: String) = underlying.containsField(s)
     def keySet = underlying.keySet
-    def merge(dbo: DBObject): RichDBObject = {
-      dbo match {
-        case r: RichDBObject ⇒ putAll(r.underlying)
-        case _ ⇒ putAll(dbo)
-      }
-      this
-    }
     def add[T](map: collection.Map[String, T])(implicit codec: Codec[T, BsonValue]): RichDBObject = {
       map.foreach {
         case (key, value) ⇒ add(key := value)
@@ -1083,9 +1101,13 @@ object Mongolia {
     case dbo: DBObject ⇒ enrich(dbo)
     case a ⇒ a
   }
-  def parseJsonObject(json: String): Option[DBObject] = parseJson(json) match {
-    case dbo: DBObject ⇒ Some(enrich(dbo))
-    case a ⇒ None
+  def parseJsonObject(json: String): Option[DBObject] = json match {
+    case null ⇒ None
+    case json ⇒
+      parseJson(json) match {
+        case dbo: DBObject ⇒ Some(enrich(dbo))
+        case _ ⇒ None
+      }
   }
 
   private object Proxying {
@@ -1231,6 +1253,34 @@ object Mongolia {
       typeArgs(typeArgs.length - 1).asInstanceOf[Class[_]]
     }
 
+    private def extractValue(valueName: String, method: java.lang.reflect.Method)(dbo: RichDBObject, mapping: Map[Class[_], Codec[_, BsonValue]]) = try {
+      val value = dbo(valueName)
+      val rt = method.getReturnType
+      if (rt == classOf[Object]) {
+        convertProxyValue(valueName, value, rt, mapping)
+      } else if (rt == classOf[Option[_]]) {
+        val rtt = getGenericReturnClass(method)
+        convertProxyOption(valueName, value, rtt, mapping)
+      } else if (rt.isAssignableFrom(classOf[Seq[_]])) {
+        val rtt = getGenericReturnClass(method)
+        convertProxySeq(valueName, value, rtt, mapping)
+      } else if (rt == classOf[List[_]]) {
+        val rtt = getGenericReturnClass(method)
+        convertProxyList(valueName, value, rtt, mapping)
+      } else if (rt.isAssignableFrom(classOf[Set[_]])) {
+        val rtt = getGenericReturnClass(method)
+        convertProxySet(valueName, value, rtt, mapping)
+      } else if (rt.isAssignableFrom(classOf[Map[_, _]])) {
+        val rtt = getGenericReturnClass(method)
+        convertProxyMap(valueName, value, rtt, mapping)
+      } else {
+        convertProxyValue(valueName, value, rt, mapping)
+      }
+    } catch {
+      case e: UnavailableValueException ⇒ throw e
+      case e: Exception ⇒ throw new InvalidValueTypeException(valueName, e)
+    }
+
     def getProxy[T: ClassTag](dbo: RichDBObject, userMapping: Map[Class[_], Codec[_, BsonValue]]): T = {
       val fp = new Proxylicious[T]
       val mapping = DefaultProxyMapping ++ userMapping
@@ -1238,31 +1288,11 @@ object Mongolia {
         case (_, method, args) if args == null || args.length == 0 ⇒
           if (method.getName == "toString") {
             dbo.toJson()
-          } else try {
-            val value = dbo(method.getName)
-            val rt = method.getReturnType
-            if (rt == classOf[Option[_]]) {
-              val rtt = getGenericReturnClass(method)
-              convertProxyOption(method.getName, value, rtt, mapping)
-            } else if (rt.isAssignableFrom(classOf[Seq[_]])) {
-              val rtt = getGenericReturnClass(method)
-              convertProxySeq(method.getName, value, rtt, mapping)
-            } else if (rt == classOf[List[_]]) {
-              val rtt = getGenericReturnClass(method)
-              convertProxyList(method.getName, value, rtt, mapping)
-            } else if (rt.isAssignableFrom(classOf[Set[_]])) {
-              val rtt = getGenericReturnClass(method)
-              convertProxySet(method.getName, value, rtt, mapping)
-            } else if (rt.isAssignableFrom(classOf[Map[_, _]])) {
-              val rtt = getGenericReturnClass(method)
-              convertProxyMap(method.getName, value, rtt, mapping)
-            } else {
-              convertProxyValue(method.getName, value, rt, mapping)
-            }
-          } catch {
-            case e: UnavailableValueException ⇒ throw e
-            case e: Exception ⇒ throw new InvalidValueTypeException(method.getName, e)
+          } else {
+            extractValue(method.getName, method)(dbo, mapping)
           }
+        case (_, method, args) if args != null && args.length == 1 && args(0).isInstanceOf[String] ⇒
+          extractValue(args(0).asInstanceOf[String], method)(dbo, mapping)
         case (_, method, _) ⇒ throw new IllegalAccessException("Cannot proxy methods with arguments: " + method)
       }
       fp.withEqualsHashCodeOverride(proxy)

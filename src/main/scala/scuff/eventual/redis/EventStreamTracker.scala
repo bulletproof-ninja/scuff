@@ -7,8 +7,8 @@ import _root_.redis.clients.jedis.Jedis
 
 /**
  * Keep track of handled [[scuff.eventual.EventSource#Transaction]]s,
- * which is helpful for durable subscribers. For simplicity, an optional
- * data string can be attached to each update, effectively keeping state.
+ * which is helpful for durable subscribers. For simplicity, a
+ * data string is attached to each update, for keeping state.
  */
 final class EventStreamTracker[ID](
     HashKey: String,

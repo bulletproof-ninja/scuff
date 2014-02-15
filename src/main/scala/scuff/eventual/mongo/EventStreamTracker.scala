@@ -39,11 +39,11 @@ final class EventStreamTracker[ID](
     }
   }
 
-//  def lookup(streamId: ID): Option[(Int, DBObject)] = {
-//    dbColl.findOpt(obj("_id" := streamId), obj("_id" := EXCLUDE, "_time" := EXCLUDE)).map { doc ⇒
-//      doc.remove("_rev").as[Int] -> doc
-//    }
-//  }
+  //  def lookup(streamId: ID): Option[(Int, DBObject)] = {
+  //    dbColl.findOpt(obj("_id" := streamId), obj("_id" := EXCLUDE, "_time" := EXCLUDE)).map { doc ⇒
+  //      doc.remove("_rev").as[Int] -> doc
+  //    }
+  //  }
 
   /**
    * Mark stream/revision as processed.
@@ -51,23 +51,36 @@ final class EventStreamTracker[ID](
    * @param revision Transaction stream revision
    * @param time Transaction timestamp
    * @param update Optional update object.
+   * @param moreKey Additional key, only to be used for updating a specific list element
    */
-  def markAsProcessed(streamId: ID, revision: Int, time: Long, update: DBObject = obj(), moreKey: BsonProp = null) {
+  def markAsProcessed(streamId: ID, revision: Int, time: Long, update: DBObject = obj(), moreKey: BsonProp = null) =
+    pleaseUpdate(streamId, Some(revision -> time), update, Option(moreKey))
+
+  private def pleaseUpdate(streamId: ID, revTime: Option[(Int, Long)], update: DBObject, moreKey: Option[BsonProp]) {
     val key = obj("_id" := streamId)
-    if (moreKey != null) {
-      key.add(moreKey)
-    }
-    val $set = update("$set") match {
-      case v: Value ⇒ v.as[DBObject]
-      case _ ⇒ obj()
-    }
-    $set.add("_rev" := revision, "_time" := new Date(time))
-    update.put("$set", $set)
-    if (revision == 0L) {
+    moreKey.foreach(p ⇒ key.add(p))
+    val doUpsert = revTime.map {
+      case (revision, time) ⇒
+        update("$set") match {
+          case v: Value ⇒
+            v.as[DBObject].add("_rev" := revision, "_time" := new Date(time))
+          case _ ⇒
+            update.add($set("_rev" := revision, "_time" := new Date(time)))
+        }
+        revision == 0L
+    }.getOrElse(true)
+
+    val res = if (doUpsert) {
       // Use `upsert` because it allows modifiers in the `update` object, which `insert` doesn't
       dbColl.upsert(key, update)
     } else {
       dbColl.update(key, update)
     }
+    if (res.getN == 0) {
+      throw new IllegalStateException(s"Update $update failed for key $key.")
+    }
   }
+
+  def update(streamId: ID, update: DBObject, moreKey: BsonProp = null) = pleaseUpdate(streamId, None, update, Option(moreKey))
+
 }

@@ -6,14 +6,10 @@ import java.net._
 import redis.clients.util.SafeEncoder
 import scuff.Serializer
 
-class BinaryRedisPublisher[T](channelName: String, connection: CONNECTION, serializer: Serializer[T]) {
+class BinaryRedisPublisher[T](channelName: String, serializer: Serializer[T]) {
   private[this] val byteName = SafeEncoder.encode(channelName)
-  def publish(msg: T)(implicit conn: Jedis = null) {
-    if (conn == null) {
-      connection(publishWith(_, msg))
-    } else {
-      publishWith(conn, msg)
-    }
+  def publish(msg: T)(implicit conn: Jedis) {
+    publishWith(conn, msg)
   }
   private def publishWith(conn: Jedis, msg: T) {
     conn.publish(byteName, serializer.encode(msg))

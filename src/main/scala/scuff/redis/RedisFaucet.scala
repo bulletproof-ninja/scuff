@@ -51,8 +51,4 @@ object RedisFaucet {
     apply(channelName, server, Threads.factory(classOf[RedisFaucet].getName), publishCtx)
   }
 
-  def apply(channelName: String, server: JedisShardInfo): RedisFaucet = {
-    apply(channelName, server, Threads.PiggyBack)
-  }
-
 }

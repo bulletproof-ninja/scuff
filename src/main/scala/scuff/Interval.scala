@@ -38,7 +38,7 @@ final class Interval[@specialized(Short, Int, Long, Float, Double) T](
   }
 
   override def toString = if (stringRep != null) stringRep else
-    "%s%s,%s%s".format(openBracket, numStr(from), numStr(to), closeBracket)
+    s"$openBracket${numStr(from)},${numStr(to)}$closeBracket"
 
   override def equals(any: Any) = any match {
     case that: Interval[_] ⇒
@@ -130,7 +130,7 @@ object Interval {
   }
 
   import language.implicitConversions
-  
+
   implicit def tuple[@specialized(Short, Int, Long, Float, Double) T](t: (T, T))(implicit n: Ordering[T]): Interval[T] = apply(t)
   implicit def range(r: Range): Interval[Int] = apply(r)
   implicit def numRange[@specialized(Short, Int, Long, Float, Double) T](r: NumericRange[T])(implicit n: Ordering[T]): Interval[T] = apply(r)

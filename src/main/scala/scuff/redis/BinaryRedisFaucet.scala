@@ -125,12 +125,4 @@ object BinaryRedisFaucet {
     apply(channelName, server, new JavaSerializer[A], publishCtx)
   }
 
-  def apply[A](channelName: String, server: JedisShardInfo, serializer: Serializer[A]): BinaryRedisFaucet[A] = {
-    apply(channelName, server, serializer, Threads.PiggyBack)
-  }
-
-  def apply[A](channelName: String, server: JedisShardInfo): BinaryRedisFaucet[A] = {
-    apply(channelName, server, new JavaSerializer[A], Threads.PiggyBack)
-  }
-
 }

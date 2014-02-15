@@ -272,6 +272,10 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
         def three: Long
         def fortytwo: Double
         def baz: Option[String]
+        def str(name: String): String
+        def dbl(name: String): Double
+        def any(name: String): Any
+        def maybe(name: String): Option[Any]
       }
       def maybe: Option[Int]
       def list: Seq[String]
@@ -281,6 +285,11 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
       def assertStuff(foo: Foo) {
         assertEquals("bar", foo.foo)
         assertEquals(2, foo.nested.two)
+        assertEquals(2d, foo.nested.dbl("two"), 0.01)
+        assertEquals("2", foo.nested.str("two"))
+        assertEquals(2, foo.nested.any("two"))
+        assertEquals(Some(2), foo.nested.maybe("two"))
+        assertEquals(None, foo.nested.maybe("blablabla"))
         assertEquals(3L, foo.nested.three)
         assertEquals(42d, foo.nested.fortytwo, 0d)
         assertEquals(None, foo.maybe)

@@ -3,7 +3,6 @@ package scuff.eventual.ddd
 import scuff.ddd._
 import scuff.eventual._
 import scala.concurrent._
-import scuff.Threads.PiggyBack
 import java.util.concurrent.TimeUnit
 import scala.util.Failure
 import scala.util.Success
@@ -14,7 +13,7 @@ import scuff.Threads
  */
 abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](implicit idConv: AR#ID ⇒ ESID) extends Repository[AR] {
 
-  implicit protected def exeCtx: ExecutionContext = Threads.PiggyBack
+  implicit protected def exeCtx: ExecutionContext = scala.concurrent.ExecutionContext.global
 
   protected def clock: scuff.Clock = scuff.Clock.System
 
@@ -77,8 +76,7 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
   protected def assumeSnapshotCurrent = false
 
   private def loadLatest(id: AR#ID, doAssume: Boolean, lastSeenRevision: Int = Int.MaxValue): Future[AR] = {
-    implicit val Millis = TimeUnit.MILLISECONDS
-    val startTime = clock.now
+    val startTime = clock.now(TimeUnit.MILLISECONDS)
     val futureMutator = loadSnapshot(id).map { snapshot ⇒
       snapshot match {
         case Some((state, revision)) ⇒ (newStateMutator(Some(state)), Some(revision))
@@ -119,7 +117,7 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
     futureState.map {
       case None ⇒ throw new UnknownIdException(id)
       case Some((state, revision, concurrentUpdates)) ⇒
-        val loadTime = clock.durationSince(startTime)
+        val loadTime = clock.durationSince(startTime)(TimeUnit.MILLISECONDS)
         saveSnapshot(id, revision, state)
         val ar = newAggregateRoot(id, revision, state, concurrentUpdates)
         onLoadNotification(id, revision, ar, loadTime)
@@ -149,6 +147,16 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
     eventStore.record(ar, ar.id, newRevision, ar.events, metadata).map(txn ⇒ txn.revision)
   }
 
+  /**
+   * Notification on every concurrent update collision.
+   * This happens when two aggregates are attempted to
+   * be updated concurrently. Should be exceedingly rare,
+   * unless there is unusually high contention on a
+   * specific aggregate.
+   * Can be used for monitoring and reporting.
+   */
+  protected def onConcurrentUpdateCollision(id: AR#ID, revision: Int, category: CAT) {}
+
   private def loadAndUpdate(id: AR#ID, basedOnRevision: Int, metadata: Map[String, String], doAssume: Boolean, handler: AR ⇒ Unit): Future[Int] = {
     loadLatest(id, doAssume, basedOnRevision).flatMap { ar ⇒
       val t = handler.apply(ar)
@@ -156,7 +164,9 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
         Future.successful(ar.revision.get)
       } else {
         recordUpdate(ar, metadata).recoverWith {
-          case _: DuplicateRevisionException ⇒ loadAndUpdate(id, basedOnRevision, metadata, false, handler)
+          case _: DuplicateRevisionException ⇒
+            onConcurrentUpdateCollision(id, ar.revision.getOrElse(-1) + 1, ar)
+            loadAndUpdate(id, basedOnRevision, metadata, false, handler)
         }
       }
     }

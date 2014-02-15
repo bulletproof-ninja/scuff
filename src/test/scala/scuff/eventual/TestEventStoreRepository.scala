@@ -103,21 +103,21 @@ abstract class AbstractEventStoreRepositoryTest {
         assertTrue(e.getMessage().contains("FooBar") && e.getMessage.contains("42"))
       case c ⇒
         fail("Should not happen: " + c)
-    }(Threads.PiggyBack)
+    }
     val aggrWithNoEvents = new Aggr("FooBar", new EventHandler(new AggrStateMutator), None)
     repo.insert(aggrWithNoEvents).onComplete {
       case Failure(e: IllegalStateException) ⇒
         assertTrue(e.getMessage().contains("FooBar"))
       case c ⇒
         fail("Should not happen: " + c)
-    }(Threads.PiggyBack)
+    }
     val aggrWithEventNoRevision = Aggr.create("FooBar")
     repo.insert(aggrWithEventNoRevision).onComplete {
       case Success(_) ⇒
         done.success(Unit)
       case c ⇒
         fail("Should not happen: " + c)
-    }(Threads.PiggyBack)
+    }
   }
   @Test
   def `duplicate id` = doAsync { done ⇒

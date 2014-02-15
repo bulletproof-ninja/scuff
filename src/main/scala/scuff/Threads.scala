@@ -2,6 +2,7 @@ package scuff
 
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.Executors
+import scala.concurrent.ExecutionContextExecutor
 
 /**
  * Thread helper class.
@@ -17,7 +18,13 @@ object Threads {
     def execute(runnable: Runnable) = runnable.run()
   }
 
-  implicit val PiggyBack = new SameThreadExecutor {
+  object Blocking extends ExecutionContextExecutor {
+    private[this] val pool = Executors.newCachedThreadPool(daemonFactory(getClass.getSimpleName, newThreadGroup(getClass.getSimpleName)))
+    def execute(r: Runnable) = pool.execute(r)
+    def reportFailure(t: Throwable) = t.printStackTrace()
+  }
+
+  val PiggyBack = new SameThreadExecutor {
     def reportFailure(t: Throwable) = throw t
   }
 

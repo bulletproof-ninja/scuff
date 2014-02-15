@@ -2,6 +2,7 @@ package scuff.eventual
 
 import scuff._
 import scala.concurrent._
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util._
 import java.util.concurrent.{ TimeUnit, ScheduledFuture }
 
@@ -20,41 +21,52 @@ final class EventStream[ID, EVT, CAT](
 
   type Transaction = EventSource[ID, EVT, CAT]#Transaction
 
-  
-  
+  /**
+   * A durable consumer goes through two
+   * stages,
+   * 1) Historic mode. First time run or
+   * resumption after downtime will result
+   * in feeding of historic data.
+   * 2) Live mode. Consumer should now be
+   * finished historically and messages now
+   * recieved are live.
+   */
   trait DurableConsumer {
-    /**
-     * Expected revision for a given stream.
-     * If unknown stream, return 0.
-     */
-    def nextExpectedRevision(stream: ID): Int
-    /**
-     * Last processed timestamp.
-     */
-    def lastTimestamp: Option[Timestamp]
-    /** Consume transaction. */
-    def consume(txn: Transaction)
+    trait LiveConsumer {
+      /**
+       * Expected revision for a given stream.
+       * If unknown stream, return 0.
+       */
+      def nextExpectedRevision(stream: ID): Int
+      /** Consume live transaction. */
+      def consumeLive(txn: Transaction)
+    }
+    def resumeFrom(): Option[Timestamp]
+    def startLive(): LiveConsumer
+
+    /** Consume historic transaction. */
+    def consumeHistoric(txn: Transaction)
 
     /** Categories. Empty means all. */
     def categoryFilter: Set[CAT]
   }
 
-  private class ConsumerProxy(consumer: DurableConsumer) extends (Transaction ⇒ Unit) {
+  private class ConsumerProxy(consumer: DurableConsumer#LiveConsumer) extends (Transaction ⇒ Unit) {
     private[EventStream] val subPromise = Promise[Subscription]
     private val subscription: Future[Subscription] = subPromise.future
 
     def apply(txn: Transaction) = try {
-      consumer.consume(txn)
+      consumer.consumeLive(txn)
     } catch {
       case e: Throwable ⇒
-        subscription.foreach(_.cancel)(Threads.PiggyBack)
+        subscription.foreach(_.cancel)
         throw e
     }
   }
 
   private[this] val pendingReplays = new LockFreeConcurrentMap[ID, ScheduledFuture[_]]
 
-  private def AsyncSequencedConsumer(consumer: DurableConsumer): ConsumerProxy =
+  private def AsyncSequencedConsumer(consumer: DurableConsumer#LiveConsumer): ConsumerProxy =
     new ConsumerProxy(consumer) with util.SequencedTransactionHandler[ID, EVT, CAT] with util.AsyncTransactionHandler[ID, EVT, CAT] { self: ConsumerProxy ⇒
       def asyncTransactionCtx = consumerExecCtx
       def onGapDetected(id: ID, expectedRev: Int, actualRev: Int) {
@@ -87,21 +99,21 @@ final class EventStream[ID, EVT, CAT](
         var lastTs: Long = -1L
         txns.foreach { txn ⇒
           lastTs = txn.timestamp
-          consumer.consume(txn)
+          consumer.consumeHistoric(txn)
         }
         if (lastTs == -1L) None else Some(new Timestamp(lastTs))
       }
-    val futureReplay: Future[Option[Timestamp]] = consumer.lastTimestamp match {
+    val futureReplay: Future[Option[Timestamp]] = consumer.resumeFrom match {
       case None ⇒ es.replay(categorySet.toSeq: _*)(replayConsumer)
       case Some(lastTime) ⇒ es.replayFrom(lastTime, categorySet.toSeq: _*)(replayConsumer)
     }
     futureReplay.flatMap { lastTime ⇒
-      val safeConsumer = AsyncSequencedConsumer(consumer)
+      val safeConsumer = AsyncSequencedConsumer(consumer.startLive())
       val sub = es.subscribe(safeConsumer, categoryFilter)
       safeConsumer.subPromise.success(sub)
       // Close the race condition; replay anything missed between replay and subscription
-      es.replayFrom(lastTime.getOrElse(starting), categorySet.toSeq: _*)(_.foreach(safeConsumer)).map(_ ⇒ sub)(Threads.PiggyBack)
-    }(Threads.PiggyBack)
+      es.replayFrom(lastTime.getOrElse(starting), categorySet.toSeq: _*)(_.foreach(safeConsumer)).map(_ ⇒ sub)
+    }
   }
 }
 

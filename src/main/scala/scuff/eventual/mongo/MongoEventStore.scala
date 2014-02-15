@@ -11,7 +11,6 @@ import scala.util._
 private object MongoEventStore {
   final val OrderByTime_asc = obj("time" := ASC)
   final val OrderByRevision_asc = obj("_id.rev" := ASC)
-  //  final val OrderByRevision_desc = ( := DESC)
 
   def ensureIndicies(coll: RichDBCollection): RichDBCollection = {
     coll.ensureIndex("_id.stream" := ASC, "_id.rev" := ASC)

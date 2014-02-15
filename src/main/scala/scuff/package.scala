@@ -34,6 +34,22 @@ package object scuff {
     def unsafeLong(stopper: Numbers.Stopper = Numbers.NonStop, offset: Int = 0): Long =
       Numbers.unsafeLong(str, offset)(stopper)
 
+    def substringEquals(offset: Int, compareTo: CharSequence): Boolean = {
+        @annotation.tailrec
+        def allCharsEqual(thisOffset: Int, thatOffset: Int): Boolean = {
+          if (thatOffset < compareTo.length) {
+            if (str.charAt(thisOffset) == compareTo.charAt(thatOffset)) {
+              allCharsEqual(thisOffset + 1, thatOffset + 1)
+            } else {
+              false
+            }
+          } else {
+            true
+          }
+        }
+      str.length - offset >= compareTo.length && allCharsEqual(offset, 0)
+    }
+
   }
 
   implicit final class ScuffLock(val lock: java.util.concurrent.locks.Lock) extends AnyVal {

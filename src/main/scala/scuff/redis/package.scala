@@ -56,6 +56,14 @@ package object redis {
         case e: Exception ⇒ try { txn.discard() } catch { case _: Exception ⇒ /* Ignore */ }; throw e
       }
     }
+
+    def pipeline[T](block: Pipeline ⇒ T): T = {
+      val pl = jedis.pipelined()
+      val t = block(pl)
+      pl.sync()
+      t
+    }
+
   }
 
   //  def atomicUpdate(jedis: Jedis, key: String)(updater: String ⇒ String) {
@@ -74,7 +82,7 @@ package object redis {
 
   type CONNECTION = (Jedis ⇒ Any) ⇒ Any
   /** Construct object by using a thread-safe connection pool. */
-  def threadSafe[T](pool: RedisConnectionPool)(factory: CONNECTION ⇒ T): T = factory(block ⇒ pool.connection(block))
+  def threadSafe[T](pool: RedisConnectionPool)(factory: CONNECTION ⇒ T): T = factory(block ⇒ pool.connection()(block))
   /** Construct object by using an on-demand connection. */
   def singleThreaded[T](config: JedisShardInfo, db: Int = 0)(factory: CONNECTION ⇒ T): T = {
     val jedis = new Jedis(config)
@@ -82,7 +90,7 @@ package object redis {
       jedis.select(db)
       factory(block ⇒ block(jedis))
     } finally {
-      jedis.disconnect()
+      jedis.quit()
     }
   }
   /** Construct object by using a non-shared existing connection. */
