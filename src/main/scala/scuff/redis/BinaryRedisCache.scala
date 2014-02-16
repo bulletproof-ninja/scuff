@@ -20,10 +20,10 @@ class BinaryRedisCache[K, V](val defaultTTL: Int, conn: CONNECTION, keySer: scuf
     }
 
   def evict(key: K): Option[V] = {
-    val keyBytes = keySer.encode(key)
+    val keyBytes: Array[Byte] = keySer.encode(key)
     val removed = atomic { txn ⇒
       val removed = txn.get(keyBytes)
-      txn.del(keyBytes)
+      (txn: BinaryRedisPipeline).del(keyBytes: Array[Byte])
       removed
     }
     Option(removed.get).map(valueSer.decode)

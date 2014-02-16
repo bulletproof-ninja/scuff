@@ -56,7 +56,7 @@ class BinaryRedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueS
     val removed = connection { conn ⇒
       conn.transaction() { txn ⇒
         val removed = txn.get(keyBytes)
-        txn.del(keyBytes)
+        (txn: BinaryRedisPipeline).del(keyBytes)
         removed
       }
     }
@@ -117,7 +117,7 @@ class BinaryRedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueS
   def remove(key: K, expectedValue: V): Boolean = {
     val keyBytes = keySer.encode(key)
     val result = watch(keyBytes)(expectedValue == _) { txn ⇒
-      txn.del(keyBytes)
+      (txn: BinaryRedisPipeline).del(keyBytes)
     }
     result.isDefined
   }
