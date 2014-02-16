@@ -81,8 +81,8 @@ trait HttpCachingMixin extends HttpServlet with HttpCaching {
 
   abstract override def doGet(req: HttpServletRequest, res: HttpServletResponse) {
     makeCacheKey(req) match {
-      case Some(cacheKey) ⇒ respond(cacheKey, req, res) { res ⇒ super.service(req, res) }
-      case None ⇒ super.service(req, res)
+      case Some(cacheKey) ⇒ respond(cacheKey, req, res) { res ⇒ super.doGet(req, res) }
+      case _ ⇒ super.doGet(req, res)
     }
   }
 }
