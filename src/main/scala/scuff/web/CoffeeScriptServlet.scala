@@ -5,33 +5,68 @@ import http._
 import HttpHeaders._
 import scuff.js._
 import java.net.URL
-import scuff.js.CoffeeScriptCompiler
 import CoffeeScriptCompiler._
+import scuff.ResourcePool
+import scala.util.Try
+import concurrent.duration._
+
+private object CoffeeScriptServlet {
+  import CoffeeScriptCompiler._
+  def DefaultConfig(engineName: String) = new Config(
+    options = Map('bare -> false), engineName = engineName,
+    useDirective = Use.Strict)
+  def IcedConfig(engineName: String) = new Config(
+    options = Map('bare -> false), engineName = engineName,
+    useDirective = Use.Strict, compiler = Version.Iced.compiler)
+  val lastModifiedMap = new scuff.LockFreeConcurrentMap[String, Option[Long]]
+
+}
 
 /**
  * Perform on-the-fly conversion of CoffeeScript
  * to JavaScript.
  * <p>Use with [[scuff.web.Ice]] for Iced CoffeeScript.
  */
-abstract class CoffeeScriptServlet extends HttpServlet {
-  import CoffeeScriptCompiler.Use
+abstract class CoffeeScriptServlet extends HttpServlet with FileResourceLookup with HttpCaching {
+  import CoffeeScriptCompiler._
+  import CoffeeScriptServlet._
 
-  protected def newCoffeeCompiler() = CoffeeScriptCompiler(Use.Strict, Fork.Original, 'bare -> false)
-
-  protected def coffeeCompilation(coffeeScript: String, filename: String): String = newCoffeeCompiler().compile(coffeeScript, filename)
-
-  private def findResource(path: String): Option[(URL, Long)] = {
-    getServletContext.getResource(path) match {
-      case null ⇒ None
-      case url ⇒
-        val file = new java.io.File(url.toURI)
-        if (file.exists) {
-          Some(url -> file.lastModified)
-        } else {
-          None
-        }
+  /**
+   * Javascript engine name. We default
+   * to "rhino" because "nashorn" is slow
+   * to the point of being unusable for
+   * this.
+   */
+  protected def jsEngineName = "rhino"
+  protected def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.DefaultConfig(jsEngineName))
+  private[this] val compilerPool = new ResourcePool[CoffeeScriptCompiler](createCompiler) {
+    // Don't discard compiler on exception 
+    override def borrow[A](thunk: CoffeeScriptCompiler ⇒ A): A = {
+      val result = super.borrow { compiler ⇒
+        Try(thunk(compiler))
+      }
+      result.get
     }
   }
+
+  private def createCompiler = {
+    val started = System.currentTimeMillis()
+    val comp = newCoffeeCompiler()
+    val dur = System.currentTimeMillis() - started
+    log(s"Initialized ${comp.getClass.getName} in $dur ms.")
+    comp
+  }
+  private def onCompilerTimeout(comp: CoffeeScriptCompiler) {
+    log(s"${comp.getClass.getName} instance removed from pool. ${compilerPool.size} remaining.")
+  }
+
+  override def init() {
+    super.init()
+    compilerPool.startPruningThread(120.minutes, onCompilerTimeout)
+  }
+
+  protected def coffeeCompilation(coffeeScript: String, filename: String): String =
+    compilerPool.borrow(_.compile(coffeeScript, filename))
 
   private def compile(path: String, url: URL): String = {
     val script = url.openStream()
@@ -51,7 +86,7 @@ abstract class CoffeeScriptServlet extends HttpServlet {
   protected def maxAge(req: HttpServletRequest): Int
 
   private def respond(req: HttpServletRequest, res: HttpServletResponse) {
-    findResource(req.getServletPath) match {
+    findResource(req) match {
       case None ⇒ res.setStatus(HttpServletResponse.SC_NOT_FOUND)
       case Some((url, lastModified)) ⇒
         if (req.IfModifiedSince(lastModified)) {
@@ -78,14 +113,28 @@ abstract class CoffeeScriptServlet extends HttpServlet {
     }
   }
 
+  protected def isProduction: Boolean
+
+  def fetchLastModified(req: HttpServletRequest) =
+    if (isProduction) {
+      lastModifiedMap.get(req.getServletPath).getOrElse {
+        val last = findResource(req).map(_._2)
+        lastModifiedMap.put(req.getServletPath, last)
+        last
+      }
+    } else {
+      findResource(req).map(_._2)
+    }
+
+  def makeCacheKey(req: HttpServletRequest) = Some(req.getServletPath)
+
 }
 
 trait Ice { self: CoffeeScriptServlet ⇒
-  import CoffeeScriptCompiler.Use
-  final override def newCoffeeCompiler() = CoffeeScriptCompiler(Use.Strict, Fork.Iced, 'bare -> false)
+  final override def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.IcedConfig(jsEngineName))
 }
 
-trait Redux { self: CoffeeScriptServlet ⇒
-  import CoffeeScriptCompiler.Use
-  final override def newCoffeeCompiler() = CoffeeScriptCompiler(Use.Strict, Fork.Redux, 'bare -> false)
-}
+//trait Redux { self: CoffeeScriptServlet ⇒
+//  import CoffeeScriptCompiler.Use
+//  final override def newCoffeeCompiler() = new CoffeeScriptCompiler()
+//}
