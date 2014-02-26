@@ -25,10 +25,7 @@ object Mongolia {
     def this(fieldName: String, cause: Throwable) = this(fieldName, cause, cause.getMessage)
     def this(fieldName: String, message: String) = this(fieldName, null, message)
   }
-  private val coffeeConfig = {
-    import js.CoffeeScriptCompiler._
-    new Config(options = Map('bare -> true))(Version.Original.compiler)
-  }
+  private val coffeeConfig =  new js.CoffeeScriptCompiler.Config(options = Map('bare -> true))
   private val coffeeCompilerPool = new ResourcePool(new js.CoffeeScriptCompiler(coffeeConfig))
 
   final class Assignment(key: String) {
