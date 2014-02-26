@@ -19,7 +19,7 @@ object Threads {
   }
 
   object Blocking extends ExecutionContextExecutor {
-    private[this] val pool = Executors.newCachedThreadPool(daemonFactory(getClass.getSimpleName, newThreadGroup(getClass.getSimpleName)))
+    private[this] val pool = Executors.newCachedThreadPool(daemonFactory(getClass.getName, newThreadGroup(getClass.getName)))
     def execute(r: Runnable) = pool.execute(r)
     def reportFailure(t: Throwable) = t.printStackTrace()
   }
