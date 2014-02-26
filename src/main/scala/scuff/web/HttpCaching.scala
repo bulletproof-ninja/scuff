@@ -5,7 +5,7 @@ import http._
 import HttpServletResponse._
 import scuff.LRUHeapCache
 
-private object HttpCaching {
+object HttpCaching {
   case class Cached(bytes: Array[Byte], lastModified: Option[Long], headers: Iterable[(String, Iterable[String])], contentType: String, encoding: String, locale: java.util.Locale) {
     require(bytes.length > 0, "Empty content of type %s".format(contentType))
     lazy val eTag = {
@@ -28,12 +28,13 @@ private object HttpCaching {
   }
 }
 
-private[web] sealed trait HttpCaching {
+trait HttpCaching extends HttpServlet {
   import HttpCaching._
 
-  private[this] lazy val defaultCache = new LRUHeapCache[Any, Any](Int.MaxValue, 0)
-  protected def cache: scuff.Cache[Any, Any] = defaultCache
-  private def theCache = cache.asInstanceOf[scuff.Cache[Any, Cached]]
+  private lazy val defaultCache = new LRUHeapCache[Any, Cached](Int.MaxValue, 0)
+  protected def cache: scuff.Cache[Any, Cached] = defaultCache
+
+  protected def fetchLastModified(req: HttpServletRequest): Option[Long]
   protected def makeCacheKey(req: HttpServletRequest): Option[Any]
 
   private case object NotOkException extends RuntimeException {
@@ -54,14 +55,23 @@ private[web] sealed trait HttpCaching {
     val lastMod = proxy.getDateHeaders(HttpHeaders.LastModified).headOption
     new Cached(proxy.getBytes, lastMod, proxy.headers.values, proxy.getContentType, proxy.getCharacterEncoding, proxy.getLocale)
   }
-  protected[web] def respond(cacheKey: Any, req: RichRequest, res: HttpServletResponse)(getResource: HttpServletResponse ⇒ Unit) =
+  private def respond(cacheKey: Any, req: HttpServletRequest, res: HttpServletResponse)(getResource: HttpServletResponse ⇒ Unit) =
     try {
-      val cached = theCache.lookupOrStore(cacheKey)(fetchResource(res, getResource))
-      val isModified = cached.lastModified match {
+      val cached = cache.lookupOrStore(cacheKey)(fetchResource(res, getResource)) match {
+        case currCache ⇒
+          if (currCache.lastModified != fetchLastModified(req)) { // Server cache invalid
+            val freshCache = fetchResource(res, getResource)
+            cache.store(cacheKey, freshCache)
+            freshCache
+          } else {
+            currCache
+          }
+      }
+      val isClientCacheInvalid = cached.lastModified match {
         case Some(lastModified) ⇒ req.IfModifiedSince(lastModified)
         case None ⇒ !req.IfNoneMatch(cached.eTag)
       }
-      if (isModified) {
+      if (isClientCacheInvalid) {
         cached.flushTo(res)
       } else {
         res.setStatus(SC_NOT_MODIFIED)
@@ -69,11 +79,6 @@ private[web] sealed trait HttpCaching {
     } catch {
       case NotOkException ⇒ // Response already populated
     }
-}
-
-trait HttpCachingMixin extends HttpServlet with HttpCaching {
-  import HttpCaching._
-
   abstract override def destroy {
     cache.disable()
     super.destroy()
@@ -85,24 +90,5 @@ trait HttpCachingMixin extends HttpServlet with HttpCaching {
       case _ ⇒ super.doGet(req, res)
     }
   }
+
 }
-
-trait HttpCachingFilterMixin extends Filter with HttpCaching {
-  import HttpCaching._
-
-  abstract override def destroy {
-    cache.disable()
-    super.destroy()
-  }
-
-  abstract override def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = (req, res) match {
-    case (req: HttpServletRequest, res: HttpServletResponse) ⇒ makeCacheKey(req) match {
-      case Some(cacheKey) ⇒ respond(cacheKey, req, res) { res ⇒ super.doFilter(req, res, chain) }
-      case None ⇒ super.doFilter(req, res, chain)
-    }
-    case _ ⇒ super.doFilter(req, res, chain)
-  }
-}
-
-abstract class HttpCachingFilter extends NoOpFilter with HttpCachingFilterMixin
-
