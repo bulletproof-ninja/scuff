@@ -25,8 +25,11 @@ object Mongolia {
     def this(fieldName: String, cause: Throwable) = this(fieldName, cause, cause.getMessage)
     def this(fieldName: String, message: String) = this(fieldName, null, message)
   }
-
-  private lazy val coffeeCompiler = js.CoffeeScriptCompiler('bare -> true)
+  private val coffeeConfig = {
+    import js.CoffeeScriptCompiler._
+    new Config(options = Map('bare -> true))(Version.Original.compiler)
+  }
+  private val coffeeCompilerPool = new ResourcePool(new js.CoffeeScriptCompiler(coffeeConfig))
 
   final class Assignment(key: String) {
     def :=(value: BsonValue) = new BsonProp(key, value)
@@ -1048,7 +1051,7 @@ object Mongolia {
   object MapReduce {
     private val FunctionMatcher = """^(map|reduce)\s*=\s*""".r.pattern
     private def compileCoffeeFunction(func: String) = {
-      val js = coffeeCompiler.compile(func).trim()
+      val js = coffeeCompilerPool.borrow(_.compile(func)).trim()
       js.substring(1, js.length - 2)
     }
     def coffee(map: String, reduce: String): MapReduce = {
