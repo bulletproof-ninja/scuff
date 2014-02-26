@@ -8,7 +8,7 @@ import CoffeeScriptCompiler._
 class TestCoffeeScriptCompiler {
   @Test
   def simple2() {
-    val compiler = CoffeeScriptCompiler(Use.Strict)
+    val compiler = new CoffeeScriptCompiler(Config(useDirective = Use.Strict))
     val coffee = """
 arr = [3,5,23,67,34]
 [foo, bar] = arr
@@ -44,7 +44,7 @@ arr = [3,5,23,67,34]
 #sqr = (a) -> a*3
 boo = sqr 15
 """
-    val compiler = CoffeeScriptCompiler('bare -> true)
+    val compiler = new CoffeeScriptCompiler(Config(options = Map('bare -> true)))
     val js = compiler.compile(coffee).replaceAll("\\s", "")
     val expected =
       """
@@ -67,7 +67,7 @@ arr = [3,5,23,67,34]
 #sqr = (a) -> a*3
 boo = sqr 15
 """
-    val compiler = CoffeeScriptCompiler(Fork.Redux, 'bare -> true)
+    val compiler = new CoffeeScriptCompiler(new Config(options = Map('bare -> true), compiler = Version.Redux.compiler))
     val js = compiler.compile(coffee).replaceAll("\\s", "")
     val expected =
       """
