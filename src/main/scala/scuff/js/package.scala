@@ -4,18 +4,23 @@ import org.mozilla.javascript._
 import java.io._
 import java.nio.charset.Charset
 import language.implicitConversions
+import javax.script.ScriptContext
+import javax.script.ScriptEngineFactory
+import javax.script.ScriptEngineManager
+import javax.script.ScriptEngine
+import javax.script.Compilable
 
 package object js {
-  
+
   def UTF8 = Charset.forName("UTF-8")
-  
+
   def toJavascript(options: Seq[(Symbol, Any)]): String = {
     val sb = new java.lang.StringBuilder
       def appendValue(value: Any) {
         value match {
           case nb @ (_: java.lang.Number | _: Boolean | null) ⇒ sb append nb
           case s: Seq[_] ⇒
-            sb append "[" 
+            sb append "["
             s.foreach(appendValue)
             sb append "]"
           case s ⇒ sb append '"' append s append '"'
@@ -32,21 +37,16 @@ package object js {
     sb.toString
   }
 
-  def withContext[T](block: (Context) ⇒ T): T = {
-    val context = Context.enter()
-    try {
-      context.setOptimizationLevel(-1) // Prevent 64K bytecode limit
-      block(context)
-    } finally {
-      Context.exit()
-    }
-  }
-  
+  private[js] lazy val ScriptEngineMgr = new ScriptEngineManager()
+
   implicit def stringToReader(string: String) = new StringReader(string)
-  
+
   implicit def readerToString(reader: Reader) = {
     val sb = new java.lang.StringBuilder(1024)
-    val bufReader = if (reader.isInstanceOf[BufferedReader]) reader.asInstanceOf[BufferedReader] else new BufferedReader(reader)
+    val bufReader = reader match {
+      case br: BufferedReader ⇒ br
+      case _ ⇒ new BufferedReader(reader)
+    }
     var line = bufReader.readLine()
     while (line != null) {
       sb append line append '\n'

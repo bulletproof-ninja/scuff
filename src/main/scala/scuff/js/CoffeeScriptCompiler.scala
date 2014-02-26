@@ -1,18 +1,21 @@
 package scuff.js
 
-import scuff.js._
+import java.io.{ InputStreamReader, Reader }
 
-import org.mozilla.javascript._
-
-import java.io.{ Reader, InputStreamReader, BufferedReader }
+import javax.script.{ Compilable, ScriptEngine }
 
 object CoffeeScriptCompiler {
 
-  sealed trait Fork
-  case object Fork {
-    case object Original extends Fork
-    case object Iced extends Fork
-    case object Redux extends Fork
+  sealed abstract class Version(compilerPath: String) {
+    def compiler(): Reader = getClass().getResourceAsStream(compilerPath) match {
+      case null ⇒ sys.error("Cannot find compiler script in classpath: " + compilerPath)
+      case stream ⇒ new InputStreamReader(stream, "UTF-8")
+    }
+  }
+  case object Version {
+    case object Original extends Version("/META-INF/script/coffee-script.js")
+    case object Iced extends Version("/META-INF/script/iced-coffee-script.js")
+    case object Redux extends Version("/META-INF/script/CoffeeScriptRedux.js")
   }
 
   sealed abstract class Use(val directive: String)
@@ -21,59 +24,44 @@ object CoffeeScriptCompiler {
     case object ASM extends Use("\"use asm\";\n")
   }
 
+  case class Config(options: Map[Symbol, Any] = Map.empty, engineName: String = "javascript", useDirective: Use = null, compiler: () ⇒ Reader = Version.Original.compiler)
   private val coffeeScriptCodeVarName = "coffeeScriptCode"
 
-  def apply(options: (Symbol, Any)*): CoffeeScriptCompiler = apply(None, Fork.Original, options: _*)
-  def apply(fork: Fork, options: (Symbol, Any)*): CoffeeScriptCompiler = apply(None, fork, options: _*)
-  def apply(useDirective: Use, options: (Symbol, Any)*): CoffeeScriptCompiler = apply(Some(useDirective), Fork.Original, options: _*)
-  def apply(useDirective: Use, fork: Fork, options: (Symbol, Any)*): CoffeeScriptCompiler = apply(Some(useDirective), fork, options: _*)
-  def apply(useDirective: Option[Use], fork: Fork, options: (Symbol, Any)*): CoffeeScriptCompiler = {
-    val (src, reader) = {
-      val src = fork match {
-        case Fork.Original ⇒ "/META-INF/script/coffee-script.js"
-        case Fork.Iced ⇒ "/META-INF/script/iced-coffee-script.js"
-        case Fork.Redux ⇒ "/META-INF/script/CoffeeScriptRedux.js"
-      }
-      Option(getClass().getResourceAsStream(src)) match {
-        case Some(stream) ⇒ src.substring(src.lastIndexOf("/")+1) -> new InputStreamReader(stream, "UTF-8")
-        case None ⇒ throw new IllegalStateException("Cannot find compiler script in classpath: " + src)
-      }
-
-    }
-    this.apply(src, reader, useDirective, options: _*)
-  }
-  def apply(coffeeScriptCompilerName: String, coffeeScriptCompiler: Reader, useDirective: Option[Use], options: (Symbol, Any)*): CoffeeScriptCompiler = {
-    new CoffeeScriptCompiler(coffeeScriptCompilerName, coffeeScriptCompiler, useDirective.map(_.directive).getOrElse(""), options)
-  }
-
 }
 
-class CoffeeScriptCompiler private (compilerName: String, compilerSource: Reader, useDirective: String, options: Seq[(Symbol, Any)]) {
+/**
+ * NOTICE: An instance of this class IS NOT thread-safe.
+ */
+class CoffeeScriptCompiler(config: CoffeeScriptCompiler.Config) {
   import CoffeeScriptCompiler._
 
-  private val defaultOptions = options.toMap
+  private[this] val useDirective = Option(config.useDirective).map(_.directive).getOrElse("")
 
-  private def jsCompile(otherOptions: Seq[(Symbol, Any)]) = {
-    val options = defaultOptions ++ otherOptions
-    "CoffeeScript.compile(%s, %s);".format(coffeeScriptCodeVarName, toJavascript(options.toSeq))
+  private def jsCompile() = {
+    s"CoffeeScript.compile($coffeeScriptCodeVarName, ${toJavascript(config.options.toSeq)});"
   }
 
-  private val globalScope = try {
-    withContext { context ⇒
-      val globalScope = context.initStandardObjects()
-      context.evaluateReader(globalScope, compilerSource, compilerName, 0, null)
-      globalScope
+  private val coffeeCompiler = {
+    val compilerSource = config.compiler()
+    try {
+      ScriptEngineMgr.getEngineByName(config.engineName) match {
+        case engine: Compilable ⇒
+          val compSrc: String = compilerSource
+          engine.compile(compSrc + ";\n" + jsCompile())
+        case _ ⇒ sys.error(s"Cannot find '${config.engineName}' engine!")
+      }
+    } finally {
+      compilerSource.close()
     }
-  } finally {
-    compilerSource.close()
   }
 
-  def compile(coffeeScriptCode: String, name: String = "", options: Seq[(Symbol, Any)] = Seq.empty): String = withContext { context ⇒
-    val code = useDirective concat coffeeScriptCode
-    val compileScope = context.newObject(globalScope)
-    compileScope.setParentScope(globalScope)
-    compileScope.put(coffeeScriptCodeVarName, compileScope, code)
-    String.valueOf(context.evaluateString(compileScope, jsCompile(options), name, 0, null))
+  def compile(coffeeScriptCode: String, filename: String = ""): String = {
+    val coffeeCode = useDirective concat coffeeScriptCode
+    val bindings = coffeeCompiler.getEngine.createBindings()
+    bindings.put(ScriptEngine.FILENAME, filename)
+    bindings.put(coffeeScriptCodeVarName, coffeeCode)
+    String.valueOf(coffeeCompiler.eval(bindings))
   }
 
 }
+
