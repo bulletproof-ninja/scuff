@@ -15,9 +15,9 @@ import java.util.concurrent.{ TimeUnit, ScheduledFuture }
  * @param consumerFailureReporter Reporting function for consumer failures
  */
 final class EventStream[ID, EVT, CAT](
-    es: EventSource[ID, EVT, CAT],
-    consumerExecCtx: ExecutionContext,
-    gapReplayDelay: duration.Duration) {
+  es: EventSource[ID, EVT, CAT],
+  consumerExecCtx: ExecutionContext,
+  gapReplayDelay: duration.Duration) {
 
   type Transaction = EventSource[ID, EVT, CAT]#Transaction
 
@@ -29,7 +29,7 @@ final class EventStream[ID, EVT, CAT](
    * in feeding of historic data.
    * 2) Live mode. Consumer should now be
    * finished historically and messages now
-   * recieved are live.
+   * received are live.
    */
   trait DurableConsumer {
     trait LiveConsumer {
@@ -42,7 +42,11 @@ final class EventStream[ID, EVT, CAT](
       def consumeLive(txn: Transaction)
     }
     def resumeFrom(): Option[Timestamp]
-    def startLive(): LiveConsumer
+
+    /**
+     * Called when live consumption starts.
+     */
+    def onLive(): LiveConsumer
 
     /** Consume historic transaction. */
     def consumeHistoric(txn: Transaction)
@@ -94,21 +98,21 @@ final class EventStream[ID, EVT, CAT](
 
     val starting = new Timestamp
     val categorySet = consumer.categoryFilter
-      def categoryFilter(cat: CAT) = categorySet.isEmpty || categorySet.contains(cat)
-      def replayConsumer(txns: Iterator[Transaction]): Option[Timestamp] = {
-        var lastTs: Long = -1L
-        txns.foreach { txn ⇒
-          lastTs = txn.timestamp
-          consumer.consumeHistoric(txn)
-        }
-        if (lastTs == -1L) None else Some(new Timestamp(lastTs))
+    def categoryFilter(cat: CAT) = categorySet.isEmpty || categorySet.contains(cat)
+    def replayConsumer(txns: Iterator[Transaction]): Option[Timestamp] = {
+      var lastTs: Long = -1L
+      txns.foreach { txn ⇒
+        lastTs = txn.timestamp
+        consumer.consumeHistoric(txn)
       }
+      if (lastTs == -1L) None else Some(new Timestamp(lastTs))
+    }
     val futureReplay: Future[Option[Timestamp]] = consumer.resumeFrom match {
       case None ⇒ es.replay(categorySet.toSeq: _*)(replayConsumer)
       case Some(lastTime) ⇒ es.replayFrom(lastTime, categorySet.toSeq: _*)(replayConsumer)
     }
     futureReplay.flatMap { lastTime ⇒
-      val safeConsumer = AsyncSequencedConsumer(consumer.startLive())
+      val safeConsumer = AsyncSequencedConsumer(consumer.onLive())
       val sub = es.subscribe(safeConsumer, categoryFilter)
       safeConsumer.subPromise.success(sub)
       // Close the race condition; replay anything missed between replay and subscription
@@ -118,15 +122,10 @@ final class EventStream[ID, EVT, CAT](
 }
 
 object EventStream {
-  private val ConsumerThreadFactory = Threads.daemonFactory(classOf[EventStream[Any, Any, Any]#DurableConsumer].getName)
   import java.util.concurrent._
-  lazy private[this] val scheduler: ScheduledExecutorService = {
-    val exe = new ScheduledThreadPoolExecutor(math.max(1, Runtime.getRuntime.availableProcessors / 2))
-    exe.setKeepAliveTime(2, TimeUnit.MINUTES)
-    exe.allowCoreThreadTimeOut(true)
-    exe
-  }
-  private def schedule(r: Runnable, dur: duration.Duration) = scheduler.schedule(r, dur.toMillis, TimeUnit.MILLISECONDS)
+
+  private val ConsumerThreadFactory = Threads.daemonFactory(classOf[EventStream[Any, Any, Any]#DurableConsumer].getName)
+  private def schedule(r: Runnable, dur: duration.Duration) = Threads.DefaultScheduler.schedule(r, dur.toMillis, TimeUnit.MILLISECONDS)
 
   def serializedConsumption[ID, EVT, CAT](
     numThreads: Int,
