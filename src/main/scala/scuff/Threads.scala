@@ -3,14 +3,22 @@ package scuff
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContextExecutor
+import java.util.concurrent.Executor
 
 /**
  * Thread helper class.
  */
 object Threads {
 
-  lazy val DefaultScheduler = Executors.newScheduledThreadPool(Runtime.getRuntime.availableProcessors, Threads.factory("scuff.DefaultScheduler"))
+  lazy val DefaultScheduler = Executors.newScheduledThreadPool(Runtime.getRuntime.availableProcessors, Threads.daemonFactory("scuff.DefaultScheduler"))
 
+  def newSingleRunExecutor(tf: ThreadFactory): Executor = new Executor {
+    def execute(r: Runnable) {
+      val thread = tf.newThread(r)
+      r.run()
+    }
+  }
+  
   /**
    * `ExecutionContext`, which executes on the same thread.
    */
