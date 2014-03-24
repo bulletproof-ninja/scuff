@@ -11,7 +11,7 @@ class TestCache extends Serializable {
   import TestCache._
   @Test
   def foo {
-    val cache = new LRUDirectMemoryCache[String, Foo](10, 1, new JavaSerializer)
+    val cache = new LRUDirectMemoryCache[String, Foo](10, new JavaSerializer, 1)
     assertEquals(None, cache.lookup("foo"))
     val foo = cache.lookupOrStore("foo")(new Foo(123, "foo"))
     assertEquals(new Foo(123, "foo"), foo)

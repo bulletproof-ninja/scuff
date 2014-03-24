@@ -4,6 +4,12 @@ import org.junit._
 import org.junit.Assert._
 import org.bson.types._
 import com.mongodb._
+import scala.util.Try
+import scala.util.Failure
+import scala.util.Success
+import scala.reflect.ClassTag
+import java.util.Arrays
+import java.util.Locale
 
 class TestMongolia {
   import Mongolia._
@@ -420,4 +426,58 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
     val doc = obj("map" := map)
     assertEquals("""{"map":{"foo":["1","2"],"bar":["3","4"]}}""", doc.toJson)
   }
+
+  @Test
+  def emptyString() {
+    val strCdc = new Codec[String, BsonValue] {
+      def encode(a: String): BsonValue = new BsonValue { def raw = a }
+      def decode(b: BsonValue): String = {
+        val str = String valueOf b.raw
+        if (str.length == 0) null else str
+      }
+    }
+    val emptyStringAsNull: Map[Class[_], Codec[_, BsonValue]] = Map(classOf[String] -> strCdc)
+    trait Foo {
+      def bar: Option[String]
+      def baz: String
+    }
+    val foo = obj("bar" := "", "baz" := "").like[Foo](ClassTag(classOf[Foo]), emptyStringAsNull)
+    assertEquals(None, foo.bar)
+    Try(foo.baz) match {
+      case Failure(e: UnavailableValueException) ⇒ assertEquals("baz", e.fieldName)
+      case Success(baz) ⇒ fail(s"`baz` should not succeed: $baz")
+    }
+  }
+
+  @Test
+  def optionalArray() {
+    trait Foo {
+      def arr: Option[Array[Int]]
+    }
+    trait Bar {
+      def arr: IndexedSeq[Integer]
+    }
+    val doc = obj("arr" := arr(1, 2, 3))
+    val foo = doc.like[Foo]
+    foo.arr match {
+      case None ⇒ fail("Should have array")
+      case Some(array) ⇒ assertTrue(Arrays.equals(Array(1, 2, 3), array))
+    }
+    val bar = doc.like[Bar]
+    assertEquals(Seq(1, 2, 3), bar.arr)
+  }
+
+  @Test
+  def mapLocaleKey() {
+    trait Foo {
+      def byLang: Map[String, Array[String]]
+    }
+    val foo = obj("byLang" := obj("en" := arr("Hello", "World"), "es" := arr("Hola", "Mundo")))
+    val byLang = foo.like[Foo].byLang.map {
+      case (key, value) ⇒ Locale.forLanguageTag(key) -> value
+    }
+    assertEquals(Seq("Hello", "World"), byLang(Locale.ENGLISH).toSeq)
+    assertEquals(Seq("Hola", "Mundo"), byLang(Locale.forLanguageTag("es")).toSeq)
+  }
+
 }

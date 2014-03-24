@@ -48,6 +48,16 @@ abstract class AbstractEventStoreRepositoryTest {
   }
 
   @Test
+  def failedInvariants = doAsync { done ⇒
+    val newFoo = Aggr.create("Foo")
+    newFoo(AddNewNumber(-1))
+    repo.insert(newFoo).onComplete {
+      case Failure(_) ⇒ done.success("Fail on negative number")
+      case Success(_) ⇒ fail("Should not accept negative numbers")
+    }
+  }
+
+  @Test
   def saveNew = doAsync { done ⇒
     val newFoo = Aggr.create("Foo")
     assertEquals(1, newFoo.events.size)
@@ -176,6 +186,9 @@ abstract class AbstractEventStoreRepositoryTest {
 class Aggr(val id: String, onEvent: EventHandler[AggrEvent, AggrState], val revision: Option[Int] = None) extends AggregateRoot {
   type EVT = AggrEvent
   type ID = String
+  def checkInvariants() {
+    require(onEvent.state.numbers.filter(_ < 0).isEmpty, "Cannot contain negative numbers")
+  }
   def events: List[_ <: EVT] = onEvent.events
   private def aggr = onEvent.state
   def apply(cmd: AddNewNumber) {
