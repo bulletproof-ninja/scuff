@@ -71,7 +71,7 @@ object Password {
 
   def apply(password: String)(implicit config: Config): Password = {
     val salt = randomSalt(config.saltLength)
-    val (bytes, workFactor) = digestion(password, salt, config.algorithm, config.iterative)
+    val (bytes, workFactor) = digestion(password, salt, config.algorithm, config.work)
     new Password(bytes, config.algorithm, salt, workFactor)
   }
 
@@ -119,10 +119,10 @@ object Password {
    * or a minimum duration (don't go overboard here). Using a duration will be adaptive to the hardware
    * it's running on, and makes digestion time more predictable.
    */
-  case class Config(algorithm: String, saltLength: Int, iterative: Either[Int, Duration]) {
+  case class Config(algorithm: String, saltLength: Int, work: Either[Int, Duration]) {
     require(MessageDigest.getInstance(algorithm) != null)
     require(saltLength >= 0, "Negative salt length is nonsensical")
-    iterative match {
+    work match {
       case Left(workFactor) ⇒ require(workFactor > 0, "Must have a work factor of at least one, not " + workFactor)
       case Right(duration) ⇒ require(duration.isFinite, "Must be a finite duration: " + duration)
     }
@@ -137,7 +137,7 @@ object Password {
      * @param saltLength The length of the random salt generated. Can be 0 for no salt.
      * @param digestDuration Minimum amount of time spent on iterative digestion
      */
-    def this(algorithm: String, saltLength: Int, digestDuration: Duration) = this(algorithm, saltLength, Right(digestDuration))
+    def this(algorithm: String, saltLength: Int, workDuration: Duration) = this(algorithm, saltLength, Right(workDuration))
   }
 
 }
