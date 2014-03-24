@@ -3,11 +3,11 @@ package scuff.redis
 import _root_.redis.clients.jedis._
 
 class BinaryRedisCache[K, V](val defaultTTL: Int, conn: CONNECTION, keySer: scuff.Serializer[K], valueSer: scuff.Serializer[V])
-    extends scuff.Cache[K, V] {
+  extends scuff.Cache[K, V] with scuff.Expiry[K, V] {
 
-  @volatile private[this] var disabled = false
-  private def connection[T] = if (disabled) {
-    throw new IllegalStateException("Cache has been disabled")
+  @volatile private[this] var isShutdown = false
+  private def connection[T] = if (isShutdown) {
+    throw new IllegalStateException("Cache has been shut down")
   } else {
     conn.asInstanceOf[(Jedis ⇒ T) ⇒ T]
   }
@@ -72,9 +72,9 @@ class BinaryRedisCache[K, V](val defaultTTL: Int, conn: CONNECTION, keySer: scuf
     }
   }
 
-  def disable() {
+  def shutdown() {
     connection(_.flushDB)
-    disabled = true
+    isShutdown = true
   }
 
   import collection.JavaConverters._

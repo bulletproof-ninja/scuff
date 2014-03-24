@@ -4,11 +4,11 @@ import java.util.concurrent.locks._
 import java.nio._
 
 /**
-  * This cache allows you to store arbitrary sized objects off 
-  * the JVM heap, thereby not affecting GC times.
-  */
-final class LRUDirectMemoryCache[K, V](maxCapacity: Int, val defaultTTL: Int, ser: Serializer[V], staleCheckFreq: Int = 10, lock: ReadWriteLock = new ReentrantReadWriteLock)
-    extends Cache[K, V] {
+ * This cache allows you to store arbitrary sized objects off
+ * the JVM heap, thereby not affecting GC times.
+ */
+final class LRUDirectMemoryCache[K, V](maxCapacity: Int, ser: Serializer[V], val defaultTTL: Int = 0, staleCheckFreq: Int = 10, lock: ReadWriteLock = new ReentrantReadWriteLock)
+  extends Cache[K, V] with Expiry[K, V] {
 
   private[this] val impl = new LRUHeapCache[K, ByteBuffer](maxCapacity, defaultTTL, staleCheckFreq, lock)
 
@@ -31,7 +31,7 @@ final class LRUDirectMemoryCache[K, V](maxCapacity: Int, val defaultTTL: Int, se
   def evict(key: K): Option[V] = impl.evict(key).map(toValue)
   def lookup(key: K): Option[V] = impl.lookup(key).map(toValue)
   def lookupOrStore(key: K, ttlSeconds: Int)(constructor: ⇒ V): V = toValue(impl.lookupOrStore(key, ttlSeconds)(toBuffer(constructor)))
-  def disable() = impl.disable()
+  def shutdown() = impl.shutdown()
   def lookupAndRefresh(key: K, ttl: Int): Option[V] = impl.lookupAndRefresh(key, ttl).map(toValue)
   def refresh(key: K, ttl: Int) = impl.refresh(key, ttl)
 }
