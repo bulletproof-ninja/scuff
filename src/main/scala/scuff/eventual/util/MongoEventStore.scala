@@ -1,4 +1,4 @@
-package scuff.eventual.mongo
+package scuff.eventual.util
 
 import scuff._
 import Mongolia._
@@ -7,6 +7,7 @@ import org.bson.types._
 import java.util.Date
 import concurrent._
 import scala.util._
+import scala.collection.JavaConverters.asScalaIteratorConverter
 
 private object MongoEventStore {
   final val OrderByTime_asc = obj("time" := ASC)
@@ -66,25 +67,22 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
 
   def replayStreamSince[T](stream: ID, sinceRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
     val filter = obj(
-      "_id" := obj(
-        "stream" := stream,
-        "rev" := $gt(sinceRevision)))
+      "_id.stream" := stream,
+      "_id.rev" := $gt(sinceRevision))
     query(filter, OrderByRevision_asc, callback)
   }
   def replayStreamTo[T](stream: ID, toRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
     val filter = obj(
-      "_id" := obj(
-        "stream" := stream,
-        "rev" := $lte(toRevision)))
+      "_id.stream" := stream,
+      "_id.rev" := $lte(toRevision))
     query(filter, OrderByRevision_asc, callback)
   }
   def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.Range)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
     val lowerBound = $gte(revisionRange.head)
     val upperBound = if (revisionRange.isInclusive) $lte("_id.rev" := revisionRange.last) else $lt("_id.rev" := revisionRange.last)
     val filter = obj(
-      "_id" := obj(
-        "stream" := stream,
-        "rev" := obj(lowerBound, upperBound)))
+      "_id.stream" := stream,
+      "_id.rev" := obj(lowerBound, upperBound))
     val txnCallback = if (revisionRange.step == 1L) callback else (iter: Iterator[Transaction]) ⇒ callback(iter.filter(txn ⇒ revisionRange.contains(txn.revision)))
     query(filter, OrderByRevision_asc, txnCallback)
   }

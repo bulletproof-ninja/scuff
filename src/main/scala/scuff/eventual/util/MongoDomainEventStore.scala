@@ -1,4 +1,4 @@
-package scuff.eventual.mongo
+package scuff.eventual.util
 
 import scuff.ddd._
 import scuff.Mongolia._
