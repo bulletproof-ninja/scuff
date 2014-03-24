@@ -1,8 +1,7 @@
-package scuff.eventual.redis
+package scuff.eventual.util
 
-import concurrent.Future
-import concurrent.duration.{ Duration, DurationInt }
-import scuff.{ Codec, Numbers, ScuffString, Timestamp, redis }
+import concurrent.duration.{Duration, DurationInt}
+import scuff.{Codec, Timestamp}
 import _root_.redis.clients.jedis.Jedis
 
 /**
@@ -10,7 +9,7 @@ import _root_.redis.clients.jedis.Jedis
  * which is helpful for durable subscribers. For simplicity, a
  * data string is attached to each update, for keeping state.
  */
-final class EventStreamTracker[ID](
+final class RedisStreamTracker[ID](
     HashKey: String,
     clockSkew: Duration = 2.seconds)(implicit idCdc: Codec[ID, String]) {
 
