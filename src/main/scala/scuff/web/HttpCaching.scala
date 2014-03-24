@@ -80,7 +80,7 @@ trait HttpCaching extends HttpServlet {
       case NotOkException ⇒ // Response already populated
     }
   abstract override def destroy {
-    cache.disable()
+    cache.shutdown()
     super.destroy()
   }
 

@@ -62,7 +62,7 @@ abstract class CoffeeScriptServlet extends HttpServlet with FileResourceLookup w
 
   override def init() {
     super.init()
-    compilerPool.startPruningThread(120.minutes, onCompilerTimeout)
+    compilerPool.startPruning(120.minutes, onCompilerTimeout)
   }
 
   protected def coffeeCompilation(coffeeScript: String, filename: String): String =
