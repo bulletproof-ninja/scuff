@@ -4,14 +4,12 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
-
 import scala.collection.GenTraversableOnce
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
-
 import org.bson.types._
-
 import com.mongodb._
+import scala.util.Try
 
 /**
  * Convenience DSL for the MongoDB Java driver.
@@ -25,7 +23,7 @@ object Mongolia {
     def this(fieldName: String, cause: Throwable) = this(fieldName, cause, cause.getMessage)
     def this(fieldName: String, message: String) = this(fieldName, null, message)
   }
-  private val coffeeConfig =  new js.CoffeeScriptCompiler.Config(options = Map('bare -> true))
+  private val coffeeConfig = new js.CoffeeScriptCompiler.Config(options = Map('bare -> true))
   private val coffeeCompilerPool = new ResourcePool(new js.CoffeeScriptCompiler(coffeeConfig))
 
   final class Assignment(key: String) {
@@ -198,6 +196,63 @@ object Mongolia {
       case arr: Array[Byte] ⇒ arr
       case bin: Binary ⇒ bin.getData
       case _ ⇒ throw new RuntimeException("Cannot coerce %s into Array[Byte]".format(b.raw.getClass.getName))
+    }
+  }
+  implicit val IACdc = new Codec[Array[Int], BsonValue] {
+    def encode(a: Array[Int]): BsonValue = new Value(arr(a: _*))
+    def decode(b: BsonValue): Array[Int] = b.raw match {
+      case arr: Array[Int] ⇒ arr
+      case list: java.util.List[_] ⇒
+        val array = new Array[Int](list.size)
+        val iter = list.iterator()
+        var idx = 0
+        while (iter.hasNext) {
+          iter.next match {
+            case n: Number ⇒ array(idx) = n.intValue
+            case v ⇒ throw new RuntimeException(s"Cannot coerce $v into Int")
+          }
+          idx += 1
+        }
+        array
+      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Array[Int]".format(b.raw.getClass.getName))
+    }
+  }
+  implicit val LACdc = new Codec[Array[Long], BsonValue] {
+    def encode(a: Array[Long]): BsonValue = new Value(arr(a: _*))
+    def decode(b: BsonValue): Array[Long] = b.raw match {
+      case arr: Array[Long] ⇒ arr
+      case list: java.util.List[_] ⇒
+        val array = new Array[Long](list.size)
+        val iter = list.iterator()
+        var idx = 0
+        while (iter.hasNext) {
+          iter.next match {
+            case n: Number ⇒ array(idx) = n.longValue
+            case v ⇒ throw new RuntimeException(s"Cannot coerce $v into Long")
+          }
+          idx += 1
+        }
+        array
+      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Array[Long]".format(b.raw.getClass.getName))
+    }
+  }
+  implicit val DACdc = new Codec[Array[Double], BsonValue] {
+    def encode(a: Array[Double]): BsonValue = new Value(arr(a: _*))
+    def decode(b: BsonValue): Array[Double] = b.raw match {
+      case arr: Array[Double] ⇒ arr
+      case list: java.util.List[_] ⇒
+        val array = new Array[Double](list.size)
+        val iter = list.iterator()
+        var idx = 0
+        while (iter.hasNext) {
+          iter.next match {
+            case n: Number ⇒ array(idx) = n.doubleValue
+            case v ⇒ throw new RuntimeException(s"Cannot coerce $v into Double")
+          }
+          idx += 1
+        }
+        array
+      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Array[Double]".format(b.raw.getClass.getName))
     }
   }
   implicit val BinCdc = new Codec[Binary, BsonValue] {
@@ -532,7 +587,7 @@ object Mongolia {
   }
   final class Value private[Mongolia] (val raw: Any) extends BsonField with BsonValue {
     override def toString() = "%s = %s".format(raw.getClass.getName, raw)
-    def opt[T](implicit codec: Codec[T, BsonValue]): Option[T] = Some(codec.decode(this))
+    def opt[T](implicit codec: Codec[T, BsonValue]): Option[T] = Option(codec.decode(this))
     def as[T](implicit codec: Codec[T, BsonValue]): T = codec.decode(this)
     def asSeqOfOption[T](implicit codec: Codec[T, BsonValue]): IndexedSeq[Option[T]] = {
       val list: Iterable[_] = anyToIterable(raw)
@@ -987,7 +1042,7 @@ object Mongolia {
     list
   }
 
-  def _id[T](value: T)(implicit codec: Codec[T, BsonValue]) = "_id" := value
+  def _id[T](value: T)(implicit codec: Codec[T, BsonValue]) = obj("_id" := value)
   def $gt[T](value: T)(implicit codec: Codec[T, BsonValue]) = "$gt" := value
   def $gte[T](value: T)(implicit codec: Codec[T, BsonValue]) = "$gte" := value
   def $lt[T](value: T)(implicit codec: Codec[T, BsonValue]) = "$lt" := value
@@ -1132,6 +1187,10 @@ object Mongolia {
       classOf[BigDecimal] -> BDCdc,
       classOf[ObjectId] -> OIDCdc,
       classOf[Array[Byte]] -> BACdc,
+      classOf[Array[Int]] -> IACdc,
+      classOf[Array[Long]] -> LACdc,
+      classOf[Array[Double]] -> DACdc,
+      classOf[Array[String]] -> ArrayListCdc[String],
       classOf[Timestamp] -> TsCdc,
       classOf[java.util.Date] -> DateCdc,
       classOf[java.util.TimeZone] -> TzCdc,
@@ -1145,7 +1204,12 @@ object Mongolia {
 
     private def convertProxyValue(name: String, value: BsonField, asType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]) =
       mapping.get(asType) match {
-        case Some(converter) ⇒ value.as(converter)
+        case Some(converter) ⇒
+          value.as(converter) match {
+            case null ⇒ throw new UnavailableValueException(name, s"Field $name is `null`")
+            case value ⇒ value
+          }
+
         case None ⇒
           import scuff._
           value match {
@@ -1213,7 +1277,7 @@ object Mongolia {
       }
     }
 
-    private def convertProxySeq(name: String, shouldBeList: BsonField, seqType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): Seq[_] = mapping.get(seqType) match {
+    private def convertProxySeq(name: String, shouldBeList: BsonField, seqType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): IndexedSeq[_] = mapping.get(seqType) match {
       case Some(converter) ⇒ shouldBeList.asSeq(converter)
       case None ⇒
         if (seqType.isInterface) {
@@ -1221,12 +1285,12 @@ object Mongolia {
         } else {
           shouldBeList match {
             case value: Value ⇒ value.raw match {
-              case list: java.util.ArrayList[_] ⇒
-                import collection.JavaConverters._
-                list.asScala.map(elem ⇒ convertProxyValue(name, BsonField(elem), seqType, mapping))
-              case _ ⇒ Seq(convertProxyValue(name, value, seqType, mapping))
+              case list: java.util.List[_] ⇒
+                import collection.JavaConversions._
+                list.toArray().map(elem ⇒ convertProxyValue(name, BsonField(elem), seqType, mapping))
+              case _ ⇒ IndexedSeq(convertProxyValue(name, value, seqType, mapping))
             }
-            case _ ⇒ Seq.empty
+            case _ ⇒ IndexedSeq.empty
           }
         }
     }
@@ -1249,8 +1313,13 @@ object Mongolia {
     }
 
     private def getGenericReturnClass(method: java.lang.reflect.Method) = {
-      val typeArgs = method.getGenericReturnType().asInstanceOf[java.lang.reflect.ParameterizedType].getActualTypeArguments()
-      typeArgs(typeArgs.length - 1).asInstanceOf[Class[_]]
+      val typeArgs = method.getGenericReturnType() match {
+        case pt: java.lang.reflect.ParameterizedType ⇒ pt.getActualTypeArguments()
+      }
+      typeArgs(typeArgs.length - 1) match {
+        case clz: Class[_] ⇒ clz
+        case pt: java.lang.reflect.ParameterizedType ⇒ pt.getRawType.asInstanceOf[Class[_]]
+      }
     }
 
     private def extractValue(valueName: String, method: java.lang.reflect.Method)(dbo: RichDBObject, mapping: Map[Class[_], Codec[_, BsonValue]]) = try {
@@ -1261,7 +1330,7 @@ object Mongolia {
       } else if (rt == classOf[Option[_]]) {
         val rtt = getGenericReturnClass(method)
         convertProxyOption(valueName, value, rtt, mapping)
-      } else if (rt.isAssignableFrom(classOf[Seq[_]])) {
+      } else if (rt.isAssignableFrom(classOf[IndexedSeq[_]])) {
         val rtt = getGenericReturnClass(method)
         convertProxySeq(valueName, value, rtt, mapping)
       } else if (rt == classOf[List[_]]) {
