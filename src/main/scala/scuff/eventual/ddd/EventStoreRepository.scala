@@ -6,14 +6,12 @@ import scala.concurrent._
 import java.util.concurrent.TimeUnit
 import scala.util.Failure
 import scala.util.Success
-import scuff.Threads
+import scuff.Threads.PiggyBack
 
 /**
  * [[scuff.eventual.EventStore]]-based [[scuff.ddd.Repository]] implementation.
  */
 abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](implicit idConv: AR#ID ⇒ ESID) extends Repository[AR] {
-
-  implicit protected def exeCtx: ExecutionContext = scala.concurrent.ExecutionContext.global
 
   protected def clock: scuff.Clock = scuff.Clock.System
 
@@ -75,67 +73,68 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
    */
   protected def assumeSnapshotCurrent = false
 
-  private def loadLatest(id: AR#ID, doAssume: Boolean, lastSeenRevision: Int = Int.MaxValue): Future[AR] = {
+  private def loadLatest(id: AR#ID, allowAssumption: Boolean, lastSeenRevision: Int = Int.MaxValue): Future[AR] = {
+      implicit def ec = PiggyBack
     val startTime = clock.now(TimeUnit.MILLISECONDS)
-    val futureMutator = loadSnapshot(id).map { snapshot ⇒
-      snapshot match {
-        case Some((state, revision)) ⇒ (newStateMutator(Some(state)), Some(revision))
-        case None ⇒ (newStateMutator(None), None)
-      }
+    val futureMutator = loadSnapshot(id).map {
+      case Some((state, revision)) ⇒ (newStateMutator(Some(state)), Some(revision))
+      case _ ⇒ (newStateMutator(None), None)
     }
     val futureState = futureMutator.flatMap {
       case (stateBuilder, snapshotRevision) ⇒
         val applyEventsAfter = snapshotRevision.getOrElse(-1)
           def handler(txns: Iterator[eventStore.Transaction]): Option[(S, Int, List[_ <: AR#EVT])] = {
             var concurrentUpdates: List[AR#EVT] = Nil
-            var last: TXN = null
+            var lastRev = -1
             txns.foreach { txn ⇒
               txn.events.foreach { e ⇒
                 val evt = e.asInstanceOf[AR#EVT]
                 if (txn.revision > applyEventsAfter) stateBuilder.apply(evt)
                 if (txn.revision > lastSeenRevision) concurrentUpdates ::= evt
               }
-              last = txn
+              lastRev = txn.revision
             }
-            last match {
-              case null ⇒ None
-              case last ⇒ Some((stateBuilder.state, last.revision, concurrentUpdates.reverse))
+            if (lastRev == -1) {
+              snapshotRevision.map(rev ⇒ (stateBuilder.state, rev, Nil))
+            } else {
+              Some(stateBuilder.state, lastRev, concurrentUpdates.reverse)
             }
           }
         snapshotRevision match {
-          case None ⇒ eventStore.replayStream(id)(handler)
           case Some(snapshotRevision) ⇒
-            if (doAssume && assumeSnapshotCurrent) {
+            if (lastSeenRevision >= snapshotRevision && allowAssumption && assumeSnapshotCurrent) {
               val result = (stateBuilder.state, snapshotRevision, Nil)
               Future.successful(Some(result))
             } else {
               val replaySinceRev = math.min(snapshotRevision, lastSeenRevision)
               eventStore.replayStreamSince(id, replaySinceRev)(handler)
             }
+          case _ ⇒ eventStore.replayStream(id)(handler)
         }
     }
     futureState.map {
-      case None ⇒ throw new UnknownIdException(id)
       case Some((state, revision, concurrentUpdates)) ⇒
         val loadTime = clock.durationSince(startTime)(TimeUnit.MILLISECONDS)
         saveSnapshot(id, revision, state)
         val ar = newAggregateRoot(id, revision, state, concurrentUpdates)
         onLoadNotification(id, revision, ar, loadTime)
         ar
+      case _ ⇒ throw new UnknownIdException(id)
     }
   }
 
   def load(id: AR#ID, revision: Option[Int]): Future[AR] = revision match {
-    case None ⇒ loadLatest(id, true)
     case Some(revision) ⇒ loadRevision(id, revision)
+    case _ ⇒ loadLatest(id, true)
   }
 
-  def insert(ar: AR)(implicit metadata: Map[String, String]): Future[AR#ID] = {
+  protected def insert(metadata: Map[String, String], ar: AR): Future[AR#ID] = {
     if (ar.revision.nonEmpty) {
       Future.failed(new IllegalStateException("Cannot insert. %s already has revision %d".format(ar.id, ar.revision.get)))
     } else if (ar.events.isEmpty) {
       Future.failed(new IllegalStateException("Cannot insert. %s has produced no events.".format(ar.id)))
     } else {
+        implicit def ec = PiggyBack
       eventStore.record(ar, ar.id, 0, ar.events, metadata).map(_ ⇒ ar.id).recoverWith {
         case _: DuplicateRevisionException ⇒ Future.failed(new DuplicateIdException(ar.id))
       }
@@ -144,7 +143,7 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
 
   private[this] def recordUpdate(ar: AR, metadata: Map[String, String]): Future[Int] = {
     val newRevision = ar.revision.getOrElse(-1) + 1
-    eventStore.record(ar, ar.id, newRevision, ar.events, metadata).map(txn ⇒ txn.revision)
+    eventStore.record(ar, ar.id, newRevision, ar.events, metadata).map(txn ⇒ txn.revision)(PiggyBack)
   }
 
   /**
@@ -158,20 +157,21 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
   protected def onConcurrentUpdateCollision(id: AR#ID, revision: Int, category: CAT) {}
 
   private def loadAndUpdate(id: AR#ID, basedOnRevision: Int, metadata: Map[String, String], doAssume: Boolean, handler: AR ⇒ Unit): Future[Int] = {
+      implicit def ec = PiggyBack
     loadLatest(id, doAssume, basedOnRevision).flatMap { ar ⇒
       val t = handler.apply(ar)
       if (ar.events.isEmpty) {
         Future.successful(ar.revision.get)
       } else {
         recordUpdate(ar, metadata).recoverWith {
-          case _: DuplicateRevisionException ⇒
-            onConcurrentUpdateCollision(id, ar.revision.getOrElse(-1) + 1, ar)
+          case e: DuplicateRevisionException ⇒
+            onConcurrentUpdateCollision(id, e.revision, ar)
             loadAndUpdate(id, basedOnRevision, metadata, false, handler)
         }
       }
     }
   }
-  def update(id: AR#ID, basedOnRevision: Int)(updateBlock: AR ⇒ Unit)(implicit metadata: Map[String, String]): Future[Int] = try {
+  protected def update(id: AR#ID, basedOnRevision: Int, metadata: Map[String, String])(updateBlock: AR ⇒ Unit): Future[Int] = try {
     loadAndUpdate(id, basedOnRevision, metadata, true, updateBlock)
   } catch {
     case e: Exception ⇒ Future.failed(e)
