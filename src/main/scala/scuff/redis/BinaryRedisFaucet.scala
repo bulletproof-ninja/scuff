@@ -1,11 +1,11 @@
 package scuff.redis
 
-import java.util.concurrent.{Executor, Executors}
+import java.util.concurrent.{ Executor, Executors }
 import java.util.concurrent.locks.ReentrantReadWriteLock
-
-import redis.clients.jedis.{BinaryJedis, BinaryJedisPubSub, JedisShardInfo}
+import redis.clients.jedis.{ BinaryJedis, BinaryJedisPubSub, JedisShardInfo }
 import redis.clients.util.SafeEncoder
-import scuff.{Faucet, JavaSerializer, ScuffLock, Serializer, Subscription, Threads}
+import scuff.{ Faucet, JavaSerializer, ScuffLock, Serializer, Subscription, Threads }
+import java.util.concurrent.ThreadFactory
 
 /**
  * Redis pub/sub channel.
@@ -99,7 +99,8 @@ object BinaryRedisFaucet {
    * @param server Redis server information
    * @param jedisSubscriberThread Subscription thread.
    * This thread will be monopolized by Jedis, therefore,
-   * the `Executor` should not be a general purpose thread-pool.
+   * the `Executor` should not be a fixed size thread-pool,
+   * preferably not a thread-pool at all.
    * @param serializer The byte array decoder
    * @param publishCtx The execution context used to publish messages
    */
@@ -113,12 +114,22 @@ object BinaryRedisFaucet {
 
   def apply[A](channelName: String, server: JedisShardInfo, subscriberThreadFactory: java.util.concurrent.ThreadFactory,
     serializer: Serializer[A], publishCtx: concurrent.ExecutionContext): BinaryRedisFaucet[A] = {
-    val subscriptionThread = Executors.newSingleThreadExecutor(subscriberThreadFactory)
+    val subscriptionThread = Executors newSingleThreadExecutor new ThreadFactory {
+      def newThread(r: Runnable) = {
+        val thread = subscriberThreadFactory.newThread(r)
+        val threadName = {
+          val name = thread.getName()
+          if (name.contains(channelName)) name else s"$name[$channelName]"
+        }
+        thread.setName(threadName)
+        thread
+      }
+    }
     apply(channelName, server, subscriptionThread, serializer, publishCtx)
   }
 
   def apply[A](channelName: String, server: JedisShardInfo, serializer: Serializer[A], publishCtx: concurrent.ExecutionContext): BinaryRedisFaucet[A] = {
-    apply(channelName, server, Threads.factory(classOf[BinaryRedisFaucet[_]].getName), serializer, publishCtx)
+    apply(channelName, server, Threads.factory(channelName), serializer, publishCtx)
   }
 
   def apply[A](channelName: String, server: JedisShardInfo, publishCtx: concurrent.ExecutionContext): BinaryRedisFaucet[A] = {
