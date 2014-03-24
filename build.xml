@@ -27,11 +27,13 @@
 	</target>
 
 	<target name="init">
-	  <property name="scala.major-minor" value="2.10" />
+		<tstamp />
+		<property name="scala.major-minor" value="2.10" />
 		<property name="scala.rev" value="3" />
 		<property name="scala.version" value="${scala.major-minor}.${scala.rev}" />
 		<property name="ivy.version" value="2.3.0" />
 		<property name="scuff.version" value="1.3-SNAPSHOT" />
+		<property name="scuff.jar" value="${ant.project.name}-${scuff.version}-scala-${scala.major-minor}-${DSTAMP}.jar" />
 		<property name="ivy.jar" value="lib/ivy-${ivy.version}.jar" />
 		<property name="scala-lib.jar" value="lib/scala-library-${scala.version}.jar" />
 		<property name="scala-comp.jar" value="lib/scala-compiler-${scala.version}.jar" />
@@ -41,10 +43,11 @@
 
 	<target name="clean">
 		<delete dir="build" />
+		<delete dir="lib" />
 	</target>
 
 	<target name="scalac">
-		<scalac srcdir="${srcdir}" destdir="${build.destdir}" addparams="${scalac.params}">
+		<scalac srcdir="${srcdir}" destdir="${build.destdir}" addparams="-target:jvm-1.7 ${scalac.params}">
 			<bootclasspath>
 				<pathelement location="${scala-comp.jar}" />
 				<pathelement location="${scala-lib.jar}" />
@@ -118,7 +121,6 @@
 	<target name="full-build" depends="run-junit, scaladocs, make-jar" />
 
 	<target name="make-jar" depends="compile-for-jar" description="Make JAR">
-		<tstamp />
 		<manifest file="build/MANIFEST.MF">
 			<attribute name="Built-By" value="${user.name}" />
 			<section name="scuff">
@@ -131,7 +133,7 @@
 		<copy todir="build/main">
 			<fileset dir="src/main/resources" />
 		</copy>
-		<jar basedir="build/main" destfile="build/${ant.project.name}-${scuff.version}-scala-${scala.major-minor}.jar" index="true" manifest="build/MANIFEST.MF" />
+		<jar basedir="build/main" destfile="build/${scuff.jar}" index="true" manifest="build/MANIFEST.MF" />
 	</target>
 
 	<target name="scaladocs" depends="init, scala-taskdef">
