@@ -1,4 +1,4 @@
-package scuff.eventual.mongo
+package scuff.eventual.util
 
 import scuff.eventual._
 import com.mongodb._
@@ -19,7 +19,7 @@ import java.util.Date
  * @param dbColl MongoDB collection. Set whatever WriteConcern is appropriate before passing
  * @param clockSkew Worst case clock skew in a sharded environment. Used for resuming without dropping transactions. Defaults to 2 seconds.
  */
-final class EventStreamTracker[ID](
+final class MongoStreamTracker[ID](
     dbColl: DBCollection,
     clockSkew: Duration = 2.seconds)(implicit idCdc: scuff.Codec[ID, BsonValue]) {
 
