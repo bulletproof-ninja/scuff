@@ -15,4 +15,9 @@ trait AggregateRoot {
   def revision: Option[Int]
   /** Events produced. */
   def events: List[_ <: EVT]
+  /**
+   * Check invariants of this aggregate and
+   * throw an exception on failure.
+   */
+  def checkInvariants(): Unit
 }
