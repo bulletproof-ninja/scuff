@@ -9,7 +9,7 @@ class TestGeoPoint {
     assertEquals(new GeoPoint(-23.34534f, 12.54642f), GeoPoint.parse("-23.34534, 12.54642").get)
     assertEquals(new GeoPoint(23.34534f, -12.54642f), GeoPoint.parse("23.34534 -12.54642").get)
     assertEquals(new GeoPoint(-23.34534f, -12.54642f), GeoPoint.parse("-23.34534 -12.54642").get)
-    assertEquals(new GeoPoint(124.3453454654631798f, 85.5464245621354678f), GeoPoint.parse("124.3453454654631798 85.5464245621354678").get)
+    assertEquals(new GeoPoint(85.5464245621354678f, 124.3453454654631798f), GeoPoint.parse("85.5464245621354678 124.3453454654631798").get)
   }
 
   @Test
@@ -17,7 +17,7 @@ class TestGeoPoint {
     assertEquals(new GeoPoint(-23.34534f, 12.54642f), GeoPoint.parse("-23,34534 : 12,54642").get)
     assertEquals(new GeoPoint(23.34534f, -12.54642f), GeoPoint.parse("23,34534 -12,54642").get)
     assertEquals(new GeoPoint(-23.34534f, -12.54642f), GeoPoint.parse("-23,34534 -12,54642").get)
-    assertEquals(new GeoPoint(124.3453454654631798f, 85.5464245621354678f), GeoPoint.parse("124,3453454654631798, 85.5464245621354678").get)
+    assertEquals(new GeoPoint(85.5464245621354678f, 124.3453454654631798f), GeoPoint.parse("85,5464245621354678, 124,3453454654631798").get)
   }
 
   @Test()

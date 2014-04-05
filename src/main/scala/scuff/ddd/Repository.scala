@@ -2,6 +2,7 @@ package scuff.ddd
 
 import scala.concurrent.Future
 import scuff.Threads
+import scala.annotation.implicitNotFound
 
 /**
  * Aggregate root repository.
@@ -30,6 +31,7 @@ trait Repository[AR <: AggregateRoot] {
    * @param basedOnRevision Revision, which update will be based on
    * @param updateBlock The transaction code block. This may be executed multiple times if concurrent updates occur
    */
+  @implicitNotFound("Cannot find implicit Map[String, String] of metadata. If no metadata desired, define as empty: implicit metadata = Map.empty[String, String]")
   final def update(id: AR#ID, basedOnRevision: Int)(updateBlock: AR ⇒ Unit)(implicit metadata: Map[String, String]): Future[Int] = {
     update(id, basedOnRevision, metadata) { aggr ⇒
       updateBlock(aggr)
@@ -38,6 +40,7 @@ trait Repository[AR <: AggregateRoot] {
       }
     }
   }
+  @implicitNotFound("Cannot find implicit Map[String, String] of metadata. If no metadata desired, define as empty: implicit metadata = Map.empty[String, String]")
   final def update(id: AR#ID, basedOnRevision: Option[Int])(updateBlock: AR ⇒ Unit)(implicit metadata: Map[String, String]): Future[Int] =
     basedOnRevision match {
       case Some(revision) ⇒ update(id, revision)(updateBlock)
@@ -53,6 +56,7 @@ trait Repository[AR <: AggregateRoot] {
    * @return Aggregate instance or [[scuff.ddd.DuplicateIdException]] if the ID is already used
    * or [[IllegalStateException]] if the instance has a revision number
    */
+  @implicitNotFound("Cannot find implicit Map[String, String] of metadata. If no metadata desired, define as empty: implicit metadata = Map.empty[String, String]")
   final def insert(aggr: AR)(implicit metadata: Map[String, String]): Future[AR#ID] = {
     try {
       if (aggr.events.nonEmpty) aggr.checkInvariants()

@@ -40,7 +40,7 @@ class RedisHttpSession(redis: RedisConnectionPool, delegate: HttpSession, keyPre
   private[this] var _map: BinaryRedisHashMap[String, AnyRef] = _
   private def map = {
     if (_map == null) {
-      _map = threadSafe(redis)(new BinaryRedisHashMap(delegate.getId, _, new StringSerializer(keyPrefix), JavaSerializer))
+      _map = new BinaryRedisHashMap(delegate.getId, redis, new StringSerializer(keyPrefix), JavaSerializer)
     }
     _map
   }

@@ -10,6 +10,8 @@ import scala.reflect.ClassTag
 import org.bson.types._
 import com.mongodb._
 import scala.util.Try
+import javax.script.ScriptEngine
+import js.CoffeeScriptCompiler
 
 /**
  * Convenience DSL for the MongoDB Java driver.
@@ -23,8 +25,6 @@ object Mongolia {
     def this(fieldName: String, cause: Throwable) = this(fieldName, cause, cause.getMessage)
     def this(fieldName: String, message: String) = this(fieldName, null, message)
   }
-  private val coffeeConfig = new js.CoffeeScriptCompiler.Config(options = Map('bare -> true))
-  private val coffeeCompilerPool = new ResourcePool(new js.CoffeeScriptCompiler(coffeeConfig))
 
   final class Assignment(key: String) {
     def :=(value: BsonValue) = new BsonProp(key, value)
@@ -727,9 +727,8 @@ object Mongolia {
    * and more importantly *correct* JSON, i.e.
    * `NaN` is translated to `null`.
    */
-  def toJson(dbo: DBObject): String = {
+  def toJson(dbo: DBObject, sb: java.lang.StringBuilder = new java.lang.StringBuilder(128)): java.lang.StringBuilder = {
     val fallback = serializers.get
-    val sb = new java.lang.StringBuilder(128)
       def appendList(list: collection.GenTraversableOnce[_]) {
         sb append '['
         val i = list.toIterator
@@ -809,7 +808,7 @@ object Mongolia {
       }
 
     append(dbo)
-    sb.toString
+    sb
   }
 
   final class RichDBObject(private val underlying: DBObject = new BasicDBObject, ignoreNulls: Boolean = false, ignoreEmpty: Boolean = false) extends DBObject with BsonValue {
@@ -866,7 +865,8 @@ object Mongolia {
      * Much faster and more compact serialization,
      * and more importantly *correct* JSON.
      */
-    def toJson() = Mongolia.toJson(underlying)
+    def toJson(sb: java.lang.StringBuilder): java.lang.StringBuilder = Mongolia.toJson(underlying, sb)
+    def toJson(): String = Mongolia.toJson(underlying).toString
     override def toString = underlying.toString()
     import java.util.StringTokenizer
     import collection.JavaConverters._
@@ -963,7 +963,7 @@ object Mongolia {
      * and more importantly *correct* JSON, i.e.
      * `NaN` is translated to `null`.
      */
-    def toJson() = Mongolia.toJson(this)
+    def toJson(): String = Mongolia.toJson(this).toString
     def +=(any: Any) = add(any.asInstanceOf[Object])
   }
 
@@ -1102,13 +1102,13 @@ object Mongolia {
   }
   object MapReduce {
     private val FunctionMatcher = """^(map|reduce)\s*=\s*""".r.pattern
-    private def compileCoffeeFunction(func: String) = {
-      val js = coffeeCompilerPool.borrow(_.compile(func)).trim()
+    private def compileCoffeeFunction(func: String, compiler: CoffeeScriptCompiler) = {
+      val js = compiler.compile(func).trim()
       js.substring(1, js.length - 2)
     }
-    def coffee(map: String, reduce: String): MapReduce = {
-      val mapCoffee = compileCoffeeFunction(map)
-      val reduceCoffee = compileCoffeeFunction(reduce)
+    def coffee(map: String, reduce: String)(implicit compiler: CoffeeScriptCompiler): MapReduce = {
+      val mapCoffee = compileCoffeeFunction(map, compiler)
+      val reduceCoffee = compileCoffeeFunction(reduce, compiler)
       new MapReduce(mapCoffee, reduceCoffee)
     }
 
@@ -1117,7 +1117,7 @@ object Mongolia {
      * 2 function declarations named `map` and `reduce`,
      * in CoffeeScript.
      */
-    def brew(coffeescript: java.io.InputStream, encoding: String = "UTF-8"): MapReduce =
+    def brew(coffeescript: java.io.InputStream, encoding: String = "UTF-8")(implicit compiler: CoffeeScriptCompiler): MapReduce =
       brew(new java.io.InputStreamReader(coffeescript, encoding))
 
     /**
@@ -1125,7 +1125,7 @@ object Mongolia {
      * 2 function declarations named `map` and `reduce`,
      * in CoffeeScript.
      */
-    def brew(coffeescript: java.io.Reader): MapReduce = {
+    def brew(coffeescript: java.io.Reader)(implicit compiler: CoffeeScriptCompiler): MapReduce = {
       var active: Option[StringBuilder] = None
       val map = new StringBuilder
       val reduce = new StringBuilder

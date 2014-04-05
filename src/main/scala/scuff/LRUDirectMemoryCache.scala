@@ -2,12 +2,13 @@ package scuff
 
 import java.util.concurrent.locks._
 import java.nio._
+import scala.concurrent.duration._
 
 /**
  * This cache allows you to store arbitrary sized objects off
  * the JVM heap, thereby not affecting GC times.
  */
-final class LRUDirectMemoryCache[K, V](maxCapacity: Int, ser: Serializer[V], val defaultTTL: Int = 0, staleCheckFreq: Int = 10, lock: ReadWriteLock = new ReentrantReadWriteLock)
+final class LRUDirectMemoryCache[K, V](maxCapacity: Int, ser: Serializer[V], val defaultTTL: FiniteDuration = Duration.Zero, staleCheckFreq: FiniteDuration = 10.seconds, lock: ReadWriteLock = new ReentrantReadWriteLock)
   extends Cache[K, V] with Expiry[K, V] {
 
   private[this] val impl = new LRUHeapCache[K, ByteBuffer](maxCapacity, defaultTTL, staleCheckFreq, lock)
@@ -27,11 +28,12 @@ final class LRUDirectMemoryCache[K, V](maxCapacity: Int, ser: Serializer[V], val
     buffer.put(bytes).asReadOnlyBuffer()
   }
 
-  def store(key: K, value: V, ttlSeconds: Int) = impl.store(key, toBuffer(value), ttlSeconds)
+  def store(key: K, value: V, ttl: FiniteDuration) = impl.store(key, toBuffer(value), ttl)
   def evict(key: K): Option[V] = impl.evict(key).map(toValue)
   def lookup(key: K): Option[V] = impl.lookup(key).map(toValue)
-  def lookupOrStore(key: K, ttlSeconds: Int)(constructor: ⇒ V): V = toValue(impl.lookupOrStore(key, ttlSeconds)(toBuffer(constructor)))
+  def contains(key: K): Boolean = impl.contains(key)
+  def lookupOrStore(key: K, ttl: FiniteDuration)(constructor: ⇒ V): V = toValue(impl.lookupOrStore(key, ttl)(toBuffer(constructor)))
   def shutdown() = impl.shutdown()
-  def lookupAndRefresh(key: K, ttl: Int): Option[V] = impl.lookupAndRefresh(key, ttl).map(toValue)
-  def refresh(key: K, ttl: Int) = impl.refresh(key, ttl)
+  def lookupAndRefresh(key: K, ttl: FiniteDuration): Option[V] = impl.lookupAndRefresh(key, ttl).map(toValue)
+  def refresh(key: K, ttl: FiniteDuration) = impl.refresh(key, ttl)
 }

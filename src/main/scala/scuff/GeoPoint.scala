@@ -4,22 +4,21 @@ package scuff
  * Geographical 2D point.
  * @param latitude The decimal latitude
  * @param longitude The decimal longitude
- * @param radius The radius in meters. Cannot be negative or NaN. Defaults to 0.
+ * @param radius The radius. Cannot be negative or NaN. Defaults to 0.
  */
 case class GeoPoint(latitude: Float, longitude: Float, radius: Float = 0f) {
   require(radius >= 0f, "Radius cannot be negative or NaN: " + radius)
-  GeoPoint.verify("latitude", latitude)
-  GeoPoint.verify("longitude", longitude)
+  require(-90f <= latitude && latitude <= 90f, s"Latitude must be within ±90 degrees: $latitude")
+  require(-180f <= longitude && longitude <= 180f, s"Longitude must be within ±180 degrees: $longitude")
 
-  private val R = {
+  private lazy val R = {
     import math._
     // WGS-84 radius
     val a = 6378137.0 // equatorial
     val b = 6356752.314245 // polar
     sqrt(
       (pow(a * a * cos(latitude), 2) + pow(b * b * sin(latitude), 2)) /
-        (pow(a * cos(latitude), 2) + pow(b * sin(latitude), 2))
-    )
+        (pow(a * cos(latitude), 2) + pow(b * sin(latitude), 2)))
   }
 
   /** Distance in meters. */
@@ -39,7 +38,6 @@ case class GeoPoint(latitude: Float, longitude: Float, radius: Float = 0f) {
 object GeoPoint {
   import scala.util.Try
   private val regex = """^(-?\d{1,3})(?:[.,·'](\d*))?[^\d-]+(-?\d{1,3})(?:[.,·'](\d*))?$""".r
-  private def verify(name: String, latLon: Float) = require(-180f <= latLon && latLon <= 180f, "%s must be within ±180 degrees: %f".format(name, latLon))
 
   /**
    * Parse string of decimal latitude then longitude, e.g.

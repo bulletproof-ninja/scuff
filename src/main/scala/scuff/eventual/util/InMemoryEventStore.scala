@@ -1,16 +1,17 @@
 package scuff.eventual.util
 
-//import scuff.ddd._
 import scuff._
 import java.util.Date
 import concurrent._
 import scala.util._
 import java.util.concurrent.TimeUnit
+import scala.annotation.implicitNotFound
 import language.implicitConversions
 
 /**
  * Non-persistent implementation, probably only useful for testing.
  */
+@implicitNotFound("Cannot find an implicit ExecutionContext, either import scala.concurrent.ExecutionContext.Implicits.global or use a custom one")
 abstract class InMemoryEventStore[ID, EVT, CAT](implicit execCtx: ExecutionContext) extends eventual.EventStore[ID, EVT, CAT] {
 
   implicit private[this] val Millis = TimeUnit.MILLISECONDS

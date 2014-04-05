@@ -1,9 +1,9 @@
 package scuff.web
 
 import scuff._
-
 import org.junit._
 import org.junit.Assert._
+import java.util.concurrent.TimeUnit
 
 class TestCookieMonster {
   @Test
@@ -18,6 +18,6 @@ class TestCookieMonster {
       }
       override def maxAge = toMaxAge(expires, clock.precision)
     }
-    assertEquals(9, CM.maxAge)
+    assertEquals(9L, CM.maxAge.toSeconds)
   }
 }

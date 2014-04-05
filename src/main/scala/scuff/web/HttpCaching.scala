@@ -31,7 +31,7 @@ object HttpCaching {
 trait HttpCaching extends HttpServlet {
   import HttpCaching._
 
-  private lazy val defaultCache = new LRUHeapCache[Any, Cached](Int.MaxValue, 0)
+  private lazy val defaultCache = new LRUHeapCache[Any, Cached](Int.MaxValue)
   protected def cache: scuff.Cache[Any, Cached] = defaultCache
 
   protected def fetchLastModified(req: HttpServletRequest): Option[Long]

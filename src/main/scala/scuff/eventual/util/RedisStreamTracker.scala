@@ -9,6 +9,7 @@ import _root_.redis.clients.jedis.Jedis
  * which is helpful for durable subscribers. For simplicity, a
  * data string is attached to each update, for keeping state.
  */
+@annotation.implicitNotFound("Cannot find implicit Codec for ID <=> String")
 final class RedisStreamTracker[ID](
     HashKey: String,
     clockSkew: Duration = 2.seconds)(implicit idCdc: Codec[ID, String]) {
@@ -34,11 +35,13 @@ final class RedisStreamTracker[ID](
     }
   }
 
+  @annotation.implicitNotFound("Cannot find implicit Jedis connection")
   def resumeFrom(implicit conn: Jedis): Option[Timestamp] =
     Option(conn.get(TimeKey)).map { str ⇒
       new Timestamp(str.toLong - clockSkew.toMillis)
     }
 
+  @annotation.implicitNotFound("Cannot find implicit Jedis connection")
   def lookupRevision[T](streamId: ID)(implicit conn: Jedis): Option[(Int, String)] =
     conn.hget(HashKey, idCdc.encode(streamId)) match {
       case null ⇒ None
@@ -57,6 +60,7 @@ final class RedisStreamTracker[ID](
     map
   }
 
+  @annotation.implicitNotFound("Cannot find implicit Jedis connection")
   def process(streamId: ID, revision: Int, time: Long)(updater: String ⇒ String)(implicit conn: Jedis): String = {
     val value = conn.hget(HashKey, idCdc.encode(streamId)) match {
       case null ⇒ ""
@@ -67,6 +71,7 @@ final class RedisStreamTracker[ID](
     updated
   }
 
+  @annotation.implicitNotFound("Cannot find implicit Jedis connection")
   def markAsProcessed(streamId: ID, revision: Int, time: Long)(implicit conn: Jedis) {
     conn.hmset(HashKey, toMap(streamId, revision, time, ""))
   }

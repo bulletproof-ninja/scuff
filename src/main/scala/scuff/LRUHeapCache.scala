@@ -1,6 +1,7 @@
 package scuff
 
 import java.util.concurrent.locks.{ ReadWriteLock, ReentrantReadWriteLock }
+import scala.concurrent.duration._
 
 /**
  * Fully thread-safe LRU cache implementation that relies on a
@@ -17,7 +18,7 @@ import java.util.concurrent.locks.{ ReadWriteLock, ReentrantReadWriteLock }
  * @param staleCheckFreq Frequency in seconds of background thread checking for stale cache entries. Defaults to 10 seconds.
  * @param lock Optional. Alternative read/write lock.
  */
-final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: Int = 0, staleCheckFreq: Int = 10, lock: ReadWriteLock = new ReentrantReadWriteLock)
+final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: FiniteDuration = Duration.Zero, staleCheckFreq: FiniteDuration = 10.seconds, lock: ReadWriteLock = new ReentrantReadWriteLock)
   extends Cache[K, V] with Expiry[K, V] {
 
   @inline implicit private def Millis = concurrent.duration.MILLISECONDS
@@ -50,26 +51,27 @@ final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: Int = 0, staleC
     }
   }
 
-  private def storeInsideLock(key: K, value: V, ttl: Int) = {
-    if (scavenger.isEmpty && ttl > 0) {
+  private def storeInsideLock(key: K, value: V, ttlSeconds: Int) = {
+    if (scavenger.isEmpty && ttlSeconds > 0) {
       val thread = new Scavenger
       scavenger = Some(thread)
       thread.start()
     }
-    map.put(key, new CacheEntry(value, ttl))
+    map.put(key, new CacheEntry(value, ttlSeconds))
     value
   }
 
-  def store(key: K, value: V, ttl: Int) = writeLock(storeInsideLock(key, value, ttl))
+  def store(key: K, value: V, ttl: FiniteDuration) = writeLock(storeInsideLock(key, value, ttl.toSeconds.toInt))
   def evict(key: K): Option[V] = writeLock(returnValue(map.remove(key)))
   def lookup(key: K): Option[V] = readLock(returnValue(map.get(key)))
+  def contains(key: K): Boolean = readLock(map.containsKey(key))
 
-  def refresh(key: K, ttl: Int): Boolean = lookupAndRefresh(key, ttl).isDefined
-  def lookupAndRefresh(key: K, ttl: Int): Option[V] = readLock {
+  def refresh(key: K, ttl: FiniteDuration): Boolean = lookupAndRefresh(key, ttl).isDefined
+  def lookupAndRefresh(key: K, ttl: FiniteDuration): Option[V] = readLock {
     map.get(key) match {
       case null ⇒ None
       case entry if !entry.isStale() ⇒
-        entry.refresh(ttl)
+        entry.refresh(ttl.toSeconds.toInt)
         entry.value
       case _ ⇒ None
     }
@@ -81,13 +83,13 @@ final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: Int = 0, staleC
     map.clear()
   }
 
-  def lookupOrStore(key: K, ttl: Int)(construct: ⇒ V): V = {
+  def lookupOrStore(key: K, ttl: FiniteDuration)(construct: ⇒ V): V = {
     lookup(key) match {
       case Some(value) ⇒ value
       case None ⇒ writeLock {
         returnValue(map.get(key)) match {
           case Some(value) ⇒ value
-          case None ⇒ storeInsideLock(key, construct, ttl)
+          case None ⇒ storeInsideLock(key, construct, ttl.toSeconds.toInt)
         }
       }
     }
@@ -117,10 +119,10 @@ final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: Int = 0, staleC
 
     setDaemon(true)
 
-    val sleepTime = staleCheckFreq * 1000
+    val sleepTimeMs = staleCheckFreq.toMillis
 
     def sleep() = try {
-      Thread.sleep(sleepTime)
+      Thread.sleep(sleepTimeMs)
     } catch {
       case _: InterruptedException ⇒
         writeLock(map.clear())

@@ -24,7 +24,7 @@ object CoffeeScriptCompiler {
     case object ASM extends Use("\"use asm\";\n")
   }
 
-  case class Config(options: Map[Symbol, Any] = Map.empty, engineName: String = "javascript", useDirective: Use = null, compiler: () ⇒ Reader = Version.Original.compiler)
+  case class Config(options: Map[Symbol, Any] = Map.empty, newEngine: () => ScriptEngine = newJavascriptEngine, useDirective: Use = null, compiler: () ⇒ Reader = Version.Original.compiler)
   private val coffeeScriptCodeVarName = "coffeeScriptCode"
 
 }
@@ -32,7 +32,7 @@ object CoffeeScriptCompiler {
 /**
  * NOTICE: An instance of this class IS NOT thread-safe.
  */
-class CoffeeScriptCompiler(config: CoffeeScriptCompiler.Config) {
+class CoffeeScriptCompiler(config: CoffeeScriptCompiler.Config = new CoffeeScriptCompiler.Config) {
   import CoffeeScriptCompiler._
 
   private[this] val useDirective = Option(config.useDirective).map(_.directive).getOrElse("")
@@ -44,11 +44,11 @@ class CoffeeScriptCompiler(config: CoffeeScriptCompiler.Config) {
   private val coffeeCompiler = {
     val compilerSource = config.compiler()
     try {
-      ScriptEngineMgr.getEngineByName(config.engineName) match {
+      config.newEngine() match {
         case engine: Compilable ⇒
           val compSrc: String = compilerSource
           engine.compile(compSrc + ";\n" + jsCompile())
-        case _ ⇒ sys.error(s"Cannot find '${config.engineName}' engine!")
+        case _ ⇒ sys.error(s"Cannot find Javascript engine!")
       }
     } finally {
       compilerSource.close()

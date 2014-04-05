@@ -10,6 +10,8 @@ import scala.util.Success
 import scala.reflect.ClassTag
 import java.util.Arrays
 import java.util.Locale
+import js.CoffeeScriptCompiler
+import js.CoffeeScriptCompiler.Config
 
 class TestMongolia {
   import Mongolia._
@@ -31,7 +33,7 @@ class TestMongolia {
       "emptyList" := List[Int](),
       "bytes" := Array[Byte](5, 23, 46, 45, 2, 23, -4, -53))
     doc.put("foo", List("abc", "def", "ghi"))
-    assertEquals("""{"nothing":null,"none":null,"list":["a","b"],"now":{"$date":1349276592614},"id":{"$oid":"506c53b0a025ec577423ef92"},"array":["one","two","three"],"uuid":{"$uuid":"650c1d1c-3a1d-479c-a3fd-9c707e9288c4"},"emptyList":[],"bytes":{ "$binary" : "BRcuLQIX/Ms=" , "$type" : 0},"foo":["abc","def","ghi"]}""", doc.toJson)
+    assertEquals("""{"nothing":null,"none":null,"list":["a","b"],"now":{"$date":1349276592614},"id":{"$oid":"506c53b0a025ec577423ef92"},"array":["one","two","three"],"uuid":{"$uuid":"650c1d1c-3a1d-479c-a3fd-9c707e9288c4"},"emptyList":[],"bytes":{ "$binary" : "BRcuLQIX/Ms=" , "$type" : 0},"foo":["abc","def","ghi"]}""", doc.toJson())
   }
 
   @Test
@@ -49,7 +51,7 @@ class TestMongolia {
     val uuid = java.util.UUID.fromString("650c1d1c-3a1d-479c-a3fd-9c707e9288c4")
     val doc = obj("newUUID" := uuid)
     doc.put("oldUUID", uuid)
-    assertEquals("""{"newUUID":{"$uuid":"650c1d1c-3a1d-479c-a3fd-9c707e9288c4"},"oldUUID":{"$uuid":"650c1d1c-3a1d-479c-a3fd-9c707e9288c4"}}""", doc.toJson)
+    assertEquals("""{"newUUID":{"$uuid":"650c1d1c-3a1d-479c-a3fd-9c707e9288c4"},"oldUUID":{"$uuid":"650c1d1c-3a1d-479c-a3fd-9c707e9288c4"}}""", doc.toJson())
     assertEquals(uuid, doc("newUUID").as[java.util.UUID])
     assertEquals(uuid, doc("oldUUID").as[java.util.UUID])
     val bytes = UUIDCdc.encode(uuid).raw.asInstanceOf[Binary]
@@ -60,36 +62,36 @@ class TestMongolia {
   @Test
   def unset {
     val obj = $unset("foo", "bar")
-    assertEquals("""{"$unset":{"foo":1,"bar":1}}""", obj.toJson)
+    assertEquals("""{"$unset":{"foo":1,"bar":1}}""", obj.toJson())
   }
 
   @Test
   def increment {
     val obj = $inc("age" := 45L, "days" := -34.34)
-    assertEquals("""{"$inc":{"age":45,"days":-34.34}}""", obj.toJson)
+    assertEquals("""{"$inc":{"age":45,"days":-34.34}}""", obj.toJson())
   }
 
   @Test
   def geoPoint {
     val gp = GeoPoint.parse("35.027311, -111.023075", 1.23f).get
     val dbo = obj("location" := gp)
-    assertEquals("""{"location":{"type":"Point","coordinates":[-111.0230712890625,35.02730941772461],"radius":1.2300000190734863}}""", dbo.toJson)
-    assertEquals("""{"location":{"type":"Point","coordinates":[-111.0230712890625,35.02730941772461]}}""", obj("location" := gp.copy(radius = 0f)).toJson)
-    assertEquals("""{"location":{"$near":{"$geometry":{"type":"Point","coordinates":[-111.0230712890625,35.02730941772461]},"$maxDistance":1.2300000190734863}}}""", obj("location" := $near(gp)).toJson)
-    assertEquals("""{"location":{"$near":{"$geometry":{"type":"Point","coordinates":[-111.0230712890625,35.02730941772461]}}}}""", obj("location" := $near(gp.copy(radius = 0f))).toJson)
+    assertEquals("""{"location":{"type":"Point","coordinates":[-111.0230712890625,35.02730941772461],"radius":1.2300000190734863}}""", dbo.toJson())
+    assertEquals("""{"location":{"type":"Point","coordinates":[-111.0230712890625,35.02730941772461]}}""", obj("location" := gp.copy(radius = 0f)).toJson())
+    assertEquals("""{"location":{"$near":{"$geometry":{"type":"Point","coordinates":[-111.0230712890625,35.02730941772461]},"$maxDistance":1.2300000190734863}}}""", obj("location" := $near(gp)).toJson())
+    assertEquals("""{"location":{"$near":{"$geometry":{"type":"Point","coordinates":[-111.0230712890625,35.02730941772461]}}}}""", obj("location" := $near(gp.copy(radius = 0f))).toJson())
   }
 
   @Test
   def pushAll {
     val obj = $pushAll("bar" := arr(2, 3, 4))
-    assertEquals("""{"$pushAll":{"bar":[2,3,4]}}""", obj.toJson)
+    assertEquals("""{"$pushAll":{"bar":[2,3,4]}}""", obj.toJson())
   }
 
   @Test
   def `implicit list` {
     val dboList: Seq[DBObject] = Seq(
       obj("foo" := 5), obj("bar" := 89))
-    assertEquals("""[{"foo":5},{"bar":89}]""", arr(dboList: _*).toJson)
+    assertEquals("""[{"foo":5},{"bar":89}]""", arr(dboList: _*).toJson())
   }
 
   @Test
@@ -98,20 +100,20 @@ class TestMongolia {
     val dbo = obj(
       "foo" := "bar",
       "tuple" := toObj(Some(4 -> 9)))
-    assertEquals("""{"foo":"bar","tuple":{"first":4,"second":9}}""", dbo.toJson)
+    assertEquals("""{"foo":"bar","tuple":{"first":4,"second":9}}""", dbo.toJson())
     val tuple = toObj(None)
     val dbo2 = obj(
       "foo" := "bar",
       "tuple" := tuple)
-    assertEquals("""{"foo":"bar","tuple":null}""", dbo2.toJson)
+    assertEquals("""{"foo":"bar","tuple":null}""", dbo2.toJson())
   }
 
   @Test
   def oid {
     val dbo = obj("_id" := new ObjectId("506c53b0a025ec577423ef92"))
-    assertEquals("""{"_id":{"$oid":"506c53b0a025ec577423ef92"}}""", dbo.toJson)
+    assertEquals("""{"_id":{"$oid":"506c53b0a025ec577423ef92"}}""", dbo.toJson())
     val other: DBObject = dbo("_id").as[ObjectId]
-    assertEquals(dbo.toJson, other.toJson)
+    assertEquals(dbo.toJson(), other.toJson())
   }
 
   @Test
@@ -122,7 +124,7 @@ class TestMongolia {
         "key.day" := $gte(20120101),
         "key.day" := $lte(20121231)))
     filter.add("key.name" := $in(names: _*))
-    assertEquals("""{"$and":[{"key.day":{"$gte":20120101}},{"key.day":{"$lte":20121231}}],"key.name":{"$in":["foo","bar"]}}""", filter.toJson)
+    assertEquals("""{"$and":[{"key.day":{"$gte":20120101}},{"key.day":{"$lte":20121231}}],"key.name":{"$in":["foo","bar"]}}""", filter.toJson())
   }
 
   @Test
@@ -143,7 +145,7 @@ class TestMongolia {
   def each {
     val newNames = List("Foo", "Bar")
     val update = $addToSet("names" := $each(newNames: _*))
-    assertEquals("""{"$addToSet":{"names":{"$each":["Foo","Bar"]}}}""", update.toJson)
+    assertEquals("""{"$addToSet":{"names":{"$each":["Foo","Bar"]}}}""", update.toJson())
   }
 
   @Test
@@ -164,16 +166,16 @@ class TestMongolia {
     assertEquals(5, doc("foo").as[Int])
     doc.add("foo" := null)
     assertEquals(None, doc("foo").opt[Int])
-    assertEquals("{}", doc.toJson)
+    assertEquals("{}", doc.toJson())
     val doc2 = obj(ignoreEmpty = true)
     doc2.add("foo" := null, "bar" := List.empty[Int])
-    assertEquals("""{"foo":null}""", doc2.toJson)
+    assertEquals("""{"foo":null}""", doc2.toJson())
   }
 
   @Test
   def listAsDBO {
     val dbo: DBObject = arr("A", "B", "C")
-    assertEquals("""["A","B","C"]""", dbo.toJson)
+    assertEquals("""["A","B","C"]""", dbo.toJson())
     val list = dbo.asSeq[String]
     assertEquals(Seq("A", "B", "C"), list)
   }
@@ -214,12 +216,14 @@ class TestMongolia {
   @Test
   def scalaMap {
     val doc = obj("mymap" := Map("two" -> 2, "three" -> 3, "fortytwo" -> 42))
-    assertEquals("""{"mymap":{"two":2,"three":3,"fortytwo":42}}""", doc.toJson)
+    assertEquals("""{"mymap":{"two":2,"three":3,"fortytwo":42}}""", doc.toJson())
     assertEquals(Map("two" -> 2, "three" -> 3, "fortytwo" -> 42), doc("mymap").as[Map[String, Int]])
   }
 
+  val compilerPool = new ResourcePool(new CoffeeScriptCompiler)
+
   @Test
-  def mapReduceCoffee {
+  def mapReduceCoffee = compilerPool.borrow { implicit comp =>
     val coll = new RichDBCollection(null)
     val map = "-> emit(@days[0].toString().substring(0,4), {count: 1}); return"
     val reduce = "(key, values) -> {count: values.reduce (t, v) -> t + v.count}"
@@ -256,16 +260,16 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
   def toJson {
     val floats = 34.5f :: Float.NaN :: Float.NegativeInfinity :: Float.PositiveInfinity :: Nil
     val floatDoc = obj("numbers" := floats)
-    assertEquals("""{"numbers":[34.5,null,null,null]}""", floatDoc.toJson)
+    assertEquals("""{"numbers":[34.5,null,null,null]}""", floatDoc.toJson())
     val doubles = Double.NaN :: Double.NegativeInfinity :: Double.PositiveInfinity :: 123.45 :: Nil
     val dDoc = obj("numbers" := doubles)
-    assertEquals("""{"numbers":[null,null,null,123.45]}""", dDoc.toJson)
+    assertEquals("""{"numbers":[null,null,null,123.45]}""", dDoc.toJson())
   }
 
   @Test
   def `value props` {
     val foo = obj("foo" := $size(42))
-    assertEquals("""{"foo":{"$size":42}}""", foo.toJson)
+    assertEquals("""{"foo":{"$size":42}}""", foo.toJson())
   }
 
   @Test
@@ -348,9 +352,9 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
   @Test
   def `null or None` {
     val foo = obj("foo" := $ne(None))
-    assertEquals("""{"foo":{"$ne":null}}""", foo.toJson)
+    assertEquals("""{"foo":{"$ne":null}}""", foo.toJson())
     val bar = obj("bar" := obj("$ne" := null))
-    assertEquals("""{"bar":{"$ne":null}}""", bar.toJson)
+    assertEquals("""{"bar":{"$ne":null}}""", bar.toJson())
   }
 
   @Test
@@ -358,7 +362,7 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
     val oid = new ObjectId
     val doc = obj("_id" := oid)
     doc.rename("_id" -> "identifier", id ⇒ id.as[String])
-    assertEquals("""{"identifier":"%s"}""".format(oid), doc.toJson)
+    assertEquals("""{"identifier":"%s"}""".format(oid), doc.toJson())
   }
 
   @Test
@@ -367,7 +371,7 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
     val doc = obj()
     doc.rename("fooId" -> "foo", fooId ⇒
       fooId.opt[ObjectId].flatMap(map.get(_).map(_ * 2)))
-    assertEquals("{}", doc.toJson)
+    assertEquals("{}", doc.toJson())
   }
 
   @Test
@@ -376,7 +380,7 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
     val doc = obj()
     doc.rename("fooId" -> "foo", fooId ⇒
       fooId.opt[ObjectId].flatMap(map.get(_).map(_ * 2)))
-    assertEquals("{}", doc.toJson)
+    assertEquals("{}", doc.toJson())
   }
 
   @Test
@@ -389,7 +393,7 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
       def pts: Set[GeoPoint]
     }
     val doc = obj("pts" := arr("23.532 54.2342"))
-    assertEquals("""{"pts":["23.532 54.2342"]}""", doc.toJson)
+    assertEquals("""{"pts":["23.532 54.2342"]}""", doc.toJson())
     implicit val mapping: Map[Class[_], Codec[_, BsonValue]] = Map(classOf[GeoPoint] -> codec)
     val foo = doc.like[Foo]
     val set = Set(new GeoPoint(23.532f, 54.2342f))
@@ -424,7 +428,7 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
   def `nested list in map` {
     val map: Map[String, collection.immutable.IndexedSeq[String]] = Map("foo" -> Vector("1", "2"), "bar" -> Vector("3", "4"))
     val doc = obj("map" := map)
-    assertEquals("""{"map":{"foo":["1","2"],"bar":["3","4"]}}""", doc.toJson)
+    assertEquals("""{"map":{"foo":["1","2"],"bar":["3","4"]}}""", doc.toJson())
   }
 
   @Test

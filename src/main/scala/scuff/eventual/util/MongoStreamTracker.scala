@@ -5,6 +5,7 @@ import com.mongodb._
 import scuff.Mongolia._
 import concurrent.duration._
 import java.util.Date
+import scala.annotation.implicitNotFound
 
 /**
  * Keep track of handled [[scuff.eventual.EventSource#Transaction]]s, so process can resume
@@ -19,6 +20,7 @@ import java.util.Date
  * @param dbColl MongoDB collection. Set whatever WriteConcern is appropriate before passing
  * @param clockSkew Worst case clock skew in a sharded environment. Used for resuming without dropping transactions. Defaults to 2 seconds.
  */
+@implicitNotFound("Cannot find implicit Codec for ID <=> BsonValue")
 final class MongoStreamTracker[ID](
     dbColl: DBCollection,
     clockSkew: Duration = 2.seconds)(implicit idCdc: scuff.Codec[ID, BsonValue]) {

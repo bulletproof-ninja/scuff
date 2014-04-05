@@ -82,7 +82,7 @@ package object redis {
 
   type CONNECTION = (Jedis ⇒ Any) ⇒ Any
   /** Construct object by using a thread-safe connection pool. */
-  def threadSafe[T](pool: RedisConnectionPool)(factory: CONNECTION ⇒ T): T = factory(block ⇒ pool.connection()(block))
+//  def threadSafe[T](pool: RedisConnectionPool)(factory: CONNECTION ⇒ T): T = factory(block ⇒ pool.connection()(block))
   /** Construct object by using an on-demand connection. */
   def singleThreaded[T](config: JedisShardInfo, db: Int = 0)(factory: CONNECTION ⇒ T): T = {
     val jedis = new Jedis(config)

@@ -2,6 +2,7 @@ package scuff
 
 import org.junit._
 import org.junit.Assert._
+import concurrent.duration._
 
 object TestCache {
 case class Foo(id: Int, name: String)
@@ -11,7 +12,7 @@ class TestCache extends Serializable {
   import TestCache._
   @Test
   def foo {
-    val cache = new LRUDirectMemoryCache[String, Foo](10, new JavaSerializer, 1)
+    val cache = new LRUDirectMemoryCache[String, Foo](10, new JavaSerializer, 1.second)
     assertEquals(None, cache.lookup("foo"))
     val foo = cache.lookupOrStore("foo")(new Foo(123, "foo"))
     assertEquals(new Foo(123, "foo"), foo)

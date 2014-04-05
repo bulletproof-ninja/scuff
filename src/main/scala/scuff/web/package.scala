@@ -2,6 +2,7 @@ package scuff
 
 import javax.servlet.http._
 import java.util.Locale
+import java.net.InetAddress
 
 package object web {
   private val RFC822Pool = new ThreadLocal[java.text.SimpleDateFormat] {
@@ -43,10 +44,19 @@ package object web {
         case Some(reqETag) ⇒ reqETag == etag
       }
     }
-    def userLocales: Seq[Locale] = {
-      import collection.JavaConverters._
-      req.getLocales().asScala.toSeq
+    def Referer(): Option[String] = req.getHeader(HttpHeaders.Referer) match {
+      case "" => None
+      case r => Option(r)
     }
+    def userLocales: List[Locale] = {
+      import collection.JavaConverters._
+      req.getLocales().asScala.toList
+    }
+    def userAgent: Option[String] = req.getHeader(HttpHeaders.UserAgent) match {
+      case "" => None
+      case ua => Option(ua)
+    }
+    def remoteAddr: InetAddress = InetAddress.getByName(req.getRemoteAddr)
   }
 
 }

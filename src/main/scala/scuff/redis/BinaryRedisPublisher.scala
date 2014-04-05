@@ -8,6 +8,8 @@ import scuff.Serializer
 
 class BinaryRedisPublisher[T](channelName: String, serializer: Serializer[T]) {
   private[this] val byteName = SafeEncoder.encode(channelName)
+
+  @annotation.implicitNotFound("Cannot find implicit Jedis connection")
   def publish(msg: T)(implicit conn: Jedis) {
     publishWith(conn, msg)
   }

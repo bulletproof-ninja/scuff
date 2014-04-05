@@ -1,5 +1,7 @@
 package scuff
 
+import scala.concurrent.duration.FiniteDuration
+
 /**
  * Generic cache interface.
  */
@@ -20,6 +22,11 @@ trait Cache[K, V] {
    * Lookup cache entry.
    */
   def lookup(key: K): Option[V]
+  
+  /**
+   * Contains key?
+   */
+  def contains(key: K): Boolean
 
   /**
    * Lookup cache entry, or if not found, construct, store, and return entry.
@@ -40,18 +47,18 @@ trait Cache[K, V] {
  */
 trait Expiry[K, V] { self: Cache[K, V] =>
   /**
-   * Default time-to-live, in seconds.
+   * Default time-to-live.
    * Can be overridden per entry when storing.
    * 0 means no expiry.
    */
-  def defaultTTL: Int
+  def defaultTTL: FiniteDuration
   /**
    * Store or replace value.
    * @param key Cache key
    * @param value Value to cache
    * @param ttl Time-to-live. Optional. Defaults to [[defaultTTL]].
    */
-  def store(key: K, value: V, ttlSeconds: Int)
+  def store(key: K, value: V, ttlSeconds: FiniteDuration)
   final def store(key: K, value: V): Unit = store(key, value, defaultTTL)
 
   /**
@@ -60,14 +67,14 @@ trait Expiry[K, V] { self: Cache[K, V] =>
    * TTL supplied when stored (if any).
    * Return `true` if successful.
    */
-  def refresh(key: K, ttl: Int = defaultTTL): Boolean
+  def refresh(key: K, ttl: FiniteDuration = defaultTTL): Boolean
   /**
    * Lookup cache entry and refresh TTL.
    * If no TTL is supplied,
    * the default TTL will be used, NOT the
    * TTL supplied when stored (if any).
    */
-  def lookupAndRefresh(key: K, ttl: Int = defaultTTL): Option[V]
+  def lookupAndRefresh(key: K, ttl: FiniteDuration = defaultTTL): Option[V]
 
   /**
    * Lookup cache entry, or if not found, construct, store, and return entry.
@@ -75,7 +82,7 @@ trait Expiry[K, V] { self: Cache[K, V] =>
    * @param constructor The value constructor, if key not found
    * @param ttlSeconds time-to-live if stored. Defaults to [[defaultTTL]]
    */
-  def lookupOrStore(key: K, ttlSeconds: Int)(constructor: ⇒ V): V
+  def lookupOrStore(key: K, ttl: FiniteDuration)(constructor: ⇒ V): V
   final def lookupOrStore(key: K)(constructor: ⇒ V): V = lookupOrStore(key, defaultTTL)(constructor)
 
 }

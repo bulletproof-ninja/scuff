@@ -1,9 +1,13 @@
 package scuff.redis
 
 import _root_.redis.clients.jedis._
+import scala.concurrent.duration.FiniteDuration
+import language.implicitConversions
 
-class BinaryRedisCache[K, V](val defaultTTL: Int, conn: CONNECTION, keySer: scuff.Serializer[K], valueSer: scuff.Serializer[V])
-  extends scuff.Cache[K, V] with scuff.Expiry[K, V] {
+class BinaryRedisCache[K, V](val defaultTTL: FiniteDuration, conn: CONNECTION, keySer: scuff.Serializer[K], valueSer: scuff.Serializer[V])
+    extends scuff.Cache[K, V] with scuff.Expiry[K, V] {
+
+  private implicit def durToSecs(d: FiniteDuration): Int = d.toSeconds.toFloat.round
 
   @volatile private[this] var isShutdown = false
   private def connection[T] = if (isShutdown) {
@@ -12,9 +16,9 @@ class BinaryRedisCache[K, V](val defaultTTL: Int, conn: CONNECTION, keySer: scuf
     conn.asInstanceOf[(Jedis ⇒ T) ⇒ T]
   }
 
-  def store(key: K, value: V, ttlSeconds: Int) =
-    if (ttlSeconds > 0) {
-      connection(_.setex(keySer.encode(key), ttlSeconds, valueSer.encode(value)))
+  def store(key: K, value: V, ttl: FiniteDuration) =
+    if (ttl.length > 0) {
+      connection(_.setex(keySer.encode(key), ttl, valueSer.encode(value)))
     } else {
       connection(_.set(keySer.encode(key), valueSer.encode(value)))
     }
@@ -31,7 +35,7 @@ class BinaryRedisCache[K, V](val defaultTTL: Int, conn: CONNECTION, keySer: scuf
 
   def lookup(key: K): Option[V] = Option(getOrNull(key))
 
-  def lookupAndRefresh(key: K, ttl: Int): Option[V] = connection { jedis ⇒
+  def lookupAndRefresh(key: K, ttl: FiniteDuration): Option[V] = connection { jedis ⇒
     getOrNull(keySer.encode(key), jedis) match {
       case null ⇒ None
       case value ⇒
@@ -40,9 +44,11 @@ class BinaryRedisCache[K, V](val defaultTTL: Int, conn: CONNECTION, keySer: scuf
     }
   }
 
-  private def refresh(key: K, ttl: Int, jedis: Jedis): Boolean = jedis.expire(keySer.encode(key), ttl) == 1L
+  private def refresh(key: K, ttl: FiniteDuration, jedis: Jedis): Boolean = jedis.expire(keySer.encode(key), ttl) == 1L
 
-  def refresh(key: K, ttl: Int): Boolean = connection(refresh(key, ttl, _))
+  def refresh(key: K, ttl: FiniteDuration): Boolean = connection(refresh(key, ttl, _))
+
+  def contains(key: K): Boolean = connection(_.exists(keySer encode key))
 
   private def getOrNull(key: K): V = connection(getOrNull(keySer.encode(key), _))
   private def getOrNull(keyBytes: Array[Byte], jedis: Jedis): V =
@@ -50,8 +56,8 @@ class BinaryRedisCache[K, V](val defaultTTL: Int, conn: CONNECTION, keySer: scuf
       case null ⇒ null.asInstanceOf[V]
       case bytes ⇒ valueSer.decode(bytes)
     }
-  def lookupOrStore(key: K, ttlSeconds: Int)(constructor: ⇒ V): V = connection(lookupOrStore(_, keySer.encode(key), ttlSeconds, constructor))
-  private def lookupOrStore(jedis: Jedis, keyBytes: Array[Byte], ttlSeconds: Int, constructor: ⇒ V): V = {
+  def lookupOrStore(key: K, ttl: FiniteDuration)(constructor: ⇒ V): V = connection(lookupOrStore(_, keySer.encode(key), ttl, constructor))
+  private def lookupOrStore(jedis: Jedis, keyBytes: Array[Byte], ttl: FiniteDuration, constructor: ⇒ V): V = {
     val value = getOrNull(keyBytes, jedis)
     if (value != null) {
       value
@@ -61,13 +67,13 @@ class BinaryRedisCache[K, V](val defaultTTL: Int, conn: CONNECTION, keySer: scuf
         txn.get(keyBytes) -> txn.setnx(keyBytes, valueSer.encode(value))
       }
       if (successResp.get == 1L) {
-        if (ttlSeconds > 0) {
-          jedis.expire(keyBytes, ttlSeconds)
+        if (ttl.length > 0) {
+          jedis.expire(keyBytes, ttl)
         }
         value
       } else {
         // That was racy. Try again
-        lookupOrStore(jedis, keyBytes, ttlSeconds, constructor)
+        lookupOrStore(jedis, keyBytes, ttl, constructor)
       }
     }
   }

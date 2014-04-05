@@ -7,10 +7,12 @@ import java.util.concurrent.TimeUnit
 import scala.util.Failure
 import scala.util.Success
 import scuff.Threads.PiggyBack
+import scala.annotation.implicitNotFound
 
 /**
  * [[scuff.eventual.EventStore]]-based [[scuff.ddd.Repository]] implementation.
  */
+@implicitNotFound("Cannot find implicit conversion of AggregateRoot#ID to generic EventStore id ESID")
 abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](implicit idConv: AR#ID ⇒ ESID) extends Repository[AR] {
 
   protected def clock: scuff.Clock = scuff.Clock.System

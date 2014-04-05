@@ -9,14 +9,15 @@ import CoffeeScriptCompiler._
 import scuff.ResourcePool
 import scala.util.Try
 import concurrent.duration._
+import javax.script._
 
 private object CoffeeScriptServlet {
   import CoffeeScriptCompiler._
-  def DefaultConfig(engineName: String) = new Config(
-    options = Map('bare -> false), engineName = engineName,
+  def DefaultConfig(engineCtor: () => ScriptEngine) = new Config(
+    options = Map('bare -> false), newEngine = engineCtor,
     useDirective = Use.Strict)
-  def IcedConfig(engineName: String) = new Config(
-    options = Map('bare -> false), engineName = engineName,
+  def IcedConfig(engineCtor: () => ScriptEngine) = new Config(
+    options = Map('bare -> false), newEngine = engineCtor,
     useDirective = Use.Strict, compiler = Version.Iced.compiler)
   val lastModifiedMap = new scuff.LockFreeConcurrentMap[String, Option[Long]]
 
@@ -31,16 +32,17 @@ abstract class CoffeeScriptServlet extends HttpServlet with FileResourceLookup w
   import CoffeeScriptCompiler._
   import CoffeeScriptServlet._
 
+  private lazy val ScriptEngineMgr = new ScriptEngineManager
   /**
    * Javascript engine name. We default
    * to "rhino" because "nashorn" is slow
    * to the point of being unusable for
    * this.
    */
-  protected def jsEngineName = "rhino"
-  protected def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.DefaultConfig(jsEngineName))
+  protected def newJavascriptEngine() = ScriptEngineMgr.getEngineByName("javascript")
+  protected def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.DefaultConfig(newJavascriptEngine))
   private[this] val compilerPool = new ResourcePool[CoffeeScriptCompiler](createCompiler) {
-    // Don't discard compiler on exception 
+    // Don't discard compiler on exception, it still works :-)
     override def borrow[A](thunk: CoffeeScriptCompiler ⇒ A): A = {
       val result = super.borrow { compiler ⇒
         Try(thunk(compiler))
@@ -131,7 +133,7 @@ abstract class CoffeeScriptServlet extends HttpServlet with FileResourceLookup w
 }
 
 trait Ice { self: CoffeeScriptServlet ⇒
-  final override def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.IcedConfig(jsEngineName))
+  final override def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.IcedConfig(newJavascriptEngine))
 }
 
 //trait Redux { self: CoffeeScriptServlet ⇒

@@ -37,7 +37,7 @@ class TestParser {
         assertTrue(Try(foo.maybe.get).isFailure)
     }
     trait Bar {
-      def maybe: Option[java.lang.Integer]
+      def maybe: Option[Integer]
       Parser onePass form match {
         case Right(foo) ⇒
           assertEquals(42, foo.maybe.get)
@@ -66,9 +66,9 @@ class TestParser {
       case Left(errors) ⇒ assertTrue(errors.contains(Problem("latLng", ProblemType.Syntax)))
       case Right(b2) ⇒ fail("Should have failed")
     }
-    Parser.onePass(form.updated("latLng", Seq("123.4433 : -45.1234"))) match {
+    Parser.onePass(form.updated("latLng", Seq("-45.1234  123.4433"))) match {
       case Left(errors) ⇒ fail("Should not fail, but does: " + errors)
-      case Right(b) ⇒ assertEquals(new scuff.GeoPoint(123.4433f, -45.1234f), b.latLng)
+      case Right(b) ⇒ assertEquals(scuff.GeoPoint(-45.1234f, 123.4433f), b.latLng)
     }
   }
 
@@ -109,6 +109,20 @@ class TestParser {
     val parser = new Parser[Foo]
     parser.onePass(Map("addr" -> Seq("localhost"))) match {
       case Right(foo) ⇒ assertEquals("localhost", foo.addr.getHostName)
+    }
+  }
+
+  @Test
+  def more {
+    trait Foo {
+      def name: Seq[String]
+      def nope: Seq[String]
+    }
+    val parser = new Parser[Foo]
+    parser.onePass(Map("name" -> Seq("foo", "bar"), "baz" -> Seq("buz"))) match {
+      case Right(foo) =>
+        assertEquals(Seq("foo", "bar"), foo.name)
+        assertEquals(Nil, foo.nope)
     }
   }
 

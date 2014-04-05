@@ -1,4 +1,6 @@
 package scuff.redis
 
-class RedisCache(defaultTTL: Int, conn: CONNECTION)
+import scala.concurrent.duration.FiniteDuration
+
+class RedisCache(defaultTTL: FiniteDuration, conn: CONNECTION)
     extends BinaryRedisCache(defaultTTL, conn, StringSerializer, StringSerializer)
