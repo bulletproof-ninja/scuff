@@ -57,7 +57,7 @@ class ResourcePool[R](constructor: ⇒ R, minResources: Int = 0) {
     def delayMillis = timeoutMillis * 2
     val intervalMillis = (timeoutMillis / 4).max(1)
 
-    def run = pruneTail() 
+    def run = pruneTail()
 
     @tailrec
     def pruneTail(now: Long = System.currentTimeMillis) {
@@ -106,6 +106,9 @@ class ResourcePool[R](constructor: ⇒ R, minResources: Int = 0) {
 
   def size = pool.get.size
 
+  /** Drain pool of all resources. */
+  def drain() = pool.getAndSet(Nil).map(_._2)
+
   @tailrec
   private def pop(): R = {
     pool.get match {
@@ -126,13 +129,13 @@ class ResourcePool[R](constructor: ⇒ R, minResources: Int = 0) {
     }
   }
   private def push(r: R, time: Long = System.currentTimeMillis) {
-    @tailrec
-    def pushUntilSuccessful() {
-      val list = pool.get
-      if (!pool.compareAndSet(list, (time, r) :: list)) {
-        pushUntilSuccessful()
+      @tailrec
+      def pushUntilSuccessful() {
+        val list = pool.get
+        if (!pool.compareAndSet(list, (time, r) :: list)) {
+          pushUntilSuccessful()
+        }
       }
-    }
     onReturn(r)
     pushUntilSuccessful()
   }
