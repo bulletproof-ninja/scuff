@@ -158,14 +158,14 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
    */
   protected def onConcurrentUpdateCollision(id: AR#ID, revision: Int, category: CAT) {}
 
-  private def loadAndUpdate(id: AR#ID, basedOnRevision: Int, metadata: Map[String, String], doAssume: Boolean, handler: AR ⇒ Unit): Future[Int] = {
+  private def loadAndUpdate[T](id: AR#ID, basedOnRevision: Int, metadata: Map[String, String], doAssume: Boolean, handler: AR ⇒ T): Future[(Int, T)] = {
       implicit def ec = PiggyBack
     loadLatest(id, doAssume, basedOnRevision).flatMap { ar ⇒
       val t = handler.apply(ar)
       if (ar.events.isEmpty) {
-        Future.successful(ar.revision.get)
+        Future.successful(ar.revision.get -> t)
       } else {
-        recordUpdate(ar, metadata).recoverWith {
+        recordUpdate(ar, metadata).map(_ -> t).recoverWith {
           case e: DuplicateRevisionException ⇒
             onConcurrentUpdateCollision(id, e.revision, ar)
             loadAndUpdate(id, basedOnRevision, metadata, false, handler)
@@ -173,7 +173,7 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
       }
     }
   }
-  protected def update(id: AR#ID, basedOnRevision: Int, metadata: Map[String, String])(updateBlock: AR ⇒ Unit): Future[Int] = try {
+  protected def update[T](id: AR#ID, basedOnRevision: Int, metadata: Map[String, String])(updateBlock: AR ⇒ T): Future[(Int, T)] = try {
     loadAndUpdate(id, basedOnRevision, metadata, true, updateBlock)
   } catch {
     case e: Exception ⇒ Future.failed(e)
