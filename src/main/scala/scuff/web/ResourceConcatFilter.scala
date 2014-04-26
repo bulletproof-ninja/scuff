@@ -14,7 +14,7 @@ abstract class ResourceConcatFilter extends Filter {
   private final val ConcatNamesMatcher = """^\((.*)\)(\..+)?$""".r
   private final val NameSplitter = """\+""".r
 
-  private def expandResources(ctx: ServletContext, path: String, filename: String): Seq[String] = {
+  private def expandResources(ctx: ServletContext, path: String, filename: String): List[String] = {
     import collection.JavaConverters._
     if (filename.indexOf('*') != -1) {
       val filePattern = java.util.regex.Pattern.compile(filename.replace(".", "\\.").replace("*", ".*").replace("$", "\\$").concat("$"))
@@ -24,7 +24,7 @@ abstract class ResourceConcatFilter extends Filter {
       List(path concat filename)
     }
   }
-  private def extractResources(req: HttpServletRequest): Seq[String] = {
+  private def extractResources(req: HttpServletRequest): List[String] = {
     val fullPath = req.servletPathInfo
     val sepPos = fullPath.lastIndexOf("/") + 1
     val pathPrefix = fullPath.substring(0, sepPos)
@@ -32,7 +32,7 @@ abstract class ResourceConcatFilter extends Filter {
     ConcatNamesMatcher.findFirstMatchIn(filename) match {
       case None ⇒ expandResources(req.getServletContext, pathPrefix, filename)
       case Some(matcher) ⇒
-        val filenames = NameSplitter.split(matcher.group(1))
+        val filenames = NameSplitter.split(matcher.group(1)).toList
         val extension = Option(matcher.group(2)).getOrElse("")
         filenames.flatMap(filename ⇒ expandResources(req.getServletContext, pathPrefix, filename concat extension))
     }
@@ -47,52 +47,55 @@ abstract class ResourceConcatFilter extends Filter {
   def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = httpFilter(req, res, chain)
 
   private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
-    val resources = extractResources(req)
-    if (resources.size == 1 && resources.head == req.servletPathInfo) {
-      chain.doFilter(req, res)
-    } else try {
-      val ctx = req.getServletContext()
-      Option(ctx.getMimeType(resources.head)).foreach(res.setContentType)
-      val lastMod = resources.map { path ⇒
-        req.getServletContext.getResource(path) match {
-          case null ⇒ 0L
-          case url ⇒
-            val file = new java.io.File(url.toURI)
-            file.lastModified
-        }
-      }.max
-      if (req.IfModifiedSince(lastMod)) {
-        res.setDateHeader(HttpHeaders.LastModified, lastMod)
-        resources.foreach { resource ⇒
-          val proxyReq = new HttpServletRequestWrapper(req) {
-            import collection.JavaConverters._
-            override def getServletPath = req.getPathInfo match {
-              case null => resource
-              case _ => req.getServletPath
-            }
-            override def getPathInfo = req.getPathInfo match {
-              case null => null
-              case _ => resource
-            }
-            private def isIfModifiedSince(name: String) = name.equalsIgnoreCase(HttpHeaders.IfModifiedSince)
-            override def getDateHeader(name: String) = if (isIfModifiedSince(name)) -1 else super.getDateHeader(name)
-            override def getHeader(name: String) = if (isIfModifiedSince(name)) null else super.getHeader(name)
-            override def getHeaders(name: String) = if (isIfModifiedSince(name)) null else super.getHeaders(name)
-            override def getHeaderNames = super.getHeaderNames().asScala.filterNot(isIfModifiedSince(_)).asJavaEnumeration
+    extractResources(req) match {
+      case Nil =>
+        res sendError HttpServletResponse.SC_NOT_FOUND
+      case one :: Nil if one == req.servletPathInfo =>
+        chain.doFilter(req, res)
+      case resources => try {
+        val ctx = req.getServletContext()
+        Option(ctx.getMimeType(resources.head)).foreach(res.setContentType)
+        val lastMod = resources.map { path ⇒
+          req.getServletContext.getResource(path) match {
+            case null ⇒ 0L
+            case url ⇒
+              val file = new java.io.File(url.toURI)
+              file.lastModified
           }
-          asComment(resource).foreach { comment ⇒
-            printComment(comment, res)
+        }.max
+        if (req.IfModifiedSince(lastMod)) {
+          res.setDateHeader(HttpHeaders.LastModified, lastMod)
+          resources.foreach { resource ⇒
+            val proxyReq = new HttpServletRequestWrapper(req) {
+              import collection.JavaConverters._
+              override def getServletPath = req.getPathInfo match {
+                case null => resource
+                case _ => req.getServletPath
+              }
+              override def getPathInfo = req.getPathInfo match {
+                case null => null
+                case _ => resource
+              }
+              private def isIfModifiedSince(name: String) = name.equalsIgnoreCase(HttpHeaders.IfModifiedSince)
+              override def getDateHeader(name: String) = if (isIfModifiedSince(name)) -1 else super.getDateHeader(name)
+              override def getHeader(name: String) = if (isIfModifiedSince(name)) null else super.getHeader(name)
+              override def getHeaders(name: String) = if (isIfModifiedSince(name)) null else super.getHeaders(name)
+              override def getHeaderNames = super.getHeaderNames().asScala.filterNot(isIfModifiedSince(_)).asJavaEnumeration
+            }
+            asComment(resource).foreach { comment ⇒
+              printComment(comment, res)
+            }
+            ctx.getRequestDispatcher(resource).include(proxyReq, res)
           }
-          ctx.getRequestDispatcher(resource).include(proxyReq, res)
+          res.flushBuffer()
+        } else {
+          res.setStatus(HttpServletResponse.SC_NOT_MODIFIED)
         }
-        res.flushBuffer()
-      } else {
-        res.setStatus(HttpServletResponse.SC_NOT_MODIFIED)
+      } catch {
+        case t: Throwable ⇒
+          req.getServletContext.log(getClass.getName, t)
+          res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
       }
-    } catch {
-      case t: Throwable ⇒
-        req.getServletContext.log(getClass.getName, t)
-        res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
     }
   }
 
