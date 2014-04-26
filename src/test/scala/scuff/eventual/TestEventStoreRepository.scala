@@ -83,7 +83,7 @@ abstract class AbstractEventStoreRepositoryTest {
           assertEquals(0, foo.events.size)
           foo(AddNewNumber(99))
           assertEquals(1, foo.events.size)
-        }
+        }.map(_._1)
     }
     update1.onSuccess {
       case revision ⇒
@@ -145,7 +145,7 @@ abstract class AbstractEventStoreRepositoryTest {
   def `concurrent update` = doAsync { done ⇒
     val executor = java.util.concurrent.Executors.newScheduledThreadPool(16)
     val insFut = repo.insert(Aggr.create("Foo"))
-    val map = new scuff.LockFreeConcurrentMap[Int, Future[Int]]
+    val map = new scuff.LockFreeConcurrentMap[Int, Future[(Int, Unit)]]
     val range = 0 to 250
     insFut.foreach { _ ⇒
       for (i ← range) {
@@ -161,7 +161,7 @@ abstract class AbstractEventStoreRepositoryTest {
       }
       while (map.size < range.size) {}
       val revisions = map.map {
-        case (i, rev) ⇒ Await.result(rev, Duration.Inf)
+        case (i, f) ⇒ Await.result(f, Duration.Inf)._1
       }.toSeq.sorted
       done.complete(Try(assertEquals((1 to range.size).toSeq, revisions)))
     }
@@ -170,11 +170,10 @@ abstract class AbstractEventStoreRepositoryTest {
   def `noop update`() = doAsync { done ⇒
     repo.insert(Aggr.create("Foo")).onSuccess {
       case _ ⇒
-        var twoPlusTwo = 0
         repo.update("Foo", 0) { foo ⇒
-          twoPlusTwo = 2 + 2
+          2 + 2
         }.onSuccess {
-          case storedRev ⇒
+          case (storedRev, twoPlusTwo) ⇒
             assertEquals(4, twoPlusTwo)
             assertEquals(0, storedRev)
             done.success(Unit)
