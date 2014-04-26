@@ -33,12 +33,7 @@ abstract class CoffeeScriptServlet extends HttpServlet with FileResourceLookup w
   import CoffeeScriptServlet._
 
   private lazy val ScriptEngineMgr = new ScriptEngineManager
-  /**
-   * Javascript engine name. We default
-   * to "rhino" because "nashorn" is slow
-   * to the point of being unusable for
-   * this.
-   */
+
   protected def newJavascriptEngine() = ScriptEngineMgr.getEngineByName("javascript")
   protected def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.DefaultConfig(newJavascriptEngine))
   private[this] val compilerPool = new ResourcePool[CoffeeScriptCompiler](createCompiler) {
@@ -92,7 +87,7 @@ abstract class CoffeeScriptServlet extends HttpServlet with FileResourceLookup w
       case None ⇒ res.setStatus(HttpServletResponse.SC_NOT_FOUND)
       case Some((url, lastModified)) ⇒
         if (req.IfModifiedSince(lastModified)) {
-          val js = compile(req.getServletPath, url)
+          val js = compile(req.servletPathInfo, url)
           res.setDateHeader(LastModified, lastModified)
           res.setHeader(CacheControl, "max-age=" + maxAge(req))
           res.setCharacterEncoding("UTF-8")
@@ -110,7 +105,7 @@ abstract class CoffeeScriptServlet extends HttpServlet with FileResourceLookup w
       respond(req, res)
     } catch {
       case e: Exception ⇒
-        log("Failed to compile: " + req.getServletPath, e)
+        log(s"Failed to compile: ${req.servletPathInfo}", e)
         res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
     }
   }
@@ -119,16 +114,16 @@ abstract class CoffeeScriptServlet extends HttpServlet with FileResourceLookup w
 
   def fetchLastModified(req: HttpServletRequest) =
     if (isProduction) {
-      lastModifiedMap.get(req.getServletPath).getOrElse {
+      lastModifiedMap.get(req.servletPathInfo).getOrElse {
         val last = findResource(req).map(_._2)
-        lastModifiedMap.put(req.getServletPath, last)
+        lastModifiedMap.put(req.servletPathInfo, last)
         last
       }
     } else {
       findResource(req).map(_._2)
     }
 
-  def makeCacheKey(req: HttpServletRequest) = Some(req.getServletPath)
+  def makeCacheKey(req: HttpServletRequest) = Some(req.servletPathInfo)
 
 }
 

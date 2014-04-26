@@ -6,12 +6,12 @@ import javax.servlet.http.HttpServletRequest
 
 trait FileResourceLookup { this: HttpServlet ⇒
   protected def findResource(req: HttpServletRequest): Option[(URL, Long)] = {
-    getServletContext.getResource(req.getServletPath) match {
+    getServletContext.getResource(req.servletPathInfo) match {
       case null ⇒ None
       case url ⇒
         val file = new java.io.File(url.toURI)
         if (file.exists) {
-          Some(url -> file.lastModified / 1000 * 1000)
+          Some(url -> (file.lastModified / 1000) * 1000)
         } else {
           None
         }

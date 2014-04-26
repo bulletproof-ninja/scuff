@@ -18,7 +18,7 @@ import javax.servlet.http._
 trait URLExclusion extends Filter {
 
   /**
-   * Patterns to match on servlet path for exclusion.
+   * Patterns to match on URI for exclusion.
    */
   protected def exclusionPatterns: Seq[util.matching.Regex]
 
@@ -28,7 +28,7 @@ trait URLExclusion extends Filter {
   }
 
   private def httpFilter(req: http.HttpServletRequest, res: http.HttpServletResponse, chain: FilterChain) {
-    val path = req.getServletPath
+    val path = req.servletPathInfo
     if (exclusionPatterns.exists(_.pattern.matcher(path).matches)) {
       chain.doFilter(req, res)
     } else {

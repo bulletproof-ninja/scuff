@@ -57,7 +57,7 @@ sealed trait ClosureCompilerSupport {
     if (resProxy.getStatus == HttpServletResponse.SC_OK && doCompile(req)) {
       val uncompressed = new String(resProxy.getBytes, resProxy.getCharacterEncoding)
       try {
-        val js = ClosureCompiler.compile(uncompressed, req.getServletPath, CompilerOptions)
+        val js = ClosureCompiler.compile(uncompressed, req.servletPathInfo, CompilerOptions)
         try {
           resProxy.resetBuffer()
           resProxy.setCharacterEncoding(ClosureCompiler.Encoding)

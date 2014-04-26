@@ -6,7 +6,7 @@ import HttpServletResponse._
 import scuff.LRUHeapCache
 
 object HttpCaching {
-  case class Cached(bytes: Array[Byte], lastModified: Option[Long], headers: Iterable[(String, Iterable[String])], contentType: String, encoding: String, locale: java.util.Locale) {
+  case class Cached(bytes: Array[Byte], lastModified: Option[Long], headers: List[(String, List[String])], contentType: String, encoding: String, locale: java.util.Locale) {
     require(bytes.length > 0, "Empty content of type %s".format(contentType))
     lazy val eTag = {
       val digest = java.security.MessageDigest.getInstance("MD5").digest(bytes)
@@ -53,7 +53,10 @@ trait HttpCaching extends HttpServlet {
       throw NotOkException
     }
     val lastMod = proxy.getDateHeaders(HttpHeaders.LastModified).headOption
-    new Cached(proxy.getBytes, lastMod, proxy.headers.values, proxy.getContentType, proxy.getCharacterEncoding, proxy.getLocale)
+    val headers = proxy.headers.values.toList.map {
+      case (name, values) => name -> values.toList
+    }
+    new Cached(proxy.getBytes, lastMod, headers, proxy.getContentType, proxy.getCharacterEncoding, proxy.getLocale)
   }
   private def respond(cacheKey: Any, req: HttpServletRequest, res: HttpServletResponse)(getResource: HttpServletResponse ⇒ Unit) =
     try {

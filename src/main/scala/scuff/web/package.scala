@@ -3,6 +3,9 @@ package scuff
 import javax.servlet.http._
 import java.util.Locale
 import java.net.InetAddress
+import javax.servlet.ServletRequest
+import language.implicitConversions
+import javax.servlet.ServletResponse
 
 package object web {
   private val RFC822Pool = new ThreadLocal[java.text.SimpleDateFormat] {
@@ -10,6 +13,9 @@ package object web {
   }
   /** ThreadLocal safe date parser. */
   def RFC822 = RFC822Pool.get()
+
+  implicit def toHttpReq(req: ServletRequest) = req.asInstanceOf[HttpServletRequest]
+  implicit def toHttpRes(res: ServletResponse) = res.asInstanceOf[HttpServletResponse]
 
   implicit class RichResponse(val res: HttpServletResponse) extends AnyVal {
     def setHeader(etag: ETag): Unit = etag.setTo(res)
@@ -57,6 +63,14 @@ package object web {
       case ua => Option(ua)
     }
     def remoteAddr: InetAddress = InetAddress.getByName(req.getRemoteAddr)
+    def servletPathInfo: String = {
+      val pathInfo = req.getPathInfo match {
+        case null => ""
+        case info => info
+      }
+      req.getServletPath concat pathInfo
+    }
+
   }
 
 }
