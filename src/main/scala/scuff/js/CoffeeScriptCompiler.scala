@@ -54,6 +54,8 @@ class CoffeeScriptCompiler(config: CoffeeScriptCompiler.Config = new CoffeeScrip
       compilerSource.close()
     }
   }
+  
+  override def toString(): String = s"CoffeeScriptCompiler(${coffeeCompiler.getEngine.getClass.getName})"
 
   def compile(coffeeScriptCode: String, filename: String = ""): String = {
     val coffeeCode = useDirective concat coffeeScriptCode
