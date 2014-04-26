@@ -18,8 +18,6 @@ object Codec {
   implicit def noop[T]: Codec[T, T] = passthrough.asInstanceOf[Codec[T, T]]
 }
 
-trait Serializer[T] extends Codec[T, Array[Byte]]
-
 trait StreamingSerializer[T] extends Serializer[T] {
   @inline def encode(t: T): Array[Byte] = {
     val out = new ByteArrayOutputStream

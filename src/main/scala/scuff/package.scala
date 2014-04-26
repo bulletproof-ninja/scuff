@@ -9,6 +9,7 @@ package object scuff {
   import scala.math._
 
   type TimedCache[K, V] = Cache[K, V] with Expiry[K, V]
+  type Serializer[T] = Codec[T, Array[Byte]]
 
   implicit final class ScuffString(val str: String) extends AnyVal {
     /**
@@ -17,7 +18,7 @@ package object scuff {
      * http://rosettacode.org/wiki/Levenshtein_distance#Scala
      */
     def levenshtein(s2: String): Int = {
-      def minimum(i1: Int, i2: Int, i3: Int) = min(min(i1, i2), i3)
+        def minimum(i1: Int, i2: Int, i3: Int) = min(min(i1, i2), i3)
       val dist = Array.tabulate(s2.length + 1, str.length + 1) { (j, i) ⇒ if (j == 0) i else if (i == 0) j else 0 }
       for (j ← 1 to s2.length; i ← 1 to str.length)
         dist(j)(i) = if (s2(j - 1) == str(i - 1)) dist(j - 1)(i - 1)
@@ -37,18 +38,18 @@ package object scuff {
       Numbers.unsafeLong(str, offset)(stopper)
 
     def offsetStartsWith(offset: Int, startsWith: CharSequence): Boolean = {
-      @annotation.tailrec
-      def allCharsEqual(thisOffset: Int, thatOffset: Int): Boolean = {
-        if (thatOffset < startsWith.length) {
-          if (str.charAt(thisOffset) == startsWith.charAt(thatOffset)) {
-            allCharsEqual(thisOffset + 1, thatOffset + 1)
+        @annotation.tailrec
+        def allCharsEqual(thisOffset: Int, thatOffset: Int): Boolean = {
+          if (thatOffset < startsWith.length) {
+            if (str.charAt(thisOffset) == startsWith.charAt(thatOffset)) {
+              allCharsEqual(thisOffset + 1, thatOffset + 1)
+            } else {
+              false
+            }
           } else {
-            false
+            true
           }
-        } else {
-          true
         }
-      }
       str.length - offset >= startsWith.length && allCharsEqual(offset, 0)
     }
 
@@ -85,16 +86,16 @@ package object scuff {
     classOf[Float] -> classOf[java.lang.Float])
 
   private def coerce[T](from: AnyRef, toType: Class[T]): Option[T] = {
-    def isParmTypeMatch(parmTypes: Array[Class[_]]) = {
-      if (parmTypes.length != 1) {
-        false
-      } else if (parmTypes(0).isPrimitive) {
-        val pt = primitiveToWrapper(parmTypes(0))
-        pt.isInstance(from)
-      } else {
-        parmTypes(0).isInstance(from)
+      def isParmTypeMatch(parmTypes: Array[Class[_]]) = {
+        if (parmTypes.length != 1) {
+          false
+        } else if (parmTypes(0).isPrimitive) {
+          val pt = primitiveToWrapper(parmTypes(0))
+          pt.isInstance(from)
+        } else {
+          parmTypes(0).isInstance(from)
+        }
       }
-    }
     if (toType == classOf[String]) Option(from).map(String.valueOf(_).asInstanceOf[T]) else {
       val ctors = toType.getConstructors.asInstanceOf[Array[Constructor[T]]].filter(ctor ⇒ isParmTypeMatch(ctor.getParameterTypes))
       val ctorSuccess = ctors.iterator.map(ctor ⇒ Try(ctor.newInstance(from))).collectFirst {
