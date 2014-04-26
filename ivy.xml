@@ -1,13 +1,13 @@
 <ivy-module version="2.0">
 	<info organisation="nilskp" module="scuff" />
 	<dependencies>
-		<dependency org="org.scala-lang" name="scala-compiler" rev="2.10.3" />
+		<dependency org="org.scala-lang" name="scala-compiler" rev="2.10.4" />
 		<dependency org="junit" name="junit" rev="4.11" />
-		<dependency org="com.google.javascript" name="closure-compiler" rev="v+" />
+		<dependency org="com.google.javascript" name="closure-compiler" rev="v20140407" />
 		<dependency org="javax.mail" name="mail" rev="1.4.7" />
-		<dependency org="org.mozilla" name="rhino" rev="1.7R4" />
-		<dependency org="org.mongodb" name="mongo-java-driver" rev="2.11.4" />
+		<dependency org="org.mongodb" name="mongo-java-driver" rev="2.12.0" />
 		<dependency org="javax.servlet" name="javax.servlet-api" rev="3.0.1" />
 		<dependency org="redis.clients" name="jedis" rev="2.4.2" />
+		<dependency org="com.datastax.cassandra" name="cassandra-driver-core" rev="2.0.1" />
 	</dependencies>
 </ivy-module>
