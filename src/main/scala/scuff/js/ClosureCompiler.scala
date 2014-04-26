@@ -14,13 +14,11 @@ object ClosureCompiler {
     val opts = new CompilerOptions
     opts.aggressiveVarCheck = CheckLevel.ERROR
     opts.checkSuspiciousCode = true
-    opts.checkControlStructures = true
     opts.foldConstants = true
     opts.checkTypes = true
     opts.reportMissingOverride = CheckLevel.ERROR
-    opts.checkUnreachableCode = CheckLevel.ERROR
     opts.optimizeReturns = true
-    opts.variableRenaming = VariableRenamingPolicy.ALL
+    opts.variableRenaming = VariableRenamingPolicy.LOCAL
     opts.markNoSideEffectCalls = true
     opts.propertyRenaming = PropertyRenamingPolicy.OFF
     opts.inlineConstantVars = true
