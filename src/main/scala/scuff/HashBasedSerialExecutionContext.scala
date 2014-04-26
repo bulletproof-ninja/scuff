@@ -2,8 +2,11 @@ package scuff
 
 import concurrent.ExecutionContext
 import math.abs
-
-import java.util.concurrent.{Executor, Executors}
+import java.util.concurrent.{ Executor, Executors }
+import java.util.concurrent.ExecutorService
+import scala.concurrent._
+import scala.concurrent.duration._
+import java.util.concurrent.Callable
 
 /**
  * `ExecutionContext`, which serializes execution of `Runnable`
@@ -20,7 +23,7 @@ import java.util.concurrent.{Executor, Executors}
  * It is essential, for this class to work, that they are single-threaded.
  */
 final class HashBasedSerialExecutionContext(
-  threads: IndexedSeq[Executor],
+  threads: IndexedSeq[ExecutorService],
   failureReporter: Throwable ⇒ Unit = t ⇒ t.printStackTrace)
     extends ExecutionContext {
 
@@ -37,7 +40,7 @@ final class HashBasedSerialExecutionContext(
    * Runs a block of code on this execution context, using
    * the provided hash.
    */
-  def execute(runnable: Runnable, hash: Int): Unit = threads(abs(hash % numThreads)) execute new Runnable {
+  def execute(runnable: Runnable, hash: Int): Unit = executorByHash(hash) execute new Runnable {
     def run = try {
       runnable.run()
     } catch {
@@ -45,18 +48,32 @@ final class HashBasedSerialExecutionContext(
     }
   }
 
+  @inline
+  private def executorByHash(hash: Int) = threads(abs(hash % numThreads))
+
+  def submit[T](hash: Int)(runnable: => T): Awaitable[T] = new Awaitable[T] {
+    val f = executorByHash(hash) submit new Callable[T] {
+      def call = runnable
+    }
+    def ready(atMost: Duration)(implicit permit: CanAwait) = {
+      blocking(f.get(atMost.toMillis, MILLISECONDS))
+      this
+    }
+    def result(atMost: Duration)(implicit permit: CanAwait): T = blocking(f.get(atMost.toMillis, MILLISECONDS))
+  }
+
   def reportFailure(t: Throwable) = failureReporter(t)
 }
 
 object HashBasedSerialExecutionContext {
-  val global = HashBasedSerialExecutionContext(Runtime.getRuntime.availableProcessors, Threads.daemonFactory(classOf[HashBasedSerialExecutionContext].getName + ".global"))
+  lazy val global = HashBasedSerialExecutionContext(Runtime.getRuntime.availableProcessors, Threads.daemonFactory(classOf[HashBasedSerialExecutionContext].getName + ".global"))
   /**
    * @param numThreads Number of threads used for parallelism
    * @param threadFactory The thread factory used to create the threads
    * @param failureReporter Sink for exceptions
    */
   def apply(numThreads: Int, threadFactory: java.util.concurrent.ThreadFactory, failureReporter: Throwable ⇒ Unit = t ⇒ t.printStackTrace) = {
-    val threads = new Array[Executor](numThreads)
+    val threads = new Array[ExecutorService](numThreads)
     for (idx ← 0 until numThreads) {
       threads(idx) = Executors.newSingleThreadExecutor(threadFactory)
     }
