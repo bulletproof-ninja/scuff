@@ -12,6 +12,7 @@ import java.util.Arrays
 import java.util.Locale
 import js.CoffeeScriptCompiler
 import js.CoffeeScriptCompiler.Config
+import java.util.UUID
 
 class TestMongolia {
   import Mongolia._
@@ -224,7 +225,7 @@ class TestMongolia {
 
   @Test
   def mapReduceCoffee = compilerPool.borrow { implicit comp =>
-    val coll = new RichDBCollection(null)
+    val coll = new DocCollection(null)
     val map = "-> emit(@days[0].toString().substring(0,4), {count: 1}); return"
     val reduce = "(key, values) -> {count: values.reduce (t, v) -> t + v.count}"
     val mapReduce = MapReduce.coffee(map, reduce)
@@ -478,7 +479,7 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
     }
     val foo = obj("byLang" := obj("en" := arr("Hello", "World"), "es" := arr("Hola", "Mundo")))
     val byLang = foo.like[Foo].byLang.map {
-      case (key, value) ⇒ Locale.forLanguageTag(key) -> value
+      case (lang, text) => Locale.forLanguageTag(lang) -> text
     }
     assertEquals(Seq("Hello", "World"), byLang(Locale.ENGLISH).toSeq)
     assertEquals(Seq("Hola", "Mundo"), byLang(Locale.forLanguageTag("es")).toSeq)
