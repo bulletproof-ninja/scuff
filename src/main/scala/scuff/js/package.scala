@@ -1,6 +1,5 @@
 package scuff
 
-import org.mozilla.javascript._
 import java.io._
 import java.nio.charset.Charset
 import language.implicitConversions
