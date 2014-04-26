@@ -124,4 +124,21 @@ class TestInterval {
     assertEquals(i, copy)
   }
 
+  @Test
+  def overlaps {
+    val i1 = Interval(1 until 2)
+    val i2 = Interval(2 to 3)
+    val i3 = Interval(3 to 10)
+    assertFalse(i1.overlaps(i2))
+    assertFalse(i2.overlaps(i1))
+    assertFalse(i1.overlaps(i3))
+    assertFalse(i3.overlaps(i1))
+    assertTrue(i3.overlaps(i2))
+    assertTrue(i2.overlaps(i2))
+    val i4 = Interval(99999999999999d to Double.PositiveInfinity)
+    val i5 = Interval(1d to Double.PositiveInfinity)
+    assertTrue(i4 overlaps i5)
+    assertTrue(i5 overlaps i4)
+  }
+
 }
