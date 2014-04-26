@@ -5,7 +5,7 @@ import scuff.eventual._
 /**
  * Asynchronous [[scuff.eventual.EventSource#Transaction]] handler.
  * NOTICE: This trait supports [[HashBasedSerialExecutionContext]]
- * to ensure predictable thread execution per stream.
+ * to ensure serialized stream execution.
  */
 trait AsyncTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CAT]#Transaction ⇒ Unit) {
 
@@ -28,6 +28,6 @@ trait AsyncTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CAT]#T
       override def hashCode = txn.streamId.hashCode
       def run = callSuper(txn)
     }
-
   }
+
 }
