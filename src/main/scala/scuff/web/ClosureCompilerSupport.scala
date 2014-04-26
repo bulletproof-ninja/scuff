@@ -38,8 +38,7 @@ trait ClosureCompilation extends HttpServlet with ClosureCompilerSupport {
 
 sealed trait ClosureCompilerSupport {
 
-  private[this] val DefaultOptions = ClosureCompiler.defaultOptions
-  protected def CompilerOptions: CompilerOptions = DefaultOptions
+  protected def CompilerOptions: CompilerOptions = ClosureCompiler.DefaultOptions
 
   /**
    * If an exception occurs in the Closure compiler, this
