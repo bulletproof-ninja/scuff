@@ -23,6 +23,10 @@ final class Interval[@specialized(Short, Int, Long, Float, Double) T](
     (fromIncl && ord.gteq(c, from) || ord.gt(c, from)) &&
       (toIncl && ord.lteq(c, to) || ord.lt(c, to))
 
+  def overlaps(that: Interval[T]): Boolean =
+    (ord.gt(this.to, that.from) || (this.toIncl && that.fromIncl && ord.equiv(this.to, that.from))) &&
+      (ord.lt(this.from, that.to) || (this.fromIncl && that.toIncl && ord.equiv(this.from, that.to)))
+
   private def openBracket = if (fromIncl) "[" else "("
   private def closeBracket = if (toIncl) "]" else ")"
   private def numStr(t: T): String = t match {
