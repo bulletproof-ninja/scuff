@@ -9,15 +9,20 @@ import concurrent._
 import scala.util._
 import scala.collection.JavaConverters.asScalaIteratorConverter
 
-private object MongoEventStore {
-  final val OrderByTime_asc = obj("time" := ASC)
-  final val OrderByRevision_asc = obj("_id.rev" := ASC)
+object MongoEventStore {
+  private final val OrderByTime_asc = obj("time" := ASC, "_id.stream" := ASC, "_id.rev" := ASC)
+  private final val OrderByRevision_asc = obj("_id.rev" := ASC)
 
-  def ensureIndicies(coll: RichDBCollection): RichDBCollection = {
-    coll.ensureIndex("_id.stream" := ASC, "_id.rev" := ASC)
-    coll.ensureIndex("time")
-    coll.ensureIndex("category")
+  private def ensureIndicies(coll: DocCollection): DocCollection = {
+    coll.createIndex("_id.stream" := ASC, "_id.rev" := ASC)
+    coll.createIndex("time")
+    coll.createIndex("category")
     coll
+  }
+
+  def getCollection(name: String, db: DB): DBCollection = {
+    val wc = if (db.getMongo.getReplicaSetStatus == null) WriteConcern.FSYNCED else WriteConcern.MAJORITY
+    db(name, wc)
   }
 
 }
@@ -37,7 +42,7 @@ private object MongoEventStore {
  * }}}
  */
 abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idConv: Codec[ID, BsonValue], catConv: Codec[CAT, BsonValue])
-    extends eventual.EventStore[ID, EVT, CAT] {
+    extends eventual.EventStore[ID, EVT, CAT] { expectedTrait: EventStorePublisher[ID, EVT, CAT] =>
 
   import MongoEventStore._
 
@@ -47,10 +52,9 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
 
   protected def toDBObject(evt: EVT): DBObject
   protected def toEvent(dbo: DBObject): EVT
-  protected def publish(t: Transaction): Unit
 
   @annotation.tailrec
-  private def toBsonList(events: List[_ <: EVT], list: RichDBList = new RichDBList): RichDBList = events match {
+  private def toBsonList(events: List[_ <: EVT], list: BsonList = new BsonList): BsonList = events match {
     case Nil ⇒ list
     case head :: tail ⇒
       list += toDBObject(head)
@@ -78,13 +82,13 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     query(filter, OrderByRevision_asc, callback)
   }
   def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.Range)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
-    val lowerBound = $gte(revisionRange.head)
-    val upperBound = if (revisionRange.isInclusive) $lte("_id.rev" := revisionRange.last) else $lt("_id.rev" := revisionRange.last)
+    require(revisionRange.step == 1, s"Revision range must step by 1 only, not ${revisionRange.step}")
     val filter = obj(
       "_id.stream" := stream,
-      "_id.rev" := obj(lowerBound, upperBound))
-    val txnCallback = if (revisionRange.step == 1L) callback else (iter: Iterator[Transaction]) ⇒ callback(iter.filter(txn ⇒ revisionRange.contains(txn.revision)))
-    query(filter, OrderByRevision_asc, txnCallback)
+      "_id.rev" := obj(
+        $gte(revisionRange.head),
+        $lte(revisionRange.last)))
+    query(filter, OrderByRevision_asc, callback)
   }
 
   def replay[T](categories: CAT*)(txnHandler: Iterator[Transaction] ⇒ T): Future[T] = {
@@ -149,7 +153,7 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     }
   }
 
-  private def toTransaction(doc: RichDBObject): Transaction = {
+  private def toTransaction(doc: BsonObject): Transaction = {
     val timestamp = doc("time").as[Long]
     val category = doc("category").as[CAT]
     val (id, revision) = doc("_id").as[DBObject].map { id ⇒ (id("stream").as[ID], id.getAs[Int]("rev")) }
@@ -159,3 +163,4 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
   }
 
 }
+
