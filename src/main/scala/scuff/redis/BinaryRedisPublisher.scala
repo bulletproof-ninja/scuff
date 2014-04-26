@@ -4,9 +4,9 @@ import redis.clients.jedis._
 import redis.clients.util._
 import java.net._
 import redis.clients.util.SafeEncoder
-import scuff.Serializer
+import scuff.Codec
 
-class BinaryRedisPublisher[T](channelName: String, serializer: Serializer[T]) {
+class BinaryRedisPublisher[T](channelName: String, serializer: Codec[T, Array[Byte]]) {
   private[this] val byteName = SafeEncoder.encode(channelName)
 
   @annotation.implicitNotFound("Cannot find implicit Jedis connection")
