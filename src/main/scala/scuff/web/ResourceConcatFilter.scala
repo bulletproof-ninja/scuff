@@ -38,11 +38,17 @@ abstract class ResourceConcatFilter extends Filter {
     }
   }
 
-  def init(config: FilterConfig) {}
-  def destroy() {}
-
+  /** Include resource name as comment. */
   protected def asComment(resource: String): Option[String]
+  /** Print comment. */
   protected def printComment(comment: String, res: HttpServletResponse) = res.getOutputStream().println(comment)
+
+  /**
+   * Max age, in seconds, for concatenated resources.
+   * @param req The HTTP request.
+   * Passed for querying, in case max-age depends on the request.
+   */
+  protected def maxAge(req: HttpServletRequest): Int
 
   def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = httpFilter(req, res, chain)
 
@@ -64,7 +70,7 @@ abstract class ResourceConcatFilter extends Filter {
           }
         }.max
         if (req.IfModifiedSince(lastMod)) {
-          res.setDateHeader(HttpHeaders.LastModified, lastMod)
+          res.setLastModified(lastMod).setMaxAge(maxAge(req))
           resources.foreach { resource ⇒
             val proxyReq = new HttpServletRequestWrapper(req) {
               import collection.JavaConverters._

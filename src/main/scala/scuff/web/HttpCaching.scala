@@ -5,7 +5,7 @@ import http._
 import HttpServletResponse._
 import scuff.LRUHeapCache
 
-object HttpCaching {
+trait HttpCaching extends HttpServlet {
   case class Cached(bytes: Array[Byte], lastModified: Option[Long], headers: List[(String, List[String])], contentType: String, encoding: String, locale: java.util.Locale) {
     require(bytes.length > 0, "Empty content of type %s".format(contentType))
     lazy val eTag = {
@@ -26,10 +26,6 @@ object HttpCaching {
       res.flushBuffer()
     }
   }
-}
-
-trait HttpCaching extends HttpServlet {
-  import HttpCaching._
 
   private lazy val defaultCache = new LRUHeapCache[Any, Cached](Int.MaxValue)
   protected def cache: scuff.Cache[Any, Cached] = defaultCache
@@ -82,7 +78,8 @@ trait HttpCaching extends HttpServlet {
     } catch {
       case NotOkException ⇒ // Response already populated
     }
-  abstract override def destroy {
+
+  override def destroy {
     cache.shutdown()
     super.destroy()
   }

@@ -19,8 +19,6 @@ private object CoffeeScriptServlet {
   def IcedConfig(engineCtor: () => ScriptEngine) = new Config(
     options = Map('bare -> false), newEngine = engineCtor,
     useDirective = Use.Strict, compiler = Version.Iced.compiler)
-  val lastModifiedMap = new scuff.LockFreeConcurrentMap[String, Option[Long]]
-
 }
 
 /**
@@ -28,7 +26,7 @@ private object CoffeeScriptServlet {
  * to JavaScript.
  * <p>Use with [[scuff.web.Ice]] for Iced CoffeeScript.
  */
-abstract class CoffeeScriptServlet extends HttpServlet with FileResourceLookup with HttpCaching {
+abstract class CoffeeScriptServlet extends HttpServlet {
   import CoffeeScriptCompiler._
   import CoffeeScriptServlet._
 
@@ -50,11 +48,11 @@ abstract class CoffeeScriptServlet extends HttpServlet with FileResourceLookup w
     val started = System.currentTimeMillis()
     val comp = newCoffeeCompiler()
     val dur = System.currentTimeMillis() - started
-    log(s"Initialized ${comp.getClass.getName} in $dur ms.")
+    log(s"Initialized $comp in $dur ms.")
     comp
   }
   private def onCompilerTimeout(comp: CoffeeScriptCompiler) {
-    log(s"${comp.getClass.getName} instance removed from pool. ${compilerPool.size} remaining.")
+    log(s"$comp instance removed from pool. ${compilerPool.size} remaining.")
   }
 
   override def init() {
@@ -78,18 +76,17 @@ abstract class CoffeeScriptServlet extends HttpServlet with FileResourceLookup w
    * Max age, in seconds.
    * @param req The HTTP request.
    * Passed for querying, in case max-age depends on the request.
-   * Ignore if max-age is fixed.
    */
   protected def maxAge(req: HttpServletRequest): Int
 
   private def respond(req: HttpServletRequest, res: HttpServletResponse) {
-    findResource(req) match {
+    req.getResource match {
       case None ⇒ res.setStatus(HttpServletResponse.SC_NOT_FOUND)
-      case Some((url, lastModified)) ⇒
+      case Some(Resource(url, lastModified)) ⇒
         if (req.IfModifiedSince(lastModified)) {
           val js = compile(req.servletPathInfo, url)
           res.setDateHeader(LastModified, lastModified)
-          res.setHeader(CacheControl, "max-age=" + maxAge(req))
+          res.setMaxAge(maxAge(req))
           res.setCharacterEncoding("UTF-8")
           res.setContentType("text/javascript")
           res.getWriter.print(js)
@@ -109,21 +106,6 @@ abstract class CoffeeScriptServlet extends HttpServlet with FileResourceLookup w
         res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
     }
   }
-
-  protected def isProduction: Boolean
-
-  def fetchLastModified(req: HttpServletRequest) =
-    if (isProduction) {
-      lastModifiedMap.get(req.servletPathInfo).getOrElse {
-        val last = findResource(req).map(_._2)
-        lastModifiedMap.put(req.servletPathInfo, last)
-        last
-      }
-    } else {
-      findResource(req).map(_._2)
-    }
-
-  def makeCacheKey(req: HttpServletRequest) = Some(req.servletPathInfo)
 
 }
 

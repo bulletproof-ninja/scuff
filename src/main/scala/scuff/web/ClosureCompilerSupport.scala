@@ -38,8 +38,6 @@ trait ClosureCompilation extends HttpServlet with ClosureCompilerSupport {
 
 sealed trait ClosureCompilerSupport {
 
-  protected def CompilerOptions: CompilerOptions = ClosureCompiler.DefaultOptions
-
   /**
    * If an exception occurs in the Closure compiler, this
    * method is called, and the uncompressed Javascript
@@ -48,27 +46,30 @@ sealed trait ClosureCompilerSupport {
    */
   protected def onClosureError(e: Exception)
 
-  protected def doCompile(req: HttpServletRequest): Boolean
+  /** Get compiler options for request. Returning `None` will not compile. */
+  protected def compilerOptionsFor(req: HttpServletRequest): Option[CompilerOptions]
 
   protected def process(req: HttpServletRequest, res: HttpServletResponse)(useResponse: HttpServletResponse ⇒ Unit) {
     val resProxy = new HttpServletResponseProxy(res)
     useResponse(resProxy)
-    if (resProxy.getStatus == HttpServletResponse.SC_OK && doCompile(req)) {
-      val uncompressed = new String(resProxy.getBytes, resProxy.getCharacterEncoding)
-      try {
-        val js = ClosureCompiler.compile(uncompressed, req.servletPathInfo, CompilerOptions)
+    compilerOptionsFor(req) match {
+      case Some(options) if resProxy.getStatus == HttpServletResponse.SC_OK =>
+        val uncompressed = new String(resProxy.getBytes, resProxy.getCharacterEncoding)
         try {
-          resProxy.resetBuffer()
-          resProxy.setCharacterEncoding(ClosureCompiler.Encoding)
-          resProxy.getWriter.write(js)
+          val js = ClosureCompiler.compile(uncompressed, req.servletPathInfo, options)
+          try {
+            resProxy.resetBuffer()
+            resProxy.setCharacterEncoding(ClosureCompiler.Encoding)
+            resProxy.getWriter.write(js)
+          } catch {
+            case t: Throwable ⇒ req.getServletContext().log("Writing to response proxy failed", t)
+          }
         } catch {
-          case t: Throwable ⇒ req.getServletContext().log("Writing to response proxy failed", t)
+          case e: Exception ⇒
+            onClosureError(e)
+            uncompressed
         }
-      } catch {
-        case e: Exception ⇒
-          onClosureError(e)
-          uncompressed
-      }
+      case _ => // Don't compile
     }
     resProxy.propagate()
   }

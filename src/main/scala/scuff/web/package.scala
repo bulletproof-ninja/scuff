@@ -6,6 +6,8 @@ import java.net.InetAddress
 import javax.servlet.ServletRequest
 import language.implicitConversions
 import javax.servlet.ServletResponse
+import java.net.URL
+import java.util.Date
 
 package object web {
   private val RFC822Pool = new ThreadLocal[java.text.SimpleDateFormat] {
@@ -18,10 +20,31 @@ package object web {
   implicit def toHttpRes(res: ServletResponse) = res.asInstanceOf[HttpServletResponse]
 
   implicit class RichResponse(val res: HttpServletResponse) extends AnyVal {
-    def setHeader(etag: ETag): Unit = etag.setTo(res)
-    def addHeader(etag: ETag): Unit = etag.addTo(res)
+    def setHeader(etag: ETag): HttpServletResponse = { etag.setTo(res); res }
+    def addHeader(etag: ETag): HttpServletResponse = { etag.addTo(res); res }
+    def setMaxAge(seconds: Int): HttpServletResponse = {
+      res.setHeader(HttpHeaders.CacheControl, s"max-age=$seconds")
+      res
+    }
+    def setLastModified(date: Long): HttpServletResponse = {
+      res.setDateHeader(HttpHeaders.LastModified, date)
+      res
+    }
   }
+  case class Resource(url: URL, lastModified: Long)
   implicit class RichRequest(val req: HttpServletRequest) extends AnyVal {
+    def getResource: Option[Resource] = {
+      req.getServletContext.getResource(req.servletPathInfo) match {
+        case null ⇒ None
+        case url ⇒
+          val file = new java.io.File(url.toURI)
+          if (file.exists) {
+            Some(new Resource(url, (file.lastModified / 1000) * 1000))
+          } else {
+            None
+          }
+      }
+    }
     def IfNoneMatch() = ETag.IfNoneMatch(req)
     def IfMatch() = ETag.IfMatch(req)
     def Accept() = AcceptHeader(req)
