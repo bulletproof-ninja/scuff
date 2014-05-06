@@ -84,10 +84,13 @@ trait HttpCaching extends HttpServlet {
     super.destroy()
   }
 
-  abstract override def doGet(req: HttpServletRequest, res: HttpServletResponse) {
-    makeCacheKey(req) match {
-      case Some(cacheKey) ⇒ respond(cacheKey, req, res) { res ⇒ super.doGet(req, res) }
-      case _ ⇒ super.doGet(req, res)
+  override def service(req: HttpServletRequest, res: HttpServletResponse) {
+    if (req.getMethod == "GET") makeCacheKey(req) match {
+      case Some(cacheKey) ⇒ respond(cacheKey, req, res) { res ⇒ super.service(req, res) }
+      case _ ⇒ super.service(req, res)
+    }
+    else {
+      super.service(req, res)
     }
   }
 
