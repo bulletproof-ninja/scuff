@@ -98,7 +98,7 @@ class Parser[T](implicit tag: ClassTag[T]) {
             }
           }
         val withContent = {
-          val list = form.get(name).getOrElse(Nil).toList
+          val list = form.getOrElse(name, Nil).toList
           list.flatMap {
             _.trim match {
               case "" ⇒ None

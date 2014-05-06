@@ -10,11 +10,9 @@ import scuff.js.ClosureCompiler
  */
 abstract class ClosureCompilerFilter extends Filter with ClosureCompilerSupport {
 
-  def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = (req, res) match {
-    case (req: HttpServletRequest, res: HttpServletResponse) ⇒ httpFilter(req, res, chain)
-    case _ ⇒ chain.doFilter(req, res)
-  }
+  def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = httpFilter(req, res, chain)
 
+  @inline
   private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
     process(req, res) { res ⇒
       chain.doFilter(req, res)

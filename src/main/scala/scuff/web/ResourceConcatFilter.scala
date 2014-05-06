@@ -52,6 +52,7 @@ abstract class ResourceConcatFilter extends Filter {
 
   def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = httpFilter(req, res, chain)
 
+  @inline
   private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
     extractResources(req) match {
       case Nil =>
@@ -72,7 +73,7 @@ abstract class ResourceConcatFilter extends Filter {
         if (req.IfModifiedSince(lastMod)) {
           res.setLastModified(lastMod).setMaxAge(maxAge(req))
           resources.foreach { resource ⇒
-            val proxyReq = new HttpServletRequestWrapper(req) {
+            val proxyReq = new HttpServletRequestProxy(req) {
               import collection.JavaConverters._
               override def getServletPath = req.getPathInfo match {
                 case null => resource

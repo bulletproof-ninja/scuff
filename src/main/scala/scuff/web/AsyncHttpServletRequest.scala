@@ -1,10 +1,10 @@
 package scuff.web
 
-import javax.servlet.http.HttpServletRequestWrapper
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.AsyncContext
 
-class AsyncHttpServletRequest(req: HttpServletRequest) extends HttpServletRequestWrapper(req) {
+class AsyncHttpServletRequest(req: HttpServletRequest) extends HttpServletRequestProxy(req) {
+
   override def getContextPath() =
     if (req.isAsyncStarted) {
       req.getAttribute(AsyncContext.ASYNC_CONTEXT_PATH).asInstanceOf[String]

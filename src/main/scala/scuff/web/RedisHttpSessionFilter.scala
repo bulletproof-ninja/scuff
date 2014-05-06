@@ -10,17 +10,15 @@ import scuff.JavaSerializer
  * data in Redis, making it available in a horizontally
  * scaled environment.
  */
-trait RedisHttpSessionFilter extends Filter {
+abstract class RedisHttpSessionFilter extends Filter {
 
   def redisSessionDB: RedisConnectionPool
 
-  def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = (req, res) match {
-    case (req: HttpServletRequest, res: HttpServletResponse) ⇒ httpFilter(req, res, chain)
-    case _ ⇒ chain.doFilter(req, res)
-  }
+  def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = httpFilter(req, res, chain)
 
+  @inline
   private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
-    val request = new HttpServletRequestWrapper(req) {
+    val request = new HttpServletRequestProxy(req) {
       private[this] lazy val session = new RedisHttpSession(redisSessionDB, req.getSession)
       override def getSession = session
       override def getSession(create: Boolean) =

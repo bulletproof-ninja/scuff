@@ -4,7 +4,7 @@ import javax.servlet._
 import javax.servlet.http._
 
 /**
- * Apply to any filter to further discriminate 
+ * Apply to any filter to further discriminate
  * URL matching which cannot be done by the servlet spec.
  * <p>E.g. one can have a filter that matches
  * on all Javascript files using `"*.js"`, but
@@ -22,11 +22,9 @@ trait URLExclusion extends Filter {
    */
   protected def exclusionPatterns: Seq[util.matching.Regex]
 
-  abstract override def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = (req, res) match {
-    case (req: HttpServletRequest, res: HttpServletResponse) ⇒ httpFilter(req, res, chain)
-    case _ ⇒ super.doFilter(req, res, chain)
-  }
+  abstract override def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = httpFilter(req, res, chain)
 
+  @inline
   private def httpFilter(req: http.HttpServletRequest, res: http.HttpServletResponse, chain: FilterChain) {
     val path = req.servletPathInfo
     if (exclusionPatterns.exists(_.pattern.matcher(path).matches)) {

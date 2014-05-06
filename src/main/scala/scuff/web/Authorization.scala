@@ -18,11 +18,12 @@ trait Authorization extends HttpServlet {
    */
   protected def rolesAllowed: Set[String] = Set.empty
 
-  abstract override def service(req: HttpServletRequest, res: HttpServletResponse) {
+  override def service(req: HttpServletRequest, res: HttpServletResponse) {
     req.getUserPrincipal match {
       case null ⇒ res.setStatus(SC_UNAUTHORIZED)
       case user ⇒
-        if (rolesAllowed.isEmpty || rolesAllowed.exists(req.isUserInRole)) {
+        val allowed = rolesAllowed
+        if (allowed.isEmpty || allowed.exists(req.isUserInRole)) {
           super.service(req, res)
         } else {
           res.setStatus(SC_FORBIDDEN)
@@ -43,22 +44,12 @@ abstract class ApplicationSecurityFilter extends Filter {
   protected def getAuthenticatedUser(req: HttpServletRequest): Option[UserPrincipal]
   protected def logoutUser(req: HttpServletRequest, res: HttpServletResponse)
 
-  private[this] var filterName: String = _
-  def init(config: FilterConfig) {
-    filterName = Option(config.getFilterName).getOrElse(getClass.getName)
-  }
-
-  def destroy {}
-
-  def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = (req, res) match {
-    case (req: HttpServletRequest, res: HttpServletResponse) ⇒ httpFilter(req, res, chain)
-    case _ ⇒ chain.doFilter(req, res)
-  }
+  def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = httpFilter(req, res, chain)
 
   private def getRequest(req: HttpServletRequest, res: HttpServletResponse): HttpServletRequest = {
     getAuthenticatedUser(req) match {
       case Some(authUser) ⇒
-        new HttpServletRequestWrapper(req) {
+        new HttpServletRequestProxy(req) {
           @volatile var user: Option[UserPrincipal] = Some(authUser)
           override def isUserInRole(role: String) = user.exists(_.roles.contains(role))
           override def getUserPrincipal = user.orNull
@@ -74,15 +65,16 @@ abstract class ApplicationSecurityFilter extends Filter {
     }
   }
 
+  @inline
   private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
     req.getUserPrincipal match {
       case null ⇒ chain.doFilter(getRequest(req, res), res)
       case _: UserPrincipal ⇒
         throw new IllegalStateException(
-          "%s filter loop detected.".format(filterName))
+          s"${getClass.getName} filter loop detected.")
       case p: Principal ⇒
         throw new IllegalStateException(
-          "%s filter should not be used when other authentication is in place: %s".format(filterName, p.getClass.getName))
+          s"${getClass.getName} filter should not be used when other authentication is in place: ${p.getClass.getName}")
     }
   }
 }
@@ -95,6 +87,7 @@ trait LoginPageForwarder extends Filter {
 
   import javax.activation.MimeType
 
+  /** Login page path. */
   protected def loginPage: String
 
   private[this] val defaultAcceptTypes = Set("text/html").map(new MimeType(_))
@@ -103,12 +96,10 @@ trait LoginPageForwarder extends Filter {
 
   abstract override def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) {
     super.doFilter(req, res, chain)
-    (req, res) match {
-      case (req: HttpServletRequest, res: HttpServletResponse) ⇒ httpFilter(req, res, chain)
-      case _ ⇒ // Ignore
-    }
+    httpFilter(req, res, chain)
   }
 
+  @inline
   private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
     if (!res.isCommitted) res.getStatus match {
       case SC_UNAUTHORIZED ⇒
