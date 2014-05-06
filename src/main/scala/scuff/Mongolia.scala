@@ -450,7 +450,13 @@ object Mongolia {
 
   private def seq2bsonlist[T](seq: GenTraversableOnce[T])(implicit codec: Codec[T, BsonValue]) = {
     val list = new BsonList
-    seq.foreach(t ⇒ list += codec.encode(t).raw)
+    seq.foreach { t ⇒
+      val value = if (t == null) null else {
+        val bson = codec.encode(t)
+        if (bson == null) null else bson.raw
+      }
+      list += value
+    }
     list
   }
 
@@ -1031,6 +1037,13 @@ object Mongolia {
       }
       buffer
     }
+    def foldLeft[T](initial: T)(f: (T, BsonObject) => T): T = {
+      var t = initial
+      foreach { dbo =>
+        t = f(t, dbo)
+      }
+      t
+    }
   }
 
   implicit def prop2obj(prop: BsonProp) = obj(prop)
@@ -1053,13 +1066,13 @@ object Mongolia {
   def $lte[T](value: T)(implicit codec: Codec[T, BsonValue]) = "$lte" := value
   def $size(size: Int) = "$size" := size
   def $type(bsonType: BsonType) = "$type" := bsonType.typeNumber
-  def $all[T](values: T*)(implicit codec: Codec[T, BsonValue]) = "$all" := arr(values.map(t ⇒ codec.encode(t)): _*)
-  def $in[T](values: T*)(implicit codec: Codec[T, BsonValue]) = "$in" := arr(values.map(t ⇒ codec.encode(t)): _*)
-  def $nin[T](values: T*)(implicit codec: Codec[T, BsonValue]) = "$nin" := arr(values.map(t ⇒ codec.encode(t)): _*)
-  def $and[T](exprs: T*)(implicit codec: Codec[T, BsonValue]) = "$and" := arr(exprs.map(t ⇒ codec.encode(t)): _*)
-  def $or[T](exprs: T*)(implicit codec: Codec[T, BsonValue]) = "$or" := arr(exprs.map(t ⇒ codec.encode(t)): _*)
-  def $nor[T](exprs: T*)(implicit codec: Codec[T, BsonValue]) = "$nor" := arr(exprs.map(t ⇒ codec.encode(t)): _*)
-  def $each[T](values: T*)(implicit codec: Codec[T, BsonValue]) = "$each" := arr(values.map(t ⇒ codec.encode(t)): _*)
+  def $all[T](values: T*)(implicit codec: Codec[T, BsonValue]) = "$all" := arr(values: _*)
+  def $in[T](values: T*)(implicit codec: Codec[T, BsonValue]) = "$in" := arr(values: _*)
+  def $nin[T](values: T*)(implicit codec: Codec[T, BsonValue]) = "$nin" := arr(values: _*)
+  def $and[T](exprs: T*)(implicit codec: Codec[T, BsonValue]) = "$and" := arr(exprs: _*)
+  def $or[T](exprs: T*)(implicit codec: Codec[T, BsonValue]) = "$or" := arr(exprs: _*)
+  def $nor[T](exprs: T*)(implicit codec: Codec[T, BsonValue]) = "$nor" := arr(exprs: _*)
+  def $each[T](values: T*)(implicit codec: Codec[T, BsonValue]) = "$each" := arr(values: _*)
   def $exists(exists: Boolean): BsonProp = "$exists" := exists
   def $set(props: Seq[BsonProp]) = "$set" := obj(props)
   def $set(prop: BsonProp, more: BsonProp*) = "$set" := obj(prop, more: _*)

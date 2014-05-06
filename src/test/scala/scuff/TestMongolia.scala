@@ -485,4 +485,11 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
     assertEquals(Seq("Hola", "Mundo"), byLang(Locale.forLanguageTag("es")).toSeq)
   }
 
+  @Test
+  def null_testing {
+    val uuid = UUID.randomUUID()
+    val array = arr(Some(uuid), None)
+    val query = obj("foo" := $in(uuid, null))
+  }
+
 }
