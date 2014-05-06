@@ -933,7 +933,7 @@ object Mongolia {
       case oid: ObjectId ⇒ oid
       case any ⇒ OIDCdc.decode(any)
     }
-    def apply(key: String): BsonField = BsonField(getAs(key), underlying, key)
+    def apply(key: String): BsonField = BsonField(getAs[Any](key), underlying, key)
     def apply(head: BsonProp, tail: BsonProp*): BsonObject = add(head, tail: _*)
     def has(key: String) = this.contains(key)
     def getAs[T](name: String): T = {
