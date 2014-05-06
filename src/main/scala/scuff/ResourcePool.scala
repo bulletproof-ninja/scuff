@@ -11,20 +11,25 @@ import java.util.concurrent.TimeUnit
 /**
  * Unbounded lock-free resource pool.
  *
+ * Any resource is deliberately discarded when
+ * an exception occurs, to avoid potentially
+ * corrupted resources. This behavior can be changed
+ * on a case-by-case basis by sub-classing and
+ * overriding `borrow` and preventing non-destructive
+ * exceptions from reaching `super.borrow`.
+ *
  * This pool can be used as a more efficient replacement
  * for [[ThreadLocal]], in that it will never create more
  * instances than there are threads, like [[ThreadLocal]],
  * but has much higher probability for creating less.
  *
- * Any resource is deliberately discarded when
- * an exception occurs, to avoid potentially
- * corrupted resources. This behavior can easily
- * be changed on a case-by-case basis by sub-classing
- * and overriding `borrow` and preventing non-destructive
- * exceptions from reaching `super.borrow`.
- *
+ * However, unlike traditional resource pools, the pool has
+ * no upper limit on resources being created, so be careful
+ * if that is a concern.
+ * 
  * NOTICE: As with any pool, make absolutely sure the
- * resource does not escape the `borrow` scope.
+ * resource does not escape the `borrow` scope, but 
+ * that almost goes without saying, amirite?
  */
 class ResourcePool[R](constructor: ⇒ R, minResources: Int = 0) {
 
