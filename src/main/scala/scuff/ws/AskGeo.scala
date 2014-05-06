@@ -60,7 +60,7 @@ object AskGeo {
       val root = JSON.parseFull(sb.result).get.asInstanceOf[Map[String, Any]]
       val code = root("code")
       if (code != 0) {
-        val msg = root.get("message").getOrElse("Error code: " + code).asInstanceOf[String]
+        val msg = root.getOrElse("message", s"Error code: $code").asInstanceOf[String]
         throw new IllegalStateException(msg)
       }
       val data = root("data").asInstanceOf[List[Map[String, Any]]]
