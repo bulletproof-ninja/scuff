@@ -4,6 +4,9 @@ import java.lang.reflect.Modifier
 import scala.reflect.ClassTag
 import scala.concurrent.duration.Duration
 import scala.concurrent.Await
+import scala.util.Random
+import scala.collection.immutable.NumericRange
+import language.implicitConversions
 
 package object scuff {
   import scala.math._
@@ -162,21 +165,41 @@ package object scuff {
   }
 
   implicit final class ScuffArray[T](val arr: Array[T]) extends AnyVal {
-    @inline
     private def NoSuchElement = new NoSuchElementException(s"Array.length = ${arr.length}")
-
     def take2(): (T, T) = if (arr.length >= 2) arr(0) -> arr(1) else throw NoSuchElement
     def take3(): (T, T, T) = if (arr.length >= 3) (arr(0), arr(1), arr(2)) else throw NoSuchElement
+    def take4(): (T, T, T, T) = if (arr.length >= 4) (arr(0), arr(1), arr(2), arr(3)) else throw NoSuchElement
   }
 
-  implicit final class ScuffFuture[T](val f: concurrent.Future[T]) extends AnyVal {
+  implicit final class ScuffRandom(val rand: Random) extends AnyVal {
+    def nextInRange(r: Range): Int = nextInRange(NumericRange(r.head, r.last, 1))
+    def nextInRange[T](r: Range.Partial[T, NumericRange[T]])(implicit num: Numeric[T]): T = nextInRange(r.by(num.one))
+    def nextInRange[T](r: NumericRange[T])(implicit num: Numeric[T]): T = {
+      val numRange = num.minus(r.last, r.head)
+      val next = rand.nextDouble * num.toDouble(numRange) + num.toDouble(r.head)
+      num.zero match {
+        case _: Double => next.asInstanceOf[T]
+        case _: Int => math.round(next).asInstanceOf[Int].asInstanceOf[T]
+        case _: Long => math.round(next).asInstanceOf[T]
+        case _: Float => next.asInstanceOf[Float].asInstanceOf[T]
+        case _: BigDecimal => BigDecimal(next).asInstanceOf[T]
+        case _: BigInt => BigInt(math.round(next)).asInstanceOf[T]
+        case _ => throw new IllegalArgumentException(s"${num.zero.getClass.getName} is unsupported")
+      }
+    }
+  }
+
+  implicit final class ScuffScalaFuture[T](val f: concurrent.Future[T]) extends AnyVal {
     def get(implicit maxWait: Duration): T =
       if (f.isCompleted) {
         f.value.get.get
       } else {
         Await.result(f, maxWait)
       }
+  }
 
+  implicit final class ScuffJavaFuture[T](val f: java.util.concurrent.Future[T]) extends AnyVal {
+    def asScala(implicit conv: java.util.concurrent.Future[T] => concurrent.Future[T] = Threads.javaFutureConverter): concurrent.Future[T] = conv(f)
   }
 
 }
