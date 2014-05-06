@@ -12,6 +12,7 @@ class TestFSM {
     val conn = new Connection
     import conn.{ Active, Disabled, Forgotten }
     assertFalse(conn.isFinal)
+    assertFalse(conn is Forgotten)
     assertFalse(conn is Active)
     assertFalse(conn is Disabled)
     conn.start(enabled = true)
@@ -29,6 +30,7 @@ class TestFSM {
     assertFalse(conn.isFinal)
     conn(forget)
     assertTrue(conn.isFinal)
+    assertTrue(conn is Forgotten)
   }
   @Test
   def dateParser {
@@ -59,7 +61,7 @@ class TestFSM {
 
     def start(enabled: Boolean) = {
       val initial = if (enabled) Active.Connected else Disabled.Connected
-      super.start(initial)
+      super.init(initial)
     }
 
     val Active = new SuperState {
@@ -93,7 +95,7 @@ class TestFSM {
   class ISODateParser extends typed.FSM[Char] {
 
     def start() {
-      super.start(ParseYear)
+      super.init(ParseYear)
     }
 
     object digit extends Event
@@ -201,7 +203,7 @@ object OldSchoolPhoneEvents {
 import OldSchoolPhoneEvents._
 class OldSchoolPhone extends FSM {
   private def toInt(char: Char) = char - '0'
-  def plugIn() = super.start(Idle)
+  def plugIn() = super.init(Idle)
   val Idle = new State
   val Active = new SuperState {
     val number = new StringBuilder

@@ -48,11 +48,13 @@ object typed {
     protected def transitions: Set[Transition]
     private var currState: Option[typed.Target[T]] = None
     private var transitionTable: Map[(typed.Source[T], Event), typed.Target[T]] = _
-    protected def start(initialState: typed.State[T]) = {
+    
+    /** Initialize state. DO NOT call this from the constructor. */
+    protected def init(state: typed.State[T]) = {
       transitionTable = transitions.toMap
       require(transitionTable.size == transitions.size, "Duplicate State -> Event transition")
       assignParenthood(this, collection.mutable.Set(this))
-      currState = Option(initialState)
+      currState = Option(state)
     }
     def apply(evt: Event, payload: T = null.asInstanceOf[T]) = currState match {
       case None ⇒ throw new IllegalStateException("State machine not started yet")
@@ -93,7 +95,7 @@ sealed class BaseState[-T] {
 /** Super state. Is expected to contain other states as `val`s. */
 class SuperState(name: String = "") extends typed.SuperState[Any]
 
-/** Leaf state. Is expected to not contain other sub states. */
+/** Leaf state. Should not contain other sub states. */
 class State(name: String = "") extends typed.State[Any]
 
 /** Final state. */
@@ -103,3 +105,4 @@ class FinalState(name: String = "") extends typed.FinalState[Any]
  * A finite state machine trait, which is itself a super state.
  */
 trait FSM extends typed.FSM[Any]
+
