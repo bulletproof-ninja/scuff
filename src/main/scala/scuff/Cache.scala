@@ -16,7 +16,12 @@ trait Cache[K, V] {
   /**
    * Evict cache entry.
    */
-  def evict(key: K): Option[V]
+  def evict(key: K): Boolean
+
+  /**
+   * Lookup cache entry and evict if exists.
+   */
+  def lookupAndEvict(key: K): Option[V]
 
   /**
    * Lookup cache entry.

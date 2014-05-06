@@ -23,7 +23,11 @@ class BinaryRedisCache[K, V](val defaultTTL: FiniteDuration, conn: CONNECTION, k
       connection(_.set(keySer.encode(key), valueSer.encode(value)))
     }
 
-  def evict(key: K): Option[V] = {
+  def evict(key: K): Boolean = {
+    connection(_.del(keySer encode key) != 0L)
+  }
+
+  def lookupAndEvict(key: K): Option[V] = {
     val keyBytes: Array[Byte] = keySer.encode(key)
     val removed = atomic { txn ⇒
       val removed = txn.get(keyBytes)

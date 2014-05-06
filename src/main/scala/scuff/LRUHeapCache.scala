@@ -19,7 +19,7 @@ import scala.concurrent.duration._
  * @param lock Optional. Alternative read/write lock.
  */
 final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: FiniteDuration = Duration.Zero, staleCheckFreq: FiniteDuration = 10.seconds, lock: ReadWriteLock = new ReentrantReadWriteLock)
-  extends Cache[K, V] with Expiry[K, V] {
+    extends Cache[K, V] with Expiry[K, V] {
 
   @inline implicit private def Millis = concurrent.duration.MILLISECONDS
   @inline private def clock = Clock.System
@@ -62,7 +62,8 @@ final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: FiniteDuration 
   }
 
   def store(key: K, value: V, ttl: FiniteDuration) = writeLock(storeInsideLock(key, value, ttl.toSeconds.toInt))
-  def evict(key: K): Option[V] = writeLock(returnValue(map.remove(key)))
+  def evict(key: K): Boolean = writeLock(returnValue(map.remove(key)).nonEmpty)
+  def lookupAndEvict(key: K): Option[V] = writeLock(returnValue(map.remove(key)))
   def lookup(key: K): Option[V] = readLock(returnValue(map.get(key)))
   def contains(key: K): Boolean = readLock(map.containsKey(key))
 

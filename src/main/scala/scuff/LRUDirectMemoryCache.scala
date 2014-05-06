@@ -29,7 +29,8 @@ final class LRUDirectMemoryCache[K, V](maxCapacity: Int, ser: Serializer[V], val
   }
 
   def store(key: K, value: V, ttl: FiniteDuration) = impl.store(key, toBuffer(value), ttl)
-  def evict(key: K): Option[V] = impl.evict(key).map(toValue)
+  def evict(key: K): Boolean = impl.evict(key)
+  def lookupAndEvict(key: K): Option[V] = impl.lookupAndEvict(key).map(toValue)
   def lookup(key: K): Option[V] = impl.lookup(key).map(toValue)
   def contains(key: K): Boolean = impl.contains(key)
   def lookupOrStore(key: K, ttl: FiniteDuration)(constructor: ⇒ V): V = toValue(impl.lookupOrStore(key, ttl)(toBuffer(constructor)))
