@@ -82,7 +82,7 @@ abstract class AbstractEventStoreRepositoryTest {
           foo(AddNewNumber(42))
           assertEquals(0, foo.events.size)
           foo(AddNewNumber(99))
-          assertEquals(1, foo.events.size)
+          Future successful assertEquals(1, foo.events.size)
         }.map(_._1)
     }
     update1.onSuccess {
@@ -152,7 +152,7 @@ abstract class AbstractEventStoreRepositoryTest {
         val runThis = new Runnable {
           def run {
             val fut = repo.update("Foo", 0) { foo ⇒
-              foo(AddNewNumber(i))
+              Future successful foo(AddNewNumber(i))
             }
             map += i -> fut
           }
@@ -171,7 +171,7 @@ abstract class AbstractEventStoreRepositoryTest {
     repo.insert(Aggr.create("Foo")).onSuccess {
       case _ ⇒
         repo.update("Foo", 0) { foo ⇒
-          2 + 2
+          future(2 + 2)
         }.onSuccess {
           case (storedRev, twoPlusTwo) ⇒
             assertEquals(4, twoPlusTwo)

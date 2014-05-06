@@ -99,7 +99,7 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
             if (lastRev == -1) {
               snapshotRevision.map(rev ⇒ (stateBuilder.state, rev, Nil))
             } else {
-              Some(stateBuilder.state, lastRev, concurrentUpdates.reverse)
+              Some((stateBuilder.state, lastRev, concurrentUpdates.reverse))
             }
           }
         snapshotRevision match {
@@ -158,22 +158,23 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
    */
   protected def onConcurrentUpdateCollision(id: AR#ID, revision: Int, category: CAT) {}
 
-  private def loadAndUpdate[T](id: AR#ID, basedOnRevision: Int, metadata: Map[String, String], doAssume: Boolean, handler: AR ⇒ T): Future[(Int, T)] = {
+  private def loadAndUpdate[T](id: AR#ID, basedOnRevision: Int, metadata: Map[String, String], doAssume: Boolean, handler: AR ⇒ Future[T]): Future[(Int, T)] = {
       implicit def ec = PiggyBack
     loadLatest(id, doAssume, basedOnRevision).flatMap { ar ⇒
-      val t = handler.apply(ar)
-      if (ar.events.isEmpty) {
-        Future.successful(ar.revision.get -> t)
-      } else {
-        recordUpdate(ar, metadata).map(_ -> t).recoverWith {
-          case e: DuplicateRevisionException ⇒
-            onConcurrentUpdateCollision(id, e.revision, ar)
-            loadAndUpdate(id, basedOnRevision, metadata, false, handler)
+      handler.apply(ar).flatMap { t =>
+        if (ar.events.isEmpty) {
+          Future.successful(ar.revision.get -> t)
+        } else {
+          recordUpdate(ar, metadata).map(_ -> t).recoverWith {
+            case e: DuplicateRevisionException ⇒
+              onConcurrentUpdateCollision(id, e.revision, ar)
+              loadAndUpdate(id, basedOnRevision, metadata, false, handler)
+          }
         }
       }
     }
   }
-  protected def update[T](id: AR#ID, basedOnRevision: Int, metadata: Map[String, String])(updateBlock: AR ⇒ T): Future[(Int, T)] = try {
+  protected def update[T](id: AR#ID, basedOnRevision: Int, metadata: Map[String, String])(updateBlock: AR ⇒ Future[T]): Future[(Int, T)] = try {
     loadAndUpdate(id, basedOnRevision, metadata, true, updateBlock)
   } catch {
     case e: Exception ⇒ Future.failed(e)

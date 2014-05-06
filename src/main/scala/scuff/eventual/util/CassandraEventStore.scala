@@ -42,12 +42,8 @@ private object CassandraEventStore {
       case (key, str: CharSequence) => s"'$key':'$str'"
       case (key, any) => s"'$key':$any"
     }.mkString("{", ",", "}")
-    val idTypeStr = CassandraIdTypes.get(idType.runtimeClass).getOrElse {
-      sys.error(s"Unsupported ID type: $idType")
-    }
-    val catTypeStr = CassandraIdTypes.get(catType.runtimeClass).getOrElse {
-      sys.error(s"Unsupported category type: catType")
-    }
+    val idTypeStr = CassandraIdTypes.getOrElse(idType.runtimeClass, sys.error(s"Unsupported ID type: $idType"))
+    val catTypeStr = CassandraIdTypes.getOrElse(catType.runtimeClass, sys.error(s"Unsupported category type: catType"))
     session.execute(s"CREATE KEYSPACE IF NOT EXISTS $keyspace WITH REPLICATION = $replicationStr")
     session.execute(s"""CREATE TABLE IF NOT EXISTS $keyspace.$table (
     		stream $idTypeStr,
@@ -66,7 +62,7 @@ private object CassandraEventStore {
 /**
  * Cassandra event store implementation.
  * WARNING: Not tested WHAT SO EVER.
- * If you're interested in contributing, 
+ * If you're interested in contributing,
  * please try it out and report any problems.
  */
 abstract class CassandraEventStore[ID, EVT, CAT](session: => Session, keyspace: String, table: String, replication: Map[String, Any])(implicit idType: ClassTag[ID], catType: ClassTag[CAT])
@@ -198,7 +194,7 @@ abstract class CassandraEventStore[ID, EVT, CAT](session: => Session, keyspace: 
     val parms = Seq(fromTime) ++ categories
     query(stm, callback, parms)
   }
-  
+
   private val RecordTransaction = session.prepare(s"INSERT INTO $keyspace.$table (stream, revision, time, category, events, metadata) VALUES(?,?,?,?,?,?) IF NOT EXISTS")
   def record(category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = {
     val timestamp = new Date
