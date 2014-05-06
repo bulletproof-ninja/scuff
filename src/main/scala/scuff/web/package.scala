@@ -30,6 +30,11 @@ package object web {
       res.setDateHeader(HttpHeaders.LastModified, date)
       res
     }
+    def sendPermanentRedirect(url: CharSequence) {
+      res.setStatus(HttpServletResponse.SC_MOVED_PERMANENTLY)
+      res.setHeader(HttpHeaders.Location, url.toString)
+      res.flushBuffer()
+    }
   }
   case class Resource(url: URL, lastModified: Long)
   implicit class RichRequest(val req: HttpServletRequest) extends AnyVal {
