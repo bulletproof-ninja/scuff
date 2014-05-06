@@ -5,5 +5,5 @@ import javax.servlet.FilterConfig
 
 trait NoConfig { self: Filter =>
   final def init(config: FilterConfig) {}
-  final def destroy() {}
+  def destroy() {}
 }
