@@ -23,22 +23,23 @@ trait Repository[AR <: AggregateRoot] {
   final def load(id: AR#ID, revision: Int): Future[AR] = load(id, Some(revision))
 
   /**
-   * Update aggregate. Changes are committed and any revision conflict is
+   * Update aggregate. Changes are committed and potential revision conflicts are
    * automatically retried. To back out of the transaction, throw an exception.
-   * NOTICE: Anything done in this block must be idempotent, due to automatic
-   * retry on concurrent updates.
+   * NOTICE: Anything done in this block must be thread-safe and idempotent, 
+   * due to the automatic retry on concurrent updates.
    * @param id The aggregate ID
    * @param basedOnRevision Revision, which update will be based on
    * @param updateBlock The transaction code block. This may be executed multiple times if concurrent updates occur
    */
-  @implicitNotFound("Cannot find implicit Map[String, String] of metadata. If no metadata desired, define as empty: implicit metadata = Map.empty[String, String]")
+  @implicitNotFound("Cannot find implicit Map[String, String] of metadata. If no metadata desired, provide empty")
   final def update[T](id: AR#ID, basedOnRevision: Int)(updateBlock: AR ⇒ Future[T])(implicit metadata: Map[String, String]): Future[(Int, T)] = {
     update(id, basedOnRevision, metadata) { aggr ⇒
-      val t = updateBlock(aggr)
-      if (aggr.events.nonEmpty) {
-        aggr.checkInvariants()
-      }
-      t
+      updateBlock(aggr).map { t =>
+        if (aggr.events.nonEmpty) {
+          aggr.checkInvariants()
+        }
+        t
+      }(Threads.PiggyBack)
     }
   }
   @implicitNotFound("Cannot find implicit Map[String, String] of metadata. If no metadata desired, define as empty: implicit metadata = Map.empty[String, String]")
