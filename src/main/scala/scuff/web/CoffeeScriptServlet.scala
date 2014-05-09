@@ -14,10 +14,12 @@ import javax.script._
 private object CoffeeScriptServlet {
   import CoffeeScriptCompiler._
   def DefaultConfig(engineCtor: () => ScriptEngine) = new Config(
+    version = Version.Original,
     options = Map('bare -> false), newEngine = engineCtor,
     useDirective = Use.Strict)
   def IcedConfig(engineCtor: () => ScriptEngine) = new Config(
-    options = Map('bare -> false), newEngine = engineCtor,
+    version = Version.Iced,
+    options = Map('bare -> false, 'runtime -> "window"), newEngine = engineCtor,
     useDirective = Use.Strict, compiler = Version.Iced.compiler)
 }
 
@@ -36,9 +38,9 @@ abstract class CoffeeScriptServlet extends HttpServlet {
   protected def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.DefaultConfig(newJavascriptEngine))
   private[this] val compilerPool = new ResourcePool[CoffeeScriptCompiler](createCompiler) {
     // Don't discard compiler on exception, it still works :-)
-    override def borrow[A](thunk: CoffeeScriptCompiler ⇒ A): A = {
+    override def borrow[A](use: CoffeeScriptCompiler ⇒ A): A = {
       val result = super.borrow { compiler ⇒
-        Try(thunk(compiler))
+        Try(use(compiler))
       }
       result.get
     }

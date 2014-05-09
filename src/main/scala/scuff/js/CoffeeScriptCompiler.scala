@@ -11,10 +11,13 @@ object CoffeeScriptCompiler {
       case null ⇒ sys.error("Cannot find compiler script in classpath: " + compilerPath)
       case stream ⇒ new InputStreamReader(stream, "UTF-8")
     }
+    def defaultOptions: Map[Symbol, Any] = Map.empty
   }
   case object Version {
     case object Original extends Version("/META-INF/script/coffee-script.js")
-    case object Iced extends Version("/META-INF/script/iced-coffee-script.js")
+    case object Iced extends Version("/META-INF/script/iced-coffee-script.js") {
+      override val defaultOptions = Map('runtime -> "none")
+    }
     case object Redux extends Version("/META-INF/script/CoffeeScriptRedux.js")
   }
 
@@ -24,7 +27,7 @@ object CoffeeScriptCompiler {
     case object ASM extends Use("\"use asm\";\n")
   }
 
-  case class Config(options: Map[Symbol, Any] = Map.empty, newEngine: () => ScriptEngine = newJavascriptEngine, useDirective: Use = null, compiler: () ⇒ Reader = Version.Original.compiler)
+  case class Config(version: Version = Version.Original, options: Map[Symbol, Any] = Map.empty, newEngine: () => ScriptEngine = newJavascriptEngine, useDirective: Use = null, compiler: () ⇒ Reader = () => null)
   private val coffeeScriptCodeVarName = "coffeeScriptCode"
 
 }
@@ -38,11 +41,15 @@ class CoffeeScriptCompiler(config: CoffeeScriptCompiler.Config = new CoffeeScrip
   private[this] val useDirective = Option(config.useDirective).map(_.directive).getOrElse("")
 
   private def jsCompile() = {
-    s"CoffeeScript.compile($coffeeScriptCodeVarName, ${toJavascript(config.options.toSeq)});"
+    val options = config.version.defaultOptions ++ config.options
+    s"CoffeeScript.compile($coffeeScriptCodeVarName, ${toJavascript(options.toSeq)});"
   }
 
   private val coffeeCompiler = {
-    val compilerSource = config.compiler()
+    val compilerSource = config.compiler() match {
+      case null => config.version.compiler()
+      case source => source
+    }
     try {
       config.newEngine() match {
         case engine: Compilable ⇒
@@ -54,7 +61,7 @@ class CoffeeScriptCompiler(config: CoffeeScriptCompiler.Config = new CoffeeScrip
       compilerSource.close()
     }
   }
-  
+
   override def toString(): String = s"CoffeeScriptCompiler(${coffeeCompiler.getEngine.getClass.getName})"
 
   def compile(coffeeScriptCode: String, filename: String = ""): String = {
