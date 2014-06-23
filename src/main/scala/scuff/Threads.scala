@@ -88,7 +88,14 @@ object Threads {
     if (group.getParent == null) group
     else rootThreadGroup(group.getParent)
   }
-  private def newThreadGroup(name: String) = new ThreadGroup(Threads.SystemThreadGroup, name)
+  private def newThreadGroup(
+    name: String,
+    failureReporter: Throwable => Unit = (t: Throwable) => t.printStackTrace) =
+    new ThreadGroup(Threads.SystemThreadGroup, name) {
+      override def uncaughtException(t: Thread, e: Throwable) {
+        failureReporter(e)
+      }
+    }
 
   def factory(name: String, threadGroup: ThreadGroup = null): ThreadFactory = {
     val tg = if (threadGroup != null) threadGroup else newThreadGroup(name)
