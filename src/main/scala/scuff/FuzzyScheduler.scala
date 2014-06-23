@@ -12,8 +12,7 @@ object FuzzyScheduler {
     /**
      * Handle exception.
      * Rethrow to bubble up to underlying executor service
-     * (NOTE: rethrow will potentially affect other jobs),
-     * or call `stop()` to stop this orderly.
+     * or call `stop()` to stop task from running again.
      * Or do something else and continue scheduling.
      * This method exists to ensure explicit exception
      * handling. It could be done inside `run` method,
