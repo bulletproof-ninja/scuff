@@ -32,7 +32,7 @@ trait Repository[AR <: AggregateRoot] {
    * @param updateBlock The transaction code block. This may be executed multiple times if concurrent updates occur
    */
   @implicitNotFound("Cannot find implicit Map[String, String] of metadata. If no metadata desired, provide empty")
-  final def update[T](id: AR#ID, basedOnRevision: Int)(updateBlock: AR ⇒ Future[T])(implicit metadata: Map[String, String]): Future[(Int, T)] = {
+  final def update[T](id: AR#ID, basedOnRevision: Int)(updateBlock: AR ⇒ Future[T])(implicit metadata: Map[String, String]): Future[Updated[T]] = {
     update(id, basedOnRevision, metadata) { aggr ⇒
       updateBlock(aggr).map { t =>
         if (aggr.events.nonEmpty) {
@@ -42,13 +42,16 @@ trait Repository[AR <: AggregateRoot] {
       }(Threads.PiggyBack)
     }
   }
+  
+  final case class Updated[T](revision: Int, output: T)
+  
   @implicitNotFound("Cannot find implicit Map[String, String] of metadata. If no metadata desired, define as empty: implicit metadata = Map.empty[String, String]")
-  final def update[T](id: AR#ID, basedOnRevision: Option[Int])(updateBlock: AR ⇒ Future[T])(implicit metadata: Map[String, String]): Future[(Int, T)] =
+  final def update[T](id: AR#ID, basedOnRevision: Option[Int])(updateBlock: AR ⇒ Future[T])(implicit metadata: Map[String, String]): Future[Updated[T]] =
     basedOnRevision match {
       case Some(revision) ⇒ update(id, revision)(updateBlock)
       case _ ⇒ update(id, Int.MaxValue)(updateBlock)
     }
-  protected def update[T](id: AR#ID, basedOnRevision: Int, metadata: Map[String, String])(updateBlock: AR ⇒ Future[T]): Future[(Int, T)]
+  protected def update[T](id: AR#ID, basedOnRevision: Int, metadata: Map[String, String])(updateBlock: AR ⇒ Future[T]): Future[Updated[T]]
 
   /**
    * Insert new aggregate root and publish committed events.

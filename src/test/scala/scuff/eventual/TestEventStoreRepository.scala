@@ -83,7 +83,7 @@ abstract class AbstractEventStoreRepositoryTest {
           assertEquals(0, foo.events.size)
           foo(AddNewNumber(99))
           Future successful assertEquals(1, foo.events.size)
-        }.map(_._1)
+        }.map(_.revision)
     }
     update1.onSuccess {
       case revision ⇒
@@ -154,7 +154,7 @@ abstract class AbstractEventStoreRepositoryTest {
             val fut = repo.update("Foo", 0) { foo ⇒
               Future successful foo(AddNewNumber(i))
             }
-            map += i -> fut
+            map += i -> fut.map(u => u.revision -> u.output)
           }
         }
         executor.schedule(runThis, 500, java.util.concurrent.TimeUnit.MILLISECONDS)
@@ -173,7 +173,7 @@ abstract class AbstractEventStoreRepositoryTest {
         repo.update("Foo", 0) { foo ⇒
           future(2 + 2)
         }.onSuccess {
-          case (storedRev, twoPlusTwo) ⇒
+          case repo.Updated(storedRev, twoPlusTwo) ⇒
             assertEquals(4, twoPlusTwo)
             assertEquals(0, storedRev)
             done.success(Unit)
