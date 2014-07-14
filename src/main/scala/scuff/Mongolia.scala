@@ -349,7 +349,7 @@ object Mongolia {
     }
   }
   private def geo2Dbo(gp: GeoPoint): BsonObject = obj("type" := "Point", "coordinates" := arr(gp.longitude: Double, gp.latitude: Double))
-  implicit def GeoPointCdc = GeoCdc
+  implicit def GeoPointCdc: Codec[GeoPoint, BsonValue] = GeoCdc
   private[this] val GeoCdc = new Codec[GeoPoint, BsonValue] {
     def encode(a: GeoPoint): BsonValue = {
       val dbo = geo2Dbo(a)

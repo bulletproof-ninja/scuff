@@ -28,26 +28,26 @@
 
 	<target name="init">
 		<tstamp />
-		<property name="scala.major-minor" value="2.10" />
-		<property name="scala.rev" value="4" />
+		<property name="scala.major-minor" value="2.11" />
+		<property name="scala.rev" value="1" />
 		<property name="scala.version" value="${scala.major-minor}.${scala.rev}" />
 		<property name="ivy.version" value="2.3.0" />
-		<property name="scuff.version" value="1.3-SNAPSHOT" />
+		<property name="scuff.version" value="1.4-SNAPSHOT" />
 		<property name="scuff.jar" value="${ant.project.name}-${scuff.version}-scala-${scala.major-minor}-${DSTAMP}.jar" />
 		<property name="ivy.jar" value="lib/ivy-${ivy.version}.jar" />
 		<property name="scala-lib.jar" value="lib/scala-library-${scala.version}.jar" />
 		<property name="scala-comp.jar" value="lib/scala-compiler-${scala.version}.jar" />
 		<property name="scala-refl.jar" value="lib/scala-reflect-${scala.version}.jar" />
-		<mkdir dir="build" />
+		<mkdir dir="target" />
 	</target>
 
 	<target name="clean">
-		<delete dir="build" />
+		<delete dir="target" />
 		<delete dir="lib" />
 	</target>
 
 	<target name="scalac">
-		<scalac srcdir="${srcdir}" destdir="${build.destdir}" addparams="-target:jvm-1.7 ${scalac.params}">
+		<scalac srcdir="${srcdir}" destdir="${target.destdir}" addparams="-target:jvm-1.7 ${scalac.params}">
 			<bootclasspath>
 				<pathelement location="${scala-comp.jar}" />
 				<pathelement location="${scala-lib.jar}" />
@@ -55,7 +55,7 @@
 			</bootclasspath>
 
 			<classpath>
-				<pathelement path="${build.destdir}" />
+				<pathelement path="${target.destdir}" />
 				<fileset dir="lib">
 					<include name="**/*.jar" />
 					<exclude name="scala-*" />
@@ -66,36 +66,36 @@
 	</target>
 
 	<target name="compile-for-jar" depends="clean, init, resolve-deps, scala-taskdef">
-		<mkdir dir="build/main" />
+		<mkdir dir="target/main" />
 		<antcall target="scalac">
 			<param name="srcdir" value="src/main" />
-			<param name="build.destdir" value="build/main" />
+			<param name="target.destdir" value="target/main" />
 			<param name="scalac.params" value="-optimise -unchecked -deprecation -explaintypes -Xdisable-assertions" />
 		</antcall>
 	</target>
 
 	<target name="compile-for-test" depends="clean, init, resolve-deps, scala-taskdef">
-		<property name="build.destdir" value="build/test" />
+		<property name="target.destdir" value="target/test" />
 		<property name="scalac.params" value="-nowarn" />
-		<mkdir dir="${build.destdir}" />
+		<mkdir dir="${target.destdir}" />
 		<antcall target="scalac">
 			<param name="srcdir" value="src/main" />
-			<param name="build.destdir" value="${build.destdir}" />
+			<param name="target.destdir" value="${target.destdir}" />
 			<param name="scalac.params" value="${scalac.params}" />
 		</antcall>
 		<antcall target="scalac">
 			<param name="srcdir" value="src/test" />
-			<param name="build.destdir" value="${build.destdir}" />
+			<param name="target.destdir" value="${target.destdir}" />
 			<param name="scalac.params" value="${scalac.params}" />
 		</antcall>
 	</target>
 
 	<target name="run-junit" depends="compile-for-test" description="Run JUnit tests">
-		<copy todir="build/test">
+		<copy todir="target/test">
 			<fileset dir="src/main/resources" />
 			<fileset dir="src/test/resources" />
 		</copy>
-		<mkdir dir="build/junit" />
+		<mkdir dir="target/junit" />
 		<junit fork="yes" haltonfailure="true" haltonerror="true">
 			<formatter type="xml" />
 			<jvmarg value="-ea" />
@@ -105,11 +105,11 @@
 					<include name="**/*.jar" />
 					<exclude name="ant-*" />
 				</fileset>
-				<pathelement path="build/test" />
+				<pathelement path="target/test" />
 				<pathelement location="${scala-lib.jar}" />
 			</classpath>
-			<batchtest todir="build/junit">
-				<fileset dir="build/test">
+			<batchtest todir="target/junit">
+				<fileset dir="target/test">
 					<include name="**/*Test*.class" />
 					<exclude name="**/*$*.class" />
 					<exclude name="**/*Abstract*.class" />
@@ -118,10 +118,10 @@
 		</junit>
 	</target>
 
-	<target name="full-build" depends="run-junit, scaladocs, make-jar" />
+	<target name="full-build" depends="run-junit, make-jar" /> <!-- Should have `scaladocs`, but problem with XML in 2.11 -->
 
 	<target name="make-jar" depends="compile-for-jar" description="Make JAR">
-		<manifest file="build/MANIFEST.MF">
+		<manifest file="target/MANIFEST.MF">
 			<attribute name="Built-By" value="${user.name}" />
 			<section name="scuff">
 				<attribute name="Implementation-Title" value="scuff" />
@@ -130,20 +130,19 @@
 				<attribute name="Sealed" value="true" />
 			</section>
 		</manifest>
-		<copy todir="build/main">
+		<copy todir="target/main">
 			<fileset dir="src/main/resources" />
 		</copy>
-		<jar basedir="build/main" destfile="build/${scuff.jar}" index="true" manifest="build/MANIFEST.MF" />
+		<jar basedir="target/main" destfile="target/${scuff.jar}" index="true" manifest="target/MANIFEST.MF" />
 	</target>
 
 	<target name="scaladocs" depends="init, scala-taskdef">
-		<mkdir dir="build/api" />
-		<scaladoc destdir="build/api">
+		<mkdir dir="target/api" />
+		<scaladoc destdir="target/api">
 			<classpath>
 				<fileset dir="lib">
 					<include name="**/*.jar" />
 				</fileset>
-				<pathelement location="${scala-lib.jar}" />
 			</classpath>
 			<src path="src/main/scala" />
 			<include name="**/*.scala" />

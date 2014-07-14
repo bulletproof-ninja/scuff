@@ -1,7 +1,7 @@
 package scuff.ws
 
 import java.net.URL
-import scala.util.parsing.json.JSON
+
 import scuff.GeoPoint
 
 /**
@@ -46,26 +46,21 @@ object AskGeo {
   }
 
   object DefaultJsonParser extends Parser {
+    import collection.JavaConverters._
+    import java.util.{ Map => jMap, List => jList }
+
     def format = "json"
 
-    import scala.util.parsing.json._
-
     def parseTimeZone(buf: java.io.BufferedReader): Seq[java.util.TimeZone] = {
-      val sb = new StringBuilder
-      var line = buf.readLine()
-      while (line != null) {
-        sb append line append '\n'
-        line = buf.readLine()
-      }
-      val root = JSON.parseFull(sb.result).get.asInstanceOf[Map[String, Any]]
-      val code = root("code")
+      val root = JsonParserPool.borrow(_.parse(buf)).asInstanceOf[jMap[String, Any]]
+      val code = root.get("code").asInstanceOf[Number].intValue
       if (code != 0) {
-        val msg = root.getOrElse("message", s"Error code: $code").asInstanceOf[String]
+        val msg = Option(root.get("message").asInstanceOf[String]).getOrElse(s"Error code: $code")
         throw new IllegalStateException(msg)
       }
-      val data = root("data").asInstanceOf[List[Map[String, Any]]]
+      val data = root.get("data").asInstanceOf[jList[jMap[String, jMap[String, String]]]].asScala
       data.map { jsObj ⇒
-        val tz = jsObj("TimeZone").asInstanceOf[Map[String, String]]("TimeZoneId")
+        val tz = jsObj.get("TimeZone").get("TimeZoneId")
         java.util.TimeZone.getTimeZone(tz)
       }
     }

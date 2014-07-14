@@ -9,6 +9,10 @@ import javax.servlet.ServletResponse
 import java.net.URL
 import java.util.Date
 
+package web {
+  case class Resource(url: URL, lastModified: Long)
+}
+
 package object web {
   private val RFC822Pool = new ThreadLocal[java.text.SimpleDateFormat] {
     override def initialValue = new java.text.SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z", java.util.Locale.US)
@@ -36,7 +40,6 @@ package object web {
       res.flushBuffer()
     }
   }
-  case class Resource(url: URL, lastModified: Long)
   implicit class RichRequest(val req: HttpServletRequest) extends AnyVal {
     def getResource: Option[Resource] = {
       req.getServletContext.getResource(req.servletPathInfo) match {
