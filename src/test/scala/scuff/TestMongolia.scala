@@ -33,7 +33,7 @@ class TestMongolia {
       "uuid" := uuid,
       "emptyList" := List[Int](),
       "bytes" := Array[Byte](5, 23, 46, 45, 2, 23, -4, -53))
-    doc.put("foo", List("abc", "def", "ghi"))
+    doc("foo" := List("abc", "def", "ghi"))
     assertEquals("""{"nothing":null,"none":null,"list":["a","b"],"now":{"$date":1349276592614},"id":{"$oid":"506c53b0a025ec577423ef92"},"array":["one","two","three"],"uuid":{"$uuid":"650c1d1c-3a1d-479c-a3fd-9c707e9288c4"},"emptyList":[],"bytes":{ "$binary" : "BRcuLQIX/Ms=" , "$type" : 0},"foo":["abc","def","ghi"]}""", doc.toJson())
   }
 
