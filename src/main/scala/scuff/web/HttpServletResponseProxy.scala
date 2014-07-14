@@ -74,12 +74,11 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
   private[this] var bufferSizeHint = 4096 * 2
   def setBufferSize(hint: Int) = bufferSizeHint = hint
   private[this] val dateFmt = RFC822
-  def getDateHeaders(name: String): Seq[Long] = try {
+  def getDateHeaders(name: String): Seq[Long] =
     headers.get(name.toLowerCase) match {
       case None ⇒ Seq.empty
-      case Some((_, values)) ⇒ values.map(dateFmt.parse(_).getTime)
+      case Some((_, values)) ⇒ values.flatMap(t => util.Try(dateFmt.parse(t).getTime).toOption)
     }
-  }
 
   var status = delegate.getStatus()
   var message: Option[String] = None
@@ -114,13 +113,13 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
   var redirect: Option[String] = None
   def sendRedirect(redir: String) = redirect = Option(redir)
 
-  @reflect.BeanProperty
+  @beans.BeanProperty
   var locale: Locale = delegate.getLocale()
 
-  @reflect.BeanProperty
+  @beans.BeanProperty
   var characterEncoding = delegate.getCharacterEncoding()
 
-  @reflect.BeanProperty
+  @beans.BeanProperty
   var contentType = delegate.getContentType()
 
   private var contentLength: Option[Int] = None
