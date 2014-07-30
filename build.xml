@@ -49,11 +49,10 @@
 	<target name="scalac">
 		<scalac srcdir="${srcdir}" destdir="${target.destdir}" addparams="-target:jvm-1.7 ${scalac.params}">
 			<bootclasspath>
-				<pathelement location="${scala-comp.jar}" />
-				<pathelement location="${scala-lib.jar}" />
-				<pathelement location="${scala-refl.jar}" />
+                <fileset dir="lib">
+                    <include name="scala-*" />
+                </fileset>
 			</bootclasspath>
-
 			<classpath>
 				<pathelement path="${target.destdir}" />
 				<fileset dir="lib">
@@ -139,9 +138,15 @@
 	<target name="scaladocs" depends="init, scala-taskdef">
 		<mkdir dir="target/api" />
 		<scaladoc destdir="target/api">
+            <bootclasspath>
+                <fileset dir="lib">
+                    <include name="scala-*" />
+                </fileset>
+            </bootclasspath>
 			<classpath>
 				<fileset dir="lib">
 					<include name="**/*.jar" />
+					<exclude name="scala-*" />
 				</fileset>
 			</classpath>
 			<src path="src/main/scala" />
