@@ -38,7 +38,7 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
    * control over concurrent updates if needed, or can either be ignored (for last-man-wins updates) or
    * always prevent update (first-man-wins) for a conservative update strategy.
    */
-  protected def newAggregateRoot(id: AR#ID, revision: Int, state: S, concurrentUpdates: List[_ <: AR#EVT]): AR
+  protected def newAggregateRoot(id: AR#ID, revision: Int, state: S, concurrentUpdates: List[AR#EVT]): AR
 
   private[this] val NoFuture = Future.successful(None)
   protected def loadSnapshot(id: AR#ID): Future[Option[(S, Int)]] = NoFuture

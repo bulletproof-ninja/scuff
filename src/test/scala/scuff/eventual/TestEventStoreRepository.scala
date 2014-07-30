@@ -245,7 +245,7 @@ class TestEventStoreRepositoryNoSnapshots extends AbstractEventStoreRepositoryTe
       val eventStore = es
       type S = AggrState
       def newStateMutator(snapshotState: Option[S]) = new AggrStateMutator(snapshotState.getOrElse(null))
-      def newAggregateRoot(id: String, revision: Int, state: S, concurrentUpdates: List[_ <: AggrEvent]) = {
+      def newAggregateRoot(id: String, revision: Int, state: S, concurrentUpdates: List[AggrEvent]) = {
         val collector = new EventHandler(new AggrStateMutator(state, concurrentUpdates))
         new Aggr(id, collector, Some(revision))
       }
@@ -268,7 +268,7 @@ class TestEventStoreRepositoryWithSnapshots extends AbstractEventStoreRepository
       type S = AggrState
       val snapshots = new scuff.LockFreeConcurrentMap[String, (S, Int)]
       def newStateMutator(snapshotState: Option[AggrState]) = new AggrStateMutator(snapshotState.getOrElse(null))
-      def newAggregateRoot(id: String, revision: Int, state: S, concurrentUpdates: List[_ <: AggrEvent]) = {
+      def newAggregateRoot(id: String, revision: Int, state: S, concurrentUpdates: List[AggrEvent]) = {
         val collector = new EventHandler(new AggrStateMutator(state, concurrentUpdates))
         new Aggr(id, collector, Some(revision))
       }
