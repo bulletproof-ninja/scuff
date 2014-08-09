@@ -128,6 +128,10 @@ final class EventStream[ID, EVT, CAT](
       }
     }
 
+  /**
+   *  Resume consumption.
+   *  @return Future subscription. The future is resolved once consumption goes live.
+   */
   def resume(consumer: DurableConsumer): Future[Subscription] = {
     val starting = new Timestamp
     val categorySet = consumer.categoryFilter
