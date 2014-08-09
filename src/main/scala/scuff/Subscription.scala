@@ -5,7 +5,10 @@ trait Subscription {
 }
 
 trait Faucet {
+  /** Filter type. */
   type F
+  /** Listener type */
   type L
+  /** Start subscription. */
   def subscribe(s: L, include: F ⇒ Boolean = _ ⇒ true): Subscription
 }
