@@ -188,6 +188,49 @@ class TestFSM {
     assertTrue(phone is Active.Talking)
   }
 
+  @Test
+  def `miss grant's controller combo 1` {
+    val ctrl = MissGrantsController()
+    import ctrl._, DoorClosed._
+    assertFalse(ctrl is DoorClosed)
+    ctrl.closeDoor()
+    assertTrue(ctrl is DoorClosed)
+    assertFalse(ctrl is UnlockedPanel)
+    ctrl.turnOnLight()
+    assertFalse(ctrl is UnlockedPanel)
+    ctrl.openDrawer()
+    assertTrue(ctrl is UnlockedPanel)
+    ctrl.openDoor()
+    assertFalse(ctrl is UnlockedPanel)
+  }
+  @Test
+  def `miss grant's controller combo 2` {
+    val ctrl = MissGrantsController()
+    import ctrl._, DoorClosed._
+    assertFalse(ctrl is DoorClosed)
+    ctrl.closeDoor()
+    assertTrue(ctrl is DoorClosed)
+    assertFalse(ctrl is UnlockedPanel)
+    ctrl.openDrawer()
+    assertFalse(ctrl is UnlockedPanel)
+    ctrl.turnOnLight()
+    assertTrue(ctrl is UnlockedPanel)
+    ctrl.openDoor()
+    assertFalse(ctrl is UnlockedPanel)
+  }
+  @Test
+  def `miss grant's controller combo 3` {
+    val ctrl = MissGrantsController()
+    import ctrl._, DoorClosed._
+    assertFalse(ctrl is DoorClosed)
+    ctrl.closeDoor()
+    assertTrue(ctrl is DoorClosed)
+    assertFalse(ctrl is UnlockedPanel)
+    ctrl.openDrawer()
+    assertFalse(ctrl is UnlockedPanel)
+    ctrl.openDoor()
+    assertTrue(ctrl is Idle)
+  }
 }
 object OldSchoolPhoneEvents {
   case object HungUp extends Event
@@ -200,8 +243,9 @@ object OldSchoolPhoneEvents {
   case object DigitDialed extends Event
   case class DigitDialed(valid: Boolean = true, complete: Boolean = false) extends Event
 }
-import OldSchoolPhoneEvents._
 class OldSchoolPhone extends FSM {
+  import OldSchoolPhoneEvents._
+
   private def toInt(char: Char) = char - '0'
   def plugIn() = super.init(Idle)
   val Idle = new State
@@ -255,3 +299,66 @@ class OldSchoolPhone extends FSM {
     Talking -> CalleeHungUp -> Pinned,
     Pinned -> CalleeReceiverLifted -> Talking)
 }
+
+object MissGrantsController {
+  def apply() = {
+    val ctrl = new MissGrantsController
+    ctrl.init()
+    ctrl
+  }
+}
+class MissGrantsController private () extends FSM {
+
+  def closeDoor() = apply(doorClosed)
+  def openDoor() = apply(doorOpened)
+  def turnOnLight() = apply(lightOn)
+  def openDrawer() = apply(drawerOpened)
+  
+  private def init() {
+    init(Idle)
+  }
+  
+  private def unlockDoor() = println("Unlocking door")
+  private def lockPanel() = println("Locking panel")
+  private def lockDoor() = println("Locking door")
+  private def unlockPanel() = println("Unlocking panel")
+
+  val doorClosed, doorOpened, panelClosed, lightOn, drawerOpened = new Event {}
+
+  val Idle = new State {
+    override def onEvent(evt: Event) = evt match {
+      case `doorOpened` | `panelClosed` =>
+        unlockDoor()
+        lockPanel()
+      case _ => // Ignore
+    }
+  }
+  val DoorClosed = new SuperState {
+    val Active, WaitingForLight, WaitingForDrawer = new State
+    val UnlockedPanel = new State {
+      override def onEvent(evt: Event) = evt match {
+        case `lightOn` | `drawerOpened` =>
+          unlockPanel()
+          lockDoor()
+        case _ => // Ignore
+      }
+    }
+  }
+
+  val transitions: Set[Transition] = {
+    import DoorClosed._
+    Set(
+      Idle -> doorClosed -> Active,
+
+      Active -> drawerOpened -> WaitingForLight,
+      Active -> lightOn -> WaitingForDrawer,
+
+      WaitingForDrawer -> drawerOpened -> UnlockedPanel,
+      WaitingForLight -> lightOn -> UnlockedPanel,
+
+      UnlockedPanel -> panelClosed -> Idle,
+      DoorClosed -> doorOpened -> Idle)
+  }
+
+}
+
