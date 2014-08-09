@@ -7,6 +7,9 @@ import redis.clients.util.SafeEncoder
 import scuff.Codec
 
 class BinaryRedisPublisher[T](channelName: String, serializer: Codec[T, Array[Byte]]) {
+  require(channelName != null && channelName.length > 0, "Must have channel name")
+  require(serializer != null, "Must have Codec")
+
   private[this] val byteName = SafeEncoder.encode(channelName)
 
   @annotation.implicitNotFound("Cannot find implicit Jedis connection")
