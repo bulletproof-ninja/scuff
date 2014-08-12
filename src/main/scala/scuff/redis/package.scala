@@ -2,9 +2,8 @@ package scuff
 
 import _root_.redis.clients.jedis._
 import _root_.redis.clients.util.Pool
+
 import language.implicitConversions
-import java.util.concurrent.TimeUnit
-import scala.concurrent.Future
 
 /**
  * This package requires the Jedis project.
@@ -66,23 +65,9 @@ package object redis {
 
   }
 
-  //  def atomicUpdate(jedis: Jedis, key: String)(updater: String ⇒ String) {
-  //      def tryOptimistic(jedis: Jedis)(block: Transaction ⇒ Unit): Boolean = {
-  //        val txn = jedis.multi()
-  //        try {
-  //          block(txn)
-  //          txn.exec() != null
-  //        } catch {
-  //          case e: Exception ⇒ try { txn.discard() } catch { case _: Exception ⇒ /* Ignore */ }; throw e
-  //        }
-  //      }
-  //    jedis.watch(key)
-  //    val value = jedis.get(key)
-  //  }
-
   type CONNECTION = (Jedis ⇒ Any) ⇒ Any
   /** Construct object by using a thread-safe connection pool. */
-//  def threadSafe[T](pool: RedisConnectionPool)(factory: CONNECTION ⇒ T): T = factory(block ⇒ pool.connection()(block))
+  //  def threadSafe[T](pool: RedisConnectionPool)(factory: CONNECTION ⇒ T): T = factory(block ⇒ pool.connection()(block))
   /** Construct object by using an on-demand connection. */
   def singleThreaded[T](config: JedisShardInfo, db: Int = 0)(factory: CONNECTION ⇒ T): T = {
     val jedis = new Jedis(config)
