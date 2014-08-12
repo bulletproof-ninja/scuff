@@ -910,7 +910,9 @@ object Mongolia {
     }
 
     def like[T](implicit tag: ClassTag[T], mapping: Map[Class[_], Codec[_, BsonValue]] = Map.empty): T =
-      if (tag.runtimeClass.isInterface) Proxying.getProxy(this, mapping) else throw new IllegalArgumentException(s"${tag.runtimeClass} must be an interface")
+      if (tag.runtimeClass.isInterface) {
+        Proxying.getProxy(this, mapping)
+      } else throw new IllegalArgumentException(s"${tag.runtimeClass} must be an interface")
 
     def isEmpty = underlying match {
       case m: java.util.Map[_, _] ⇒ m.isEmpty
