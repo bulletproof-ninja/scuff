@@ -1,12 +1,15 @@
-import java.util.Locale
-import java.lang.reflect.Constructor
-import java.lang.reflect.Modifier
-import scala.reflect.ClassTag
-import scala.concurrent.duration.Duration
-import scala.concurrent.Await
-import scala.util.Random
+import java.lang.reflect.{Constructor, Modifier}
+
+import scala.Range
 import scala.collection.immutable.NumericRange
-import language.implicitConversions
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.Duration
+import scala.language.implicitConversions
+import scala.math.{BigDecimal, BigInt, Numeric, min}
+import scala.reflect.ClassTag
+import scala.util.{Failure, Random, Success, Try}
+
+import scuff.{Cache, Codec, Expiry, Numbers, Threads}
 
 package object scuff {
   import scala.math._
@@ -175,8 +178,8 @@ package object scuff {
     def nextInRange(r: Range): Int = nextInRange(NumericRange(r.head, r.last, 1))
     def nextInRange[T](r: Range.Partial[T, NumericRange[T]])(implicit num: Numeric[T]): T = nextInRange(r.by(num.one))
     def nextInRange[T](r: NumericRange[T])(implicit num: Numeric[T]): T = {
-      val numRange = num.minus(r.last, r.head)
-      val next = rand.nextDouble * num.toDouble(numRange) + num.toDouble(r.head)
+      val width = num.minus(r.last, r.head)
+      val next = rand.nextDouble * num.toDouble(width) + num.toDouble(r.head)
       num.zero match {
         case _: Double => next.asInstanceOf[T]
         case _: Int => math.round(next).asInstanceOf[Int].asInstanceOf[T]
