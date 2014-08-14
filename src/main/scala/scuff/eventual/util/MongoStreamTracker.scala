@@ -26,7 +26,7 @@ final class MongoStreamTracker[ID](
     clockSkew: Duration = 2.seconds)(implicit idCdc: scuff.Codec[ID, BsonValue]) {
 
   def resumeFrom: Option[scuff.Timestamp] = {
-    dbColl.find(obj(), obj("_id" := EXCLUDE, "_time" := INCLUDE)).last("_time").map { doc ⇒
+    dbColl.find(obj("_time":=$exists(true)), obj("_id" := EXCLUDE, "_time" := INCLUDE)).last("_time").map { doc ⇒
       val time = doc("_time").as[Long]
       new scuff.Timestamp(time - clockSkew.toMillis)
     }
