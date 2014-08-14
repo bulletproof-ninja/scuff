@@ -128,7 +128,7 @@ object Mongolia {
       case n: Number ⇒ n.longValue()
       case d: java.util.Date ⇒ d.getTime
       case s: String ⇒ s.toLong
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Long".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "Long")
     }
   }
   implicit val JLongCdc = new Codec[java.lang.Long, BsonValue] {
@@ -137,7 +137,7 @@ object Mongolia {
       case n: Number ⇒ n.longValue()
       case d: java.util.Date ⇒ d.getTime
       case s: String ⇒ s.toLong
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Long".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "Long")
     }
   }
   implicit val DblCdc = new Codec[Double, BsonValue] {
@@ -145,7 +145,7 @@ object Mongolia {
     def decode(b: BsonValue) = b.raw match {
       case n: Number ⇒ n.doubleValue()
       case s: String ⇒ s.toDouble
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Double".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "Double")
     }
   }
   implicit val JDblCdc = new Codec[java.lang.Double, BsonValue] {
@@ -153,7 +153,7 @@ object Mongolia {
     def decode(b: BsonValue): java.lang.Double = b.raw match {
       case n: Number ⇒ n.doubleValue()
       case s: String ⇒ s.toDouble
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Double".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "Double")
     }
   }
   implicit val FltCdc = new Codec[Float, BsonValue] {
@@ -161,15 +161,18 @@ object Mongolia {
     def decode(b: BsonValue) = b.raw match {
       case n: Number ⇒ n.floatValue()
       case s: String ⇒ s.toFloat
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Float".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "Float")
     }
   }
+  private def throwCoercionException(from: Any, to: String) =
+    throw new RuntimeException(s"Cannot coerce ${from.getClass.getName}($from) into $to")
+
   implicit val ShrtCdc = new Codec[Short, BsonValue] {
     def encode(a: Short): BsonValue = new Value(a)
     def decode(b: BsonValue): Short = b.raw match {
       case n: Number ⇒ n.shortValue()
       case s: String ⇒ s.toShort
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Short".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "Short")
     }
   }
   implicit val ByteCdc = new Codec[Byte, BsonValue] {
@@ -177,7 +180,7 @@ object Mongolia {
     def decode(b: BsonValue): Byte = b.raw match {
       case n: Number ⇒ n.byteValue
       case s: String ⇒ s.toByte
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Short".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "Short")
     }
   }
   implicit val BoolCdc = new Codec[Boolean, BsonValue] {
@@ -187,6 +190,7 @@ object Mongolia {
       case b: java.lang.Boolean ⇒ b.booleanValue
       case i: Int ⇒ IntCdc.decode(b) != 0
       case s: String ⇒ TrueStrings.contains(s.toLowerCase)
+      case _ ⇒ throwCoercionException(b.raw, "Boolean")
     }
   }
   implicit val BACdc = new Codec[Array[Byte], BsonValue] {
@@ -194,7 +198,7 @@ object Mongolia {
     def decode(b: BsonValue) = b.raw match {
       case arr: Array[Byte] ⇒ arr
       case bin: Binary ⇒ bin.getData
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Array[Byte]".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "Array[Byte]")
     }
   }
   implicit val IACdc = new Codec[Array[Int], BsonValue] {
@@ -208,12 +212,12 @@ object Mongolia {
         while (iter.hasNext) {
           iter.next match {
             case n: Number ⇒ array(idx) = n.intValue
-            case v ⇒ throw new RuntimeException(s"Cannot coerce $v into Int")
+            case v ⇒ throwCoercionException(v, "Int")
           }
           idx += 1
         }
         array
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Array[Int]".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "Array[Int]")
     }
   }
   implicit val LACdc = new Codec[Array[Long], BsonValue] {
@@ -227,12 +231,12 @@ object Mongolia {
         while (iter.hasNext) {
           iter.next match {
             case n: Number ⇒ array(idx) = n.longValue
-            case v ⇒ throw new RuntimeException(s"Cannot coerce $v into Long")
+            case v ⇒ throwCoercionException(v, "Long")
           }
           idx += 1
         }
         array
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Array[Long]".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "Array[Long]")
     }
   }
   implicit val DACdc = new Codec[Array[Double], BsonValue] {
@@ -246,12 +250,12 @@ object Mongolia {
         while (iter.hasNext) {
           iter.next match {
             case n: Number ⇒ array(idx) = n.doubleValue
-            case v ⇒ throw new RuntimeException(s"Cannot coerce $v into Double")
+            case v ⇒ throwCoercionException(v, "Double")
           }
           idx += 1
         }
         array
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Array[Double]".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "Array[Double]")
     }
   }
   implicit val BinCdc = new Codec[Binary, BsonValue] {
@@ -259,7 +263,7 @@ object Mongolia {
     def decode(b: BsonValue) = b.raw match {
       case arr: Array[Byte] ⇒ new Binary(arr)
       case bin: Binary ⇒ bin
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Binary".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "Binary")
     }
   }
   implicit val DateCdc = new Codec[Date, BsonValue] {
@@ -269,7 +273,7 @@ object Mongolia {
       case ts: Timestamp ⇒ new Date(ts.asMillis)
       case d: Date ⇒ d
       case oid: ObjectId ⇒ oid.getDate
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Date".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "Date")
     }
   }
   implicit val TsCdc = new Codec[Timestamp, BsonValue] {
@@ -280,7 +284,7 @@ object Mongolia {
       case d: Date ⇒ new Timestamp(d)
       case oid: ObjectId ⇒ new Timestamp(oid.getDate.getTime)
       case str: String ⇒ Timestamp.parseISO(str).get
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Timestamp".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "Timestamp")
     }
   }
   implicit val OIDCdc = new Codec[ObjectId, BsonValue] {
@@ -290,7 +294,7 @@ object Mongolia {
       case oid: ObjectId => oid
       case arr: Array[Byte] if arr.length == 12 => new ObjectId(arr)
       case str: String if ObjectId.isValid(str) => new ObjectId(str)
-      case _ ⇒ throw new RuntimeException(s"Cannot coerce ${any.getClass.getName} into ObjectId")
+      case _ ⇒ throwCoercionException(any, "ObjectId")
     }
   }
   implicit val UUIDCdc = new Codec[UUID, BsonValue] {
@@ -304,7 +308,7 @@ object Mongolia {
       case b: Binary if b.getType == 4 ⇒ binaryType4ToUUID(b.getData)
       case a: Array[Byte] if a.length == 16 ⇒ binaryType4ToUUID(a)
       case s: String if s.length == 36 ⇒ UUID.fromString(s)
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into UUID".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "UUID")
     }
   }
   implicit val PwdCdc = new Codec[Password, BsonValue] {
@@ -318,7 +322,7 @@ object Mongolia {
       case obj: DBObject ⇒
         val dbo = enrich(obj)
         new Password(dbo("digest").as[Array[Byte]], dbo("algo").as[String], dbo("salt").opt[Array[Byte]].getOrElse(Array.empty), dbo("work").opt[Int].getOrElse(1))
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into Password".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "Password")
     }
   }
   implicit val EmlCdc = new Codec[EmailAddress, BsonValue] {
@@ -345,7 +349,7 @@ object Mongolia {
       case d: Double ⇒ BigDecimal(d)
       case i: Int ⇒ BigDecimal(i)
       case l: Long ⇒ BigDecimal(l)
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into BigDecimal".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "BigDecimal")
     }
   }
   private def geo2Dbo(gp: GeoPoint): BsonObject = obj("type" := "Point", "coordinates" := arr(gp.longitude: Double, gp.latitude: Double))
@@ -366,7 +370,7 @@ object Mongolia {
           val radius: Float = dbo("radius").opt[Float].getOrElse(0f)
           new GeoPoint(coords.get(1).floatValue, coords.get(0).floatValue, radius)
         }
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into GeoPoint".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "GeoPoint")
     }
   }
 
@@ -394,7 +398,7 @@ object Mongolia {
       case list: BasicDBList ⇒ list
       case list: org.bson.LazyDBList ⇒ list
       case dbo: DBObject ⇒ dbo.enrich: DBObject
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into DBObject".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "DBObject")
     }
   }
   implicit def BsonObjectCdc: Codec[BsonObject, BsonValue] = RDboCdc
@@ -403,7 +407,7 @@ object Mongolia {
     def decode(b: BsonValue): BsonObject = b.raw match {
       case dbo: BsonObject ⇒ dbo
       case dbo: DBObject ⇒ dbo.enrich
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into BsonObject".format(b.raw.getClass.getName))
+      case _ ⇒ throwCoercionException(b.raw, "BsonObject")
     }
   }
 
@@ -556,7 +560,7 @@ object Mongolia {
       case arr: Array[AnyRef] ⇒ arr
       case list: java.lang.Iterable[_] ⇒ list
       case seq: collection.GenTraversableOnce[_] ⇒ seq.toIterable.asInstanceOf[Iterable[_]]
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into java.util.List".format(any.getClass.getName))
+      case _ ⇒ throwCoercionException(any, "java.util.List")
     }
   }
 
@@ -1237,7 +1241,7 @@ object Mongolia {
               } else if (asType.isInterface) {
                 getProxy(value.as[DBObject], mapping)(ClassTag[Any](asType))
               } else {
-                value.raw.coerceTo[Any](ClassTag(asType)).getOrElse(throw new InvalidValueTypeException(name, s"Cannot convert ${value.raw} to ${asType.getName}"))
+                value.raw.coerceTo[Any](ClassTag(asType)).getOrElse(throw new InvalidValueTypeException(name, s"Cannot convert ${value.raw.getClass.getName}(${value.raw}) to ${asType.getName}"))
               }
             case _ ⇒ throw new UnavailableValueException(name, "Field %s is either null or missing".format(name))
           }
@@ -1288,7 +1292,7 @@ object Mongolia {
                   map += key -> value
                 }
                 map
-              case e: Exception ⇒ throw new InvalidValueTypeException(name, e, s"Cannot convert ${value.raw} to Map[String, ${valType.getName}]")
+              case e: Exception ⇒ throw new InvalidValueTypeException(name, e, s"Cannot convert ${value.raw.getClass.getName}(${value.raw}) to Map[String, ${valType.getName}]")
             }
           }
         case _ ⇒ Map.empty
