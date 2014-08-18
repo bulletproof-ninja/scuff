@@ -1,8 +1,13 @@
 <ivy-module version="2.0">
 	<info organisation="nilskp" module="scuff" />
+    <configurations>
+        <conf name="default" />
+        <conf name="scala" />
+    </configurations>
 	<dependencies>
-		<dependency org="org.scala-lang" name="scala-compiler" rev="2.11.2" />
-        <dependency org="org.scala-lang.modules" name="scala-xml_2.11" rev="1.0.2" />
+		<dependency org="org.scala-lang" name="scala-compiler" rev="2.11.2" conf="scala->default" />
+        <dependency org="org.scala-lang.modules" name="scala-xml_2.11" rev="1.0.2" conf="scala->default" />
+
 		<dependency org="junit" name="junit" rev="4.11" />
 		<dependency org="com.google.javascript" name="closure-compiler" rev="v20140407" />
 		<dependency org="javax.mail" name="mail" rev="1.4.7" />
