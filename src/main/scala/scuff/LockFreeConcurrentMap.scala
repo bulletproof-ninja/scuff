@@ -92,7 +92,7 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) ext
   }
 
   def iterator = mapRef.get.iterator
-  def get(k: A) = mapRef.get.get(k)
+  def get(k: A): Option[B] = mapRef.get.get(k)
 
   override def size = mapRef.get.size
 
@@ -154,6 +154,18 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) ext
           remove(key)
         }
       case _ ⇒ None
+    }
+  }
+
+  override def getOrElseUpdate(key: A, makeValue: => B): B = {
+    get(key) match {
+      case Some(value) => value
+      case _ =>
+        val newValue = makeValue
+        putIfAbsent(key, newValue) match {
+          case Some(existing) => existing
+          case None => newValue
+        }
     }
   }
 
