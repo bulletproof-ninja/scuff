@@ -129,7 +129,7 @@ object BinaryRedisFaucet {
   }
 
   def apply[A](channelName: String, server: JedisShardInfo, serializer: Serializer[A], publishCtx: concurrent.ExecutionContext): BinaryRedisFaucet[A] = {
-    apply(channelName, server, Threads.factory(channelName), serializer, publishCtx)
+    apply(channelName, server, Threads.daemonFactory(channelName), serializer, publishCtx)
   }
 
   def apply[A](channelName: String, server: JedisShardInfo, publishCtx: concurrent.ExecutionContext): BinaryRedisFaucet[A] = {
