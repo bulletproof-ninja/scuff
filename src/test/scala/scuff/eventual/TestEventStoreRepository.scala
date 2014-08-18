@@ -171,11 +171,11 @@ abstract class AbstractEventStoreRepositoryTest {
     repo.insert(Aggr.create("Foo")).onSuccess {
       case _ ⇒
         repo.update("Foo", 0) { foo ⇒
-          future(2 + 2)
+          Future(2 + 2)
         }.onSuccess {
-          case repo.Updated(storedRev, twoPlusTwo) ⇒
-            assertEquals(4, twoPlusTwo)
-            assertEquals(0, storedRev)
+          case upd ⇒
+            assertEquals(4, upd.output)
+            assertEquals(0, upd.revision)
             done.success(Unit)
         }
     }

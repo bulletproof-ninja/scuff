@@ -25,7 +25,7 @@ trait Repository[AR <: AggregateRoot] {
   /**
    * Update aggregate. Changes are committed and potential revision conflicts are
    * automatically retried. To back out of the transaction, throw an exception.
-   * NOTICE: Anything done in this block must be thread-safe and idempotent, 
+   * NOTICE: Anything done in this block must be thread-safe and idempotent,
    * due to the automatic retry on concurrent updates.
    * @param id The aggregate ID
    * @param basedOnRevision Revision, which update will be based on
@@ -35,16 +35,22 @@ trait Repository[AR <: AggregateRoot] {
   final def update[T](id: AR#ID, basedOnRevision: Int)(updateBlock: AR ⇒ Future[T])(implicit metadata: Map[String, String]): Future[Updated[T]] = {
     update(id, basedOnRevision, metadata) { aggr ⇒
       updateBlock(aggr).map { t =>
-        if (aggr.events.nonEmpty) {
+        if (aggr.events.nonEmpty) try {
           aggr.checkInvariants()
+        } catch {
+          case e: Exception => throw new InvariantFailure(id, aggr.events, e)
         }
         t
       }(Threads.PiggyBack)
     }
   }
   
-  final case class Updated[T](revision: Int, output: T)
-  
+  private[this] final val EventPrefix = s"${compat.Platform.EOL}\t * "
+  class InvariantFailure(aggr: AR#ID, events: List[DomainEvent], cause: Exception)
+    extends RuntimeException(s"""Aggregate $aggr invariant failure: "${cause.getMessage}" after applying events:${events.mkString(EventPrefix, EventPrefix, "")}""", cause)
+
+  final class Updated[T] (val revision: Int, val output: T)
+
   @implicitNotFound("Cannot find implicit Map[String, String] of metadata. If no metadata desired, define as empty: implicit metadata = Map.empty[String, String]")
   final def update[T](id: AR#ID, basedOnRevision: Option[Int])(updateBlock: AR ⇒ Future[T])(implicit metadata: Map[String, String]): Future[Updated[T]] =
     basedOnRevision match {

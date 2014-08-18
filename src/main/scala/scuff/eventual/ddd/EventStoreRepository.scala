@@ -163,9 +163,9 @@ abstract class EventStoreRepository[ESID, AR <: AggregateRoot <% CAT, CAT](impli
     loadLatest(id, doAssume, basedOnRevision).flatMap { ar ⇒
       handler.apply(ar).flatMap { t =>
         if (ar.events.isEmpty) {
-          Future successful Updated(ar.revision.get, t)
+          Future successful new Updated(ar.revision.get, t)
         } else {
-          recordUpdate(ar, metadata).map(rev => Updated(rev, t)).recoverWith {
+          recordUpdate(ar, metadata).map(rev => new Updated(rev, t)).recoverWith {
             case e: DuplicateRevisionException ⇒
               onConcurrentUpdateCollision(id, e.revision, ar)
               loadAndUpdate(id, basedOnRevision, metadata, false, handler)
