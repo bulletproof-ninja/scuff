@@ -8,7 +8,7 @@ import scala.concurrent.ExecutionContext
 object FuzzyScheduler {
   lazy val global = new FuzzyScheduler(Threads.DefaultScheduler)
   trait FuzzyRunnable extends Runnable {
-    @volatile private[this] var alive = true
+    @volatile private var alive = true
     /**
      * Handle exception.
      * Rethrow to bubble up to underlying executor service
