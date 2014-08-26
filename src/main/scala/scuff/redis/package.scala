@@ -32,8 +32,8 @@ package object redis {
     }
   }
 
-  def newPool(info: JedisShardInfo, config: JedisPoolConfig = new JedisPoolConfig) = {
-    new JedisPool(config, info.getHost, info.getPort, Protocol.DEFAULT_TIMEOUT, info.getPassword)
+  def newPool(info: JedisShardInfo, db: Option[Int], name: String = null, config: JedisPoolConfig = new JedisPoolConfig) = {
+    new JedisPool(config, info.getHost, info.getPort, Protocol.DEFAULT_TIMEOUT, info.getPassword, db.getOrElse(0), name)
   }
 
   implicit final class ScuffJedis(val jedis: Jedis) extends AnyVal {
