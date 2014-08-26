@@ -1,35 +1,27 @@
 package scuff.eventual
 
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledFuture
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{CountDownLatch, Executors, ScheduledFuture, TimeUnit}
 
-import scala.annotation.implicitNotFound
-import scala.concurrent.Await
-import scala.concurrent.Awaitable
-import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
-import scala.concurrent.duration.Duration
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, Awaitable, ExecutionContext, Future}
+import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration}
 
-import scuff.HashBasedSerialExecutionContext
-import scuff.LockFreeConcurrentMap
-import scuff.Subscription
-import scuff.Threads
-import scuff.Timestamp
+import scuff.{HashBasedSerialExecutionContext, LockFreeConcurrentMap, Subscription, Threads, Timestamp}
 
 /**
  * Event stream, which guarantees consistent ordering,
  * even when using distributed protocols that do not.
  * @param es The event source for subscription and replay
  * @param consumerExecCtx The consumer execution context
+ * @param historicBuffer Limit the number of in-memory historic transactions.
  * @param gapReplayDelay If revision number gaps are detected, transactions will be replayed after this delay
- * @param consumerFailureReporter Reporting function for consumer failures
+ * @param maxClockSkew The maximum possible clock skew on transaction timestamps
  */
 final class EventStream[ID, EVT, CAT](
     es: EventSource[ID, EVT, CAT],
     consumerCtx: ExecutionContext,
-    gapReplayDelay: Duration) {
+    historicBuffer: Int,
+    gapReplayDelay: FiniteDuration,
+    maxClockSkew: FiniteDuration) {
 
   type Transaction = EventSource[ID, EVT, CAT]#Transaction
 
@@ -67,29 +59,48 @@ final class EventStream[ID, EVT, CAT](
     def categoryFilter: Set[CAT]
   }
 
-  private val _failedStreams = new LockFreeConcurrentMap[ID, Throwable]
+  private val _failedStreams = new LockFreeConcurrentMap[ID, (CAT, Throwable)]
 
   def failedStreams = _failedStreams.snapshot()
 
-  private class HistoricConsumerProxy(consumer: DurableConsumer) extends (Transaction ⇒ Unit) {
-    private[this] var awaitAll: List[Awaitable[_]] = Nil
+  private class HistoricConsumerProxy(consumer: DurableConsumer) {
+    private[this] val awaitQueue = new java.util.concurrent.ArrayBlockingQueue[Awaitable[_]](historicBuffer)
     private[this] var lastTime = -1L
-    def apply(txn: Transaction) = {
-      val a = consumerCtx match {
-        case ctx: HashBasedSerialExecutionContext =>
-          ctx.submit(txn.streamId.hashCode)(consumer consumeHistoric txn)
-        case ctx =>
-          Future(consumer consumeHistoric txn)(ctx)
+    @volatile var doneProcessing = false
+    private[this] val awaiterLatch = new CountDownLatch(1)
+    private val awaiter = new Runnable {
+      def run {
+        while (!Thread.currentThread.isInterrupted) {
+          awaitQueue.poll(1, TimeUnit.SECONDS) match {
+            case null =>
+              if (doneProcessing) {
+                awaiterLatch.countDown()
+                return
+              }
+            case awaitable => Await.ready(awaitable, 1.minute)
+          }
+        }
       }
-      awaitAll ::= a
-      lastTime = txn.timestamp
     }
-
-    def lastTimestamp: Option[Timestamp] = {
-      val maxAwait = 1.minute
-      awaitAll.foreach(Await.ready(_, maxAwait))
+    def processBlocking(txns: Iterator[Transaction], maxWaitTime: FiniteDuration): Option[Timestamp] = {
+      Threads.Blocking.execute(awaiter)
+      consumerCtx match {
+        case ctx: HashBasedSerialExecutionContext =>
+          txns.foreach { txn =>
+            awaitQueue put ctx.submit(txn.streamId.hashCode)(consumer consumeHistoric txn)
+            lastTime = txn.timestamp
+          }
+        case ctx =>
+          txns.foreach { txn =>
+            awaitQueue put Future(consumer consumeHistoric txn)(ctx)
+            lastTime = txn.timestamp
+          }
+      }
+      doneProcessing = true
+      awaiterLatch.await(maxWaitTime.length, maxWaitTime.unit)
       if (lastTime == -1L) None else Some(new Timestamp(lastTime))
     }
+
   }
 
   private class LiveConsumerProxy(consumer: DurableConsumer#LiveConsumer) extends (Transaction ⇒ Unit) {
@@ -97,8 +108,6 @@ final class EventStream[ID, EVT, CAT](
   }
 
   private[this] val pendingReplays = new LockFreeConcurrentMap[ID, ScheduledFuture[_]]
-
-  private def proxyHistoricConsumer(consumer: DurableConsumer) = new HistoricConsumerProxy(consumer)
 
   private def proxyLiveConsumer(consumer: DurableConsumer#LiveConsumer) =
     new LiveConsumerProxy(consumer) with util.FailSafeTransactionHandler[ID, EVT, CAT] with util.SequencedTransactionHandler[ID, EVT, CAT] with util.AsyncTransactionHandler[ID, EVT, CAT] { self: LiveConsumerProxy =>
@@ -122,8 +131,8 @@ final class EventStream[ID, EVT, CAT](
       }
       def nextExpectedRevision(streamId: ID): Int = consumer.nextExpectedRevision(streamId)
       def isFailed(streamId: ID) = _failedStreams.contains(streamId)
-      def markFailed(streamId: ID, t: Throwable) {
-        _failedStreams.update(streamId, t)
+      def markFailed(streamId: ID, cat: CAT, t: Throwable) {
+        _failedStreams.update(streamId, cat -> t)
         consumerCtx.reportFailure(t)
       }
     }
@@ -133,27 +142,31 @@ final class EventStream[ID, EVT, CAT](
    *  @return Future subscription. The future is resolved once consumption goes live.
    */
   def resume(consumer: DurableConsumer): Future[Subscription] = {
+      implicit def ec = Threads.PiggyBack
     val starting = new Timestamp
     val categorySet = consumer.categoryFilter
       def categoryFilter(cat: CAT) = categorySet.isEmpty || categorySet.contains(cat)
       def replayConsumer(txns: Iterator[Transaction]): Option[Timestamp] = {
-        val histConsumer = proxyHistoricConsumer(consumer)
-        txns.foreach(histConsumer)
-        histConsumer.lastTimestamp
+        val histConsumer = new HistoricConsumerProxy(consumer)
+        histConsumer.processBlocking(txns, 1.minute)
       }
-    val futureReplay: Future[Option[Timestamp]] = consumer.resumeFrom match {
+    val historicReplay: Future[Option[Timestamp]] = consumer.resumeFrom match {
       case None ⇒ es.replay(categorySet.toSeq: _*)(replayConsumer)
       case Some(lastTime) ⇒ es.replayFrom(lastTime, categorySet.toSeq: _*)(replayConsumer)
     }
-    val futureSub = futureReplay.flatMap { lastTime ⇒
+    val futureSub = historicReplay.flatMap { lastTime ⇒
+      if (_failedStreams.nonEmpty) {
+        throw new EventStream.HistoricStreamsFailure(_failedStreams.snapshot)
+      }
       val liveConsumer = proxyLiveConsumer(consumer.onLive())
       val sub = es.subscribe(liveConsumer, categoryFilter)
+      val replaySince = new Timestamp(lastTime.getOrElse(starting).asMillis - maxClockSkew.toMillis)
       // Close the race condition; replay anything missed between replay and subscription
-      es.replayFrom(lastTime.getOrElse(starting), categorySet.toSeq: _*)(_.foreach(liveConsumer)).map(_ ⇒ sub)(Threads.PiggyBack)
-    }(Threads.PiggyBack)
+      es.replayFrom(replaySince, categorySet.toSeq: _*)(_.foreach(liveConsumer)).map(_ ⇒ sub)
+    }
     futureSub.onFailure {
       case t => consumerCtx.reportFailure(t)
-    }(Threads.PiggyBack)
+    }
     futureSub
   }
 }
@@ -161,18 +174,22 @@ final class EventStream[ID, EVT, CAT](
 object EventStream {
   import java.util.concurrent._
 
+  final class HistoricStreamsFailure[ID, CAT](val failures: Map[ID, (CAT, Throwable)]) extends IllegalStateException(s"${failures.size} streams failed processing")
+
   private val ConsumerThreadFactory = Threads.daemonFactory(classOf[EventStream[Any, Any, Any]#DurableConsumer].getName)
   private def schedule(r: Runnable, dur: Duration) = Threads.DefaultScheduler.schedule(r, dur.toMillis, TimeUnit.MILLISECONDS)
 
-  def serializedConsumption[ID, EVT, CAT](
+  def serializedStreams[ID, EVT, CAT](
     numThreads: Int,
     es: EventSource[ID, EVT, CAT],
-    gapReplayDelay: Duration,
+    historicBufferSize: Int,
+    gapReplayDelay: FiniteDuration,
+    maxClockSkew: FiniteDuration,
     failureReporter: Throwable ⇒ Unit = (t) ⇒ t.printStackTrace()) = {
     val consumerCtx = numThreads match {
       case 1 ⇒ ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor(EventStream.ConsumerThreadFactory), failureReporter)
       case n ⇒ HashBasedSerialExecutionContext(n, EventStream.ConsumerThreadFactory, failureReporter)
     }
-    new EventStream(es, consumerCtx, gapReplayDelay)
+    new EventStream(es, consumerCtx, historicBufferSize, gapReplayDelay, maxClockSkew)
   }
 }
