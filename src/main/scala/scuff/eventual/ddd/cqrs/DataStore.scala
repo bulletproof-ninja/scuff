@@ -6,8 +6,6 @@ trait DataStore {
 
   type CONN
 
-  def wipeAll()
-
   def connect[T](func: CONN => T): T
 
 }

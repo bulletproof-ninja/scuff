@@ -27,12 +27,17 @@ trait Generator extends Projector {
 
   protected def consume(txn: ES#Transaction)(implicit conn: store.CONN): Iterable[DAT]
   protected def publish(msgs: Iterable[DAT])(implicit conn: store.CONN)
-  
-  def resume(eventStream: ES, wipeAll: Boolean = false): Future[Subscription] = {
+
+  /**
+   * Resume event stream processing.
+   * @param eventStream The event stream to consume
+   * @param restart Restart processing from scratch. 
+   * NOTICE: This assumes that the data store has also been wiped appropriately
+   */
+  def resume(eventStream: ES, restart: Boolean = false): Future[Subscription] = {
     require(categoryFilter.nonEmpty, "${getClass.getName}: Category filter cannot be empty")
-    if (wipeAll) {
+    if (restart) {
       tracker.wipeAll()
-      store.wipeAll()
     }
     eventStream resume new eventStream.DurableConsumer {
       val categoryFilter = Generator.this.categoryFilter
