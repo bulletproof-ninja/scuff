@@ -8,7 +8,6 @@ import scala.language.implicitConversions
 
 import javax.servlet.{ServletRequest, ServletResponse}
 import javax.servlet.http.{HttpServletRequest, HttpServletResponse}
-import scuff.web.{CookieMonster, ETag, HttpHeaders}
 
 package web {
   case class Resource(url: URL, lastModified: Long)
