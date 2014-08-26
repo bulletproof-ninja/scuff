@@ -1,15 +1,15 @@
-import java.lang.reflect.{Constructor, Modifier}
+import java.lang.reflect.{ Constructor, Modifier }
 
 import scala.Range
 import scala.collection.immutable.NumericRange
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration.Duration
 import scala.language.implicitConversions
-import scala.math.{BigDecimal, BigInt, Numeric, min}
+import scala.math.{ BigDecimal, BigInt, Numeric, min }
 import scala.reflect.ClassTag
-import scala.util.{Failure, Random, Success, Try}
+import scala.util.{ Failure, Random, Success, Try }
 
-import scuff.{Cache, Codec, Expiry, Numbers, Threads}
+import scuff.{ Cache, Codec, Expiry, Numbers, Threads }
 
 package object scuff {
   import scala.math._
@@ -38,10 +38,14 @@ package object scuff {
      */
     def lengthUnicode(): Int = str.codePointCount(0, str.length)
 
-    def unsafeInt(stopper: Numbers.Stopper = Numbers.NonStop, offset: Int = 0): Int =
-      Numbers.unsafeInt(str, offset)(stopper)
-    def unsafeLong(stopper: Numbers.Stopper = Numbers.NonStop, offset: Int = 0): Long =
-      Numbers.unsafeLong(str, offset)(stopper)
+    def unsafeInt(stopper: Numbers.Stopper = Numbers.NonStop, offset: Int = 0, length: Int = -1): Int = {
+      Numbers.parseUnsafeInt(str, offset, end(offset, length))(stopper)
+    }
+    @inline
+    private def end(offset: Int, len: Int) = if (len == -1) str.length else offset + len
+    def unsafeLong(stopper: Numbers.Stopper = Numbers.NonStop, offset: Int = 0, length: Int = -1): Long = {
+      Numbers.parseUnsafeLong(str, offset, end(offset, length))(stopper)
+    }
 
     def offsetStartsWith(offset: Int, startsWith: CharSequence): Boolean = {
         @annotation.tailrec

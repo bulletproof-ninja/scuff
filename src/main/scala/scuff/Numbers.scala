@@ -73,29 +73,44 @@ object Numbers {
   }
 
   @annotation.tailrec
-  def unsafeLong(str: String, idx: Int = 0, acc: Long = 0)(implicit stop: Stopper = NonStop): Long = {
-    if (idx == str.length) {
+  private def parseUnsafeLong(str: String, idx: Int, end: Int, acc: Long)(implicit stop: Stopper): Long = {
+    if (idx == end) {
       acc
     } else {
       val c = str.charAt(idx)
       if (stop(c)) {
         acc
       } else {
-        unsafeLong(str, idx + 1, acc * 10 + (c - '0'))
+        parseUnsafeLong(str, idx + 1, end, acc * 10 + (c - '0'))
       }
     }
   }
+  def parseUnsafeLong(str: String, start: Int = 0, end: Int = -1)(implicit stop: Stopper = NonStop): Long = {
+    val finish = if (end == -1) str.length else end
+
+    if (start > finish) throw new IllegalArgumentException(s"Start index of $start is after end index of $finish")
+
+    parseUnsafeLong(str, start, finish, 0L)
+  }
+
+  def parseUnsafeInt(str: String, start: Int = 0, end: Int = -1)(implicit stop: Stopper = NonStop): Int = {
+    val finish = if (end == -1) str.length else end
+
+    if (start > finish) throw new IllegalArgumentException(s"Start index of $start is after end index of $finish")
+
+    parseUnsafeInt(str, start, finish, 0)
+  }
 
   @annotation.tailrec
-  def unsafeInt(str: String, idx: Int = 0, acc: Int = 0)(implicit stop: Stopper = NonStop): Int = {
-    if (idx == str.length) {
+  private def parseUnsafeInt(str: String, idx: Int, end: Int, acc: Int)(implicit stop: Stopper): Int = {
+    if (idx == end) {
       acc
     } else {
       val c = str.charAt(idx)
       if (stop(c)) {
         acc
       } else {
-        unsafeInt(str, idx + 1, acc * 10 + (c - '0'))
+        parseUnsafeInt(str, idx + 1, end, acc * 10 + (c - '0'))
       }
     }
   }
