@@ -1,13 +1,14 @@
 package scuff
 
-import javax.servlet.http._
+import java.net.{InetAddress, URL}
 import java.util.Locale
-import java.net.InetAddress
-import javax.servlet.ServletRequest
-import language.implicitConversions
-import javax.servlet.ServletResponse
-import java.net.URL
-import java.util.Date
+
+import scala.collection.JavaConverters._
+import scala.language.implicitConversions
+
+import javax.servlet.{ServletRequest, ServletResponse}
+import javax.servlet.http.{HttpServletRequest, HttpServletResponse}
+import scuff.web.{CookieMonster, ETag, HttpHeaders}
 
 package web {
   case class Resource(url: URL, lastModified: Long)
@@ -38,6 +39,9 @@ package object web {
       res.setStatus(HttpServletResponse.SC_MOVED_PERMANENTLY)
       res.setHeader(HttpHeaders.Location, url.toString)
       res.flushBuffer()
+    }
+    def setCookie[T](value: T)(implicit cm: CookieMonster[T]) {
+      cm.set(res, value)
     }
   }
   implicit class RichRequest(val req: HttpServletRequest) extends AnyVal {
