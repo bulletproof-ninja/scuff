@@ -14,13 +14,13 @@ trait FailSafeTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CAT
   /** Determine if stream is failed. */
   protected def isFailed(stream: ID): Boolean
   /** Mark stream as failed. Re-throw exception to fail further up. */
-  protected def markFailed(stream: ID, t: Throwable)
+  protected def markFailed(stream: ID, cat: CAT, t: Throwable)
 
   abstract override def apply(txn: Transaction) {
     if (!isFailed(txn.streamId)) try {
       super.apply(txn)
     } catch {
-      case t: Throwable ⇒ markFailed(txn.streamId, t)
+      case t: Throwable ⇒ markFailed(txn.streamId, txn.category, t)
     }
   }
 
