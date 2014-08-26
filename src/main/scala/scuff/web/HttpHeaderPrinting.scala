@@ -10,7 +10,7 @@ sealed trait PrintHeaders {
     val EOL = {compat.Platform.EOL}
     val buf = new java.lang.StringBuilder(200)
     val headers = req.getHeaderNames().asScala.toList
-    buf append s"Request ${req.getRequestURL} has ${headers.size} headers$EOL"
+    buf append s"${req.getMethod} ${req.getRequestURL} has ${headers.size} headers:$EOL"
     for {
       header <- headers
       value <- req.getHeaders(header).asScala
