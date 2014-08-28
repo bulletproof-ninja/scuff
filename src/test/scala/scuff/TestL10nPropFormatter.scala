@@ -5,9 +5,9 @@ import org.junit.Assert._
 import java.util.Locale
 import java.nio.charset.Charset
 
-class TestPropertiesFormatter {
+class TestL10nPropFormatter {
 
-  def SomeText(locale: Locale*) = PropertiesFormatter(Some(getClass.getPackage), "SomeText", locale, PropertiesFormatter.ISO_8859_1)
+  def SomeText(locale: Locale*) = L10nPropFormatter(Some(getClass.getPackage), "SomeText", locale, L10nPropFormatter.ISO_8859_1)
 
   sealed abstract class PropNameEnum(val name: String)
 
@@ -19,7 +19,7 @@ class TestPropertiesFormatter {
 
   @Test
   def root {
-    val props = PropertiesFormatter.root("FooBar")
+    val props = L10nPropFormatter.root("FooBar")
     assertEquals("Hello", props("say"))
   }
 

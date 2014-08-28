@@ -9,7 +9,7 @@ import scala.util.Try
  * Class that combines a `.properties` file with a formatter.
  * <p>Example:
  * {{{
- *   class Text extends PropertiesFormatter
+ *   class Text extends L10nPropFormatter
  * }}}
  * Create file `Text.properties` in the same package as class `Text`:
  * {{{
@@ -30,7 +30,7 @@ import scala.util.Try
  * For locale specific `.properties` file name syntax
  * @author Nils Kilden-Pedersen
  */
-class PropertiesFormatter private (_baseName: Option[String], desiredLocales: Seq[Locale], charset: Charset)
+class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[Locale], charset: Charset)
     extends ((String, Any*) ⇒ String) {
 
   /**
@@ -38,7 +38,7 @@ class PropertiesFormatter private (_baseName: Option[String], desiredLocales: Se
    * @param desiredLocale The desired locale. May use a fallback locale if specific locale is not found
    * @param charset Override default properties charset of UTF-8
    */
-  protected def this(desiredLocales: Seq[Locale] = Seq(Locale.getDefault), charset: Charset = PropertiesFormatter.ISO_8859_1) = this(None, desiredLocales, charset)
+  protected def this(desiredLocales: Seq[Locale] = Seq(Locale.getDefault), charset: Charset = L10nPropFormatter.ISO_8859_1) = this(None, desiredLocales, charset)
 
   private[this] val control = new CharsetControl(charset, getClass.getClassLoader)
 
@@ -51,7 +51,7 @@ class PropertiesFormatter private (_baseName: Option[String], desiredLocales: Se
   }
 
   private class Message(strFmt: String, locale: Locale) {
-    val parmCount = PropertiesFormatter.countParms(strFmt)
+    val parmCount = L10nPropFormatter.countParms(strFmt)
     val stringFormat = if (parmCount == 0) strFmt else strFmt.replace("'", "''")
     val formatter = new ThreadLocal[MessageFormat]() {
       override def initialValue = new MessageFormat(stringFormat, locale)
@@ -67,7 +67,7 @@ class PropertiesFormatter private (_baseName: Option[String], desiredLocales: Se
           case Some(t) ⇒ t
         }
       }
-    val bundles = PropertiesFormatter.toResourceBundles(baseName, desiredLocales, control)
+    val bundles = L10nPropFormatter.toResourceBundles(baseName, desiredLocales, control)
     val allKeys = bundles.flatMap(e ⇒ collection.JavaConversions.enumerationAsScalaIterator(e.getKeys).toSeq).toSet
     val iter = allKeys.iterator
     var map: Map[String, Message] = Map.empty
@@ -117,7 +117,7 @@ class PropertiesFormatter private (_baseName: Option[String], desiredLocales: Se
 
 }
 
-object PropertiesFormatter {
+object L10nPropFormatter {
 
   final val ISO_8859_1 = Charset.forName("ISO-8859-1")
   final val UTF_8 = Charset.forName("UTF-8")
@@ -172,11 +172,11 @@ object PropertiesFormatter {
    */
   def apply(location: Option[Package], baseName: String, desiredLocales: Seq[Locale], charset: Charset) = {
     val packagePrefix = location.map(_.getName concat ".").getOrElse("")
-    new PropertiesFormatter(Some(packagePrefix concat baseName), desiredLocales, charset)
+    new L10nPropFormatter(Some(packagePrefix concat baseName), desiredLocales, charset)
   }
 
   def root(name: String, desiredLocales: Seq[Locale] = Seq(Locale.getDefault), charset: Charset = ISO_8859_1) = {
-    new PropertiesFormatter(Some(name), desiredLocales, charset)
+    new L10nPropFormatter(Some(name), desiredLocales, charset)
   }
 
   /**
@@ -187,7 +187,7 @@ object PropertiesFormatter {
    * @return new instance
    */
   def apply(baseName: Class[_], desiredLocales: Seq[Locale] = Seq(Locale.getDefault), charset: Charset = ISO_8859_1) =
-    new PropertiesFormatter(Some(baseName.getName), desiredLocales, charset)
+    new L10nPropFormatter(Some(baseName.getName), desiredLocales, charset)
 
 }
 
