@@ -12,10 +12,12 @@ final class Timestamp private (time: Long, toStr: String) extends Date(time) {
 
   def this() = this(System.currentTimeMillis, null)
   def this(time: Long) = this(time, null)
-  def this(time: Date) = this(time.getTime, time.toString)
+  def this(time: Date) = this(time.getTime, null)
 
-  override lazy val toString = if (toStr != null) toStr else Timestamp.format(this)
+  private[this] lazy val strFmt = Timestamp.format(this)
+  override def toString = if (toStr != null) toStr else strFmt
 
+  @inline
   def asMillis = getTime
 
   /** Get Unix time, which is number of seconds since epoch. */
@@ -55,6 +57,7 @@ object Timestamp {
   private[this] final val Formatter = new ThreadLocal[DateFormat] {
     override def initialValue = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
   }
+
   private def format(time: Timestamp): String = Formatter.get.format(time)
   def parseISO(str: String): Try[Timestamp] = Try {
     val date = Formatter.get.parse(str)
