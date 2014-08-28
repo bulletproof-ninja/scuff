@@ -36,6 +36,7 @@ class TestThreads extends Serializable {
         def get(t: Long, tu: TimeUnit): Int = ???
       }
       ec execute new Runnable {
+        import language.reflectiveCalls
         override def run = {
           Thread sleep rand.nextInRange(1 to 5)
           f.queue.put(i)
@@ -49,7 +50,7 @@ class TestThreads extends Serializable {
       f.onComplete {
         case Failure(t) => fail("Future failed")
         case Success(i) =>
-          set += i -> ()
+          set += i -> Unit
           cdl.countDown()
       }
     }
