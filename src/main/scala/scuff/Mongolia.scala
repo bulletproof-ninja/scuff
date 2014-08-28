@@ -937,7 +937,9 @@ object Mongolia {
     def _id = underlying.get("_id") match {
       case null ⇒ throw new IllegalArgumentException("Field \"_id\" is missing")
       case oid: ObjectId ⇒ oid
-      case any ⇒ OIDCdc.decode(any)
+      case any ⇒
+        import language.reflectiveCalls
+        OIDCdc.decode(any)
     }
     def apply(key: String): BsonField = BsonField(getAs[Any](key), underlying, key)
     def apply(head: BsonProp, tail: BsonProp*): BsonObject = add(head, tail: _*)
