@@ -109,7 +109,7 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     }
     query(filter, OrderByTime_asc, txnHandler)
   }
-
+  
   // TODO: Make non-blocking once supported by the driver.
   def record(category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = Future {
     val timestamp = new Timestamp
@@ -124,7 +124,7 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     try {
       store.safeInsert(doc)
     } catch {
-      case _: MongoException.DuplicateKey ⇒ throw new eventual.DuplicateRevisionException(stream, revision)
+      case _: DuplicateKeyException ⇒ throw new eventual.DuplicateRevisionException(stream, revision)
     }
     new Transaction(timestamp.asMillis, category, stream, revision, metadata, events)
   }.andThen {
