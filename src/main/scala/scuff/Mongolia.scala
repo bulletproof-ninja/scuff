@@ -352,6 +352,40 @@ object Mongolia {
       case _ ⇒ throwCoercionException(b.raw, "BigDecimal")
     }
   }
+  implicit def EnumCdc[T <: Enum[T]](implicit tag: ClassTag[T]) = new Codec[T, BsonValue] {
+    private def constants = tag.runtimeClass.getEnumConstants().asInstanceOf[Array[T]]
+    def encode(e: T): BsonValue = new Value(e.ordinal)
+    def decode(b: BsonValue): T = b.raw match {
+      case i: Int => constants(i)
+      case name: String => findByName(name)
+      case n: Number => constants(n.intValue)
+      case _ ⇒ throwCoercionException(b.raw, tag.runtimeClass.getName)
+    }
+    @annotation.tailrec
+    private def findByName(name: String, idx: Int = 0): T = {
+      if (idx == constants.length) {
+        throwCoercionException(name, tag.runtimeClass.getName)
+      } else {
+        val enum = constants(idx)
+        if (enum.name == name) {
+          enum
+        } else {
+          findByName(name, idx + 1)
+        }
+      }
+    }
+  }
+
+  implicit def SEnumCdc[T <: Enumeration](implicit enum: T) = new Codec[T#Value, BsonValue] {
+    def encode(e: T#Value): BsonValue = new Value(e.id)
+    def decode(b: BsonValue): T#Value = b.raw match {
+      case i: Int => enum(i)
+      case name: String => enum.withName(name)
+      case n: Number => enum(n.intValue)
+      case _ ⇒ throwCoercionException(b.raw, enum.getClass.getName)
+    }
+  }
+
   private def geo2Dbo(gp: GeoPoint): BsonObject = obj("type" := "Point", "coordinates" := arr(gp.longitude: Double, gp.latitude: Double))
   implicit def GeoPointCdc: Codec[GeoPoint, BsonValue] = GeoCdc
   private[this] val GeoCdc = new Codec[GeoPoint, BsonValue] {
@@ -1243,7 +1277,7 @@ object Mongolia {
               } else if (asType.isInterface) {
                 getProxy(value.as[DBObject], mapping)(ClassTag[Any](asType))
               } else {
-                value.raw.coerceTo[Any](ClassTag(asType)).getOrElse(throw new InvalidValueTypeException(name, s"Cannot convert ${value.raw.getClass.getName}(${value.raw}) to ${asType.getName}"))
+                new ScuffAny(value.raw).coerceTo[Any](ClassTag(asType)).getOrElse(throw new InvalidValueTypeException(name, s"Cannot convert ${value.raw.getClass.getName}(${value.raw}) to ${asType.getName}"))
               }
             case _ ⇒ throw new UnavailableValueException(name, "Field %s is either null or missing".format(name))
           }

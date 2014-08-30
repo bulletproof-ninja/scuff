@@ -492,4 +492,32 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
     val query = obj("foo" := $in(uuid, null))
   }
 
+  @Test
+  def `scala enum` {
+    implicit object WeekDays extends Enumeration {
+      type Day = Value
+      val Mon, Tue, Wed, Thu, Fri, Sat, Sun = Value
+    }
+    WeekDays.values.foreach { day =>
+      val byNum = obj("day" := day)
+      val byName = obj("day" := day.toString)
+      assertEquals(s"""{"day":${day.id}}""", byNum.toJson)
+      assertEquals(s"""{"day":"${day.toString}"}""", byName.toJson)
+      assertEquals(day, byNum("day").as[WeekDays.Day])
+      assertEquals(day, byName("day").as[WeekDays.Day])
+    }
+  }
+
+  @Test
+  def `java enum` {
+    Locale.Category.values.foreach { cat =>
+      val byNum = obj("cat" := cat)
+      val byName = obj("cat" := cat.name)
+      assertEquals(s"""{"cat":${cat.ordinal}}""", byNum.toJson)
+      assertEquals(s"""{"cat":"${cat.name}"}""", byName.toJson)
+      assertEquals(cat, byNum("cat").as[Locale.Category])
+      assertEquals(cat, byName("cat").as[Locale.Category])
+    }
+  }
+
 }
