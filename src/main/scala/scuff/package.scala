@@ -33,11 +33,6 @@ package object scuff {
       dist(s2.length)(str.length)
     }
 
-    /**
-     * Length of string in Unicode code points.
-     */
-    def lengthUnicode(): Int = str.codePointCount(0, str.length)
-
     def unsafeInt(stopper: Numbers.Stopper = Numbers.NonStop, offset: Int = 0, length: Int = -1): Int = {
       Numbers.parseUnsafeInt(str, offset, end(offset, length))(stopper)
     }
