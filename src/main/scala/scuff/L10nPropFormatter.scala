@@ -24,6 +24,9 @@ import scala.util.Try
  * This class has per-key fallback behavior.
  * This means that more specific locale files (country and variant)
  * need not have all the keys, but merely the keys that differ.
+ *
+ * Synchronization: This class is thread-safe and can be used concurrently.
+ *
  * @see java.text.MessageFormat
  * For text formatting syntax
  * @see java.util.PropertyResourceBundle
@@ -50,7 +53,7 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
     }
   }
 
-  private class Message(strFmt: String, locale: Locale) {
+  private class Message(strFmt: String, val locale: Locale) {
     val parmCount = L10nPropFormatter.countParms(strFmt)
     val stringFormat = if (parmCount == 0) strFmt else strFmt.replace("'", "''")
     val formatter = new ThreadLocal[MessageFormat]() {
@@ -96,16 +99,43 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
     case Some(msg) ⇒ msg
   }
 
+  @annotation.tailrec
+  private def checkParms(lang: Locale, a: Array[Any], i: Int = 0): Array[Any] = {
+    if (i < a.length) {
+      a(i) match {
+        case l: Locale =>
+          a(i) = l.getDisplayName(lang)
+        case p: Product2[String, Any] if p.productElement(0).isInstanceOf[String] =>
+          val key = p.productElement(0).asInstanceOf[String]
+          a(i) = p.productElement(1) match {
+            case s: Seq[_] => L10nPropFormatter.this(key, s: _*)
+            case a: Array[_] => L10nPropFormatter.this(key, a: _*)
+            case o => L10nPropFormatter.this(key, o)
+          }
+        case p: Product if p.productElement(0).isInstanceOf[String] && p.productArity > 2 =>
+          val iter = p.productIterator
+          val key = iter.next.asInstanceOf[String]
+          val parms = iter.toList
+          a(i) = L10nPropFormatter.this(key, parms: _*)
+        case f: Function1[Locale, _] =>
+          a(i) = f(lang)
+        case _ => // Ignore
+      }
+      checkParms(lang, a, i + 1)
+    } else {
+      a
+    }
+  }
+
   def get(key: String, parms: Any*): Option[String] = map.get(key).map { msg ⇒
     if (msg.parmCount != parms.length) {
-      throw new MissingFormatArgumentException(
-        "Message '%s' expects %d parameters, but received %d".format(
-          key, msg.parmCount, parms.length))
+      throw new MissingFormatArgumentException(s"Message '$key' expects ${msg.parmCount} parameters, but received ${parms.length}")
     }
     if (msg.parmCount == 0) {
       msg.stringFormat
     } else {
-      msg.formatter.get.format(parms.toArray)
+      val array = checkParms(msg.locale, parms.toArray)
+      msg.formatter.get.format(array)
     }
   }
 

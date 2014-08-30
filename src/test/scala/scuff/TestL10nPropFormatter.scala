@@ -97,4 +97,32 @@ class TestL10nPropFormatter {
     val text = foo("escape_confusion", "John Mapplethorpe", "a jewel thief", "that one movie")
     assertEquals("You're John Mapplethorpe, right? Didn't you play a jewel thief in that one movie?", text)
   }
+
+  @Test
+  def `local lang` {
+    val en = SomeText()
+    val eng = en("do_you_speak", Locale.FRENCH)
+    assertEquals("Do you speak French?", eng)
+    val de = SomeText(Locale.forLanguageTag("de"))
+    val ger = de("do_you_speak", Locale.FRENCH)
+    assertEquals("Sprechen Sie Französisch?", ger)
+  }
+
+  @Test
+  def `nested` {
+    val foo = SomeText()
+      def twoLanguages(locale: Locale) = foo("two_languages", Locale.ENGLISH, java.util.Locale.FRENCH)
+    val text = foo("do_you_speak", twoLanguages _)
+    assertEquals("Do you speak both English AND French?", text)
+  }
+
+  @Test
+  def `nested, delayed` {
+    val foo = SomeText()
+    val text1 = foo("do_you_speak", ("two_languages" -> Seq(Locale.ENGLISH, java.util.Locale.FRENCH)))
+    assertEquals("Do you speak both English AND French?", text1)
+    val text2 = foo("do_you_speak", ("two_languages", Locale.ENGLISH, java.util.Locale.FRENCH))
+    assertEquals("Do you speak both English AND French?", text1)
+  }
+
 }
