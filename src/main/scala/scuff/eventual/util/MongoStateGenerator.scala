@@ -6,9 +6,10 @@ import scuff.Mongolia._
 import concurrent.duration._
 import java.util.Date
 import scala.annotation.implicitNotFound
+import scuff.Timestamp
 
 /**
- * Keep track of handled [[scuff.eventual.EventSource#Transaction]]s, so process can resume
+ * Generate state and keep track of handled [[scuff.eventual.EventSource#Transaction]]s, so process can resume
  * after shutdown.
  * Uses this collection format:
  * {{{
@@ -18,17 +19,13 @@ import scala.annotation.implicitNotFound
  * }
  * }}}
  * @param dbColl MongoDB collection. Set whatever WriteConcern is appropriate before passing
- * @param clockSkew Worst case clock skew in a sharded environment. Used for resuming without dropping transactions. Defaults to 2 seconds.
  */
 @implicitNotFound("Cannot find implicit Codec for ID <=> BsonValue")
-final class MongoStreamTracker[ID](
-    dbColl: DBCollection,
-    clockSkew: Duration = 2.seconds)(implicit idCdc: scuff.Codec[ID, BsonValue]) {
-
-  def resumeFrom: Option[scuff.Timestamp] = {
+final class MongoStateGenerator[ID](dbColl: DBCollection)(implicit idCdc: scuff.Codec[ID, BsonValue]) {
+  
+  def lastTimestamp: Option[Long] = {
     dbColl.find(obj("_time":=$exists(true)), obj("_id" := EXCLUDE, "_time" := INCLUDE)).last("_time").map { doc ⇒
-      val time = doc("_time").as[Long]
-      new scuff.Timestamp(time - clockSkew.toMillis)
+      doc("_time").as[Long]
     }
   }
 
@@ -41,26 +38,20 @@ final class MongoStreamTracker[ID](
     }
   }
 
-  //  def lookup(streamId: ID): Option[(Int, DBObject)] = {
-  //    dbColl.findOpt(obj("_id" := streamId), obj("_id" := EXCLUDE, "_time" := EXCLUDE)).map { doc ⇒
-  //      doc.remove("_rev").as[Int] -> doc
-  //    }
-  //  }
-
   /**
-   * Mark stream/revision as processed.
+   * Update stream and mark revision as processed.
    * @param streamId Transaction stream id
    * @param revision Transaction stream revision
    * @param time Transaction timestamp
    * @param update Optional update object.
-   * @param moreKey Additional key, only to be used for updating a specific list element
+   * @param listKey Additional key, only to be used for updating a specific list element
    */
-  def markAsProcessed(streamId: ID, revision: Int, time: Long, update: DBObject = obj(), moreKey: BsonProp = null) =
-    pleaseUpdate(streamId, Some(revision -> time), update, Option(moreKey))
+  def commitRevision(streamId: ID, revision: Int, time: Long, update: DBObject = obj(), listKey: BsonProp = null) =
+    pleaseUpdate(streamId, Some(revision -> time), update, listKey)
 
-  private def pleaseUpdate(streamId: ID, revTime: Option[(Int, Long)], update: DBObject, moreKey: Option[BsonProp]) {
+  private def pleaseUpdate(streamId: ID, revTime: Option[(Int, Long)], update: DBObject, listKey: BsonProp) {
     val key = obj("_id" := streamId)
-    moreKey.foreach(p ⇒ key.add(p))
+    if (listKey != null) key.add(listKey)
     val doUpsert = revTime.map {
       case (revision, time) ⇒
         update("$set") match {
@@ -83,6 +74,9 @@ final class MongoStreamTracker[ID](
     }
   }
 
-  def update(streamId: ID, update: DBObject, moreKey: BsonProp = null) = pleaseUpdate(streamId, None, update, Option(moreKey))
+  /**
+   * Update stream state, but do not mark with revision.
+   */
+  def updateState(streamId: ID, update: DBObject, listKey: BsonProp = null) = pleaseUpdate(streamId, None, update, listKey)
 
 }
