@@ -1,27 +1,28 @@
 package scuff.eventual
 
-import java.util.concurrent.{CountDownLatch, Executors, ScheduledFuture, TimeUnit}
-
-import scala.concurrent.{Await, Awaitable, ExecutionContext, Future}
-import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration}
-
-import scuff.{HashBasedSerialExecutionContext, LockFreeConcurrentMap, Subscription, Threads, Timestamp}
+import java.util.concurrent.{ CountDownLatch, Executors, ScheduledFuture, TimeUnit }
+import scala.concurrent.{ Await, Awaitable, ExecutionContext, Future }
+import scala.concurrent.duration.{ Duration, DurationInt, FiniteDuration }
+import scuff.{ HashBasedSerialExecutionContext, LockFreeConcurrentMap, Subscription, Threads, Timestamp }
+import java.util.concurrent.TimeoutException
 
 /**
  * Event stream, which guarantees consistent ordering,
  * even when using distributed protocols that do not.
  * @param es The event source for subscription and replay
  * @param consumerExecCtx The consumer execution context
+ * @param maxHistoryConsumptionWait The maximum time to wait
  * @param historicBuffer Limit the number of in-memory historic transactions.
  * @param gapReplayDelay If revision number gaps are detected, transactions will be replayed after this delay
- * @param maxClockSkew The maximum possible clock skew on transaction timestamps
+ * @param maxClockSkew The max possible clock skew on transaction timestamps
  */
 final class EventStream[ID, EVT, CAT](
     es: EventSource[ID, EVT, CAT],
     consumerCtx: ExecutionContext,
     historicBuffer: Int,
     gapReplayDelay: FiniteDuration,
-    maxClockSkew: FiniteDuration) {
+    maxClockSkew: FiniteDuration,
+    maxHistoryConsumptionWait: Duration) {
 
   type Transaction = EventSource[ID, EVT, CAT]#Transaction
 
@@ -45,7 +46,8 @@ final class EventStream[ID, EVT, CAT](
       /** Consume live transaction. */
       def consumeLive(txn: Transaction)
     }
-    def resumeFrom(): Option[Timestamp]
+    /** Last transaction timestamp. */
+    def lastTimestamp(): Option[Long]
 
     /**
      * Called when live consumption starts.
@@ -66,14 +68,14 @@ final class EventStream[ID, EVT, CAT](
   private class HistoricConsumerProxy(consumer: DurableConsumer) {
     private[this] val awaitQueue = new java.util.concurrent.ArrayBlockingQueue[Awaitable[_]](historicBuffer)
     private[this] var lastTime = -1L
-    @volatile var doneProcessing = false
+    @volatile var doneReading = false
     private[this] val awaiterLatch = new CountDownLatch(1)
     private val awaiter = new Runnable {
       def run {
         while (!Thread.currentThread.isInterrupted) {
           awaitQueue.poll(1, TimeUnit.SECONDS) match {
             case null =>
-              if (doneProcessing) {
+              if (doneReading) {
                 awaiterLatch.countDown()
                 return
               }
@@ -82,7 +84,7 @@ final class EventStream[ID, EVT, CAT](
         }
       }
     }
-    def processBlocking(txns: Iterator[Transaction], maxWaitTime: FiniteDuration): Option[Timestamp] = {
+    def processBlocking(txns: Iterator[Transaction]): Option[Long] = {
       Threads.Blocking.execute(awaiter)
       consumerCtx match {
         case ctx: HashBasedSerialExecutionContext =>
@@ -96,9 +98,15 @@ final class EventStream[ID, EVT, CAT](
             lastTime = txn.timestamp
           }
       }
-      doneProcessing = true
-      awaiterLatch.await(maxWaitTime.length, maxWaitTime.unit)
-      if (lastTime == -1L) None else Some(new Timestamp(lastTime))
+      doneReading = true
+      if (maxHistoryConsumptionWait.isFinite) {
+        if (!awaiterLatch.await(maxHistoryConsumptionWait.length, maxHistoryConsumptionWait.unit)) {
+          throw new TimeoutException(s"Historic transaction processing exceeded $maxHistoryConsumptionWait")
+        }
+      } else {
+        awaiterLatch.await()
+      }
+      if (lastTime == -1L) None else Some(lastTime)
     }
 
   }
@@ -143,16 +151,18 @@ final class EventStream[ID, EVT, CAT](
    */
   def resume(consumer: DurableConsumer): Future[Subscription] = {
       implicit def ec = Threads.PiggyBack
-    val starting = new Timestamp
+    val starting = System.currentTimeMillis
     val categorySet = consumer.categoryFilter
       def categoryFilter(cat: CAT) = categorySet.isEmpty || categorySet.contains(cat)
-      def replayConsumer(txns: Iterator[Transaction]): Option[Timestamp] = {
+      def replayConsumer(txns: Iterator[Transaction]): Option[Long] = {
         val histConsumer = new HistoricConsumerProxy(consumer)
-        histConsumer.processBlocking(txns, 1.minute)
+        histConsumer.processBlocking(txns)
       }
-    val historicReplay: Future[Option[Timestamp]] = consumer.resumeFrom match {
+    val historicReplay: Future[Option[Long]] = consumer.lastTimestamp match {
       case None ⇒ es.replay(categorySet.toSeq: _*)(replayConsumer)
-      case Some(lastTime) ⇒ es.replayFrom(lastTime, categorySet.toSeq: _*)(replayConsumer)
+      case Some(lastTime) ⇒
+        val replaySince = new Timestamp(lastTime - maxClockSkew.toMillis)
+        es.replayFrom(replaySince, categorySet.toSeq: _*)(replayConsumer)
     }
     val futureSub = historicReplay.flatMap { lastTime ⇒
       if (_failedStreams.nonEmpty) {
@@ -160,7 +170,7 @@ final class EventStream[ID, EVT, CAT](
       }
       val liveConsumer = proxyLiveConsumer(consumer.onLive())
       val sub = es.subscribe(liveConsumer, categoryFilter)
-      val replaySince = new Timestamp(lastTime.getOrElse(starting).asMillis - maxClockSkew.toMillis)
+      val replaySince = new Timestamp(lastTime.getOrElse(starting) - maxClockSkew.toMillis)
       // Close the race condition; replay anything missed between replay and subscription
       es.replayFrom(replaySince, categorySet.toSeq: _*)(_.foreach(liveConsumer)).map(_ ⇒ sub)
     }
@@ -185,11 +195,12 @@ object EventStream {
     historicBufferSize: Int,
     gapReplayDelay: FiniteDuration,
     maxClockSkew: FiniteDuration,
+    maxHistoryConsumptionWait: Duration,
     failureReporter: Throwable ⇒ Unit = (t) ⇒ t.printStackTrace()) = {
     val consumerCtx = numThreads match {
       case 1 ⇒ ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor(EventStream.ConsumerThreadFactory), failureReporter)
       case n ⇒ HashBasedSerialExecutionContext(n, EventStream.ConsumerThreadFactory, failureReporter)
     }
-    new EventStream(es, consumerCtx, historicBufferSize, gapReplayDelay, maxClockSkew)
+    new EventStream(es, consumerCtx, historicBufferSize, gapReplayDelay, maxClockSkew, maxHistoryConsumptionWait)
   }
 }

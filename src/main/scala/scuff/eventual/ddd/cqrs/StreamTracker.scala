@@ -6,10 +6,9 @@ trait StreamTracker {
   def lastTimestamp: Option[Long]
   /** Expected stream revision. */
   def expectedRevision(id: ID): Int
-
   /** Mark id/revision as consumed. */
-  def markAsConsumed(id: ID, rev: Int, timestamp: Long, commit: Boolean): Unit
-  /** Commit marks, if not already committed. */
-  def commit(): Unit
-  def wipeAll(): Unit
+  def markAsConsumed(id: ID, rev: Int, timestamp: Long): Unit
+  /** Callback when generator goes live. */
+  def onGoingLive(): Unit
+
 }
