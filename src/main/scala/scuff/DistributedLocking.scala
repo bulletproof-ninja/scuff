@@ -17,16 +17,30 @@ import java.util.concurrent.atomic.AtomicReference
  */
 object DistributedLocking {
 
-  class AlreadyLockedException(key: Any, val by: InetSocketAddress, val since: Timestamp, val alive: Boolean)
-    extends Exception(s"Key $key is already locked by $by since $since. Status: ${if (alive) "ACTIVE" else "UNKNOWN"}")
+  final class AlreadyLocked(val by: InetAddress, val since: Timestamp, val alive: Boolean, val jvm: String)
+  final class Locked[K](val key: K, lockState: LockServer[K]#LockState) {
+    @volatile private var released = false
+    def release() = {
+      if (!released) {
+        released = true
+        lockState.releaseLock()
+      }
+    }
+  }
+
+  case class Record(socketAddress: InetSocketAddress, since: Timestamp, jvm: String)
 
   /** The distributed data store abstraction. */
   trait LockStore[K] {
-    protected[DistributedLocking] case class ExistingLock(ip: InetSocketAddress, since: Timestamp)
-    /** Lock key for address. */
-    def lock(key: K, address: InetSocketAddress): Option[ExistingLock]
+    /**
+     * Lock key for address. Returns `None` if successful.
+     * If lock fails, the existing record will be returned.
+     */
+    def writeLock(key: K, rec: Record): Option[Record]
     /** Unlock key for address. */
-    def unlock(key: K, address: InetSocketAddress)
+    def removeLock(key: K, record: Record)
+
+    def isLocked(key: K): Option[Record]
   }
 
   /**
@@ -38,6 +52,11 @@ object DistributedLocking {
    */
   class LockServer[K](socketPort: => Int, bindAddress: InetAddress = InetAddress.getLocalHost) {
 
+    private def newRecord(ip: InetSocketAddress) = {
+      val jvm = java.lang.management.ManagementFactory.getRuntimeMXBean.getName
+      new Record(ip, new Timestamp, jvm)
+    }
+
     private def bind(port: Int): Try[ServerSocket] = {
       val address = new InetSocketAddress(bindAddress, port)
       val server = new ServerSocket
@@ -47,8 +66,8 @@ object DistributedLocking {
       }
     }
 
-    private type ServerThread = (Thread, InetSocketAddress)
     private type LockKey = (K, LockStore[K])
+    private type ServerThread = (Thread, InetSocketAddress)
     private[this] var serverThread: Option[ServerThread] = None
     private[this] val locks = collection.mutable.Map[LockKey, LockState]()
 
@@ -78,7 +97,7 @@ object DistributedLocking {
       }
     }
 
-    private def verifyExistingLock(address: InetSocketAddress): Boolean = {
+    private def verifyExistingServer(address: InetSocketAddress): Boolean = {
       Try(new Socket(address.getAddress, address.getPort)) match {
         case Failure(_: ConnectException) => false
         case Failure(e) => throw e
@@ -89,7 +108,7 @@ object DistributedLocking {
     }
 
     private def removeLockEntry(key: K, store: LockStore[K]) = locks.synchronized {
-      locks.remove(key->store)
+      locks.remove(key -> store)
       if (locks.isEmpty) {
         serverThread.foreach(_._1.interrupt)
         serverThread = None
@@ -106,42 +125,39 @@ object DistributedLocking {
       }
     }
 
-    @throws[AlreadyLockedException]
-    final def obtainLock(key: K)(implicit store: LockStore[K]): Try[Locked] = Try {
+    final def verifyLocked(store: LockStore[K])(key: K): Option[AlreadyLocked] = {
+      store.isLocked(key).map { existing =>
+        val alive = verifyExistingServer(existing.socketAddress)
+        new AlreadyLocked(existing.socketAddress.getAddress, existing.since, alive, existing.jvm)
+      }
+    }
+
+    final def obtainLock(store: LockStore[K])(key: K): Either[AlreadyLocked, Locked[K]] = {
       locks.synchronized {
         val (thread, address) = getServerThread()
-        val lockState = locks.getOrElseUpdate(key->store, new LockState(store, key, address))
+        val record = newRecord(address)
+        val lockState = locks.getOrElseUpdate(key -> store, new LockState(store, key, record))
         if (lockState.reentry == 0) { // New instance
-          store.lock(key, address) match {
-            case Some(existing) if existing.ip != address =>
+          store.writeLock(key, record) match {
+            case Some(Record(socketAddr, since, jvm)) if socketAddr != address =>
               removeLockEntry(key, store)
-              val alive = verifyExistingLock(existing.ip)
-              throw new AlreadyLockedException(key, existing.ip, existing.since, alive)
+              val alive = verifyExistingServer(socketAddr)
+              Left(new AlreadyLocked(socketAddr.getAddress, since, alive, jvm))
             case _ =>
-              new Locked(key, lockState)
+              Right(new Locked(key, lockState))
           }
         } else { // Existing instance
           lockState.reentry += 1
-          new Locked(key, lockState)
+          Right(new Locked(key, lockState))
         }
       }
     }
 
-    final class Locked(val key: K, lockState: LockState) {
-      private[this] var released = false
-      def release() = locks.synchronized {
-        if (!released) {
-          lockState.release()
-          released = true
-        }
-      }
-    }
-
-    private class LockState(store: LockStore[K], key: K, address: InetSocketAddress) {
+    private[DistributedLocking] class LockState(store: LockStore[K], key: K, record: Record) {
       var reentry = 0
-      def release() = locks.synchronized {
+      def releaseLock() = locks.synchronized {
         if (reentry == 0) {
-          store.unlock(key, address)
+          store.removeLock(key, record)
           removeLockEntry(key, store)
         } else {
           reentry -= 1
@@ -151,4 +167,9 @@ object DistributedLocking {
 
   }
 
+}
+
+class DistributedLocking[K](server: DistributedLocking.LockServer[K], store: DistributedLocking.LockStore[K]) {
+  def obtainLock(key: K) = server.obtainLock(store)(key)
+  def verifyLock(key: K) = server.verifyLocked(store)(key)
 }
