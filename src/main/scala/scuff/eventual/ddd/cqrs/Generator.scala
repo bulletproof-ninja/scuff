@@ -48,7 +48,7 @@ trait Generator extends Projector {
       def onLive() = {
         tracker.onGoingLive()
         new LiveConsumer {
-          def nextExpectedRevision(streamId: tracker.ID): Int = tracker.expectedRevision(streamId)
+          def expectedRevision(streamId: tracker.ID): Int = tracker.expectedRevision(streamId)
           def consumeLive(txn: TXN) = store.connect { implicit conn ⇒
             val forPublish = consume(txn)
             tracker.markAsConsumed(txn.streamId, txn.revision, txn.timestamp)

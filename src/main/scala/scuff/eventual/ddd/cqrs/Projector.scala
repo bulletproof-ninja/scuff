@@ -21,7 +21,7 @@ trait Projector {
   protected type F <: Filter
 
   protected trait Data {
-    def toPublish(to: Filter): PUB
+    def toPublish(to: F): PUB
   }
 
   protected trait Filter extends (DAT => Boolean) {
@@ -39,6 +39,11 @@ trait Projector {
     type F = DAT
   }
 
+  /**
+   * @param filter The subscription/query filter
+   * @param subscriber The callback function
+   * @param strict If `true`, eliminates the, perhaps remote, possibility of out-of-order revisions
+   */
   protected final def subscribe(filter: F, subscriber: PUB => Unit, strict: Boolean = true): Subscription = {
     val latch = newLatch(strict)
       def proxySubscriber(data: DAT) {
