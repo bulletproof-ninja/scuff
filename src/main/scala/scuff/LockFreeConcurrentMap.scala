@@ -6,6 +6,8 @@ package scuff
 final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) extends collection.concurrent.Map[A, B] {
 
   require(initialMap != null, "Initial map cannot be null")
+  
+  private[this] val EmptyMap = initialMap.empty
 
   private[this] val mapRef = new java.util.concurrent.atomic.AtomicReference(initialMap)
 
@@ -140,7 +142,7 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) ext
 
   def snapshot() = mapRef.get
 
-  def drain(): Map[A, B] = mapRef.getAndSet(mapRef.get.empty)
+  def drain(): Map[A, B] = mapRef.getAndSet(EmptyMap)
 
   @annotation.tailrec
   override def remove(key: A): Option[B] = {
