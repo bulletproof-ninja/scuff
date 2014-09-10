@@ -24,7 +24,7 @@ import java.util.concurrent.Callable
  */
 final class HashBasedSerialExecutionContext(
   threads: IndexedSeq[ExecutorService],
-  failureReporter: Throwable ⇒ Unit = t ⇒ t.printStackTrace)
+  failureReporter: Throwable ⇒ Unit = t ⇒ t.printStackTrace(System.err))
     extends ExecutionContext {
 
   private[this] val numThreads = threads.size
@@ -52,30 +52,31 @@ final class HashBasedSerialExecutionContext(
   private def executorByHash(hash: Int) = threads(abs(hash % numThreads))
 
   def submit[T](hash: Int)(runnable: => T): Awaitable[T] = new Awaitable[T] {
-    val f = executorByHash(hash) submit new Callable[T] {
+    val jf = executorByHash(hash) submit new Callable[T] {
       def call = runnable
     }
     def ready(atMost: Duration)(implicit permit: CanAwait) = {
-      blocking(f.get(atMost.toMillis, MILLISECONDS))
+      blocking(jf.get(atMost.toMillis, MILLISECONDS))
       this
     }
-    def result(atMost: Duration)(implicit permit: CanAwait): T = blocking(f.get(atMost.toMillis, MILLISECONDS))
+    def result(atMost: Duration)(implicit permit: CanAwait): T = blocking(jf.get(atMost.toMillis, MILLISECONDS))
   }
 
   def reportFailure(t: Throwable) = failureReporter(t)
 }
 
 object HashBasedSerialExecutionContext {
-  lazy val global = HashBasedSerialExecutionContext(Runtime.getRuntime.availableProcessors, Threads.daemonFactory(classOf[HashBasedSerialExecutionContext].getName + ".global"))
+  lazy val global = HashBasedSerialExecutionContext(Runtime.getRuntime.availableProcessors, Threads.factory(classOf[HashBasedSerialExecutionContext].getName + ".global"))
+
   /**
    * @param numThreads Number of threads used for parallelism
    * @param threadFactory The thread factory used to create the threads
    * @param failureReporter Sink for exceptions
    */
-  def apply(numThreads: Int, threadFactory: java.util.concurrent.ThreadFactory, failureReporter: Throwable ⇒ Unit = t ⇒ t.printStackTrace) = {
+  def apply(numThreads: Int, threadFactory: java.util.concurrent.ThreadFactory, failureReporter: Throwable ⇒ Unit = t ⇒ t.printStackTrace(System.err)) = {
     val threads = new Array[ExecutorService](numThreads)
     for (idx ← 0 until numThreads) {
-      threads(idx) = Executors.newSingleThreadExecutor(threadFactory)
+      threads(idx) = Threads.newSingleThreadExecutor(threadFactory, failureReporter)
     }
     new HashBasedSerialExecutionContext(threads, failureReporter)
   }
