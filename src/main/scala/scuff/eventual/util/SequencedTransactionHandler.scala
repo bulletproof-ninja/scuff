@@ -57,7 +57,7 @@ trait SequencedTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CA
       // Out-of-sequence mode
       case Some(sequencer) ⇒ sequencer(txn.revision, txn)
       // In-sequence mode
-      case None ⇒ nextExpectedRevision(txn.streamId) match {
+      case None ⇒ expectedRevision(txn.streamId) match {
         case -1L ⇒ super.apply(txn)
         case expected ⇒
           if (txn.revision == expected) {
@@ -83,6 +83,6 @@ trait SequencedTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CA
    * NOTICE: When using option 3, transactions will be interpreted as duplicates,
    * so make sure duplicates are ignored.
    */
-  protected def nextExpectedRevision(streamId: ID): Int
+  protected def expectedRevision(streamId: ID): Int
 
 }
