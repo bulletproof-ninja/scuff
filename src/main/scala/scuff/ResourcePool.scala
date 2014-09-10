@@ -7,16 +7,10 @@ import scala.concurrent.duration.Duration
 import java.util.concurrent.Executor
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.FiniteDuration
 
 /**
  * Unbounded lock-free resource pool.
- *
- * Any resource is deliberately discarded when
- * an exception occurs, to avoid potentially
- * corrupted resources. This behavior can be changed
- * on a case-by-case basis by sub-classing and
- * overriding `borrow` and preventing non-destructive
- * exceptions from reaching `super.borrow`.
  *
  * This pool can be used as a more efficient replacement
  * for [[ThreadLocal]], in that it will never create more
@@ -26,9 +20,16 @@ import java.util.concurrent.TimeUnit
  * However, unlike traditional resource pools, the pool has
  * no upper limit on resources being created, so be careful
  * if that is a concern.
- * 
+ *
+ * Any resource is deliberately discarded when
+ * an exception occurs, to avoid potentially
+ * corrupted resources. This behavior can be changed
+ * on a case-by-case basis by sub-classing and
+ * overriding `borrow` and preventing non-destructive
+ * exceptions from reaching `super.borrow`.
+ *
  * NOTICE: As with any pool, make absolutely sure the
- * resource does not escape the `borrow` scope, but 
+ * resource does not escape the `borrow` scope, but
  * that almost goes without saying, amirite?
  */
 class ResourcePool[R](constructor: ⇒ R, minResources: Int = 0) {
@@ -100,8 +101,7 @@ class ResourcePool[R](constructor: ⇒ R, minResources: Int = 0) {
    * @param destructor Optional resource pruning function.
    * @param executor Scheduler or thread on which to run pruning.
    */
-  def startPruning(minimumTimeout: Duration, destructor: R ⇒ Unit = _ ⇒ Unit, executor: Executor = Threads.DefaultScheduler) {
-    require(minimumTimeout.isFinite, "Timeout must be a finite duration")
+  def startPruning(minimumTimeout: FiniteDuration, destructor: R ⇒ Unit = _ ⇒ Unit, executor: Executor = Threads.DefaultScheduler) {
     val pruner = new Pruner(minimumTimeout.toMillis, destructor)
     executor match {
       case scheduler: ScheduledExecutorService => schedulePruning(scheduler, pruner)
@@ -166,6 +166,5 @@ class ResourcePool[R](constructor: ⇒ R, minResources: Int = 0) {
 }
 
 private object ResourcePool {
-  lazy val ThreadGroup = new ThreadGroup(Threads.SystemThreadGroup, classOf[ResourcePool[_]].getName)
-  //  def ThreadFactory(name: String) = Threads.daemonFactory(name, ResourcePool.ThreadGroup)
+  //  lazy val ThreadGroup = new ThreadGroup(Threads.SystemThreadGroup, classOf[ResourcePool[_]].getName)
 }
