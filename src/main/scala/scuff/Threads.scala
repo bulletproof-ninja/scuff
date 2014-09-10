@@ -6,11 +6,34 @@ import scala.concurrent.ExecutionContextExecutor
 import java.util.concurrent.Executor
 import scala.concurrent.Promise
 import scala.util.Try
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.TimeUnit
+import scala.concurrent.ExecutionContext
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.SynchronousQueue
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ScheduledThreadPoolExecutor
 
 /**
  * Thread helper class.
  */
 object Threads {
+
+  val SystemThreadGroup = rootThreadGroup(Thread.currentThread.getThreadGroup)
+
+  val PiggyBack = new SameThreadExecutor {
+    def reportFailure(t: Throwable) = throw t
+  }
+
+  private[this] val ScuffThreadGroup = newThreadGroup(getClass.getName, daemon = false, printStackTrace)
+  final val Blocking = {
+    val exec = newCachedThreadPool(factory(getClass.getName, ScuffThreadGroup), t => () /* Will be reported from ExecutionContext */)
+    ExecutionContext.fromExecutor(exec, printStackTrace)
+  }
+
+  private def printStackTrace(t: Throwable): Unit = 
+    t.printStackTrace(System.err)
 
   private[this] lazy val _javaFutureConverter = {
     val jfg = new JavaFutureConverter[Any]
@@ -18,7 +41,7 @@ object Threads {
     jfg
   }
   def javaFutureConverter[T] = _javaFutureConverter.asInstanceOf[JavaFutureConverter[T]]
-  class JavaFutureConverter[T](sleepMs: Long = 1, failureReporter: Throwable => Unit = (t) => t.printStackTrace)
+  class JavaFutureConverter[T](sleepMs: Long = 1, failureReporter: Throwable => Unit = printStackTrace)
       extends (java.util.concurrent.Future[T] => concurrent.Future[T]) {
     type QueueItem[T] = (Promise[T], java.util.concurrent.Future[T])
     private[this] val queue = new collection.mutable.Queue[QueueItem[T]]
@@ -54,12 +77,36 @@ object Threads {
     }
   }
 
-  lazy val DefaultScheduler = Executors.newScheduledThreadPool(Runtime.getRuntime.availableProcessors, Threads.daemonFactory("scuff.DefaultScheduler"))
+  def newScheduledThreadPool(corePoolSize: Int, threadFactory: ThreadFactory, failureReporter: Throwable => Unit = printStackTrace) = {
+    val exec = new ScheduledThreadPoolExecutor(corePoolSize, threadFactory) {
+      override def afterExecute(r: Runnable, t: Throwable) {
+        super.afterExecute(r, t)
+        if (t != null) {
+          failureReporter(t)
+        }
+      }
+    }
+    Runtime.getRuntime addShutdownHook new Thread {
+      override def run {
+        exec.shutdownNow()
+      }
+    }
+    exec
+  }
 
-  def newSingleRunExecutor(tf: ThreadFactory): Executor = new Executor {
+  lazy val DefaultScheduler = newScheduledThreadPool(Runtime.getRuntime.availableProcessors, Threads.factory("scuff.DefaultScheduler", ScuffThreadGroup))
+
+  /** Executor encapsulating a single `Thread` for a single execution. Cannot be re-used. */
+  def newSingleRunExecutor(tf: ThreadFactory, failureReporter: Throwable => Unit = printStackTrace): Executor = new Executor {
     def execute(r: Runnable) {
-      val thread = tf.newThread(r)
-      r.run()
+      val thread = tf newThread new Runnable {
+        def run = try {
+          r.run()
+        } catch {
+          case t: Throwable => failureReporter(t)
+        }
+      }
+      thread.start()
     }
   }
 
@@ -73,38 +120,85 @@ object Threads {
     def execute(runnable: Runnable) = runnable.run()
   }
 
-  object Blocking extends ExecutionContextExecutor {
-    private[this] val pool = Executors.newCachedThreadPool(daemonFactory(getClass.getName, newThreadGroup(getClass.getName)))
-    def execute(r: Runnable) = pool.execute(r)
-    def reportFailure(t: Throwable) = t.printStackTrace()
+  def newCachedThreadPool(threadFactory: ThreadFactory, failureReporter: Throwable => Unit = printStackTrace): ExecutorService = {
+    val exec = new ThreadPoolExecutor(0, Integer.MAX_VALUE,
+      60L, TimeUnit.SECONDS,
+      new SynchronousQueue[Runnable],
+      threadFactory) {
+      override def afterExecute(r: Runnable, t: Throwable) {
+        super.afterExecute(r, t)
+        if (t != null) {
+          failureReporter(t)
+        }
+      }
+    }
+    Runtime.getRuntime addShutdownHook new Thread {
+      override def run {
+        exec.shutdownNow()
+      }
+    }
+    exec
   }
 
-  val PiggyBack = new SameThreadExecutor {
-    def reportFailure(t: Throwable) = throw t
+  def newSingleThreadExecutor(threadFactory: ThreadFactory, failureReporter: Throwable => Unit = printStackTrace) = {
+    val exec = new ThreadPoolExecutor(1, 1,
+      0L, TimeUnit.MILLISECONDS,
+      new LinkedBlockingQueue[Runnable],
+      threadFactory) {
+      override def afterExecute(r: Runnable, t: Throwable) {
+        super.afterExecute(r, t)
+        if (t != null) {
+          failureReporter(t)
+        }
+      }
+    }
+    Runtime.getRuntime addShutdownHook new Thread {
+      override def run {
+        exec.shutdownNow()
+      }
+    }
+    exec
   }
 
-  val SystemThreadGroup = rootThreadGroup(Thread.currentThread.getThreadGroup)
   private def rootThreadGroup(group: ThreadGroup): ThreadGroup = {
     if (group.getParent == null) group
     else rootThreadGroup(group.getParent)
   }
-  private def newThreadGroup(
+  def newThreadGroup(
     name: String,
-    failureReporter: Throwable => Unit = (t: Throwable) => t.printStackTrace) =
-    new ThreadGroup(Threads.SystemThreadGroup, name) {
+    daemon: Boolean,
+    failureReporter: Throwable => Unit = printStackTrace) = {
+    val tg = new ThreadGroup(Threads.SystemThreadGroup, name) {
       override def uncaughtException(t: Thread, e: Throwable) {
         failureReporter(e)
       }
     }
+    tg.setDaemon(daemon)
+    tg
+  }
 
   def factory(name: String, threadGroup: ThreadGroup = null): ThreadFactory = {
-    val tg = if (threadGroup != null) threadGroup else newThreadGroup(name)
+    val tg = if (threadGroup != null) threadGroup else newThreadGroup(name, daemon = false)
     new ScuffThreadFactory(name, tg, tg, false)
   }
   def daemonFactory(name: String, threadGroup: ThreadGroup = null): ThreadFactory = {
-    val tg = if (threadGroup != null) threadGroup else newThreadGroup(name)
+    val tg = if (threadGroup != null) threadGroup else newThreadGroup(name, daemon = true)
     new ScuffThreadFactory(name, tg, tg, true)
   }
+
+  final class ExecutorProxy[E <: Executor](real: E, reporter: Throwable => Unit) extends Executor {
+    implicit def executor = real
+    def execute(cmd: Runnable) {
+      real execute new Runnable {
+        def run = try {
+          cmd.run()
+        } catch {
+          case t: Throwable => reporter(t); throw t
+        }
+      }
+    }
+  }
+
 }
 
 private[scuff] class ScuffThreadFactory(name: String, threadGroup: ThreadGroup, exceptionHandler: Thread.UncaughtExceptionHandler, daemon: Boolean) extends ThreadFactory {
