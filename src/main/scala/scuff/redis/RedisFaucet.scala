@@ -43,7 +43,7 @@ object RedisFaucet {
     server: JedisShardInfo,
     subscriberThreadFactory: java.util.concurrent.ThreadFactory,
     publishCtx: concurrent.ExecutionContext): RedisFaucet = {
-    val subscriptionThread = Executors.newSingleThreadExecutor(subscriberThreadFactory)
+    val subscriptionThread = Threads.newSingleRunExecutor(subscriberThreadFactory)
     apply(channelName, server, subscriptionThread, publishCtx)
   }
 
