@@ -42,7 +42,7 @@ final class EventStream[ID, EVT, CAT](
        * Expected revision for a given stream.
        * If unknown stream, return 0.
        */
-      def nextExpectedRevision(stream: ID): Int
+      def expectedRevision(stream: ID): Int
       /** Consume live transaction. */
       def consumeLive(txn: Transaction)
     }
@@ -79,7 +79,7 @@ final class EventStream[ID, EVT, CAT](
                 awaiterLatch.countDown()
                 return
               }
-            case awaitable => Await.ready(awaitable, 1.minute)
+            case awaitable => Await.result(awaitable, 33.seconds)
           }
         }
       }
@@ -137,7 +137,7 @@ final class EventStream[ID, EVT, CAT](
           case _ ⇒ // Ignore
         }
       }
-      def nextExpectedRevision(streamId: ID): Int = consumer.nextExpectedRevision(streamId)
+      def expectedRevision(streamId: ID): Int = consumer.expectedRevision(streamId)
       def isFailed(streamId: ID) = _failedStreams.contains(streamId)
       def markFailed(streamId: ID, cat: CAT, t: Throwable) {
         _failedStreams.update(streamId, cat -> t)
@@ -186,7 +186,8 @@ object EventStream {
 
   final class HistoricStreamsFailure[ID, CAT](val failures: Map[ID, (CAT, Throwable)]) extends IllegalStateException(s"${failures.size} streams failed processing")
 
-  private val ConsumerThreadFactory = Threads.daemonFactory(classOf[EventStream[Any, Any, Any]#DurableConsumer].getName)
+  private val ConsumerThreadFactory = Threads.factory(classOf[EventStream[Any, Any, Any]#DurableConsumer].getName)
+
   private def schedule(r: Runnable, dur: Duration) = Threads.DefaultScheduler.schedule(r, dur.toMillis, TimeUnit.MILLISECONDS)
 
   def serializedStreams[ID, EVT, CAT](
@@ -196,9 +197,9 @@ object EventStream {
     gapReplayDelay: FiniteDuration,
     maxClockSkew: FiniteDuration,
     maxHistoryConsumptionWait: Duration,
-    failureReporter: Throwable ⇒ Unit = (t) ⇒ t.printStackTrace()) = {
+    failureReporter: Throwable ⇒ Unit = (t) ⇒ t.printStackTrace(System.err)) = {
     val consumerCtx = numThreads match {
-      case 1 ⇒ ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor(EventStream.ConsumerThreadFactory), failureReporter)
+      case 1 ⇒ ExecutionContext.fromExecutor(Threads.newSingleThreadExecutor(EventStream.ConsumerThreadFactory, t => ()), failureReporter)
       case n ⇒ HashBasedSerialExecutionContext(n, EventStream.ConsumerThreadFactory, failureReporter)
     }
     new EventStream(es, consumerCtx, historicBufferSize, gapReplayDelay, maxClockSkew, maxHistoryConsumptionWait)
