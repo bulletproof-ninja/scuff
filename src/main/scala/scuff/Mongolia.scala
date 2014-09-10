@@ -715,7 +715,8 @@ object Mongolia {
       key.put("$atomic", true)
       underlying.remove(key, SAFE)
     }
-
+    def updateAndReturn(key: DBObject, upd: DBObject): Option[DBObject] = Option(underlying.findAndModify(key, null, null, false, upd, true, false))
+    def upsertAndReturn(key: DBObject, upd: DBObject): DBObject = underlying.findAndModify(key, null, null, false, upd, true, true)
     def unique(field: String, query: DBObject = null): Seq[BsonField] = {
       import collection.JavaConverters._
       val list = underlying.distinct(field, query).asInstanceOf[java.util.List[Any]]
@@ -748,6 +749,19 @@ object Mongolia {
     def createIndex(keyHead: BsonIntProp, keyTail: BsonIntProp*): Unit = underlying.createIndex(obj(keyHead, keyTail: _*))
     def createUniqueIndex(key: String): Unit = underlying.createIndex(obj(key := ASC), obj("unique" := true))
     def createHashedIndex(key: String): Unit = underlying.createIndex(obj(key := "hashed"))
+    def createTextIndex(fields: Set[String], langField: Option[String] = None, defaultLang: Option[Locale] = None): Unit = {
+      require(fields.nonEmpty, "Must have at least one field to index on")
+      val keys = obj()
+      fields.foreach { lang =>
+        keys(lang := "text")
+      }
+      val defLang = defaultLang.map(_.toLanguageTag).getOrElse("none")
+      val options = obj("default_language" := defLang)
+      langField.foreach { langField =>
+        options("language_override" := langField)
+      }
+      underlying.createIndex(keys, options)
+    }
     def createSparseIndex(key: String): Unit = underlying.createIndex(obj(key := ASC), obj("sparse" := true))
     def createUniqueSparseIndex(key: String): Unit = underlying.createIndex(obj(key := ASC), obj("sparse" := true, "unique" := true))
     def createUniqueIndex(keyHead: BsonIntProp, keyTail: BsonIntProp*): Unit = underlying.createIndex(obj(keyHead, keyTail: _*), obj("unique" := true))
@@ -1101,6 +1115,27 @@ object Mongolia {
   }
 
   def _id[T](value: T)(implicit codec: Codec[T, BsonValue]) = obj("_id" := value)
+  private def escapeSearchTerm(term: String, exclude: Boolean): String = {
+    val cleanTerm = if (term startsWith "-") term.substring(1) else term
+    val escapedTerm =
+      if (term.contains(' ')) {
+        "\"" + term + "\""
+      } else term
+    if (exclude) {
+      "-" concat term
+    } else {
+      term
+    }
+  }
+  def $text(includeTerms: Set[String], excludeTerms: Set[String] = Set.empty, lang: Locale = null) = {
+    val escapedInclTerms = includeTerms.iterator.map(escapeSearchTerm(_, exclude = false))
+    val escapedExclTerms = excludeTerms.iterator.map(escapeSearchTerm(_, exclude = true))
+    val allTerms = escapedInclTerms ++ escapedExclTerms
+    val textDoc = obj("$search" := allTerms.mkString(" "))
+    val langTag = if (lang != null) lang.toLanguageTag else "none"
+    textDoc("$language" := langTag)
+    "$text" := textDoc
+  }
   def $gt[T](value: T)(implicit codec: Codec[T, BsonValue]) = "$gt" := value
   def $gte[T](value: T)(implicit codec: Codec[T, BsonValue]) = "$gte" := value
   def $lt[T](value: T)(implicit codec: Codec[T, BsonValue]) = "$lt" := value
