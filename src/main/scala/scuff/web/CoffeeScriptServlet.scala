@@ -105,7 +105,7 @@ abstract class CoffeeScriptServlet extends HttpServlet {
     } catch {
       case e: Exception ⇒
         log(s"Failed to compile: ${req.servletPathInfo}", e)
-        res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
+        res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage)
     }
   }
 
