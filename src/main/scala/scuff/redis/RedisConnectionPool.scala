@@ -2,14 +2,14 @@ package scuff.redis
 
 import java.util.concurrent.TimeUnit
 
-import scala.concurrent.{ Future, Promise, TimeoutException }
-import scala.concurrent.duration.{ Duration, FiniteDuration }
-import scala.util.{ Failure, Success, Try }
+import scala.concurrent.{Future, Promise, TimeoutException}
+import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.util.{Failure, Success, Try}
 
 import redis.clients.jedis.Jedis
 import redis.clients.jedis.exceptions.JedisConnectionException
 import redis.clients.util.Pool
-import scuff.{ Clock, Threads }
+import scuff.{Clock, Threads}
 
 class RedisConnectionPool(pool: Pool[Jedis], enforceDB: Option[Int]) extends CONNECTION {
   def apply(code: Jedis ⇒ Any): Any = connection(retry = true)(code)
