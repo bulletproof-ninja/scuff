@@ -12,11 +12,14 @@ class BinaryRedisPublisher[T](channelName: String, serializer: Codec[T, Array[By
 
   private[this] val byteName = SafeEncoder.encode(channelName)
 
-  @annotation.implicitNotFound("Cannot find implicit Jedis connection")
-  def publish(msg: T)(implicit conn: BinaryJedis) {
-    publishWith(conn, msg)
+  /** 
+   *  Publish using connection.
+   *  @return Number of receivers.
+   */
+  @annotation.implicitNotFound("Cannot find implicit Jedis or Pipeline")
+  def publish(msg: T)(implicit conn: Either[BinaryJedis, Pipeline]): Unit = conn match {
+    case Right(pl) => pl.publish(byteName, serializer.encode(msg))
+    case Left(jedis) => jedis.publish(byteName, serializer.encode(msg))
   }
-  private def publishWith(conn: BinaryJedis, msg: T) {
-    conn.publish(byteName, serializer.encode(msg))
-  }
+  
 }
