@@ -87,12 +87,35 @@ abstract class ResourceConcatFilter extends Filter {
               override def getDateHeader(name: String) = if (isIfModifiedSince(name)) -1 else super.getDateHeader(name)
               override def getHeader(name: String) = if (isIfModifiedSince(name)) null else super.getHeader(name)
               override def getHeaders(name: String) = if (isIfModifiedSince(name)) null else super.getHeaders(name)
-              override def getHeaderNames = super.getHeaderNames().asScala.filterNot(isIfModifiedSince(_)).asJavaEnumeration
+              override def getHeaderNames = super.getHeaderNames().asScala.filterNot(h => isIfModifiedSince(h)).asJavaEnumeration
             }
             asComment(resource).foreach { comment ⇒
               printComment(comment, res)
             }
-            ctx.getRequestDispatcher(resource).include(proxyReq, res)
+            var resStatus = 0
+            var resMsg: Option[String] = None
+            val proxyRes = new HttpServletResponseWrapper(res) {
+              override def sendError(sc: Int) {
+                super.sendError(sc)
+                resStatus = sc
+              }
+              override def sendError(sc: Int, msg: String) {
+                super.sendError(sc, msg)
+                resStatus = sc
+                resMsg = Option(msg)
+              }
+              override def setStatus(sc: Int) {
+                super.setStatus(sc)
+                resStatus = sc
+              }
+              override def setStatus(sc: Int, msg: String) {
+                super.setStatus(sc, msg)
+                resStatus = sc
+                resMsg = Option(msg)
+              }
+            }
+            ctx.getRequestDispatcher(resource).include(proxyReq, proxyRes)
+            checkDispatchStatus(resource, resStatus, resMsg)
           }
           res.flushBuffer()
         } else {
@@ -103,6 +126,13 @@ abstract class ResourceConcatFilter extends Filter {
           req.getServletContext.log(getClass.getName, t)
           res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
       }
+    }
+  }
+
+  protected def checkDispatchStatus(resource: String, sc: Int, msg: Option[String]) {
+    if (sc >= 400) {
+      val withMsg = msg.map(": " + _).getOrElse("")
+      throw new IllegalStateException(s"Failed to dispatch to $resource$withMsg")
     }
   }
 
