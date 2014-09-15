@@ -4,8 +4,10 @@ import scuff.Faucet
 
 trait DataStore {
 
-  type CONN
+  type R
+  type RW
 
-  def connect[T](func: CONN => T): T
+  def readOnly[T](func: R => T): T
+  def readWrite[T](func: RW => T): T
 
 }

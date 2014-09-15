@@ -9,10 +9,7 @@ import scala.util.Try
 import concurrent.duration._
 
 trait Projector {
-  /** Aggregate ID type. */
-  type AID
-  /** Entiity ID type. */
-  type EID
+
   /** Public publish format. */
   type PUB
   /** Internal data format. */
@@ -32,7 +29,7 @@ trait Projector {
 
   protected val store: DataStore
 
-  protected def query(filter: F)(receiver: DAT => Unit)(implicit conn: store.CONN): Unit
+  protected def query(filter: F)(receiver: DAT => Unit)(implicit conn: store.R): Unit
 
   protected def faucet: Faucet {
     type L = (DAT => Unit)
@@ -56,7 +53,7 @@ trait Projector {
   private def subscribeToFaucet(filter: F, realSubscriber: PUB ⇒ Unit, proxySubscriber: DAT ⇒ Unit, latch: Latch): Subscription = {
     val subscription = faucet.subscribe(proxySubscriber, filter)
     try {
-      store.connect { implicit conn =>
+      store.readOnly { implicit conn =>
         query(filter) { data =>
           val msg = data.toPublish(filter)
           realSubscriber(msg)

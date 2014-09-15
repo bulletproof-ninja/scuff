@@ -16,14 +16,12 @@ trait Generator extends Projector {
   protected def categoryFilter: Set[CAT]
 
   protected val tracker: StreamTracker
-  type RAWID = tracker.ID
-  implicit protected def toRawID(aggrId: AID): RAWID
 
-  protected type ES = EventStream[RAWID, DomainEvent, CAT]
+  protected type ES = EventStream[tracker.ID, DomainEvent, CAT]
   protected type TXN = ES#Transaction
 
-  protected def consume(txn: ES#Transaction)(implicit conn: store.CONN): Iterable[DAT]
-  protected def publish(msgs: Iterable[DAT])(implicit conn: store.CONN)
+  protected def consume(txn: ES#Transaction)(implicit conn: store.RW): Iterable[DAT]
+  protected def publish(msgs: Iterable[DAT])(implicit conn: store.RW)
 
   /**
    * Resume event stream processing.
@@ -39,7 +37,7 @@ trait Generator extends Projector {
       def consumeHistoric(txn: TXN) {
         val expected = tracker.expectedRevision(txn.streamId)
         if (txn.revision == expected) {
-          store.connect(consume(txn)(_))
+          store.readWrite(consume(txn)(_))
           tracker.markAsConsumed(txn.streamId, txn.revision, txn.timestamp)
         } else if (txn.revision > expected) {
           throw new IllegalStateException(s"${txn.category} ${txn.streamId} revision(s) missing. Got ${txn.revision}, but was epxecting $expected. This is either revisions missing from the EventSource or a bug in the EventStream implementation.")
@@ -49,7 +47,7 @@ trait Generator extends Projector {
         tracker.onGoingLive()
         new LiveConsumer {
           def expectedRevision(streamId: tracker.ID): Int = tracker.expectedRevision(streamId)
-          def consumeLive(txn: TXN) = store.connect { implicit conn ⇒
+          def consumeLive(txn: TXN) = store.readWrite { implicit conn ⇒
             val forPublish = consume(txn)
             tracker.markAsConsumed(txn.streamId, txn.revision, txn.timestamp)
             publish(forPublish)
