@@ -50,11 +50,12 @@ trait RedisEventPublisher[ID, EVT, CAT]
     }
     channels
   }
-  protected def publish(txn: Transaction) = publishPool { conn ⇒
+  protected def publish(txn: Transaction) = {
     val channel = pubChannels(categorizer.index(txn.category))
-    channel.publish(txn)(conn)
+    publishPool { conn ⇒
+      channel.publish(txn)(conn)
+    }
   }
-
   private lazy val subChannels = categories.toList.map { category ⇒
     category -> BinaryRedisFaucet(publishChannelName(category), subscribeServer, publishCodec, ExecutionContext.global)
   }
