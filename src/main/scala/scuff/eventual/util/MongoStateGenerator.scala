@@ -40,8 +40,6 @@ final class MongoStateGenerator[ID](dbColl: DBCollection)(implicit idCdc: scuff.
     }
   }
 
-  def collection = dbColl
-
   /**
    * Update state and mark revision as processed.
    * @param streamId Transaction stream id
@@ -94,8 +92,8 @@ final class MongoStateGenerator[ID](dbColl: DBCollection)(implicit idCdc: scuff.
               checkUpdate(key, res)
               updateQry.add(idProp) :: Nil
             }
-          case _ =>
-            val key = obj("_id" := $in(streamIds: _*))
+          case moreThanOne =>
+            val key = obj("_id" := $in(moreThanOne: _*))
             val res = dbColl.safeUpdateMulti(key, updateQry)
             checkUpdate(key, res)
             dbColl.find(key).toSeq
