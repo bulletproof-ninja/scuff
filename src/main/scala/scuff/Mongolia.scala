@@ -749,17 +749,17 @@ object Mongolia {
     def createIndex(keyHead: BsonIntProp, keyTail: BsonIntProp*): Unit = underlying.createIndex(obj(keyHead, keyTail: _*))
     def createUniqueIndex(key: String): Unit = underlying.createIndex(obj(key := ASC), obj("unique" := true))
     def createHashedIndex(key: String): Unit = underlying.createIndex(obj(key := "hashed"))
-    def createTextIndex(fields: Set[String], langField: Option[String] = None, defaultLang: Option[Locale] = None): Unit = {
+    def createTextIndex(fields: Set[String], langField: Option[String] = None, defaultLang: Option[Locale] = None, indexName: Option[String] = None): Unit = {
       require(fields.nonEmpty, "Must have at least one field to index on")
-      val keys = obj()
-      fields.foreach { lang =>
-        keys(lang := "text")
+      val keys = fields.foldLeft(obj()) {
+        case (keys, field) => keys(field := "text")
       }
       val defLang = defaultLang.map(_.toLanguageTag).getOrElse("none")
       val options = obj("default_language" := defLang)
       langField.foreach { langField =>
         options("language_override" := langField)
       }
+      indexName.foreach(name => options("name" := name))
       underlying.createIndex(keys, options)
     }
     def createSparseIndex(key: String): Unit = underlying.createIndex(obj(key := ASC), obj("sparse" := true))
@@ -888,6 +888,54 @@ object Mongolia {
     }
     def putAll(m: java.util.Map[_, _]) = for (entry ← m.entrySet.asScala) put(entry.getKey.toString, entry.getValue)
     def get(key: String) = underlying.get(key)
+    def getOrUpdate[T](key: String, ctor: => T)(implicit codec: Codec[T, BsonValue]): T = {
+      apply(key) match {
+        case v: Value => codec.decode(v)
+        case _ =>
+          val t = ctor
+          apply(key := t)
+          t
+      }
+    }
+
+    /**
+     * Modify existing value.
+     * @param key The key name
+     * @param initValue The value to initialize with, if key is missing (or null)
+     * @param updater The updater function
+     */
+    def modify[T <: AnyRef](key: String, initValue: => T)(modifier: T => Unit)(implicit codec: Codec[T, BsonValue]): Unit = {
+      val currT = apply(key) match {
+        case v: Value => codec.decode(v)
+        case _ =>
+          val newT = initValue
+          apply(key := newT)
+          newT
+      }
+      modifier(currT)
+    }
+
+    /**
+     * Update existing value.
+     * @param key The key name
+     * @param initValue The value to initialize with, if key is missing (or null)
+     * @param updater The updater function
+     */
+    def update[T](key: String, initValue: T)(updater: T => T)(implicit codec: Codec[T, BsonValue]): T = {
+      val currT = apply(key) match {
+        case v: Value => codec.decode(v)
+        case _ => initValue
+      }
+      val newT = updater(currT)
+      apply(key := newT)
+      newT
+    }
+
+    def replace(prop: BsonProp): BsonField = {
+      val current = apply(prop.key)
+      apply(prop)
+      current
+    }
     def toMap = underlying.toMap
     def removeField(key: String) = underlying.removeField(key)
     @deprecated(message = "Deprecated", since = "Don't care")
@@ -1127,13 +1175,20 @@ object Mongolia {
       term
     }
   }
-  def $text(includeTerms: Set[String], excludeTerms: Set[String] = Set.empty, lang: Locale = null) = {
-    val escapedInclTerms = includeTerms.iterator.map(escapeSearchTerm(_, exclude = false))
-    val escapedExclTerms = excludeTerms.iterator.map(escapeSearchTerm(_, exclude = true))
-    val allTerms = escapedInclTerms ++ escapedExclTerms
+  def $text(terms: Set[String], not: Set[String] = Set.empty, lang: Locale = null, limit: Option[Int] = None, filter: DBObject = null, project: DBObject = null) = {
+    val escapedTerms = terms.iterator.map(escapeSearchTerm(_, exclude = false))
+    val escapedNot = not.iterator.map(escapeSearchTerm(_, exclude = true))
+    val allTerms = escapedTerms ++ escapedNot
     val textDoc = obj("$search" := allTerms.mkString(" "))
     val langTag = if (lang != null) lang.toLanguageTag else "none"
     textDoc("$language" := langTag)
+    limit.foreach(limit => textDoc("limit" := limit))
+    if (filter != null && !filter.isEmpty) {
+      textDoc("filter" := filter)
+    }
+    if (project != null && !project.isEmpty) {
+      textDoc("project" := project)
+    }
     "$text" := textDoc
   }
   def $gt[T](value: T)(implicit codec: Codec[T, BsonValue]) = "$gt" := value
