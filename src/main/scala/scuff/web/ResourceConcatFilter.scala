@@ -11,8 +11,19 @@ import java.net._
  * * Listed (resources read in listed order): "dir/(foo+bar+baz+hmm).js
  */
 abstract class ResourceConcatFilter extends Filter {
-  private final val ConcatNamesMatcher = """^\((.*)\)(\..+)?$""".r
-  private final val NameSplitter = """\+""".r
+  private final val DefaultConcatGroupMatcher = """^\((.*)\)(\..+)?$""".r
+  private final val DefaultNameSplitter = """\+""".r
+
+  /**
+   * Must match and capture two groups: 
+   * 1) The resource names, which will be split by `NameSplitter`
+   * 2) The common file extension
+   */
+  protected def ConcatGroupMatcher = DefaultConcatGroupMatcher
+  /**
+   * Must split the names captured by group 1 of `ConcatGroupMatcher`.
+   */
+  protected def NameSplitter = DefaultNameSplitter
 
   private def expandResources(ctx: ServletContext, path: String, filename: String): List[String] = {
     import collection.JavaConverters._
@@ -29,7 +40,7 @@ abstract class ResourceConcatFilter extends Filter {
     val sepPos = fullPath.lastIndexOf("/") + 1
     val pathPrefix = fullPath.substring(0, sepPos)
     val filename = fullPath.substring(sepPos)
-    ConcatNamesMatcher.findFirstMatchIn(filename) match {
+    ConcatGroupMatcher.findFirstMatchIn(filename) match {
       case None ⇒ expandResources(req.getServletContext, pathPrefix, filename)
       case Some(matcher) ⇒
         val filenames = NameSplitter.split(matcher.group(1)).toList
