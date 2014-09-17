@@ -34,7 +34,7 @@ trait Generator extends Projector {
     eventStream resume new eventStream.DurableConsumer {
       val categoryFilter = Generator.this.categoryFilter
       def lastTimestamp() = tracker.lastTimestamp
-      def consumeHistoric(txn: TXN) {
+      def consumeReplay(txn: TXN) {
         val expected = tracker.expectedRevision(txn.streamId)
         if (txn.revision == expected) {
           store.readWrite(consume(txn)(_))
