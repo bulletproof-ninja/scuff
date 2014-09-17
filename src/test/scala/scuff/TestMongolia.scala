@@ -519,5 +519,13 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
       assertEquals(cat, byName("cat").as[Locale.Category])
     }
   }
+  
+  @Test
+  def `nested not exists or null` {
+    val doc = obj("foo" := None)
+    assertEquals(None, doc("foo").opt[String])
+    assertEquals(None, doc("foo.bar").opt[String])
+    assertEquals(None, doc("bar.foo").opt[String])
+  }
 
 }
