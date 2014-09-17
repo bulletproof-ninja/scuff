@@ -38,6 +38,9 @@ package object redis {
   }
 
   def newPool(info: JedisShardInfo, db: Option[Int], name: String = null, config: JedisPoolConfig = new JedisPoolConfig) = {
+    if (config.getMaxWaitMillis == -1L) {
+      config.setMaxWaitMillis(3333)
+    }
     new JedisPool(config, info.getHost, info.getPort, Protocol.DEFAULT_TIMEOUT, info.getPassword, db.getOrElse(0), name)
   }
 
