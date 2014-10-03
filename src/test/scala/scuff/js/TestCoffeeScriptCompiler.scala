@@ -36,7 +36,7 @@ boo = sqr(15)
     assertEquals(expected, js)
   }
 
-  @Test
+  @Test //@Ignore // Problem with current Iced compiler
   def icedStrict() {
     val compiler = new CoffeeScriptCompiler(Config(useDirective = Use.Strict, version = Version.Iced))
     val coffee = """

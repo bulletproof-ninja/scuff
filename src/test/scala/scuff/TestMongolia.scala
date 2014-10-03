@@ -145,7 +145,7 @@ class TestMongolia {
   @Test
   def each {
     val newNames = List("Foo", "Bar")
-    val update = $addToSet("names" := $each(newNames: _*))
+    val update = $addToSet("names" := $each(newNames))
     assertEquals("""{"$addToSet":{"names":{"$each":["Foo","Bar"]}}}""", update.toJson())
   }
 
@@ -519,13 +519,26 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
       assertEquals(cat, byName("cat").as[Locale.Category])
     }
   }
-  
+
   @Test
   def `nested not exists or null` {
     val doc = obj("foo" := None)
     assertEquals(None, doc("foo").opt[String])
     assertEquals(None, doc("foo.bar").opt[String])
     assertEquals(None, doc("bar.foo").opt[String])
+  }
+
+  @Test
+  def `removal by None` {
+    val doc = obj().ignoreNulls(true).add("foo" := "bar")
+    assertEquals("bar", doc("foo").as[String])
+    val none: Option[String] = None
+    doc("foo" := none)
+    doc("foo") match {
+      case _: Missing => // As expected
+      case _: Null => fail("'foo' should not be null")
+      case v: Value => fail(s"'foo' should not be ${v.as[String]}")
+    }
   }
 
 }
