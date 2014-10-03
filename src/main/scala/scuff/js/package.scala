@@ -32,7 +32,11 @@ package object js {
         sb append prop.name append ':'
         appendValue(value)
     }
-    sb.replace(sb.length - 1, sb.length, "}")
+    if (options.isEmpty) {
+      sb append "}"
+    } else {
+      sb.replace(sb.length - 1, sb.length, "}")
+    }
     sb.toString
   }
 
