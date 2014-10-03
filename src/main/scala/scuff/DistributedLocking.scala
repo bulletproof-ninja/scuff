@@ -5,6 +5,7 @@ import java.io._
 import scala.util._
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Basic distributed locking mechanism, that relies on a
@@ -19,10 +20,9 @@ object DistributedLocking {
 
   final class AlreadyLocked(val by: InetAddress, val since: Timestamp, val alive: Boolean, val jvm: String)
   final class Locked[K](val key: K, lockState: LockServer[K]#LockState) {
-    @volatile private var released = false
+    private[this] val released = new AtomicBoolean(false)
     def release() = {
-      if (!released) {
-        released = true
+      if (released.compareAndSet(false, true)) {
         lockState.releaseLock()
       }
     }
@@ -34,7 +34,7 @@ object DistributedLocking {
   trait LockStore[K] {
     /**
      * Lock key for address. Returns `None` if successful.
-     * If lock fails, the existing record will be returned.
+     * If lock fails, the lock-holding record will be returned.
      */
     def writeLock(key: K, rec: Record): Option[Record]
     /** Unlock key for address. */
