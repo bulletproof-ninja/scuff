@@ -12,7 +12,7 @@ import java.net._
  */
 abstract class ResourceConcatFilter extends Filter {
   private final val DefaultConcatGroupMatcher = """^\((.*)\)(\..+)?$""".r
-  private final val DefaultNameSplitter = """\+""".r
+  private final val DefaultNameSplitter = """[\+\|\,\&]""".r
 
   /**
    * Must match and capture two groups: 
