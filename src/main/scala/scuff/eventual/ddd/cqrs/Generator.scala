@@ -30,8 +30,8 @@ trait Generator extends Projector {
    * NOTICE: This assumes that the data store has also been wiped appropriately
    */
   def resume(eventStream: ES): Future[Subscription] = {
-    require(categoryFilter.nonEmpty, "${getClass.getName}: Category filter cannot be empty")
-    eventStream resume new eventStream.DurableConsumer {
+    require(categoryFilter.nonEmpty, s"${getClass.getName}: Category filter cannot be empty")
+    val liveSubscription = eventStream resume new eventStream.DurableConsumer {
       val categoryFilter = Generator.this.categoryFilter
       def lastTimestamp() = tracker.lastTimestamp
       def consumeReplay(txn: TXN) {
@@ -56,6 +56,7 @@ trait Generator extends Projector {
       }
 
     }
+    liveSubscription
   }
 
 }
