@@ -28,7 +28,7 @@ object Threads {
 
   private[this] val ScuffThreadGroup = newThreadGroup(getClass.getName, daemon = false, printStackTrace)
   final val Blocking = {
-    val exec = newCachedThreadPool(factory(getClass.getName, ScuffThreadGroup), t => () /* Will be reported from ExecutionContext */)
+    val exec = newCachedThreadPool(factory(s"${getClass.getName}.Blocking", ScuffThreadGroup), t => () /* Will be reported from ExecutionContext */)
     ExecutionContext.fromExecutor(exec, printStackTrace)
   }
 
