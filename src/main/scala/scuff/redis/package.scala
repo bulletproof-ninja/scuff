@@ -11,8 +11,13 @@ import scala.util.Try
  */
 package object redis {
 
-  implicit def toLeftJedis(jedis: BinaryJedis): Either[BinaryJedis, Pipeline] = Left(jedis)
-  implicit def toRightPipeline(pl: Pipeline): Either[BinaryJedis, Pipeline] = Right(pl)
+  type JedisConnection = BinaryJedisCommands with JedisCommands with MultiKeyBinaryCommands with MultiKeyCommands
+  type JedisPipeline = BinaryRedisPipeline with RedisPipeline with MultiKeyBinaryRedisPipeline // with MultiKeyCommandsPipeline
+
+  type PublishMagnet = Either[JedisConnection, JedisPipeline]
+
+  implicit def toPublishMagnet(jedis: JedisConnection): PublishMagnet = Left(jedis)
+  implicit def toPublishMagnet(pl: JedisPipeline): PublishMagnet = Right(pl)
 
   implicit def uri2Info(uri: java.net.URI) = {
     val userInfo: Option[(String, Option[String])] = Option(uri.getUserInfo).map { userInfo ⇒
@@ -67,7 +72,7 @@ package object redis {
     def pipeline[T](block: Pipeline ⇒ T): T = {
       val pl = jedis.pipelined()
       val t = block(pl)
-      pl.sync()
+      if (jedis.isConnected) pl.sync()
       t
     }
 
