@@ -5,6 +5,7 @@ import redis.clients.jedis.JedisShardInfo
 import scuff.Codec
 import scala.concurrent.ExecutionContext
 import scuff.Subscription
+import scuff.Threads
 
 trait RedisEventPublisher[ID, EVT, CAT]
     extends EventStorePublisher[ID, EVT, CAT] {
@@ -56,8 +57,13 @@ trait RedisEventPublisher[ID, EVT, CAT]
       channel.publish(txn)(conn)
     }
   }
-  private lazy val subChannels = categories.toList.map { category ⇒
-    category -> BinaryRedisFaucet(publishChannelName(category), subscribeServer, publishCodec, ExecutionContext.global)
+  private lazy val subChannels = {
+    val tg = new ThreadGroup("RedisChannelSubscribers")
+    categories.toList.map { category ⇒
+      val channelName = publishChannelName(category)
+      val tf = Threads.daemonFactory(s"RedisChannelSubscriber($channelName)", tg)
+      category -> BinaryRedisFaucet(channelName, subscribeServer, tf, publishCodec, ExecutionContext.global)
+    }
   }
   def subscribe(sub: Transaction ⇒ Unit, include: CAT ⇒ Boolean) = {
     val subscriptions = subChannels.filter(c ⇒ include(c._1)).map(_._2.subscribe(sub))
