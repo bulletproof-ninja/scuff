@@ -32,7 +32,7 @@ package object js {
         sb append prop.name append ':'
         appendValue(value)
     }
-    sb append "}"
+    sb.replace(sb.length - 1, sb.length, "}")
     sb.toString
   }
 
