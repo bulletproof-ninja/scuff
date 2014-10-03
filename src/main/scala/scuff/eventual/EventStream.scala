@@ -12,7 +12,7 @@ import java.util.concurrent.TimeoutException
  * @param es The event source for subscription and replay
  * @param consumerExecCtx The consumer execution context
  * @param replayBuffer Limit the number of in-memory replay transactions.
- * @param gapReplayDelay If revision number gaps are detected, when live, transactions will be replayed after this delay. 
+ * @param gapReplayDelay If revision number gaps are detected, when live, transactions will be replayed after this delay.
  * This should only happen if using unreliable messaging, where messages can get dropped or arrive out-of-order.
  * @param maxClockSkew The max possible clock skew on transaction timestamps
  * @param maxReplayConsumptionWait The maximum time to wait for replay to finish
@@ -65,8 +65,8 @@ final class EventStream[ID, EVT, CAT](
 
   def failedStreams = _failedStreams.snapshot()
 
-  private class ReplayConsumerProxy(consumer: DurableConsumer) {
-    private[this] val awaitQueue = new java.util.concurrent.ArrayBlockingQueue[Awaitable[_]](replayBuffer)
+  private class BlockingReplayProxy(consumer: DurableConsumer) {
+    private[this] val awaitQueue = new java.util.concurrent.ArrayBlockingQueue[(Transaction, Awaitable[_])](replayBuffer)
     private[this] var lastTime = -1L
     @volatile var doneReading = false
     private[this] val awaiterLatch = new CountDownLatch(1)
@@ -79,22 +79,34 @@ final class EventStream[ID, EVT, CAT](
                 awaiterLatch.countDown()
                 return
               }
-            case awaitable => Await.result(awaitable, 33.seconds)
+            case (txn, awaitable) =>
+              try {
+                Await.result(awaitable, 60.seconds)
+              } catch {
+                case toe: TimeoutException =>
+                  throw new IllegalStateException(s"${consumer.getClass.getName} timed out processing $txn", toe)
+              }
           }
         }
       }
     }
     def processBlocking(replay: Iterator[Transaction]): Option[Long] = {
+        def consume(txn: Transaction) = try {
+          consumer consumeReplay txn
+        } catch {
+          case e: Exception =>
+            throw new IllegalStateException(s"${consumer.getClass.getName} failed to process $txn", e)
+        }
       Threads.Blocking.execute(awaiter)
       consumerCtx match {
         case ctx: HashBasedSerialExecutionContext =>
           replay.foreach { txn =>
-            awaitQueue put ctx.submit(txn.streamId.hashCode)(consumer consumeReplay txn)
+            awaitQueue put txn -> ctx.submit(txn.streamId.hashCode)(consume(txn))
             lastTime = txn.timestamp
           }
         case ctx =>
           replay.foreach { txn =>
-            awaitQueue put Future(consumer consumeReplay txn)(ctx)
+            awaitQueue put txn -> Future(consume(txn))(ctx)
             lastTime = txn.timestamp
           }
       }
@@ -117,7 +129,7 @@ final class EventStream[ID, EVT, CAT](
 
   private[this] val pendingReplays = new LockFreeConcurrentMap[ID, ScheduledFuture[_]]
 
-  private def proxyLiveConsumer(consumer: DurableConsumer#LiveConsumer) =
+  private def LiveConsumerProxy(consumer: DurableConsumer#LiveConsumer) =
     new LiveConsumerProxy(consumer) with util.FailSafeTransactionHandler[ID, EVT, CAT] with util.SequencedTransactionHandler[ID, EVT, CAT] with util.AsyncTransactionHandler[ID, EVT, CAT] { self: LiveConsumerProxy =>
       def asyncTransactionCtx = consumerCtx
       def onGapDetected(id: ID, expectedRev: Int, actualRev: Int) {
@@ -147,7 +159,7 @@ final class EventStream[ID, EVT, CAT](
 
   /**
    *  Resume consumption.
-   *  @return Future subscription. The future is resolved once consumption goes live.
+   *  @return Live subscription. The future is resolved once consumption goes live.
    */
   def resume(consumer: DurableConsumer): Future[Subscription] = {
       implicit def ec = Threads.PiggyBack
@@ -155,7 +167,7 @@ final class EventStream[ID, EVT, CAT](
     val categorySet = consumer.categoryFilter
       def categoryFilter(cat: CAT) = categorySet.isEmpty || categorySet.contains(cat)
       def replayConsumer(txns: Iterator[Transaction]): Option[Long] = {
-        val replayConsumer = new ReplayConsumerProxy(consumer)
+        val replayConsumer = new BlockingReplayProxy(consumer)
         replayConsumer.processBlocking(txns)
       }
     val replayFinished: Future[Option[Long]] = consumer.lastTimestamp match {
@@ -168,7 +180,7 @@ final class EventStream[ID, EVT, CAT](
       if (_failedStreams.nonEmpty) {
         throw new EventStream.StreamsReplayFailure(_failedStreams.snapshot)
       }
-      val liveConsumer = proxyLiveConsumer(consumer.onLive())
+      val liveConsumer = LiveConsumerProxy(consumer.onLive())
       val sub = es.subscribe(liveConsumer, categoryFilter)
       val replaySince = new Timestamp(lastTime.getOrElse(starting) - maxClockSkew.toMillis)
       // Close the race condition; replay anything missed between replay and subscription
