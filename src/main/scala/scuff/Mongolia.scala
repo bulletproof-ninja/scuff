@@ -616,7 +616,7 @@ object Mongolia {
     def opt[T](implicit codec: Codec[T, BsonValue]) = None
     def as[T](implicit codec: Codec[T, BsonValue]): T = fieldName match {
       case None ⇒ throw new UnavailableValueException("", "Field value is null")
-      case Some(name) ⇒ throw new UnavailableValueException(name, "Field \"%s\" value is null".format(name))
+      case Some(name) ⇒ throw new UnavailableValueException(name, s"""Field "$name" is null""")
     }
     def asSeqOfOption[T](implicit codec: Codec[T, BsonValue]) = IndexedSeq.empty
     def asSeq[T](implicit codec: Codec[T, BsonValue]) = IndexedSeq.empty
@@ -625,8 +625,8 @@ object Mongolia {
   final class Missing private[Mongolia] (fieldName: Option[String]) extends BsonField {
     def opt[T](implicit codec: Codec[T, BsonValue]) = None
     def as[T](implicit codec: Codec[T, BsonValue]): T = fieldName match {
-      case None ⇒ throw new UnavailableValueException("", "Unknown field")
-      case Some(name) ⇒ throw new UnavailableValueException(name, "Unknown field: \"%s\"".format(name))
+      case None ⇒ throw new UnavailableValueException("", "Field does not exist")
+      case Some(name) ⇒ throw new UnavailableValueException(name, s"""Field "$name" does not exist""")
     }
     def asSeqOfOption[T](implicit codec: Codec[T, BsonValue]) = IndexedSeq.empty
     def asSeq[T](implicit codec: Codec[T, BsonValue]) = IndexedSeq.empty
@@ -695,8 +695,15 @@ object Mongolia {
       case w: Int if w < WriteConcern.SAFE.getW ⇒ WriteConcern.SAFE
       case _ ⇒ underlying.getWriteConcern
     }
-    def safeInsert(dbo: DBObject) = underlying.insert(dbo, SAFE)
-    def safeInsert(dbos: DBObject*) = underlying.insert(dbos.toArray, SAFE)
+    def safeInsert(dbo: DBObject, more: DBObject*) = {
+      if (more.isEmpty) {
+        underlying.insert(dbo, SAFE)
+      } else {
+        val all = Array(dbo) ++ more
+        underlying.insert(all, SAFE)
+      }
+    }
+    def safeInsert(dbos: Iterable[DBObject]) = underlying.insert(dbos.toArray, SAFE)
     def safeSave(dbo: DBObject) = underlying.save(dbo, SAFE)
     def safeUpdate(key: DBObject, upd: DBObject, upsert: Boolean = false, multi: Boolean = false) = underlying.update(key, upd, upsert, multi, SAFE)
     def safeUpdateMulti(key: DBObject, upd: DBObject) = underlying.update(key, upd, false, true, SAFE)
@@ -749,17 +756,17 @@ object Mongolia {
     def createIndex(keyHead: BsonIntProp, keyTail: BsonIntProp*): Unit = underlying.createIndex(obj(keyHead, keyTail: _*))
     def createUniqueIndex(key: String): Unit = underlying.createIndex(obj(key := ASC), obj("unique" := true))
     def createHashedIndex(key: String): Unit = underlying.createIndex(obj(key := "hashed"))
-    def createTextIndex(fields: Set[String], langField: Option[String] = None, defaultLang: Option[Locale] = None, indexName: Option[String] = None): Unit = {
+    def createTextIndex(fields: Set[String], langField: String = null, defaultLang: Locale = null, indexName: String = null): Unit = {
       require(fields.nonEmpty, "Must have at least one field to index on")
       val keys = fields.foldLeft(obj()) {
         case (keys, field) => keys(field := "text")
       }
-      val defLang = defaultLang.map(_.toLanguageTag).getOrElse("none")
+      val defLang = Option(defaultLang).filterNot(_ == Locale.ROOT).map(_.toLanguageTag).getOrElse("none")
       val options = obj("default_language" := defLang)
-      langField.foreach { langField =>
+      Option(langField).foreach { langField =>
         options("language_override" := langField)
       }
-      indexName.foreach(name => options("name" := name))
+      Option(indexName).foreach(name => options("name" := name))
       underlying.createIndex(keys, options)
     }
     def createSparseIndex(key: String): Unit = underlying.createIndex(obj(key := ASC), obj("sparse" := true))
@@ -777,9 +784,7 @@ object Mongolia {
     }
   }
 
-  private val serializers = new ThreadLocal[com.mongodb.util.ObjectSerializer] {
-    override def initialValue = com.mongodb.util.JSONSerializers.getStrict
-  }
+  private val serializers = new ResourcePool(com.mongodb.util.JSONSerializers.getStrict)
 
   private val base64 = new com.mongodb.util.Base64Codec
 
@@ -789,7 +794,6 @@ object Mongolia {
    * `NaN` is translated to `null`.
    */
   def toJson(dbo: DBObject, sb: java.lang.StringBuilder = new java.lang.StringBuilder(128)): java.lang.StringBuilder = {
-    val fallback = serializers.get
       def appendList(list: collection.GenTraversableOnce[_]) {
         sb append '['
         val i = list.toIterator
@@ -864,7 +868,7 @@ object Mongolia {
           case m: java.util.Map[_, _] ⇒ appendMap(m)
           case l: java.lang.Iterable[_] ⇒ appendList(l.asScala)
           case t: collection.GenTraversableOnce[_] ⇒ appendList(t)
-          case _ ⇒ fallback.serialize(anyRef, sb)
+          case _ ⇒ serializers.borrow(_.serialize(anyRef, sb))
         }
       }
 
@@ -899,7 +903,7 @@ object Mongolia {
     }
 
     /**
-     * Modify existing value.
+     * Modify, mutable, object.
      * @param key The key name
      * @param initValue The value to initialize with, if key is missing (or null)
      * @param updater The updater function
@@ -916,19 +920,20 @@ object Mongolia {
     }
 
     /**
-     * Update existing value.
+     * Update, immutable, value.
      * @param key The key name
-     * @param initValue The value to initialize with, if key is missing (or null)
+     * @param initValue Optional. The value to initialize with, if key is missing or null.
+     * If not provided, no update will happen if key is missing or null
      * @param updater The updater function
      */
-    def update[T](key: String, initValue: T)(updater: T => T)(implicit codec: Codec[T, BsonValue]): T = {
+    def update[T](key: String, initValue: T = null)(updater: T => T)(implicit codec: Codec[T, BsonValue]): Unit = {
       val currT = apply(key) match {
         case v: Value => codec.decode(v)
         case _ => initValue
       }
-      val newT = updater(currT)
-      apply(key := newT)
-      newT
+      if (currT != null) {
+        apply(key := updater(currT))
+      }
     }
 
     def replace(prop: BsonProp): BsonField = {
@@ -1204,7 +1209,8 @@ object Mongolia {
   def $and[T](exprs: T*)(implicit codec: Codec[T, BsonValue]) = "$and" := arr(exprs: _*)
   def $or[T](exprs: T*)(implicit codec: Codec[T, BsonValue]) = "$or" := arr(exprs: _*)
   def $nor[T](exprs: T*)(implicit codec: Codec[T, BsonValue]) = "$nor" := arr(exprs: _*)
-  def $each[T](values: T*)(implicit codec: Codec[T, BsonValue]) = "$each" := arr(values: _*)
+  def $each[T](values: Seq[T])(implicit codec: Codec[T, BsonValue]) = "$each" := arr(values: _*)
+  def $each[T](value: T, more: T*)(implicit codec: Codec[T, BsonValue]) = "$each" := arr((value :: more.toList): _*)
   def $exists(exists: Boolean): BsonProp = "$exists" := exists
   def $set(props: Seq[BsonProp]) = "$set" := obj(props)
   def $set(prop: BsonProp, more: BsonProp*) = "$set" := obj(prop, more: _*)
@@ -1224,7 +1230,8 @@ object Mongolia {
   def $inc(prop: BsonNumProp, more: BsonNumProp*) = "$inc" := obj(prop, more: _*)
   def $push(props: Seq[BsonProp]) = "$push" := obj(props)
   def $push(prop: BsonProp, more: BsonProp*) = "$push" := obj(prop, more: _*)
-  def $addToSet(prop: BsonProp) = "$addToSet" := obj(prop)
+  def $addToSet(props: Seq[BsonProp]) = "$addToSet" := obj(props)
+  def $addToSet(prop: BsonProp, more: BsonProp*) = "$addToSet" := obj(prop, more: _*)
   def $pushAll(prop: BsonProp) = "$pushAll" := obj(prop)
   def $pop(prop: BsonIntProp): BsonProp = "$pop" := obj(prop)
   def $pop(name: String): BsonProp = "$pop" := obj(name := LAST)
