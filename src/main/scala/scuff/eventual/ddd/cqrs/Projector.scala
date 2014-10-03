@@ -7,6 +7,9 @@ import java.util.concurrent.TimeUnit
 import scuff.Faucet
 import scala.util.Try
 import concurrent.duration._
+import scala.concurrent.Future
+import scala.util.Failure
+import scala.util.Success
 
 trait Projector {
 
@@ -29,7 +32,7 @@ trait Projector {
 
   protected val store: DataStore
 
-  protected def query(filter: F)(receiver: DAT => Unit)(implicit conn: store.R): Unit
+  protected def query(filter: F)(implicit conn: store.R): Seq[DAT]
 
   protected def faucet: Faucet {
     type L = (DAT => Unit)
@@ -41,7 +44,7 @@ trait Projector {
    * @param subscriber The callback function
    * @param strict If `true`, eliminates the, perhaps remote, possibility of out-of-order revisions
    */
-  protected final def subscribe(filter: F, subscriber: PUB => Unit, strict: Boolean = true): Subscription = {
+  protected final def subscribe(filter: F, subscriber: PUB => Unit, strict: Boolean = true): Future[Subscription] = {
     val latch = newLatch(strict)
       def proxySubscriber(data: DAT) {
         latch.await()
@@ -50,23 +53,21 @@ trait Projector {
     subscribeToFaucet(filter, subscriber, proxySubscriber, latch)
   }
 
-  private def subscribeToFaucet(filter: F, realSubscriber: PUB ⇒ Unit, proxySubscriber: DAT ⇒ Unit, latch: Latch): Subscription = {
+  private def subscribeToFaucet(filter: F, realSubscriber: PUB ⇒ Unit, proxySubscriber: DAT ⇒ Unit, latch: Latch): Future[Subscription] = {
     val subscription = faucet.subscribe(proxySubscriber, filter)
     try {
       store.readOnly { implicit conn =>
-        query(filter) { data =>
+        query(filter).foreach { data =>
           val msg = data.toPublish(filter)
           realSubscriber(msg)
         }
       }
+      Future successful subscription
     } catch {
-      case t: Throwable ⇒
-        Try(subscription.cancel)
-        throw t
+      case e: Exception => Future failed e
     } finally {
       latch.open()
     }
-    subscription
   }
 
   private trait Latch {
