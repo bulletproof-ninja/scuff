@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 object DistributedLocking {
 
-  final class AlreadyLocked(val by: InetAddress, val since: Timestamp, val alive: Boolean, val jvm: String)
+  final class AlreadyLocked(val by: InetAddress, val since: Timestamp, val alive: Boolean, val jvm: String, val db: String)
   final class Locked[K](val key: K, lockState: LockServer[K]#LockState) {
     private[this] val released = new AtomicBoolean(false)
     def release() = {
@@ -32,6 +32,7 @@ object DistributedLocking {
 
   /** The distributed data store abstraction. */
   trait LockStore[K] {
+    def dbName: String
     /**
      * Lock key for address. Returns `None` if successful.
      * If lock fails, the lock-holding record will be returned.
@@ -128,7 +129,7 @@ object DistributedLocking {
     final def verifyLocked(store: LockStore[K])(key: K): Option[AlreadyLocked] = {
       store.isLocked(key).map { existing =>
         val alive = verifyExistingServer(existing.socketAddress)
-        new AlreadyLocked(existing.socketAddress.getAddress, existing.since, alive, existing.jvm)
+        new AlreadyLocked(existing.socketAddress.getAddress, existing.since, alive, existing.jvm, store.dbName)
       }
     }
 
@@ -142,7 +143,7 @@ object DistributedLocking {
             case Some(Record(socketAddr, since, jvm)) if socketAddr != address =>
               removeLockEntry(key, store)
               val alive = verifyExistingServer(socketAddr)
-              Left(new AlreadyLocked(socketAddr.getAddress, since, alive, jvm))
+              Left(new AlreadyLocked(socketAddr.getAddress, since, alive, jvm, store.dbName))
             case _ =>
               Right(new Locked(key, lockState))
           }

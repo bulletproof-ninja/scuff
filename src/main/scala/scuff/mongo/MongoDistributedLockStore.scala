@@ -13,6 +13,8 @@ import com.mongodb.DBObject
 
 final class MongoLockStore[ID](lockCollection: DBCollection)(implicit codec: Codec[ID, BsonValue]) extends LockStore[ID] {
 
+  val dbName = s"${lockCollection.getDB.getName}/${lockCollection.getName}"
+
   private def newDoc(key: ID, record: Record) = obj(
     "_id" := key,
     "ip" := record.socketAddress.getAddress.getHostAddress,
