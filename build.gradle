@@ -1,0 +1,29 @@
+apply plugin: "scala"
+sourceCompatibility = 1.7
+version = "1.4-SNAPSHOT"
+
+task wrapper(type: Wrapper) {
+    gradleVersion = "2.2"
+}
+
+repositories {
+    mavenCentral()
+}
+jar {
+    baseName = "scuff_2.11"
+    manifest {
+        attributes "Implementation-Title": "scuff", "Implementation-Version": version
+    }
+}
+dependencies {
+    testCompile "junit:junit:4.11"
+    compile "org.scala-lang:scala-library:2.11.4"
+    compile "org.scala-lang.modules:scala-xml_2.11:1.0.2"
+    compile "com.google.javascript:closure-compiler:v20140407"
+    compile "javax.mail:mail:1.4.7"
+    compile "org.mongodb:mongo-java-driver:2.12.4"
+    compile "javax.servlet:javax.servlet-api:3.0.1"
+    compile "redis.clients:jedis:2.6.0"
+    compile "com.datastax.cassandra:cassandra-driver-core:2.0.1"
+    compile "io.fastjson:boon:0.29"
+}
