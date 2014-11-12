@@ -32,7 +32,7 @@ abstract class RedisHttpSessionFilter extends Filter {
   }
 }
 
-class RedisHttpSession(redis: RedisConnectionPool, delegate: HttpSession, keyPrefix: String = "HttpSession") extends HttpSession {
+private class RedisHttpSession(redis: RedisConnectionPool, delegate: HttpSession, keyPrefix: String = "HttpSession") extends HttpSession {
   import scuff.redis._
   import collection.JavaConverters._
   private[this] var _map: BinaryRedisHashMap[String, AnyRef] = _
