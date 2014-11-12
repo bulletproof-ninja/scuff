@@ -722,8 +722,9 @@ object Mongolia {
       key.put("$atomic", true)
       underlying.remove(key, SAFE)
     }
-    def updateAndReturn(key: DBObject, upd: DBObject): Option[DBObject] = Option(underlying.findAndModify(key, null, null, false, upd, true, false))
-    def upsertAndReturn(key: DBObject, upd: DBObject): DBObject = underlying.findAndModify(key, null, null, false, upd, true, true)
+    private def includeFields(fields: Seq[String]): DBObject = if (fields.isEmpty) null else obj(fields.map(_ := INCLUDE))
+    def updateAndReturn(query: DBObject, upd: DBObject, returnFields: String*): Option[DBObject] = Option(underlying.findAndModify(query, includeFields(returnFields), null, false, upd, true, false))
+    def upsertAndReturn(query: DBObject, upd: DBObject, returnFields: String*): DBObject = underlying.findAndModify(query, includeFields(returnFields), null, false, upd, true, true)
     def unique(field: String, query: DBObject = null): Seq[BsonField] = {
       import collection.JavaConverters._
       val list = underlying.distinct(field, query).asInstanceOf[java.util.List[Any]]
@@ -1033,6 +1034,12 @@ object Mongolia {
       }
       this
     }
+    def add(props: Seq[BsonProp]): BsonObject = {
+      props.foreach { prop ⇒
+        this.put(prop.key, prop.raw)
+      }
+      this
+    }
     def enrich = this
     def impoverish = underlying
     def _id = underlying.get("_id") match {
@@ -1212,10 +1219,10 @@ object Mongolia {
   def $each[T](values: Seq[T])(implicit codec: Codec[T, BsonValue]) = "$each" := arr(values: _*)
   def $each[T](value: T, more: T*)(implicit codec: Codec[T, BsonValue]) = "$each" := arr((value :: more.toList): _*)
   def $exists(exists: Boolean): BsonProp = "$exists" := exists
-  def $set(props: Seq[BsonProp]) = "$set" := obj(props)
-  def $set(prop: BsonProp, more: BsonProp*) = "$set" := obj(prop, more: _*)
-  def $setOnInsert(props: Seq[BsonProp]) = "$setOnInsert" := obj(props)
-  def $setOnInsert(prop: BsonProp, more: BsonProp*) = "$setOnInsert" := obj(prop, more: _*)
+  def $set(props: Seq[BsonProp]): BsonProp = "$set" := obj(props)
+  def $set(prop: BsonProp, more: BsonProp*): BsonProp = "$set" := obj(prop, more: _*)
+  def $setOnInsert(props: Seq[BsonProp]): BsonProp = "$setOnInsert" := obj(props)
+  def $setOnInsert(prop: BsonProp, more: BsonProp*): BsonProp = "$setOnInsert" := obj(prop, more: _*)
   def $unset(names: String*) = {
     val unsets = new BsonObject
     names.foreach { name ⇒
@@ -1250,6 +1257,14 @@ object Mongolia {
     dbo
   }
   def $where(jsExpr: String) = "$where" := jsExpr
+  def $currentDate(field: String, otherFields: String*): BsonProp = {
+    val cdDoc = obj(field := true)
+    if (otherFields.nonEmpty) {
+      cdDoc.add(otherFields.map(_ := true))
+    }
+    "$currentDate" := cdDoc
+  }
+  def $currentDate(head: BsonProp, tail: BsonProp*): BsonProp = "$currentDate" := obj(head, tail: _*)
 
   case class MapReduce(mapJS: String, reduceJS: String) {
     require(mapJS.trim.length > 0, "No JS code for `map` function")
