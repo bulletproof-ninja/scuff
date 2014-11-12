@@ -27,9 +27,12 @@ class BinaryRedisFaucet[A] private[redis] (
     (rwLock.readLock, exclusive, exclusive.newCondition)
   }
   private class FilteredSubscriber(sub: L, doTell: F ⇒ Boolean) {
-    def tell(a: A) = if (doTell(a)) {
-      publishCtx execute new Runnable { def run = sub(a) }
-    }
+    def tell(a: A) =
+      if (doTell(a)) {
+        publishCtx execute new Runnable {
+          def run = sub(a)
+        }
+      }
   }
   private[this] val subscribers = collection.mutable.Buffer[FilteredSubscriber]()
 
