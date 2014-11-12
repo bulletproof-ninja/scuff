@@ -102,8 +102,11 @@ class BinaryRedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Ser
   }
 
   // We could implement this using WATCH, but since it's too wide in scope, there's the potential of far too many false positives. Subclass if needed.
+  @deprecated("Unsupported", since="Forever")
   def remove(field: K, expectedValue: V): Boolean = throw new UnsupportedOperationException("Redis does not support CAS operations on hash entries")
+  @deprecated("Unsupported", since="Forever")
   def replace(field: K, newValue: V): Option[V] = throw new UnsupportedOperationException("Redis does not support CAS operations on hash entries")
+  @deprecated("Unsupported", since="Forever")
   def replace(field: K, oldValue: V, newValue: V): Boolean = throw new UnsupportedOperationException("Redis does not support CAS operations on hash entries")
 
   override def clear() = conn(_.del(name))
