@@ -174,7 +174,7 @@ package object scuff {
   }
 
   implicit final class ScuffRandom(val rand: Random) extends AnyVal {
-    def nextInRange(r: Range): Int = nextInRange(NumericRange(r.head, r.last, 1))
+    def nextInRange(r: Range): Int = nextInRange(NumericRange.inclusive(r.head, r.last, 1))
     def nextInRange[T](r: Range.Partial[T, NumericRange[T]])(implicit num: Numeric[T]): T = nextInRange(r.by(num.one))
     def nextInRange[T](r: NumericRange[T])(implicit num: Numeric[T]): T = {
       val width = num.minus(r.last, r.head)
