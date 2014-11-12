@@ -2,6 +2,7 @@ package scuff.web
 
 import javax.servlet._
 import javax.servlet.http._
+import scala.util.matching._
 
 /**
  * Apply to any filter to further discriminate
@@ -20,7 +21,7 @@ trait URLExclusion extends Filter {
   /**
    * Patterns to match on URI for exclusion.
    */
-  protected def exclusionPatterns: Seq[util.matching.Regex]
+  protected def exclusionPatterns: Seq[Regex]
 
   abstract override def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = httpFilter(req, res, chain)
 

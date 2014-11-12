@@ -7,6 +7,7 @@ import JavaConverters._
 import beans.BeanProperty
 import HttpServletResponse._
 import java.util.Locale
+import scala.util._
 import language.implicitConversions
 
 class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServletResponse {
@@ -77,7 +78,7 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
   def getDateHeaders(name: String): Seq[Long] =
     headers.get(name.toLowerCase) match {
       case None ⇒ Seq.empty
-      case Some((_, values)) ⇒ values.flatMap(t => util.Try(dateFmt.parse(t).getTime).toOption)
+      case Some((_, values)) ⇒ values.flatMap(t => Try(dateFmt.parse(t).getTime).toOption)
     }
 
   var status = delegate.getStatus()
