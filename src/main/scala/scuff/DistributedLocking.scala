@@ -156,6 +156,12 @@ object DistributedLocking {
 
     private[DistributedLocking] class LockState(store: LockStore[K], key: K, record: Record) {
       var reentry = 0
+      Runtime.getRuntime() addShutdownHook new Thread {
+        override def run = locks.synchronized {
+          reentry = 0
+          releaseLock()
+        }
+      }
       def releaseLock() = locks.synchronized {
         if (reentry == 0) {
           store.removeLock(key, record)
