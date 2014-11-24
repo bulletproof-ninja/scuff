@@ -4,21 +4,26 @@ import javax.servlet._
 import http._
 
 sealed trait RobotsDirective {
-  protected def robotDirective: String = "noindex"
+  protected def robotDirective: String
   @inline
   protected final def addHeader(res: HttpServletResponse) {
     res.addHeader("X-Robots-Tag", robotDirective)
   }
 }
 
-trait RobotsNoIndex extends HttpServlet with RobotsDirective {
+trait RobotsDirectiveServlet extends HttpServlet with RobotsDirective {
   abstract override def service(req: HttpServletRequest, res: HttpServletResponse) {
     addHeader(res)
     super.service(req, res)
   }
 }
 
-abstract class RobotsNoIndexFilter extends Filter with RobotsDirective {
+/** Extend any servlet with this trait to prevent search engine indexing. */
+trait RobotsNoIndex extends RobotsDirectiveServlet {
+  protected def robotDirective: String = "noindex"
+}
+
+abstract class RobotsDirectiveFilter extends Filter with RobotsDirective {
 
   protected final def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = httpFilter(req, res, chain)
 
