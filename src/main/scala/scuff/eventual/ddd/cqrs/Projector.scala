@@ -32,7 +32,7 @@ trait Projector {
 
   protected val store: DataStore
 
-  protected def query(filter: F)(implicit conn: store.R): Seq[DAT]
+  protected def query(filter: F)(implicit conn: store.R): Iterable[DAT]
 
   protected def faucet: Faucet {
     type L = (DAT => Unit)
