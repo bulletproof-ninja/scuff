@@ -55,7 +55,11 @@ final class Timestamp private (time: Long, toStr: String) extends Date(time) {
 object Timestamp {
   import scala.util.Try
   private[this] final val Formatter = new ThreadLocal[DateFormat] {
-    override def initialValue = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+    override def initialValue = {
+      val fmt = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+      fmt.setLenient(false)
+      fmt
+    }
   }
 
   private def format(time: Timestamp): String = Formatter.get.format(time)
