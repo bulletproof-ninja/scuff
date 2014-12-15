@@ -37,17 +37,12 @@ class BinaryRedisFaucet[A] private[redis] (
   private[this] val subscribers = collection.mutable.Buffer[FilteredSubscriber]()
 
   private[this] val jedisSubscriber = new BinaryJedisPubSub {
-    def onMessage(channel: Array[Byte], byteMsg: Array[Byte]) {
+    override def onMessage(channel: Array[Byte], byteMsg: Array[Byte]) {
       val msg = serializer.decode(byteMsg)
       shared.whenLocked {
         subscribers.foreach(_.tell(msg))
       }
     }
-    def onPMessage(pattern: Array[Byte], channel: Array[Byte], msg: Array[Byte]) {}
-    def onPSubscribe(channel: Array[Byte], noSubs: Int) {}
-    def onPUnsubscribe(channel: Array[Byte], noSubs: Int) {}
-    def onSubscribe(channel: Array[Byte], noSubs: Int) {}
-    def onUnsubscribe(channel: Array[Byte], noSubs: Int) {}
   }
 
   private[this] val jedis = new BinaryJedis(info)
