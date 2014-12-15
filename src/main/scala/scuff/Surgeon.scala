@@ -37,7 +37,6 @@ class Surgeon[T <: AnyRef](patient: T) {
         if (exactClass) {
           field.getType == wantType
         } else {
-          //          val fieldType = if (field.getType.isPrimitive) scuff.primitiveToWrapper(field.getType) else field.getType
           wantType.isAssignableFrom(field.getType) ||
             field.getType.isPrimitive && wantType.isAssignableFrom(primitiveToWrapper(field.getType)) ||
             wantType.isPrimitive && primitiveToWrapper(wantType).isAssignableFrom(field.getType)
@@ -53,26 +52,21 @@ class Surgeon[T <: AnyRef](patient: T) {
 private object Surgeon {
 
   def getFields(cls: Class[_]): Map[Symbol, Field] = {
-    fields.get(cls) match {
-      case Some(map) ⇒ map
-      case _ ⇒
-        val map = new LockFreeConcurrentMap[Symbol, Field]
-        saveFields(cls, map)
-        fields.putIfAbsent(cls, map.snapshot) match {
-          case None ⇒ map.snapshot
-          case Some(other) ⇒ other
-        }
+    fields.get(cls).getOrElse {
+      val map = extractFields(cls)
+      fields.putIfAbsent(cls, map).getOrElse(map)
     }
   }
 
-  @annotation.tailrec
-  private def saveFields(cls: Class[_], map: LockFreeConcurrentMap[Symbol, Field]) {
-    if (cls != null) {
-      cls.getDeclaredFields.foreach { field ⇒
-        field.setAccessible(true)
-        map.putIfAbsent(Symbol(field.getName), field)
+  private def extractFields(cls: Class[_], map: Map[Symbol, Field] = Map.empty): Map[Symbol, Field] = {
+    if (cls == null) {
+      map
+    } else {
+      cls.getDeclaredFields.foldLeft(extractFields(cls.getSuperclass, map)) {
+        case (map, field) ⇒
+          field.setAccessible(true)
+          map.updated(Symbol(field.getName), field)
       }
-      saveFields(cls.getSuperclass, map)
     }
   }
 
