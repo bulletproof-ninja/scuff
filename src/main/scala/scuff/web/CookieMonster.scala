@@ -4,6 +4,7 @@ import javax.servlet._
 import scuff._
 import scala.concurrent.duration._
 import language.implicitConversions
+import scala.util.Try
 
 /**
  * Typed cookie definition.
@@ -38,19 +39,19 @@ trait CookieMonster[T] {
 
   /**
    * Domain scope for cookie.
-   * Per the Cookie API: "By default, cookies are only returned to the server that sent them. "
+   * Per the Cookie API: "By default, cookies are only returned to the server that sent them."
    */
-  protected def domain: String = null
+  protected def domain(req: http.HttpServletRequest): String = null
 
   /**
    * Set value as cookie on response.
    */
-  def set(res: http.HttpServletResponse, value: T, maxAge: FiniteDuration = this.maxAge, path: String = this.path) {
+  def set(res: http.HttpServletResponse, value: T, maxAge: FiniteDuration = this.maxAge, path: String = this.path)(implicit req: http.HttpServletRequest) {
     val cookie = new http.Cookie(name, codec.encode(value))
     cookie.setHttpOnly(isHttpOnly)
     cookie.setMaxAge(maxAge.toSeconds.toFloat.round)
     for (path ← Option(path)) cookie.setPath(path)
-    for (domain ← Option(domain)) cookie.setDomain(domain)
+    for (domain ← Option(domain(req))) cookie.setDomain(domain)
     res.addCookie(cookie)
   }
 
@@ -59,7 +60,9 @@ trait CookieMonster[T] {
    */
   def get(request: http.HttpServletRequest): Option[T] = {
     Option(request.getCookies).flatMap { array ⇒
-      array.find(_.getName == name).map(c ⇒ codec.decode(c.getValue))
+      array.find(_.getName == name).flatMap { c =>
+        try Option(codec.decode(c.getValue)) catch { case _: Exception => None }
+      }
     }
   }
 
