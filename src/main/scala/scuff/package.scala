@@ -14,10 +14,14 @@ import scuff.{ Cache, Codec, Expiry, Numbers, Threads }
 package object scuff {
   import scala.math._
 
+  private[this] val UTF8 = java.nio.charset.Charset.forName("UTF-8")
+
   type TimedCache[K, V] = Cache[K, V] with Expiry[K, V]
   type Serializer[T] = Codec[T, Array[Byte]]
 
   implicit final class ScuffString(val str: String) extends AnyVal {
+    def optional: Option[String] = if (str.length == 0) None else Some(str)
+
     /**
      * Calculate Levenshtein distance.
      * Taken, and modified, from:
@@ -36,6 +40,7 @@ package object scuff {
     def unsafeInt(stopper: Numbers.Stopper = Numbers.NonStop, offset: Int = 0, length: Int = -1): Int = {
       Numbers.parseUnsafeInt(str, offset, end(offset, length))(stopper)
     }
+    def utf8: Array[Byte] = str.getBytes(UTF8)
     @inline
     private def end(offset: Int, len: Int) = if (len == -1) str.length else offset + len
     def unsafeLong(stopper: Numbers.Stopper = Numbers.NonStop, offset: Int = 0, length: Int = -1): Long = {
@@ -162,8 +167,9 @@ package object scuff {
     def unsigned() = Numbers.unsigned(i)
   }
   implicit final class ScuffByteArray(val arr: Array[Byte]) extends AnyVal {
-    def toLong() = Numbers.bytesToLong(arr)
-    def toInt() = Numbers.bytesToInt(arr)
+    def toLong(offset: Int = 0) = Numbers.bytesToLong(arr, offset)
+    def toInt(offset: Int = 0) = Numbers.bytesToInt(arr, offset)
+    def utf8: String = new String(arr, UTF8)
   }
 
   implicit final class ScuffArray[T](val arr: Array[T]) extends AnyVal {
@@ -202,6 +208,10 @@ package object scuff {
 
   implicit final class ScuffJavaFuture[T](val f: java.util.concurrent.Future[T]) extends AnyVal {
     def asScala(implicit conv: java.util.concurrent.Future[T] => concurrent.Future[T] = Threads.javaFutureConverter): concurrent.Future[T] = conv(f)
+  }
+
+  implicit final class ScuffTraversable[T <: Traversable[_]](val t: T) extends AnyVal {
+    def optional: Option[T] = if (t.isEmpty) None else Some(t)
   }
 
 }
