@@ -4,6 +4,13 @@ import org.junit._
 import Assert._
 
 class TestScuffString {
+
+  @Test
+  def `optional string` {
+    assertEquals(None, "".optional)
+    assertEquals(Some("Hello"), "Hello".optional)
+  }
+
   @Test
   def substringEq() {
     assertTrue("abcdefg".offsetStartsWith(0, "abc"))
