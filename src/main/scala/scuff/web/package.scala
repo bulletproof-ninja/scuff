@@ -1,13 +1,13 @@
 package scuff
 
-import java.net.{InetAddress, URL}
+import java.net.{ InetAddress, URL }
 import java.util.Locale
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
 
-import javax.servlet.{ServletRequest, ServletResponse}
-import javax.servlet.http.{HttpServletRequest, HttpServletResponse}
+import javax.servlet.{ ServletRequest, ServletResponse }
+import javax.servlet.http.{ HttpServletRequest, HttpServletResponse }
 
 package web {
   case class Resource(url: URL, lastModified: Long)
@@ -39,11 +39,34 @@ package object web {
       res.setHeader(HttpHeaders.Location, url.toString)
       res.flushBuffer()
     }
-    def setCookie[T](value: T)(implicit cm: CookieMonster[T]) {
+    def setCookie[T](value: T)(implicit req: HttpServletRequest, cm: CookieMonster[T]) {
       cm.set(res, value)
     }
   }
   implicit class RichRequest(val req: HttpServletRequest) extends AnyVal {
+    def getRealScheme: String = {
+      val scheme = req.getHeader("X-Forwarded-Proto") match {
+        case null => req.getHeader("X-Forwarded-Protocol")
+        case fwd => fwd
+      }
+      scheme match {
+        case null => req.getScheme
+        case scheme => scheme
+      }
+    }
+    def getRemoteIP: String = req.getHeader("X-Forwarded-For") match {
+      case null => req.getRemoteAddr
+      case addr => addr
+    }
+    def getHost: String = req.getHeader("X-Forwarded-Host") match {
+      case null => req.getServerName
+      case host =>
+        host.lastIndexOf(':') match {
+          case -1 => host
+          case portIdx => host.substring(0, portIdx)
+        }
+    }
+
     def getResource: Option[Resource] = {
       req.getServletContext.getResource(req.servletPathInfo) match {
         case null ⇒ None
