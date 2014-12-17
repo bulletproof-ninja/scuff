@@ -101,6 +101,7 @@ object DistributedLocking {
     private def verifyExistingServer(address: InetSocketAddress): Boolean = {
       Try(new Socket(address.getAddress, address.getPort)) match {
         case Failure(_: ConnectException) => false
+        case Failure(_: NoRouteToHostException) => false
         case Failure(e) => throw e
         case Success(socket) =>
           socket.close()
