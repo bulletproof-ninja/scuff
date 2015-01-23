@@ -24,6 +24,8 @@ class Surgeon[T <: AnyRef](patient: T) {
     this
   }
 
+  def has(field: Symbol): Boolean = fields.contains(field)
+
   /**
    * Get field value reflectively.
    * @param name Field name
