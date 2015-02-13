@@ -51,11 +51,9 @@ package object redis {
 
   implicit final class ScuffJedis(val jedis: BinaryJedis) extends AnyVal {
     /**
-     * NOTICE: The transaction block may be executed multiple times,
-     * so make sure it's idempotent.
+     * @return Some(value) if successful, None if any watches failed.
      */
-    def transaction[T](watch: String*)(block: Transaction ⇒ T): T = {
-      if (watch.nonEmpty) jedis.watch(watch.map(SafeEncoder.encode): _*)
+    def transaction[T](block: Transaction ⇒ T): Option[T] = {
       val txn = jedis.multi()
       val t = try {
         block(txn)
@@ -63,9 +61,9 @@ package object redis {
         case e: Exception ⇒ Try(txn.discard); throw e
       }
       if (txn.exec() == null) {
-        transaction(watch: _*)(block)
+        None
       } else {
-        t
+        Some(t)
       }
     }
 
