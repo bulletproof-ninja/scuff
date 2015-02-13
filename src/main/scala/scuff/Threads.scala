@@ -32,7 +32,7 @@ object Threads {
     ExecutionContext.fromExecutor(exec, printStackTrace)
   }
 
-  private def printStackTrace(t: Throwable): Unit = 
+  private def printStackTrace(t: Throwable): Unit =
     t.printStackTrace(System.err)
 
   private[this] lazy val _javaFutureConverter = {
@@ -45,7 +45,7 @@ object Threads {
       extends (java.util.concurrent.Future[T] => concurrent.Future[T]) {
     type QueueItem[T] = (Promise[T], java.util.concurrent.Future[T])
     private[this] val queue = new collection.mutable.Queue[QueueItem[T]]
-    private[Threads] val thread = new Thread("scuff.Threads.JavaFutureGetter") {
+    private[Threads] val thread = new Thread("scuff.Threads.JavaFutureConverter") {
       this setUncaughtExceptionHandler new Thread.UncaughtExceptionHandler {
         def uncaughtException(t: Thread, e: Throwable) {
           failureReporter(e)
