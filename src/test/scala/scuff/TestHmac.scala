@@ -32,7 +32,7 @@ class TestHmac {
 
   val secretKey = KeyGenerator.getInstance("DES").generateKey
 
-  val HmacUserCodec = new Hmac(Codec.BinaryUTF8(UserJsonCodec), secretKey)
+  val HmacUserCodec = Hmac(Codec.UTF8(UserJsonCodec), secretKey)
   val Base64HmacUser = Base64(HmacUserCodec)
 
   @Test

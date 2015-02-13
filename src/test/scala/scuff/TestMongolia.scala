@@ -541,4 +541,40 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
     }
   }
 
+  @Test
+  def `option of map` {
+    trait FooBar {
+      def foo: Option[Map[String, Integer]]
+    }
+    val doc = obj("foo" := obj("bar" := 42))
+    val fooBar = doc.like[FooBar]
+    val foo = fooBar.foo
+    foo match {
+      case None =>
+        fail("Should have Some(foo)")
+      case Some(foo) =>
+        foo.get("bar") match {
+          case None => fail("Should have Some(bar)")
+          case Some(bar) =>
+            assertEquals(42, bar)
+        }
+    }
+  }
+
+  @Test
+  def `option of seq` {
+    trait FooBar {
+      def foo: Option[Seq[Integer]]
+    }
+    val doc = obj("foo" := arr(42))
+    val fooBar = doc.like[FooBar]
+    val foo = fooBar.foo
+    foo match {
+      case None =>
+        fail("Should have Some(foo)")
+      case Some(foo) =>
+        assertEquals(42, foo.head)
+    }
+  }
+
 }

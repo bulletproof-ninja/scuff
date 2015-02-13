@@ -18,6 +18,14 @@ class TestL10nPropFormatter {
   import PropNameEnum._
 
   @Test
+  def `timestamp` {
+    val foo = SomeText()
+    val now = new Timestamp
+    val text = foo("iso", now)
+    assertEquals(s"Date: $now", text)
+  }
+
+  @Test
   def root {
     val props = L10nPropFormatter.root("FooBar")
     assertEquals("Hello", props("say"))
@@ -109,20 +117,18 @@ class TestL10nPropFormatter {
   }
 
   @Test
-  def `nested` {
+  def `function parm` {
+      def twoLanguages(lang1: Locale, lang2: Locale)(fmtLang: Locale) = SomeText(fmtLang)("two_languages", lang1, lang2)
     val foo = SomeText()
-      def twoLanguages(locale: Locale) = foo("two_languages", Locale.ENGLISH, java.util.Locale.FRENCH)
-    val text = foo("do_you_speak", twoLanguages _)
+    val text = foo("do_you_speak", twoLanguages(Locale.ENGLISH, Locale.FRENCH) _)
     assertEquals("Do you speak both English AND French?", text)
   }
 
   @Test
-  def `nested, delayed` {
+  def `nested` {
     val foo = SomeText()
-    val text1 = foo("do_you_speak", ("two_languages" -> Seq(Locale.ENGLISH, java.util.Locale.FRENCH)))
-    assertEquals("Do you speak both English AND French?", text1)
-    val text2 = foo("do_you_speak", ("two_languages", Locale.ENGLISH, java.util.Locale.FRENCH))
-    assertEquals("Do you speak both English AND French?", text1)
+    val text = foo("do_you_speak", foo("two_languages", Locale.ENGLISH, java.util.Locale.FRENCH))
+    assertEquals("Do you speak both English AND French?", text)
   }
 
 }
