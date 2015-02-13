@@ -34,7 +34,7 @@ class BinaryRedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Ser
   override def put(field: K, value: V): Option[V] = {
     val hfield = keySer.encode(field)
     val prev = connection { conn ⇒
-      conn.transaction() { txn ⇒
+      conn.transactionNoWatch { txn ⇒
         val prev = txn.hget(hkey, hfield)
         txn.hset(hkey, hfield, valueSer.encode(value))
         prev
@@ -45,7 +45,7 @@ class BinaryRedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Ser
   override def remove(field: K): Option[V] = {
     val hfield = keySer.encode(field)
     val removed = connection { conn ⇒
-      conn.transaction() { txn ⇒
+      conn.transactionNoWatch { txn ⇒
         val removed = txn.hget(hkey, hfield)
         txn.hdel(hkey, hfield)
         removed
@@ -81,7 +81,7 @@ class BinaryRedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Ser
   def putIfAbsent(field: K, value: V): Option[V] = {
     val hfield = keySer.encode(field)
     val (prevValResp, successResp) = connection { conn ⇒
-      conn.transaction() { txn ⇒
+      conn.transactionNoWatch { txn ⇒
         txn.hget(hkey, hfield) -> txn.hsetnx(hkey, hfield, valueSer.encode(value))
       }
     }

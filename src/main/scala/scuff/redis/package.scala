@@ -66,6 +66,22 @@ package object redis {
         Some(t)
       }
     }
+    /**
+     * @return Value from transaction block
+     * @throws IllegalStateException if a WATCH has been issued
+     */
+    @throws[IllegalStateException]
+    def transactionNoWatch[T](block: Transaction ⇒ T): T = {
+      if (jedis.getClient.isInWatch) throw new IllegalStateException("Connection is unexpectedly in WATCH mode")
+      val txn = jedis.multi()
+      val t = try {
+        block(txn)
+      } catch {
+        case e: Exception ⇒ Try(txn.discard); throw e
+      }
+      txn.exec()
+      t
+    }
 
     def pipeline[T](block: Pipeline ⇒ T): T = {
       val pl = jedis.pipelined()

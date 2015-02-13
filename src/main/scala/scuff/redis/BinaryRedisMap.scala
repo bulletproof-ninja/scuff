@@ -15,34 +15,24 @@ class BinaryRedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueS
 
   def set(key: K, value: V) = connection(_.set(keySer.encode(key), valueSer.encode(value)))
 
-  private def watch[T](jedis: Jedis, key: Array[Byte], proceed: V ⇒ Boolean, block: Transaction ⇒ Unit): Option[V] = {
-      def tryOptimistic(jedis: Jedis)(block: Transaction ⇒ Unit): Boolean = {
-        val txn = jedis.multi()
-        try {
-          block(txn)
-          txn.exec() != null
-        } catch {
-          case e: Exception ⇒ try { txn.discard() } catch { case _: Exception ⇒ /* Ignore */ }; throw e
+  private def watch(key: Array[Byte])(proceed: V ⇒ Boolean)(block: Transaction ⇒ Unit): Option[V] = {
+      def watch[T](jedis: Jedis): Option[V] = {
+        jedis.watch(key)
+        Option(jedis.get(key)).map(valueSer.decode) match {
+          case someValue @ Some(value) if proceed(value) ⇒
+            jedis.transaction(block) match {
+              case None => watch(jedis)
+              case _ => someValue
+            }
+          case _ ⇒
+            jedis.unwatch()
+            None
         }
       }
-    jedis.watch(key)
-    Option(jedis.get(key)).map(valueSer.decode) match {
-      case someValue @ Some(value) if proceed(value) ⇒
-        tryOptimistic(jedis)(block) match {
-          case true ⇒ someValue
-          case false ⇒ watch(jedis, key, proceed, block)
-        }
-      case _ ⇒
-        jedis.unwatch()
-        None
-    }
+    connection(watch)
   }
 
-  private def watch(key: Array[Byte])(proceed: V ⇒ Boolean)(block: Transaction ⇒ Unit): Option[V] = {
-    connection(jedis ⇒ watch(jedis, key, proceed, block))
-  }
-
-  override def contains(key: K): Boolean = connection(_.exists(keySer.encode(key)))
+  override def contains(key: K): Boolean = connection(_.exists(keySer encode key))
 
   private[this] final val ALL = encode("*")
 
@@ -54,7 +44,7 @@ class BinaryRedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueS
   override def remove(key: K): Option[V] = {
     val keyBytes = keySer.encode(key)
     val removed = connection { conn ⇒
-      conn.transaction() { txn ⇒
+      conn.transactionNoWatch { txn ⇒
         val removed = txn.get(keyBytes)
         (txn: BinaryRedisPipeline).del(keyBytes)
         removed
@@ -90,14 +80,16 @@ class BinaryRedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueS
   def putIfAbsent(key: K, value: V): Option[V] = {
     val keyBytes = keySer.encode(key)
     val (prevValResp, successResp) = connection { conn ⇒
-      conn.transaction() { txn ⇒
+      conn.transactionNoWatch { txn ⇒
+        // We get and attempt to set in same transaction.
+        // It should not be possible to get null while setnx fails.
         txn.get(keyBytes) -> txn.setnx(keyBytes, valueSer.encode(value))
       }
     }
     if (successResp.get == 1L) {
       None
     } else {
-      Option(prevValResp.get).map(valueSer.decode)
+      Some(valueSer.decode(prevValResp.get))
     }
   }
 
@@ -135,6 +127,13 @@ class BinaryRedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueS
       txn.set(keyBytes, valueSer.encode(newValue))
     }
     result.isDefined
+  }
+
+  override def getOrElseUpdate(key: K, makeValue: => V): V = {
+    get(key).getOrElse {
+      val newValue = makeValue
+      putIfAbsent(key, newValue).getOrElse(newValue)
+    }
   }
 
 }
