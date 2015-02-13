@@ -48,7 +48,7 @@ object typed {
     protected def transitions: Set[Transition]
     private var currState: Option[typed.Target[T]] = None
     private var transitionTable: Map[(typed.Source[T], Event), typed.Target[T]] = _
-    
+
     /** Initialize state. DO NOT call this from the constructor. */
     protected def init(state: typed.State[T]) = {
       transitionTable = transitions.toMap
@@ -57,7 +57,7 @@ object typed {
       currState = Option(state)
     }
     def apply(evt: Event, payload: T = null.asInstanceOf[T]) = currState match {
-      case None ⇒ throw new IllegalStateException("State machine not started yet")
+      case None ⇒ throw new IllegalStateException("State machine not initialized yet")
       case Some(source: typed.Source[T]) ⇒
         val targetEvent = source.onEvent(evt, payload)
         val target = transition(source, targetEvent)
@@ -73,7 +73,7 @@ object typed {
       transitionTable.get(key) match {
         case Some(toState) ⇒ toState
         case None ⇒ state.parent match {
-          case None ⇒ throw new IllegalStateException("%s cannot handle %s".format(currState.get, evt))
+          case None ⇒ throw new IllegalStateException(s"${currState.get} cannot handle $evt")
           case Some(parent) ⇒ transition(parent, evt)
         }
       }
