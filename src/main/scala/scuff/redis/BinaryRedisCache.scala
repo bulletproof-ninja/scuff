@@ -67,10 +67,8 @@ class BinaryRedisCache[K, V](val defaultTTL: FiniteDuration, conn: CONNECTION, k
       value
     } else {
       val value = constructor
-      val (prevValResp, successResp) = atomic(jedis) { txn ⇒
-        txn.get(keyBytes) -> txn.setnx(keyBytes, valueSer.encode(value))
-      }
-      if (successResp.get == 1L) {
+      val success = jedis.setnx(keyBytes, valueSer.encode(value)) == 1L
+      if (success) {
         if (ttl.length > 0) {
           jedis.expire(keyBytes, ttl)
         }
