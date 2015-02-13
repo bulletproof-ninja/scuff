@@ -53,8 +53,8 @@ private object CassandraEventStore {
     		events LIST<TEXT>,
     		metadata MAP<TEXT,TEXT>,
     		PRIMARY KEY (stream, revision));""")
-    session.execute(s"CREATE INDEX IF NOT EXISTS ON $table(time)")
-    session.execute(s"CREATE INDEX IF NOT EXISTS ON $table(category)")
+    session.execute(s"CREATE INDEX IF NOT EXISTS ON $keyspace.$table(time)")
+    session.execute(s"CREATE INDEX IF NOT EXISTS ON $keyspace.$table(category)")
   }
 
 }
@@ -65,7 +65,7 @@ private object CassandraEventStore {
  * If you're interested in contributing,
  * please try it out and report any problems.
  */
-abstract class CassandraEventStore[ID, EVT, CAT](session: => Session, keyspace: String, table: String, replication: Map[String, Any])(implicit idType: ClassTag[ID], catType: ClassTag[CAT])
+abstract class CassandraEventStore[ID, EVT, CAT](session: Session, keyspace: String, table: String, replication: Map[String, Any])(implicit idType: ClassTag[ID], catType: ClassTag[CAT])
     extends eventual.EventStore[ID, EVT, CAT] { expectedTrait: EventStorePublisher[ID, EVT, CAT] =>
 
   CassandraEventStore.ensureTable[ID, CAT](session, keyspace, table, replication)
@@ -104,7 +104,7 @@ abstract class CassandraEventStore[ID, EVT, CAT](session: => Session, keyspace: 
         val rs = result.get
         promise complete Success(handler(rs))
       } catch {
-        case t: Throwable => promise complete Failure(t)
+        case e: Exception => promise failure e
       }
     }
     result.addListener(listener, execCtx)
@@ -158,8 +158,8 @@ abstract class CassandraEventStore[ID, EVT, CAT](session: => Session, keyspace: 
     query(ReplayStreamRange, callback, streamId, revisionRange.head, revisionRange.last)
   }
 
-  private def newReplayStatement(num: Int) = {
-    val cql = num match {
+  private def newReplayStatement(categoryFilterCount: Int) = {
+    val cql = categoryFilterCount match {
       case 0 =>
         s"SELECT * FROM $keyspace.$table ORDER BY time"
       case 1 =>
@@ -176,8 +176,8 @@ abstract class CassandraEventStore[ID, EVT, CAT](session: => Session, keyspace: 
     query(stm, callback, categories: _*)
   }
 
-  private def newReplayFromStatement(num: Int) = {
-    val cql = num match {
+  private def newReplayFromStatement(categoryFilterCount: Int) = {
+    val cql = categoryFilterCount match {
       case 0 =>
         s"SELECT * FROM $keyspace.$table WHERE time >= ? ORDER BY time"
       case 1 =>
@@ -195,22 +195,24 @@ abstract class CassandraEventStore[ID, EVT, CAT](session: => Session, keyspace: 
     query(stm, callback, parms)
   }
 
-  private val RecordTransaction = session.prepare(s"INSERT INTO $keyspace.$table (stream, revision, time, category, events, metadata) VALUES(?,?,?,?,?,?) IF NOT EXISTS")
+  private val RecordTransaction =
+    session.prepare(s"INSERT INTO $keyspace.$table (time, stream, revision, category, events, metadata) VALUES(unixTimestampOf(now()),?,?,?,?,?) IF NOT EXISTS")
   def record(category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = {
     val timestamp = new Date
     val jEvents = events.map(eventToString).asJava
     val jMetadata = metadata.asJava
-    val future = execute(RecordTransaction, stream, revision, timestamp, category, jEvents, jMetadata) { rs =>
-      val applied = rs.one.getBool(0)
-      if (applied) {
+    val future = execute(RecordTransaction, stream, revision, category, jEvents, jMetadata) { rs =>
+      if (rs.wasApplied) {
         new Transaction(timestamp.getTime, category, stream, revision, metadata, events)
       } else {
         throw new eventual.DuplicateRevisionException(stream, revision)
       }
     }
     future.andThen {
-      case Success(txn) => publish(txn)
+      case Success(txn) =>
+        try publish(txn) catch { case e: Exception => execCtx.reportFailure(e) }
     }(execCtx)
+    future
   }
   private def tryAppend(category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] =
     record(category, stream, revision, events, metadata).recoverWith {
