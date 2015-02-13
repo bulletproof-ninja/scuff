@@ -1,6 +1,6 @@
 package scuff
 
-import java.util.{ Locale, ResourceBundle, PropertyResourceBundle, MissingResourceException, MissingFormatArgumentException }
+import java.util.{Locale, ResourceBundle, PropertyResourceBundle, MissingResourceException, MissingFormatArgumentException, Currency, TimeZone}
 import java.text.MessageFormat
 import java.nio.charset.Charset
 import scala.util.Try
@@ -26,6 +26,9 @@ import scala.util.Try
  * need not have all the keys, but merely the keys that differ.
  *
  * Synchronization: This class is thread-safe and can be used concurrently.
+ *
+ * NOTICE: Unlike [[java.text.MessageFormat]] this class expects tick,
+ * not apostrophe, for escaping text inside the curly brackets formatting.
  *
  * @see java.text.MessageFormat
  * For text formatting syntax
@@ -54,8 +57,9 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
   }
 
   private class Message(strFmt: String, val locale: Locale) {
+    def unformatted = strFmt
     val parmCount = L10nPropFormatter.countParms(strFmt)
-    val stringFormat = if (parmCount == 0) strFmt else strFmt.replace("'", "''")
+    private val stringFormat = if (parmCount == 0) strFmt else strFmt.replace("'", "''").replace('`', '\'')
     val formatter = new ThreadLocal[MessageFormat]() {
       override def initialValue = new MessageFormat(stringFormat, locale)
     }
@@ -72,15 +76,11 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
       }
     val bundles = L10nPropFormatter.toResourceBundles(baseName, desiredLocales, control)
     val allKeys = bundles.flatMap(e ⇒ collection.JavaConversions.enumerationAsScalaIterator(e.getKeys).toSeq).toSet
-    val iter = allKeys.iterator
-    var map: Map[String, Message] = Map.empty
-    while (iter.hasNext) {
-      val key = iter.next
-      findText(key, bundles).foreach { text ⇒
-        map += (key -> new Message(text._1, text._2))
-      }
+    allKeys.foldLeft(Map.empty[String, Message]) {
+      case (map, key) => findText(key, bundles).map {
+        case (fmt, lang) => map.updated(key, new Message(fmt, lang))
+      }.getOrElse(map)
     }
-    map
   }
 
   /**
@@ -94,9 +94,8 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
    * if the number of supplied parameters do not match the expected number of parameters
    * @throws IllegalArgumentException if the parameters otherwise fail to format the message
    */
-  def apply(key: String, parms: Any*): String = this.get(key, parms: _*) match {
-    case None ⇒ throw new MissingResourceException("Cannot find \"" + key + "\"", baseName, key)
-    case Some(msg) ⇒ msg
+  def apply(key: String, parms: Any*): String = this.get(key, parms: _*).getOrElse {
+    throw new MissingResourceException("Cannot find \"" + key + "\"", baseName, key)
   }
 
   @annotation.tailrec
@@ -105,18 +104,8 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
       a(i) match {
         case l: Locale =>
           a(i) = l.getDisplayName(lang)
-        case p: Product2[String, Any] if p.productElement(0).isInstanceOf[String] =>
-          val key = p.productElement(0).asInstanceOf[String]
-          a(i) = p.productElement(1) match {
-            case s: Seq[_] => L10nPropFormatter.this(key, s: _*)
-            case a: Array[_] => L10nPropFormatter.this(key, a: _*)
-            case o => L10nPropFormatter.this(key, o)
-          }
-        case p: Product if p.productElement(0).isInstanceOf[String] && p.productArity > 2 =>
-          val iter = p.productIterator
-          val key = iter.next.asInstanceOf[String]
-          val parms = iter.toList
-          a(i) = L10nPropFormatter.this(key, parms: _*)
+        case tz: TimeZone =>
+          a(i) = tz.getDisplayName(lang)
         case f: Function1[Locale, _] =>
           a(i) = f(lang)
         case _ => // Ignore
@@ -132,7 +121,7 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
       throw new MissingFormatArgumentException(s"Message '$key' expects ${msg.parmCount} parameters, but received ${parms.length}")
     }
     if (msg.parmCount == 0) {
-      msg.stringFormat
+      msg.unformatted
     } else {
       val array = checkParms(msg.locale, parms.toArray)
       msg.formatter.get.format(array)
@@ -142,8 +131,10 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
   def keySet() = map.keySet
 
   lazy val unformatted: Map[String, String] = map.map {
-    case (key, msg) ⇒ key -> msg.toString
+    case (key, msg) ⇒ key -> msg.unformatted
   }
+
+  def unformatted(key: String): Option[String] = map.get(key).map(_.unformatted)
 
 }
 
@@ -166,9 +157,9 @@ object L10nPropFormatter {
   }
   private def toResourceBundles(baseName: String, locales: Seq[Locale], control: CharsetControl): Seq[ResourceBundle] = {
     val expandedLocales =
-      locales ++
         locales.flatMap { locale ⇒
-          val buffer = new collection.mutable.ArrayBuffer[Locale](2)
+          val buffer = new collection.mutable.ArrayBuffer[Locale](3)
+          buffer += locale
           if (locale.getVariant.length > 0) {
             buffer += new Locale(locale.getLanguage, locale.getCountry)
           }
@@ -177,8 +168,8 @@ object L10nPropFormatter {
           }
           buffer
         } :+ Locale.ROOT
-    expandedLocales.distinct.foldLeft(Array[ResourceBundle]()) {
-      case (list, locale) ⇒
+    expandedLocales.distinct.foldLeft(collection.mutable.Buffer[ResourceBundle]()) {
+      case (list, locale) =>
         try {
           val bundle = ResourceBundle.getBundle(baseName, locale, control)
           if (bundle.getLocale == locale) {
