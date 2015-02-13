@@ -134,8 +134,9 @@ package object scuff {
     }
   }
 
-  implicit final class ScuffAny(val any: Any) extends AnyVal {
+  implicit final class ScuffAny[A](val any: A) extends AnyVal {
     def coerceTo[T](implicit tag: ClassTag[T]): Option[T] = coerce[T](any.asInstanceOf[AnyRef], tag.runtimeClass.asInstanceOf[Class[T]])
+    def optional(some: Boolean): Option[A] = if (some) Option(any) else None
   }
 
   implicit final class ScuffMap[A, B](val map: Map[A, B]) extends AnyVal {
@@ -192,6 +193,7 @@ package object scuff {
         case _: Float => next.asInstanceOf[Float].asInstanceOf[T]
         case _: BigDecimal => BigDecimal(next).asInstanceOf[T]
         case _: BigInt => BigInt(math.round(next)).asInstanceOf[T]
+        case _: Short => math.round(next).asInstanceOf[T]
         case _ => throw new IllegalArgumentException(s"${num.zero.getClass.getName} is unsupported")
       }
     }
