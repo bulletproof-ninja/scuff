@@ -19,12 +19,12 @@ trait CookieMonster[T] {
    */
   final val SessionDuration = -1.seconds
 
-  /** Max-age in seconds. Defaults to session duration. */
+  /** Max-age in seconds. */
   protected def maxAge: FiniteDuration
   /** Convert Expires timestamp to MaxAge seconds, using current time. */
   protected final def toMaxAge(expires: Long, unit: TimeUnit) = new FiniteDuration(unit toSeconds clock.durationUntil(expires)(unit), TimeUnit.SECONDS)
   implicit protected final def toMaxAge(expires: java.util.Date): FiniteDuration = toMaxAge(expires.getTime, TimeUnit.MILLISECONDS)
-  def codec: Codec[T, String]
+  protected def codec: Codec[T, String]
   def name: String
 
   /**
@@ -61,7 +61,7 @@ trait CookieMonster[T] {
   def get(request: http.HttpServletRequest): Option[T] = {
     Option(request.getCookies).flatMap { array ⇒
       array.find(_.getName == name).flatMap { c =>
-        try Option(codec.decode(c.getValue)) catch { case _: Exception => None }
+        Try(codec.decode(c.getValue)).toOption
       }
     }
   }
@@ -75,4 +75,14 @@ trait CookieMonster[T] {
     res.addCookie(cookie)
   }
 
+}
+
+trait HmacCookieMonster[T] extends CookieMonster[T] {
+  protected def hmac: Hmac[T]
+  protected final val codec = new Codec[T, String] {
+    @inline
+    private def base64 = Base64.RFC_4648
+    def encode(a: T): String = base64.encode(hmac.encode(a)).toString
+    def decode(b: String): T = hmac.decode(base64.decode(b))
+  }
 }

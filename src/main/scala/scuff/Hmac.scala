@@ -4,18 +4,65 @@ import javax.crypto._
 import java.security.spec.AlgorithmParameterSpec
 import java.util.Arrays
 import java.security.SignatureException
+import java.nio.charset.Charset
 
-class Hmac[A] (
-  delegate: Codec[A, Array[Byte]],
-  secretKey: SecretKey,
-  macAlgorithm: String = "HmacSHA1",
-  macAlgoParmSpec: AlgorithmParameterSpec = null)
-    extends Codec[A, Array[Byte]] {
+object Hmac {
+
+  final val DefaultAlgorithm = "HmacSHA1"
+
+  def apply[A](
+    delegate: Codec[A, Array[Byte]],
+    key: SecretKey,
+    macAlgorithm: String,
+    macAlgoParmSpec: AlgorithmParameterSpec): Hmac[A] =
+    new Hmac[A] {
+      protected val codec = delegate
+      protected val secretKey = key
+      override protected def macAlgo = macAlgorithm
+      override protected def macAlgoSpec = macAlgoParmSpec
+    }
+  def apply[A](
+    delegate: Codec[A, Array[Byte]],
+    key: SecretKey): Hmac[A] = apply(delegate, key, DefaultAlgorithm, null)
+  def apply[A](
+    delegate: Codec[A, Array[Byte]],
+    key: SecretKey,
+    macAlgorithm: String): Hmac[A] = apply(delegate, key, macAlgorithm, null)
+
+  private[this] val UTF8 = Charset.forName("UTF-8")
+
+  def apply[A](
+    delegate: Codec[A, String],
+    key: SecretKey,
+    macAlgorithm: String = DefaultAlgorithm,
+    macAlgoParmSpec: AlgorithmParameterSpec = null,
+    charset: Charset = UTF8): Hmac[A] = {
+    val byteCodec = new Codec[A, Array[Byte]] {
+      def encode(a: A): Array[Byte] = delegate.encode(a).getBytes(charset)
+      def decode(b: Array[Byte]): A = delegate.decode(new String(b, charset))
+    }
+    apply(byteCodec, key, macAlgorithm, macAlgoParmSpec)
+  }
+
+  def generateKey(bitSize: Int = 512, algorithm: String = DefaultAlgorithm): SecretKey = {
+    val keyGen = javax.crypto.KeyGenerator.getInstance(algorithm)
+    keyGen.init(bitSize)
+    keyGen.generateKey()
+  }
+
+}
+
+abstract class Hmac[A] extends Serializer[A] {
+
+  protected val codec: Serializer[A]
+  protected val secretKey: SecretKey
+  protected def macAlgo: String = Hmac.DefaultAlgorithm
+  protected def macAlgoSpec: AlgorithmParameterSpec = null
 
   private[this] val macPool = new ResourcePool(newMac)
   private def newMac: Mac = {
-    val mac = Mac.getInstance(macAlgorithm)
-    macAlgoParmSpec match {
+    val mac = Mac.getInstance(macAlgo)
+    macAlgoSpec match {
       case null => mac.init(secretKey)
       case spec => mac.init(secretKey, spec)
     }
@@ -23,7 +70,7 @@ class Hmac[A] (
   }
 
   def encode(a: A): Array[Byte] = {
-    val rawBytes = delegate.encode(a)
+    val rawBytes = codec.encode(a)
     val macBytes = macPool.borrow(_.doFinal(rawBytes))
     val output = new Array[Byte](4 + rawBytes.length + macBytes.length)
     Numbers.intToBytes(rawBytes.length, output)
@@ -50,7 +97,7 @@ class Hmac[A] (
     val rawBytes = Arrays.copyOfRange(arr, 4, macOffset)
     val newMac = macPool.borrow(_.doFinal(rawBytes))
     if (bytesMatch(newMac, arr, macOffset)) {
-      delegate.decode(rawBytes)
+      codec.decode(rawBytes)
     } else {
       throw new SignatureException(s"Key has changed or input data has been modified.")
     }
