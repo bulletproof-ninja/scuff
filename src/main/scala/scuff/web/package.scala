@@ -1,13 +1,13 @@
 package scuff
 
-import java.net.{ InetAddress, URL }
+import java.net.{InetAddress, URL}
 import java.util.Locale
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
 
-import javax.servlet.{ ServletRequest, ServletResponse }
-import javax.servlet.http.{ HttpServletRequest, HttpServletResponse }
+import javax.servlet.{ServletRequest, ServletResponse}
+import javax.servlet.http.{HttpServletRequest, HttpServletResponse}
 
 package web {
   case class Resource(url: URL, lastModified: Long)
@@ -20,10 +20,12 @@ package object web {
   /** ThreadLocal safe date parser. */
   def RFC822 = RFC822Pool.get()
 
+  @inline
   implicit def toHttpReq(req: ServletRequest) = req.asInstanceOf[HttpServletRequest]
+  @inline
   implicit def toHttpRes(res: ServletResponse) = res.asInstanceOf[HttpServletResponse]
 
-  implicit class RichResponse(val res: HttpServletResponse) extends AnyVal {
+  implicit class ScuffResponse(val res: HttpServletResponse) extends AnyVal {
     def setHeader(etag: ETag): HttpServletResponse = { etag.setTo(res); res }
     def addHeader(etag: ETag): HttpServletResponse = { etag.addTo(res); res }
     def setMaxAge(seconds: Int): HttpServletResponse = {
@@ -43,8 +45,8 @@ package object web {
       cm.set(res, value)
     }
   }
-  implicit class RichRequest(val req: HttpServletRequest) extends AnyVal {
-    def getRealScheme: String = {
+  implicit class ScuffRequest(val req: HttpServletRequest) extends AnyVal {
+    def getClientScheme: String = {
       val scheme = req.getHeader("X-Forwarded-Proto") match {
         case null => req.getHeader("X-Forwarded-Protocol")
         case fwd => fwd
@@ -54,11 +56,11 @@ package object web {
         case scheme => scheme
       }
     }
-    def getRemoteIP: String = req.getHeader("X-Forwarded-For") match {
+    def getClientIP: String = req.getHeader("X-Forwarded-For") match {
       case null => req.getRemoteAddr
       case addr => addr
     }
-    def getHost: String = req.getHeader("X-Forwarded-Host") match {
+    def getClientHost: String = req.getHeader("X-Forwarded-Host") match {
       case null => req.getServerName
       case host =>
         host.lastIndexOf(':') match {
