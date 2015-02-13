@@ -1,13 +1,16 @@
 package scuff.eventual.util
 
-import scuff._
-import Mongolia._
-import com.mongodb._
-import org.bson.types._
 import java.util.Date
-import concurrent._
-import scala.util._
+
 import scala.collection.JavaConverters.asScalaIteratorConverter
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Success
+
+import com.mongodb.{DB, DBCollection, DBObject, DuplicateKeyException, WriteConcern}
+
+import scuff.{Timestamp, eventual}
+import scuff.Codec
+import scuff.Mongolia._
 
 object MongoEventStore {
   private final val OrderByTime_asc = obj("time" := ASC, "_id.stream" := ASC, "_id.rev" := ASC)
@@ -109,26 +112,33 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     }
     query(filter, OrderByTime_asc, txnHandler)
   }
-  
+
   // TODO: Make non-blocking once supported by the driver.
-  def record(category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = Future {
-    val timestamp = new Timestamp
-    val doc = obj(
-      "_id" := obj(
-        "stream" := stream,
-        "rev" := revision),
-      "time" := timestamp,
-      "category" := category,
-      "events" := toBsonList(events))
-    if (!metadata.isEmpty) doc.add("metadata" := metadata)
-    try {
-      store.safeInsert(doc)
-    } catch {
-      case _: DuplicateKeyException ⇒ throw new eventual.DuplicateRevisionException(stream, revision)
+  def record(category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = {
+    val insert = Future {
+      val timestamp = new Timestamp
+      val doc = obj(
+        "_id" := obj(
+          "stream" := stream,
+          "rev" := revision),
+        "time" := timestamp,
+        "category" := category,
+        "events" := toBsonList(events))
+      if (!metadata.isEmpty) doc.add("metadata" := metadata)
+      try {
+        store.safeInsert(doc)
+      } catch {
+        case _: DuplicateKeyException ⇒ throw new eventual.DuplicateRevisionException(stream, revision)
+      }
+      new Transaction(timestamp.asMillis, category, stream, revision, metadata, events)
     }
-    new Transaction(timestamp.asMillis, category, stream, revision, metadata, events)
-  }.andThen {
-    case Success(txn) ⇒ publish(txn)
+    insert.andThen {
+      case Success(txn) ⇒
+        try publish(txn) catch {
+          case e: Exception => mongoExecCtx.reportFailure(e)
+        }
+    }
+    insert
   }
 
   private def tryAppend(category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] =
