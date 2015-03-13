@@ -22,7 +22,7 @@ trait CookieMonster[T] {
   /** Max-age in seconds. */
   protected def maxAge: FiniteDuration
   /** Convert Expires timestamp to MaxAge seconds, using current time. */
-  protected final def toMaxAge(expires: Long, unit: TimeUnit) = new FiniteDuration(unit toSeconds clock.durationUntil(expires)(unit), TimeUnit.SECONDS)
+  protected final def toMaxAge(expires: Long, unit: TimeUnit) = new FiniteDuration(unit toSeconds clock.durationUntil(expires, unit), TimeUnit.SECONDS)
   implicit protected final def toMaxAge(expires: java.util.Date): FiniteDuration = toMaxAge(expires.getTime, TimeUnit.MILLISECONDS)
   protected def codec: Codec[T, String]
   def name: String

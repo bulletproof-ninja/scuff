@@ -6,7 +6,6 @@ import java.util.{ UUID, List => JList, ArrayList }
 import scuff._
 import scala.concurrent._
 import scala.util.{ Try, Success, Failure }
-import java.util.Date
 import collection.JavaConverters._
 
 private object CassandraEventStore {
@@ -43,17 +42,17 @@ private object CassandraEventStore {
       case (key, any) => s"'$key':$any"
     }.mkString("{", ",", "}")
     val idTypeStr = CassandraIdTypes.getOrElse(idType.runtimeClass, sys.error(s"Unsupported ID type: $idType"))
-    val catTypeStr = CassandraIdTypes.getOrElse(catType.runtimeClass, sys.error(s"Unsupported category type: catType"))
+    val catTypeStr = CassandraIdTypes.getOrElse(catType.runtimeClass, sys.error(s"Unsupported category type: $catType"))
     session.execute(s"CREATE KEYSPACE IF NOT EXISTS $keyspace WITH REPLICATION = $replicationStr")
     session.execute(s"""CREATE TABLE IF NOT EXISTS $keyspace.$table (
     		stream $idTypeStr,
     		revision INT,
-    		time TIMESTAMP,
+    		timestamp BIGINT,
     		category $catTypeStr,
     		events LIST<TEXT>,
     		metadata MAP<TEXT,TEXT>,
     		PRIMARY KEY (stream, revision));""")
-    session.execute(s"CREATE INDEX IF NOT EXISTS ON $keyspace.$table(time)")
+    session.execute(s"CREATE INDEX IF NOT EXISTS ON $keyspace.$table(timestamp)")
     session.execute(s"CREATE INDEX IF NOT EXISTS ON $keyspace.$table(category)")
   }
 
@@ -81,7 +80,7 @@ abstract class CassandraEventStore[ID, EVT, CAT](session: Session, keyspace: Str
 
   private def toTransaction(row: Row): Transaction = {
     val id = getID(row)
-    val timestamp = row.getDate("time").getTime
+    val timestamp = row.getLong("timestamp")
     val category = getCategory(row)
     val revision = row.getInt("revision")
     val metadata = {
@@ -102,7 +101,7 @@ abstract class CassandraEventStore[ID, EVT, CAT](session: Session, keyspace: Str
     val listener = new Runnable {
       def run = try {
         val rs = result.get
-        promise complete Success(handler(rs))
+        promise success handler(rs)
       } catch {
         case e: Exception => promise failure e
       }
@@ -144,8 +143,8 @@ abstract class CassandraEventStore[ID, EVT, CAT](session: Session, keyspace: Str
   }
 
   private val ReplayStreamSince = session.prepare(s"SELECT * FROM $keyspace.$table WHERE stream = ? AND revision > ? ORDER BY revision")
-  def replayStreamSince[T](streamId: ID, sinceRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
-    query(ReplayStreamSince, callback, streamId, sinceRevision)
+  def replayStreamAfter[T](streamId: ID, afterRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
+    query(ReplayStreamSince, callback, streamId, afterRevision)
   }
 
   private val ReplayStreamTo = session.prepare(s"SELECT * FROM $keyspace.$table WHERE stream = ? AND revision <= ? ORDER BY revision")
@@ -161,12 +160,12 @@ abstract class CassandraEventStore[ID, EVT, CAT](session: Session, keyspace: Str
   private def newReplayStatement(categoryFilterCount: Int) = {
     val cql = categoryFilterCount match {
       case 0 =>
-        s"SELECT * FROM $keyspace.$table ORDER BY time"
+        s"SELECT * FROM $keyspace.$table ORDER BY timestamp"
       case 1 =>
-        s"SELECT * FROM $keyspace.$table WHERE category = ? ORDER BY time"
+        s"SELECT * FROM $keyspace.$table WHERE category = ? ORDER BY timestamp"
       case n =>
         val qs = Seq.fill(n)("?").mkString(",")
-        s"SELECT * FROM $keyspace.$table WHERE category IN ($qs) ORDER BY time"
+        s"SELECT * FROM $keyspace.$table WHERE category IN ($qs) ORDER BY timestamp"
     }
     session.prepare(cql)
   }
@@ -179,33 +178,33 @@ abstract class CassandraEventStore[ID, EVT, CAT](session: Session, keyspace: Str
   private def newReplayFromStatement(categoryFilterCount: Int) = {
     val cql = categoryFilterCount match {
       case 0 =>
-        s"SELECT * FROM $keyspace.$table WHERE time >= ? ORDER BY time"
+        s"SELECT * FROM $keyspace.$table WHERE timestamp >= ? ORDER BY timestamp"
       case 1 =>
-        s"SELECT * FROM $keyspace.$table WHERE time >= ? AND category = ? ORDER BY time"
+        s"SELECT * FROM $keyspace.$table WHERE timestamp >= ? AND category = ? ORDER BY timestamp"
       case n =>
         val qs = Seq.fill(n)("?").mkString(",")
-        s"SELECT * FROM $keyspace.$table WHERE time >= ? AND category IN ($qs) ORDER BY time"
+        s"SELECT * FROM $keyspace.$table WHERE timestamp >= ? AND category IN ($qs) ORDER BY timestamp"
     }
     session.prepare(cql)
   }
   private val ReplayFrom = new Multiton[Int, PreparedStatement](newReplayFromStatement)
-  def replayFrom[T](fromTime: Date, categories: CAT*)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
+  def replayFrom[T](fromTimestamp: Long, categories: CAT*)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
     val stm = ReplayFrom(categories.size)
-    val parms = Seq(fromTime) ++ categories
+    val parms = fromTimestamp +: categories
     query(stm, callback, parms)
   }
 
   private val RecordTransaction =
-    session.prepare(s"INSERT INTO $keyspace.$table (time, stream, revision, category, events, metadata) VALUES(unixTimestampOf(now()),?,?,?,?,?) IF NOT EXISTS")
-  def record(category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = {
-    val timestamp = new Date
+    session.prepare(s"INSERT INTO $keyspace.$table (timestamp, stream, revision, category, events, metadata) VALUES(?,?,?,?,?,?) IF NOT EXISTS")
+  def record(timestamp: Long, category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = {
     val jEvents = events.map(eventToString).asJava
     val jMetadata = metadata.asJava
     val future = execute(RecordTransaction, stream, revision, category, jEvents, jMetadata) { rs =>
       if (rs.wasApplied) {
-        new Transaction(timestamp.getTime, category, stream, revision, metadata, events)
+        new Transaction(timestamp, category, stream, revision, metadata, events)
       } else {
-        throw new eventual.DuplicateRevisionException(stream, revision)
+        val conflicting = toTransaction(rs.one)
+        throw new DuplicateRevisionException(stream, conflicting)
       }
     }
     future.andThen {
@@ -214,23 +213,23 @@ abstract class CassandraEventStore[ID, EVT, CAT](session: Session, keyspace: Str
     }(execCtx)
     future
   }
-  private def tryAppend(category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] =
-    record(category, stream, revision, events, metadata).recoverWith {
-      case _: eventual.DuplicateRevisionException ⇒ tryAppend(category, stream, revision + 1, events, metadata)
-    }(execCtx)
+//  private def tryAppend(category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] =
+//    record(category, stream, revision, events, metadata).recoverWith {
+//      case _: DuplicateRevisionException ⇒ tryAppend(category, stream, revision + 1, events, metadata)
+//    }(execCtx)
 
   private val FetchLastRevision = session.prepare(s"SELECT revision FROM $keyspace.$table WHERE stream = ? ORDER BY revision DESC LIMIT 1")
-  def append(category: CAT, stream: ID, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = {
-    val revision = execute(FetchLastRevision, stream) { rs =>
-      rs.one match {
-        case null => 0
-        case row => row.getInt(0) + 1
-      }
-    }
-    revision.flatMap { revision =>
-      tryAppend(category, stream, revision, events, metadata)
-    }(execCtx)
-  }
+//  def append(category: CAT, stream: ID, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = {
+//    val revision = execute(FetchLastRevision, stream) { rs =>
+//      rs.one match {
+//        case null => 0
+//        case row => row.getInt(0) + 1
+//      }
+//    }
+//    revision.flatMap { revision =>
+//      tryAppend(category, stream, revision, events, metadata)
+//    }(execCtx)
+//  }
 
 }
 

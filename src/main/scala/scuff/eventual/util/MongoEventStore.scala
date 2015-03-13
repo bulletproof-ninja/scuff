@@ -1,16 +1,14 @@
 package scuff.eventual.util
 
-import java.util.Date
-
 import scala.collection.JavaConverters.asScalaIteratorConverter
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
-
 import com.mongodb.{DB, DBCollection, DBObject, DuplicateKeyException, WriteConcern}
-
 import scuff.{Timestamp, eventual}
 import scuff.Codec
 import scuff.Mongolia._
+import scuff.Threads.PiggyBack
+import scala.util.Failure
 
 object MongoEventStore {
   private final val OrderByTime_asc = obj("time" := ASC, "_id.stream" := ASC, "_id.rev" := ASC)
@@ -72,10 +70,10 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     query(obj("_id.stream" := stream), OrderByRevision_asc, callback)
   }
 
-  def replayStreamSince[T](stream: ID, sinceRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
+  def replayStreamAfter[T](stream: ID, afterRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
     val filter = obj(
       "_id.stream" := stream,
-      "_id.rev" := $gt(sinceRevision))
+      "_id.rev" := $gt(afterRevision))
     query(filter, OrderByRevision_asc, callback)
   }
   def replayStreamTo[T](stream: ID, toRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
@@ -103,8 +101,8 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
     query(filter, OrderByTime_asc, txnHandler)
   }
 
-  def replayFrom[T](fromTime: Date, categories: CAT*)(txnHandler: Iterator[Transaction] ⇒ T): Future[T] = {
-    val filter = obj("time" := $gte(fromTime))
+  def replayFrom[T](fromTimestamp: Long, categories: CAT*)(txnHandler: Iterator[Transaction] ⇒ T): Future[T] = {
+    val filter = obj("time" := $gte(fromTimestamp))
     categories.length match {
       case 0 ⇒ // Ignore
       case 1 ⇒ filter.add("category" := categories.head)
@@ -114,23 +112,17 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
   }
 
   // TODO: Make non-blocking once supported by the driver.
-  def record(category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = {
+  def record(timestamp: Long, category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = {
+    val _id = obj("stream" := stream, "rev" := revision)
     val insert = Future {
-      val timestamp = new Timestamp
       val doc = obj(
-        "_id" := obj(
-          "stream" := stream,
-          "rev" := revision),
+        "_id" := _id,
         "time" := timestamp,
         "category" := category,
         "events" := toBsonList(events))
       if (!metadata.isEmpty) doc.add("metadata" := metadata)
-      try {
-        store.safeInsert(doc)
-      } catch {
-        case _: DuplicateKeyException ⇒ throw new eventual.DuplicateRevisionException(stream, revision)
-      }
-      new Transaction(timestamp.asMillis, category, stream, revision, metadata, events)
+      store.safeInsert(doc)
+      new Transaction(timestamp, category, stream, revision, metadata, events)
     }
     insert.andThen {
       case Success(txn) ⇒
@@ -138,18 +130,22 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
           case e: Exception => mongoExecCtx.reportFailure(e)
         }
     }
-    insert
+    insert.recover {
+      case _: DuplicateKeyException =>
+        val conflicting = toTransaction(store.findOne(_id))
+        throw new DuplicateRevisionException(stream, conflicting)
+    }(PiggyBack)
   }
 
-  private def tryAppend(category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] =
-    record(category, stream, revision, events, metadata).recoverWith {
-      case _: eventual.DuplicateRevisionException ⇒ tryAppend(category, stream, revision + 1, events, metadata)
-    }
-
-  def append(category: CAT, stream: ID, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = {
-    val revision = store.find("_id.stream" := stream).last("_id.rev").map(_.getAs[Int]("_id.rev")).getOrElse(-1) + 1
-    tryAppend(category, stream, revision, events, metadata)
-  }
+//  private def tryAppend(category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] =
+//    record(category, stream, revision, events, metadata).recoverWith {
+//      case _: DuplicateRevisionException ⇒ tryAppend(category, stream, revision + 1, events, metadata)
+//    }
+//
+//  def append(category: CAT, stream: ID, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = {
+//    val revision = store.find("_id.stream" := stream).last("_id.rev").map(_.getAs[Int]("_id.rev")).getOrElse(-1) + 1
+//    tryAppend(category, stream, revision, events, metadata)
+//  }
 
   // TODO: Make non-blocking once supported by the driver.
   private def query[T](filter: DBObject, ordering: DBObject, handler: Iterator[Transaction] ⇒ T): Future[T] = Future {

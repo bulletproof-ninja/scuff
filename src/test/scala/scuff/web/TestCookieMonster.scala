@@ -17,7 +17,7 @@ class TestCookieMonster {
       def codec = Codec.noop
       override val clock = new Clock {
         def precision = concurrent.duration.MILLISECONDS
-        def now(implicit tu: concurrent.duration.TimeUnit) = 0
+        def now = 0
       }
       def maxAge = toMaxAge(expires, clock.precision)
     }

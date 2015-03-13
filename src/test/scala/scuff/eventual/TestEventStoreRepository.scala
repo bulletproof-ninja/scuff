@@ -17,6 +17,7 @@ import scuff.eventual.ddd.EventStoreRepository
 import scuff.Threads
 import scuff.Clock
 import language.implicitConversions
+import scuff.eventual.ddd.WallClockTimestamps
 
 abstract class AbstractEventStoreRepositoryTest {
 
@@ -240,7 +241,7 @@ class TestEventStoreRepositoryNoSnapshots extends AbstractEventStoreRepositoryTe
       def clock = Clock.System
       def txn2cat(txn: Transaction) = ()
     }
-    repo = new EventStoreRepository[String, Aggr, Unit] {
+    repo = new EventStoreRepository[String, Aggr, Unit] with WallClockTimestamps {
       def errHandler(t: Throwable) = throw t
       val eventStore = es
       type S = AggrState
@@ -262,11 +263,11 @@ class TestEventStoreRepositoryWithSnapshots extends AbstractEventStoreRepository
       def clock = Clock.System
       def txn2cat(txn: Transaction) = ()
     }
-    repo = new EventStoreRepository[String, Aggr, Unit] with MapSnapshots[String, Aggr, Unit] {
+    repo = new EventStoreRepository[String, Aggr, Unit] with MapSnapshots[String, Aggr, Unit] with WallClockTimestamps {
       def errHandler(t: Throwable) = throw t
       val eventStore = es
       type S = AggrState
-      val snapshots = new scuff.LockFreeConcurrentMap[String, (S, Int)]
+      val snapshots = new scuff.LockFreeConcurrentMap[String, Snapshot]
       def newStateMutator(snapshotState: Option[AggrState]) = new AggrStateMutator(snapshotState.getOrElse(null))
       def newAggregateRoot(id: String, revision: Int, state: S, concurrentUpdates: List[AggrEvent]) = {
         val collector = new EventHandler(new AggrStateMutator(state, concurrentUpdates))

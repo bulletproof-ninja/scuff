@@ -8,6 +8,7 @@ import java.util.concurrent.Executor
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.ExecutionContextExecutor
 
 /**
  * Unbounded lock-free resource pool.
@@ -51,6 +52,14 @@ class ResourcePool[R](constructor: ⇒ R, minResources: Int = 0) {
       def run {
         Thread.sleep(pruner.delayMillis) // Initial sleep
         while (!Thread.currentThread.isInterrupted) {
+          try {
+            pruner.run()
+          } catch {
+            case e: Exception => exec match {
+              case exeCtx: ExecutionContextExecutor => exeCtx.reportFailure(e)
+              case _ => e.printStackTrace(System.err)
+            }
+          }
           Thread.sleep(pruner.intervalMillis)
         }
       }
@@ -115,7 +124,7 @@ class ResourcePool[R](constructor: ⇒ R, minResources: Int = 0) {
   def drain() = pool.getAndSet(Nil).map(_._2)
 
   @tailrec
-  private def pop(): R = {
+  final def pop(): R = {
     pool.get match {
       case Nil ⇒
         constructor match {
@@ -133,12 +142,12 @@ class ResourcePool[R](constructor: ⇒ R, minResources: Int = 0) {
         }
     }
   }
-  private def push(r: R, time: Long = System.currentTimeMillis) {
+  final def push(r: R) {
       @tailrec
-      def pushUntilSuccessful() {
+      def pushUntilSuccessful(time: Long = System.currentTimeMillis) {
         val list = pool.get
         if (!pool.compareAndSet(list, (time, r) :: list)) {
-          pushUntilSuccessful()
+          pushUntilSuccessful(time)
         }
       }
     onReturn(r)
@@ -163,8 +172,4 @@ class ResourcePool[R](constructor: ⇒ R, minResources: Int = 0) {
     a
   }
 
-}
-
-private object ResourcePool {
-  //  lazy val ThreadGroup = new ThreadGroup(Threads.SystemThreadGroup, classOf[ResourcePool[_]].getName)
 }

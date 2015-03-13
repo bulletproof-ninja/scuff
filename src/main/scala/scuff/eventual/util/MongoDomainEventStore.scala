@@ -16,7 +16,8 @@ import org.bson.types._
  * }}}
  */
 abstract class MongoDomainEventStore[ID, CAT](collection: DBCollection)(implicit idCdc: scuff.Codec[ID, BsonValue], catCdc: scuff.Codec[CAT, BsonValue])
-    extends MongoEventStore[ID, DomainEvent, CAT](collection) { expectedTrait: EventStorePublisher[ID, DomainEvent, CAT] =>
+    extends MongoEventStore[ID, DomainEvent, CAT](collection) {
+  self: EventStorePublisher[ID, DomainEvent, CAT] =>
 
   /** Encode the data part. */
   protected def encodeData(evt: DomainEvent): DBObject

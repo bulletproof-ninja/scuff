@@ -10,7 +10,7 @@ import reflect.ClassTag
  * <p>NOTICE: This sequencer is not thread-safe.
  * @param consumer The pass-through consumer
  * @param expectedSeqNum The first expected sequence number
- * @param bufferLimit The buffer limit. Optional, defaults to 0, which means no limit. 
+ * @param bufferLimit The buffer limit. Optional, defaults to 0, which means no limit.
  * A buffer limit might be necessary to deal with dropped sequence numbers,
  * otherwise the buffer will grow indefinitely.
  * @param gapHandler Callback interface that is notified when gaps are detected and when closed
@@ -18,11 +18,11 @@ import reflect.ClassTag
  * If a lower than expected sequence number is received, this function is called instead of the pass-through consumer.
  */
 final class MonotonicSequencer[@specialized(Int, Long) S, T >: Null <: AnyRef](
-    consumer: (S, T) ⇒ Unit,
+    consumer: (S, T) => Unit,
     private var expectedSeqNum: S,
     bufferLimit: Int = 0,
     gapHandler: MonotonicSequencer.GapHandler[S] = MonotonicSequencer.NoOpGapHandler[S],
-    dupeConsumer: (S, T) ⇒ Unit = (s: S, t: T) ⇒ throw new MonotonicSequencer.DuplicateSequenceNumberException(s))(implicit seqType: Numeric[S], manifest: ClassTag[T]) {
+    dupeConsumer: (S, T) => Unit = (s: S, t: T) => throw new MonotonicSequencer.DuplicateSequenceNumberException(s))(implicit seqType: Numeric[S], manifest: ClassTag[T]) {
 
   /**
    * @param consumer The pass-through consumer
@@ -32,7 +32,7 @@ final class MonotonicSequencer[@specialized(Int, Long) S, T >: Null <: AnyRef](
    * @param dupeConsumer Duplicate consumer. Optional, defaults to throwing a [[scuff.MonotonicSequencer.DuplicateSequenceReceived]].
    * If a lower than expected sequence number is received, this function is called instead of the pass-through consumer.
    */
-  def this(consumer: (S, T) ⇒ Unit, expectedSeqNum: S, bufferLimit: Int, dupeConsumer: (S, T) ⇒ Unit)(implicit seqType: Numeric[S], manifest: ClassTag[T]) =
+  def this(consumer: (S, T) => Unit, expectedSeqNum: S, bufferLimit: Int, dupeConsumer: (S, T) => Unit)(implicit seqType: Numeric[S], manifest: ClassTag[T]) =
     this(consumer, expectedSeqNum, bufferLimit, MonotonicSequencer.NoOpGapHandler[S], dupeConsumer)
 
   private def incrementSeqNum() = expectedSeqNum = seqType.plus(expectedSeqNum, seqType.one)
@@ -47,7 +47,7 @@ final class MonotonicSequencer[@specialized(Int, Long) S, T >: Null <: AnyRef](
 
   private var offset: S = _
 
-  private val purgeHandler = (idx: Int, t: T) ⇒ {
+  private val purgeHandler = (idx: Int, t: T) => {
     val s = add(offset, idx)
     consumer(s, t)
   }
@@ -82,7 +82,7 @@ final class MonotonicSequencer[@specialized(Int, Long) S, T >: Null <: AnyRef](
         val newSize = math.max(array.capacity * 1.5f, idx * 1.5f).asInstanceOf[Int]
         array = array.expand(new Array[T](newSize))
       } else {
-        val buffer = array.toSeq((idx: Int) ⇒ add(offset, idx)) :+ seq -> t
+        val buffer = array.toSeq((idx: Int) => add(offset, idx)) :+ seq -> t
         array.clear()
         throw new BufferCapacityExceeded(buffer.toList)
       }
@@ -106,7 +106,7 @@ final class MonotonicSequencer[@specialized(Int, Long) S, T >: Null <: AnyRef](
       new NotNullArray(newArray, size, maxIdx)
     }
 
-    def toSeq(toSeqNum: (Int) ⇒ S): Seq[(S, T)] = {
+    def toSeq(toSeqNum: (Int) => S): Seq[(S, T)] = {
       var i = 0
       val buffer = collection.mutable.Buffer[(S, T)]()
       while (i < array.length) {
@@ -128,7 +128,7 @@ final class MonotonicSequencer[@specialized(Int, Long) S, T >: Null <: AnyRef](
       }
     }
 
-    def purge(callback: (Int, T) ⇒ Unit) {
+    def purge(callback: (Int, T) => Unit) {
         @annotation.tailrec
         def purge(i: Int = 0) {
           if (i < size) {

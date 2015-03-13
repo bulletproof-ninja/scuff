@@ -11,7 +11,7 @@ import scuff.eventual.EventSource
  * to be serialized, i.e. transactions from the same
  * stream should not be applied concurrently.
  */
-trait SequencedTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CAT]#Transaction ⇒ Unit) {
+trait SequencedTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CAT]#Transaction => Unit) {
 
   private type ES = EventSource[ID, EVT, CAT]
   private type TXN = ES#Transaction
@@ -47,19 +47,19 @@ trait SequencedTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CA
     }
     val seq = new MonotonicSequencer[Int, TXN](gapClosedConsumer, expected, bufferLimit = 0, gapHandler, dupeHandler)
     sequencers.putIfAbsent(id, seq) match {
-      case None ⇒ seq
-      case Some(otherSeq) ⇒ otherSeq
+      case None => seq
+      case Some(otherSeq) => otherSeq
     }
   }
 
   abstract override def apply(txn: TXN) {
     sequencers.get(txn.streamId) match {
       // Out-of-sequence mode
-      case Some(sequencer) ⇒ sequencer(txn.revision, txn)
+      case Some(sequencer) => sequencer(txn.revision, txn)
       // In-sequence mode
-      case None ⇒ expectedRevision(txn.streamId) match {
-        case -1L ⇒ super.apply(txn)
-        case expected ⇒
+      case None => expectedRevision(txn.streamId) match {
+        case -1L => super.apply(txn)
+        case expected =>
           if (txn.revision == expected) {
             super.apply(txn)
           } else if (txn.revision > expected) {
@@ -81,7 +81,7 @@ trait SequencedTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CA
    *   2. If always interested in complete stream, return `0`
    *   3. If not interested, ever, return `Int.MaxValue`
    * NOTICE: When using option 3, transactions will be interpreted as duplicates,
-   * so make sure duplicates are ignored.
+   * so make sure duplicates are ignored (default behavior).
    */
   protected def expectedRevision(streamId: ID): Int
 

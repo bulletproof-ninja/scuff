@@ -106,6 +106,8 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
           a(i) = l.getDisplayName(lang)
         case tz: TimeZone =>
           a(i) = tz.getDisplayName(lang)
+        case f: Function0[_] =>
+          a(i) = f()
         case f: Function1[Locale, _] =>
           a(i) = f(lang)
         case _ => // Ignore

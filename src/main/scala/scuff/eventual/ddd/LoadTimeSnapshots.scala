@@ -3,7 +3,7 @@ package scuff.eventual.ddd
 import scuff.ddd._
 
 /**
- * Trait that enables snapshotting if load time 
+ * Trait that enables snapshotting if load time
  * exceeds a certain threshold.
  */
 trait LoadTimeSnapshots[ID, AR <: AggregateRoot, CAT] extends EventStoreRepository[ID, AR, CAT] {
@@ -22,9 +22,9 @@ trait LoadTimeSnapshots[ID, AR <: AggregateRoot, CAT] extends EventStoreReposito
     super.onLoadNotification(id, revision, category, timeMs)
   }
 
-  protected abstract override def saveSnapshot(id: AR#ID, revision: Int, state: S) {
-    if (doSnapshot.remove(id, revision)) {
-      super.saveSnapshot(id, revision, state)
+  protected abstract override def saveSnapshot(id: AR#ID, snapshot: Snapshot) {
+    if (doSnapshot.remove(id, snapshot.revision)) {
+      super.saveSnapshot(id, snapshot)
     }
   }
 
