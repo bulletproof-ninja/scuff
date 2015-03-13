@@ -24,17 +24,17 @@ object Base64 {
         count - 1
       }
       @annotation.tailrec
-      def removeLineFeed(chars: Array[Char], lineCount: Int, line: Int = 1): Int = {
+      def removeLineFeed(chars: Array[Char], lineCount: Int, newLineLen: Int, line: Int = 1): Int = {
         val toIdx = lineLength * line
-        val fromIdx = (lineLength + 2) * line
+        val fromIdx = (lineLength + newLineLen) * line
         if (line + 1 == lineCount) {
           val trailing = trailingCRLF(chars, fromIdx)
           val length = chars.length - fromIdx - trailing
           System.arraycopy(chars, fromIdx, chars, toIdx, length)
-          line * 2 + trailing
+          line * newLineLen + trailing
         } else {
           System.arraycopy(chars, fromIdx, chars, toIdx, lineLength)
-          removeLineFeed(chars, lineCount, line + 1)
+          removeLineFeed(chars, lineCount, newLineLen, line + 1)
         }
       }
       @annotation.tailrec
@@ -52,8 +52,15 @@ object Base64 {
         case cs: unsafe.CharSeq => cs.toCharArray()
         case _ => toCharArray(base64, new Array[Char](base64.length))
       }
-      val lineCount = chars.length / (lineLength + 2) + math.signum(chars.length % (lineLength + 2))
-      val removed = if (lineCount == 1) trailingCRLF(chars) else removeLineFeed(chars, lineCount)
+      val newLineLen =
+        if (chars.length >= lineLength+2) {
+          if (isCRLF(chars(lineLength+1))) 2 else 1
+        } else {
+          1
+        }
+
+      val lineCount = chars.length / (lineLength + newLineLen) + math.signum(chars.length % (lineLength + newLineLen))
+      val removed = if (lineCount == 1) trailingCRLF(chars) else removeLineFeed(chars, lineCount, newLineLen)
       new unsafe.CharSeq(chars, 0, chars.length - removed)
     } else {
       EOLRemover.matcher(base64).replaceAll("")
@@ -172,14 +179,14 @@ object Base64 {
           decodeChunk(s, len, bytes, strOffset + 4, byteOffset + 3)
       }
     }
-    private def finishEncoding(chars: Array[Char], removePadding: Int): CharSequence = {
+    private def finishEncoding(chars: Array[Char], removePadding: Int, lineBreak: String = "\r\n"): CharSequence = {
       lineSplitter match {
         case None => new unsafe.CharSeq(chars, 0, chars.length - removePadding)
         case Some((lineSplitter, maxLineLen)) =>
           val maxLineCount = chars.length / maxLineLen + 1
-          val sb = new java.lang.StringBuilder(maxLineCount * (maxLineLen + 2))
+          val sb = new java.lang.StringBuilder(maxLineCount * (maxLineLen + lineBreak.length))
           val m = lineSplitter.matcher(new unsafe.CharSeq(chars, 0, chars.length - removePadding))
-          while (m.find) sb append m.group(0) append "\r\n"
+          while (m.find) sb append m.group(0) append lineBreak
           sb.toString
       }
 

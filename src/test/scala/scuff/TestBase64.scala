@@ -7,6 +7,7 @@ import scala.util.Random
 import scala.util.Try
 
 class TestBase64 extends {
+
   val LeviathanQuote = """
 Man is distinguished, not only by his reason, but by this singular passion from
 other animals, which is a lust of the mind, that by a perseverance of delight
@@ -123,17 +124,55 @@ ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=
     for (_ <- 1 to 500) {
       val bytes = new Array[Byte](Random.nextInRange(sizeRange))
       Random.nextBytes(bytes)
-      val encoded = codec.encode(bytes)
-      val decoded = codec.decode(Base64.removeEOLs(encoded))
+      val encoded = Base64.removeEOLs(codec.encode(bytes), 76)
+      val decoded = codec.decode(encoded)
       assertArrayEquals(bytes, decoded)
       sunEncoder.foreach { sun =>
-        val sunEncoded = sun.encodeBuffer(bytes)
-        assertArrayEquals(sunEncoded.utf8, encoded.toString.utf8)
-        val sunEncodedDecoded = codec.decode(Base64.removeEOLs(sunEncoded))
+        val sunEncoded = Base64.removeEOLs(sun.encodeBuffer(bytes), 76)
+        assertEquals(sunEncoded.toString, encoded.toString)
+        val sunEncodedDecoded = codec.decode(sunEncoded)
         assertArrayEquals(bytes, sunEncodedDecoded)
       }
     }
   }
+
+  @Test
+  def `remove line feeds 0a` {
+    val str = "TWFu\nIGlz\nIGRp\nc3Rp\nbmd1\naXNo\nZWQs\nIG5v\ndCBv\nbmx5\nIGJ5\nIG\n"
+    val removed = Base64.removeEOLs(str, 4).toString
+    assertEquals(str.replace("\n", ""), removed)
+  }
+  @Test
+  def `remove line feeds 0b` {
+    val str = "TWFu\nIGlz\nIGRp\nc3Rp\nbmd1\naXNo\nZWQs\nIG5v\ndCBv\nbmx5\nIGJ5\nIG"
+    val removed = Base64.removeEOLs(str, 4).toString
+    assertEquals(str.replace("\n", ""), removed)
+  }
+  @Test
+  def `remove line feeds 0c` {
+    val str = "TWFu\nIGlz\nIGRp\nc3Rp\nbmd1\naXNo\nZWQs\nIG5v\ndCBv\nbmx5\nIGJ5\nI"
+    val removed = Base64.removeEOLs(str, 4).toString
+    assertEquals(str.replace("\n", ""), removed)
+  }
+  @Test
+  def `remove line feeds 0d` {
+    val str = "TWFu\nI"
+    val removed = Base64.removeEOLs(str, 4).toString
+    assertEquals(str.replace("\n", ""), removed)
+  }
+  @Test
+  def `remove line feeds 0e` {
+    val str = "TWFu\n"
+    val removed = Base64.removeEOLs(str, 4).toString
+    assertEquals(str.replace("\n", ""), removed)
+  }
+  @Test
+  def `remove line feeds 0f` {
+    val str = "TWFu"
+    val removed = Base64.removeEOLs(str, 4).toString
+    assertEquals(str.replace("\n", ""), removed)
+  }
+
 
   @Test
   def `remove line feeds 1` {
