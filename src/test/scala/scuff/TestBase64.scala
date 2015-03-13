@@ -128,7 +128,7 @@ ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=
       assertArrayEquals(bytes, decoded)
       sunEncoder.foreach { sun =>
         val sunEncoded = sun.encodeBuffer(bytes)
-        assertEquals(sunEncoded, encoded)
+        assertArrayEquals(sunEncoded.utf8, encoded.toString.utf8)
         val sunEncodedDecoded = codec.decode(Base64.removeEOLs(sunEncoded))
         assertArrayEquals(bytes, sunEncodedDecoded)
       }
