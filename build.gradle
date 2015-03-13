@@ -1,26 +1,85 @@
+plugins {
+    id "com.jfrog.bintray" version "1.1"
+}
+
 apply plugin: "scala"
+apply plugin: "maven-publish"
 sourceCompatibility = 1.7
-version = "0.0.14"
+version = "0.1.4-SNAPSHOT"
+
+def bintrayVersion = {
+    if (version.endsWith('-SNAPSHOT')) {
+        java.text.SimpleDateFormat format = new java.text.SimpleDateFormat('yyyyMMddHHmmss')
+        format.setCalendar(Calendar.getInstance(TimeZone.getTimeZone('UTC')))
+        return "$version-${format.format(new Date())}"
+    } else {
+        return version
+    }
+}()
 
 task wrapper(type: Wrapper) {
-    gradleVersion = "2.2.1"
+    gradleVersion = "2.3"
 }
 
 repositories {
     mavenCentral()
 }
+
 jar {
     baseName = "scuff_2.11"
     manifest {
         attributes "Implementation-Title": "scuff", "Implementation-Version": version
     }
 }
+
+task sourceJar(type: Jar) {
+    classifier "sources"
+    from sourceSets.main.allScala
+}
+task docsJar(type: Jar, dependsOn: scaladoc) {
+    classifier "docs"
+    from scaladoc.destinationDir
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId 'nilskp'
+            artifactId jar.baseName
+            version bintrayVersion
+
+            from components.java
+            artifact sourceJar
+            artifact docsJar
+            pom.withXml { xml ->
+                xml.asNode().dependencies.dependency.findAll{ ! ['boon','mail'].contains(it.artifactId.text()) }.each { dep ->
+                    dep.scope[0].value = "provided"
+                }
+            }
+        }
+    }
+}
+
+bintray {
+    user = System.properties.bintrayUser
+    key = System.properties.bintrayApiKey
+    publish = true
+    dryRun = System.properties.bintrayUpload == null
+    publications = ['maven']
+    pkg {
+        repo = "maven"
+        name = "Scuff"
+        version {
+            name = bintrayVersion
+        }
+    }
+}
+
 dependencies {
     testCompile "junit:junit:4.11"
     testCompile "org.mockito:mockito-all:1.10.19"
 
-    compile "org.scala-lang:scala-library:2.11.5"
-    compile "org.scala-lang.modules:scala-xml_2.11:1.0.3"
+    compile "org.scala-lang:scala-library:2.11.6"
     compile "com.google.javascript:closure-compiler:v20140407"
     compile "javax.mail:mail:1.4.7"
     compile "org.mongodb:mongo-java-driver:2.12.5"
