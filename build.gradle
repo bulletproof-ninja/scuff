@@ -61,10 +61,10 @@ publishing {
 }
 
 bintray {
-    user = System.properties.bintrayUser
-    key = System.properties.bintrayApiKey
-    publish = true
-    dryRun = System.properties.bintrayUpload == null
+    user = System.properties.bintrayUser ?: "n/a"
+    key = System.properties.bintrayApiKey ?: "n/a"
+    dryRun = (user == "n/a" || key == "n/a")
+    publish = !dryRun
     publications = ['maven']
     pkg {
         repo = "maven"
