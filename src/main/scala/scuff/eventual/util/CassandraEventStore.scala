@@ -110,7 +110,7 @@ abstract class CassandraEventStore[ID, EVT, CAT](session: Session, keyspace: Str
     promise.future
   }
 
-  private def query[T](stm: PreparedStatement, handler: Iterator[Transaction] ⇒ T, parms: Any*): Future[T] = {
+  private def query[T](stm: PreparedStatement, handler: Iterator[Transaction] => T, parms: Any*): Future[T] = {
     val refParms = parms.asInstanceOf[Seq[AnyRef]]
     val bound = stm.bind(refParms: _*)
     execute(bound) { rs =>
@@ -126,8 +126,8 @@ abstract class CassandraEventStore[ID, EVT, CAT](session: Session, keyspace: Str
 
   @annotation.tailrec
   private def toStringList(events: List[_ <: EVT], list: JList[String] = new ArrayList[String]): JList[String] = events match {
-    case Nil ⇒ list
-    case head :: tail ⇒
+    case Nil => list
+    case head :: tail =>
       list add eventToString(head)
       toStringList(tail, list)
   }
@@ -138,22 +138,22 @@ abstract class CassandraEventStore[ID, EVT, CAT](session: Session, keyspace: Str
   }
 
   private val ReplayStream = session.prepare(s"SELECT * FROM $keyspace.$table WHERE stream = ? ORDER BY revision")
-  def replayStream[T](streamId: ID)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
+  def replayStream[T](streamId: ID)(callback: Iterator[Transaction] => T): Future[T] = {
     query(ReplayStream, callback, streamId)
   }
 
   private val ReplayStreamSince = session.prepare(s"SELECT * FROM $keyspace.$table WHERE stream = ? AND revision > ? ORDER BY revision")
-  def replayStreamAfter[T](streamId: ID, afterRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
+  def replayStreamAfter[T](streamId: ID, afterRevision: Int)(callback: Iterator[Transaction] => T): Future[T] = {
     query(ReplayStreamSince, callback, streamId, afterRevision)
   }
 
   private val ReplayStreamTo = session.prepare(s"SELECT * FROM $keyspace.$table WHERE stream = ? AND revision <= ? ORDER BY revision")
-  def replayStreamTo[T](streamId: ID, toRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
+  def replayStreamTo[T](streamId: ID, toRevision: Int)(callback: Iterator[Transaction] => T): Future[T] = {
     query(ReplayStreamTo, callback, streamId, toRevision)
   }
 
   private val ReplayStreamRange = session.prepare(s"SELECT * FROM $keyspace.$table WHERE stream = ? AND revision >= ? AND revision <= ? ORDER BY revision")
-  def replayStreamRange[T](streamId: ID, revisionRange: collection.immutable.Range)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
+  def replayStreamRange[T](streamId: ID, revisionRange: collection.immutable.Range)(callback: Iterator[Transaction] => T): Future[T] = {
     query(ReplayStreamRange, callback, streamId, revisionRange.head, revisionRange.last)
   }
 
@@ -170,7 +170,7 @@ abstract class CassandraEventStore[ID, EVT, CAT](session: Session, keyspace: Str
     session.prepare(cql)
   }
   private val Replay = new Multiton[Int, PreparedStatement](newReplayStatement)
-  def replay[T](categories: CAT*)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
+  def replay[T](categories: CAT*)(callback: Iterator[Transaction] => T): Future[T] = {
     val stm = Replay(categories.size)
     query(stm, callback, categories: _*)
   }
@@ -188,7 +188,7 @@ abstract class CassandraEventStore[ID, EVT, CAT](session: Session, keyspace: Str
     session.prepare(cql)
   }
   private val ReplayFrom = new Multiton[Int, PreparedStatement](newReplayFromStatement)
-  def replayFrom[T](fromTimestamp: Long, categories: CAT*)(callback: Iterator[Transaction] ⇒ T): Future[T] = {
+  def replayFrom[T](fromTimestamp: Long, categories: CAT*)(callback: Iterator[Transaction] => T): Future[T] = {
     val stm = ReplayFrom(categories.size)
     val parms = fromTimestamp +: categories
     query(stm, callback, parms)
@@ -215,7 +215,7 @@ abstract class CassandraEventStore[ID, EVT, CAT](session: Session, keyspace: Str
   }
 //  private def tryAppend(category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] =
 //    record(category, stream, revision, events, metadata).recoverWith {
-//      case _: DuplicateRevisionException ⇒ tryAppend(category, stream, revision + 1, events, metadata)
+//      case _: DuplicateRevisionException => tryAppend(category, stream, revision + 1, events, metadata)
 //    }(execCtx)
 
   private val FetchLastRevision = session.prepare(s"SELECT revision FROM $keyspace.$table WHERE stream = ? ORDER BY revision DESC LIMIT 1")

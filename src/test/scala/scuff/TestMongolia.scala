@@ -43,7 +43,7 @@ class TestMongolia {
       val dbo = obj("foo" := 1, "bar" := 2, "foo" := 3)
       fail("Should not silently overwrite field")
     } catch {
-      case e: Exception ⇒ assertTrue(e.getMessage.indexOf("\"foo\"") > -1)
+      case e: Exception => assertTrue(e.getMessage.indexOf("\"foo\"") > -1)
     }
   }
 
@@ -97,7 +97,7 @@ class TestMongolia {
 
   @Test
   def option {
-      def toObj(tuple: Option[(Int, Int)]): Option[DBObject] = tuple.map { case (first, second) ⇒ obj("first" := first, "second" := second) }
+      def toObj(tuple: Option[(Int, Int)]): Option[DBObject] = tuple.map { case (first, second) => obj("first" := first, "second" := second) }
     val dbo = obj(
       "foo" := "bar",
       "tuple" := toObj(Some(4 -> 9)))
@@ -133,7 +133,7 @@ class TestMongolia {
     implicit val ColCdc = new Codec[java.awt.Color, BsonValue] {
       def encode(color: java.awt.Color): BsonValue = IntCdc.encode(color.getRGB)
       def decode(bson: BsonValue) = bson.raw match {
-        case i: Int ⇒ java.awt.Color.decode(i.toString)
+        case i: Int => java.awt.Color.decode(i.toString)
       }
     }
     val array = Array(java.awt.Color.BLACK, java.awt.Color.BLUE)
@@ -156,12 +156,12 @@ class TestMongolia {
     assertEquals(None, dbo("foo").opt[String])
     assertEquals(None, dbo("bar").opt[String])
     dbo("foo") match {
-      case _: Null ⇒ assertTrue(true)
-      case _ ⇒ fail("Field should be null")
+      case _: Null => assertTrue(true)
+      case _ => fail("Field should be null")
     }
     dbo("bar") match {
-      case f: Missing ⇒ assertTrue(true)
-      case _ ⇒ fail("Field should be missing")
+      case f: Missing => assertTrue(true)
+      case _ => fail("Field should be missing")
     }
     val doc = obj(ignoreNulls = true).add("foo" := 5)
     assertEquals(5, doc("foo").as[Int])
@@ -314,8 +314,8 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
     assertStuff(foo)
     assertEquals(None, foo.nested.baz)
     parseJsonObject("""{"foo":"bar","nested":{"two":2,"three":3,"fortytwo":42,"baz":null},"definite":666,"list2":[1.0,2.0,3.0]}""").map(_.like[Foo]) match {
-      case None ⇒ fail("Where's the object?")
-      case Some(foo) ⇒ assertStuff(foo)
+      case None => fail("Where's the object?")
+      case Some(foo) => assertStuff(foo)
     }
   }
 
@@ -331,7 +331,7 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
       missing.barbarbar
       fail("Should fail on unknown property")
     } catch {
-      case e: UnavailableValueException ⇒ assertEquals("barbarbar", e.fieldName)
+      case e: UnavailableValueException => assertEquals("barbarbar", e.fieldName)
     }
     val asNull = obj("baz" := null, "barbarbar" := null).like[Foo]
     assertEquals(None, asNull.baz)
@@ -339,14 +339,14 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
       asNull.barbarbar
       fail("Should fail on null property")
     } catch {
-      case e: UnavailableValueException ⇒ assertEquals("barbarbar", e.fieldName)
+      case e: UnavailableValueException => assertEquals("barbarbar", e.fieldName)
     }
     val invalidInt = obj("baz" := "dsfgasdfasd").like[Foo]
     try {
       val notHappening = invalidInt.baz
       fail("Should fail on invalid Int: " + notHappening)
     } catch {
-      case e: InvalidValueTypeException ⇒ assertEquals("baz", e.fieldName)
+      case e: InvalidValueTypeException => assertEquals("baz", e.fieldName)
     }
   }
 
@@ -362,7 +362,7 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
   def transform {
     val oid = new ObjectId
     val doc = obj("_id" := oid)
-    doc.rename("_id" -> "identifier", id ⇒ id.as[String])
+    doc.rename("_id" -> "identifier", id => id.as[String])
     assertEquals("""{"identifier":"%s"}""".format(oid), doc.toJson())
   }
 
@@ -370,7 +370,7 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
   def transformNull {
     val map = Map[ObjectId, Int]()
     val doc = obj()
-    doc.rename("fooId" -> "foo", fooId ⇒
+    doc.rename("fooId" -> "foo", fooId =>
       fooId.opt[ObjectId].flatMap(map.get(_).map(_ * 2)))
     assertEquals("{}", doc.toJson())
   }
@@ -379,7 +379,7 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
   def transformMissing {
     val map = Map[ObjectId, Int]()
     val doc = obj()
-    doc.rename("fooId" -> "foo", fooId ⇒
+    doc.rename("fooId" -> "foo", fooId =>
       fooId.opt[ObjectId].flatMap(map.get(_).map(_ * 2)))
     assertEquals("{}", doc.toJson())
   }
@@ -449,8 +449,8 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
     val foo = obj("bar" := "", "baz" := "").like[Foo](ClassTag(classOf[Foo]), emptyStringAsNull)
     assertEquals(None, foo.bar)
     Try(foo.baz) match {
-      case Failure(e: UnavailableValueException) ⇒ assertEquals("baz", e.fieldName)
-      case Success(baz) ⇒ fail(s"`baz` should not succeed: $baz")
+      case Failure(e: UnavailableValueException) => assertEquals("baz", e.fieldName)
+      case Success(baz) => fail(s"`baz` should not succeed: $baz")
     }
   }
 
@@ -465,8 +465,8 @@ reduce=(key, values) -> {count: values.reduce (t, v) -> t + v.count}
     val doc = obj("arr" := arr(1, 2, 3))
     val foo = doc.like[Foo]
     foo.arr match {
-      case None ⇒ fail("Should have array")
-      case Some(array) ⇒ assertTrue(Arrays.equals(Array(1, 2, 3), array))
+      case None => fail("Should have array")
+      case Some(array) => assertTrue(Arrays.equals(Array(1, 2, 3), array))
     }
     val bar = doc.like[Bar]
     assertEquals(Seq(1, 2, 3), bar.arr)

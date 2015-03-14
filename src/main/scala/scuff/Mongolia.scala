@@ -62,14 +62,14 @@ object Mongolia {
   implicit val StrCdc = new Codec[String, BsonValue] {
     def encode(a: String): BsonValue = new Value(a)
     def decode(b: BsonValue) = b.raw match {
-      case _: DBObject ⇒ throw new RuntimeException("Cannot coerce DBObject into String")
-      case _ ⇒ String.valueOf(b.raw)
+      case _: DBObject => throw new RuntimeException("Cannot coerce DBObject into String")
+      case _ => String.valueOf(b.raw)
     }
   }
   implicit val PropCdc = new Codec[BsonProp, BsonValue] {
     def encode(a: BsonProp): BsonValue = prop2obj(a)
     def decode(b: BsonValue) = b.raw match {
-      case dbo: DBObject ⇒
+      case dbo: DBObject =>
         val keys = dbo.keySet()
         if (keys.size == 1) {
           val name = keys.iterator.next
@@ -77,7 +77,7 @@ object Mongolia {
         } else {
           throw new RuntimeException("Cannot extract single BsonProp when %d are available: %s".format(keys.size, keys))
         }
-      case _ ⇒ throw new RuntimeException("Cannot coerce %s into BsonProp".format(b.raw.getClass.getName))
+      case _ => throw new RuntimeException("Cannot coerce %s into BsonProp".format(b.raw.getClass.getName))
     }
   }
   implicit val ClzCdc = new Codec[Class[_], BsonValue] {
@@ -109,59 +109,59 @@ object Mongolia {
   implicit val IntCdc = new Codec[Int, BsonValue] {
     def encode(a: Int): BsonValue = new Value(a)
     def decode(b: BsonValue) = b.raw match {
-      case n: Number ⇒ n.intValue
-      case str: String ⇒ str.toInt
-      case _ ⇒ org.bson.BSON.toInt(b.raw)
+      case n: Number => n.intValue
+      case str: String => str.toInt
+      case _ => org.bson.BSON.toInt(b.raw)
     }
   }
   implicit val JIntCdc = new Codec[Integer, BsonValue] {
     def encode(a: Integer): BsonValue = new Value(a)
     def decode(b: BsonValue): Integer = b.raw match {
-      case n: Number ⇒ n.intValue
-      case str: String ⇒ str.toInt
-      case _ ⇒ org.bson.BSON.toInt(b.raw)
+      case n: Number => n.intValue
+      case str: String => str.toInt
+      case _ => org.bson.BSON.toInt(b.raw)
     }
   }
   implicit val LongCdc = new Codec[Long, BsonValue] {
     def encode(a: Long): BsonValue = new Value(a)
     def decode(b: BsonValue): Long = b.raw match {
-      case n: Number ⇒ n.longValue()
-      case d: java.util.Date ⇒ d.getTime
-      case s: String ⇒ s.toLong
-      case _ ⇒ throwCoercionException(b.raw, "Long")
+      case n: Number => n.longValue()
+      case d: java.util.Date => d.getTime
+      case s: String => s.toLong
+      case _ => throwCoercionException(b.raw, "Long")
     }
   }
   implicit val JLongCdc = new Codec[java.lang.Long, BsonValue] {
     def encode(a: java.lang.Long): BsonValue = new Value(a)
     def decode(b: BsonValue): java.lang.Long = b.raw match {
-      case n: Number ⇒ n.longValue()
-      case d: java.util.Date ⇒ d.getTime
-      case s: String ⇒ s.toLong
-      case _ ⇒ throwCoercionException(b.raw, "Long")
+      case n: Number => n.longValue()
+      case d: java.util.Date => d.getTime
+      case s: String => s.toLong
+      case _ => throwCoercionException(b.raw, "Long")
     }
   }
   implicit val DblCdc = new Codec[Double, BsonValue] {
     def encode(a: Double): BsonValue = new Value(a)
     def decode(b: BsonValue) = b.raw match {
-      case n: Number ⇒ n.doubleValue()
-      case s: String ⇒ s.toDouble
-      case _ ⇒ throwCoercionException(b.raw, "Double")
+      case n: Number => n.doubleValue()
+      case s: String => s.toDouble
+      case _ => throwCoercionException(b.raw, "Double")
     }
   }
   implicit val JDblCdc = new Codec[java.lang.Double, BsonValue] {
     def encode(a: java.lang.Double): BsonValue = new Value(a)
     def decode(b: BsonValue): java.lang.Double = b.raw match {
-      case n: Number ⇒ n.doubleValue()
-      case s: String ⇒ s.toDouble
-      case _ ⇒ throwCoercionException(b.raw, "Double")
+      case n: Number => n.doubleValue()
+      case s: String => s.toDouble
+      case _ => throwCoercionException(b.raw, "Double")
     }
   }
   implicit val FltCdc = new Codec[Float, BsonValue] {
     def encode(a: Float): BsonValue = new Value(a)
     def decode(b: BsonValue) = b.raw match {
-      case n: Number ⇒ n.floatValue()
-      case s: String ⇒ s.toFloat
-      case _ ⇒ throwCoercionException(b.raw, "Float")
+      case n: Number => n.floatValue()
+      case s: String => s.toFloat
+      case _ => throwCoercionException(b.raw, "Float")
     }
   }
   private def throwCoercionException(from: Any, to: String) =
@@ -170,121 +170,121 @@ object Mongolia {
   implicit val ShrtCdc = new Codec[Short, BsonValue] {
     def encode(a: Short): BsonValue = new Value(a)
     def decode(b: BsonValue): Short = b.raw match {
-      case n: Number ⇒ n.shortValue()
-      case s: String ⇒ s.toShort
-      case _ ⇒ throwCoercionException(b.raw, "Short")
+      case n: Number => n.shortValue()
+      case s: String => s.toShort
+      case _ => throwCoercionException(b.raw, "Short")
     }
   }
   implicit val ByteCdc = new Codec[Byte, BsonValue] {
     def encode(a: Byte): BsonValue = new Value(a)
     def decode(b: BsonValue): Byte = b.raw match {
-      case n: Number ⇒ n.byteValue
-      case s: String ⇒ s.toByte
-      case _ ⇒ throwCoercionException(b.raw, "Short")
+      case n: Number => n.byteValue
+      case s: String => s.toByte
+      case _ => throwCoercionException(b.raw, "Short")
     }
   }
   implicit val BoolCdc = new Codec[Boolean, BsonValue] {
     val TrueStrings = Set("1", "true", "on", "yes", "y")
     def encode(a: Boolean): BsonValue = new Value(a)
     def decode(b: BsonValue) = b.raw match {
-      case b: java.lang.Boolean ⇒ b.booleanValue
-      case i: Int ⇒ IntCdc.decode(b) != 0
-      case s: String ⇒ TrueStrings.contains(s.toLowerCase)
-      case _ ⇒ throwCoercionException(b.raw, "Boolean")
+      case b: java.lang.Boolean => b.booleanValue
+      case i: Int => IntCdc.decode(b) != 0
+      case s: String => TrueStrings.contains(s.toLowerCase)
+      case _ => throwCoercionException(b.raw, "Boolean")
     }
   }
   implicit val BACdc = new Codec[Array[Byte], BsonValue] {
     def encode(a: Array[Byte]): BsonValue = new Value(a)
     def decode(b: BsonValue) = b.raw match {
-      case arr: Array[Byte] ⇒ arr
-      case bin: Binary ⇒ bin.getData
-      case _ ⇒ throwCoercionException(b.raw, "Array[Byte]")
+      case arr: Array[Byte] => arr
+      case bin: Binary => bin.getData
+      case _ => throwCoercionException(b.raw, "Array[Byte]")
     }
   }
   implicit val IACdc = new Codec[Array[Int], BsonValue] {
     def encode(a: Array[Int]): BsonValue = new Value(arr(a: _*))
     def decode(b: BsonValue): Array[Int] = b.raw match {
-      case arr: Array[Int] ⇒ arr
-      case list: java.util.List[_] ⇒
+      case arr: Array[Int] => arr
+      case list: java.util.List[_] =>
         val array = new Array[Int](list.size)
         val iter = list.iterator()
         var idx = 0
         while (iter.hasNext) {
           iter.next match {
-            case n: Number ⇒ array(idx) = n.intValue
-            case v ⇒ throwCoercionException(v, "Int")
+            case n: Number => array(idx) = n.intValue
+            case v => throwCoercionException(v, "Int")
           }
           idx += 1
         }
         array
-      case _ ⇒ throwCoercionException(b.raw, "Array[Int]")
+      case _ => throwCoercionException(b.raw, "Array[Int]")
     }
   }
   implicit val LACdc = new Codec[Array[Long], BsonValue] {
     def encode(a: Array[Long]): BsonValue = new Value(arr(a: _*))
     def decode(b: BsonValue): Array[Long] = b.raw match {
-      case arr: Array[Long] ⇒ arr
-      case list: java.util.List[_] ⇒
+      case arr: Array[Long] => arr
+      case list: java.util.List[_] =>
         val array = new Array[Long](list.size)
         val iter = list.iterator()
         var idx = 0
         while (iter.hasNext) {
           iter.next match {
-            case n: Number ⇒ array(idx) = n.longValue
-            case v ⇒ throwCoercionException(v, "Long")
+            case n: Number => array(idx) = n.longValue
+            case v => throwCoercionException(v, "Long")
           }
           idx += 1
         }
         array
-      case _ ⇒ throwCoercionException(b.raw, "Array[Long]")
+      case _ => throwCoercionException(b.raw, "Array[Long]")
     }
   }
   implicit val DACdc = new Codec[Array[Double], BsonValue] {
     def encode(a: Array[Double]): BsonValue = new Value(arr(a: _*))
     def decode(b: BsonValue): Array[Double] = b.raw match {
-      case arr: Array[Double] ⇒ arr
-      case list: java.util.List[_] ⇒
+      case arr: Array[Double] => arr
+      case list: java.util.List[_] =>
         val array = new Array[Double](list.size)
         val iter = list.iterator()
         var idx = 0
         while (iter.hasNext) {
           iter.next match {
-            case n: Number ⇒ array(idx) = n.doubleValue
-            case v ⇒ throwCoercionException(v, "Double")
+            case n: Number => array(idx) = n.doubleValue
+            case v => throwCoercionException(v, "Double")
           }
           idx += 1
         }
         array
-      case _ ⇒ throwCoercionException(b.raw, "Array[Double]")
+      case _ => throwCoercionException(b.raw, "Array[Double]")
     }
   }
   implicit val BinCdc = new Codec[Binary, BsonValue] {
     def encode(a: Binary): BsonValue = new Value(a)
     def decode(b: BsonValue) = b.raw match {
-      case arr: Array[Byte] ⇒ new Binary(arr)
-      case bin: Binary ⇒ bin
-      case _ ⇒ throwCoercionException(b.raw, "Binary")
+      case arr: Array[Byte] => new Binary(arr)
+      case bin: Binary => bin
+      case _ => throwCoercionException(b.raw, "Binary")
     }
   }
   implicit val DateCdc = new Codec[Date, BsonValue] {
     def encode(a: Date): BsonValue = new Value(a)
     def decode(b: BsonValue): Date = b.raw match {
-      case n: Number ⇒ new Date(n.longValue)
-      case ts: Timestamp ⇒ new Date(ts.asMillis)
-      case d: Date ⇒ d
-      case oid: ObjectId ⇒ oid.getDate
-      case _ ⇒ throwCoercionException(b.raw, "Date")
+      case n: Number => new Date(n.longValue)
+      case ts: Timestamp => new Date(ts.asMillis)
+      case d: Date => d
+      case oid: ObjectId => oid.getDate
+      case _ => throwCoercionException(b.raw, "Date")
     }
   }
   implicit val TsCdc = new Codec[Timestamp, BsonValue] {
     def encode(a: Timestamp): BsonValue = new Value(a)
     def decode(b: BsonValue) = b.raw match {
-      case n: Number ⇒ new Timestamp(n.longValue)
-      case ts: Timestamp ⇒ ts
-      case d: Date ⇒ new Timestamp(d)
-      case oid: ObjectId ⇒ new Timestamp(oid.getDate.getTime)
-      case str: String ⇒ Timestamp.parseISO(str).get
-      case _ ⇒ throwCoercionException(b.raw, "Timestamp")
+      case n: Number => new Timestamp(n.longValue)
+      case ts: Timestamp => ts
+      case d: Date => new Timestamp(d)
+      case oid: ObjectId => new Timestamp(oid.getDate.getTime)
+      case str: String => Timestamp.parseISO(str).get
+      case _ => throwCoercionException(b.raw, "Timestamp")
     }
   }
   implicit val OIDCdc = new Codec[ObjectId, BsonValue] {
@@ -294,7 +294,7 @@ object Mongolia {
       case oid: ObjectId => oid
       case arr: Array[Byte] if arr.length == 12 => new ObjectId(arr)
       case str: String if ObjectId.isValid(str) => new ObjectId(str)
-      case _ ⇒ throwCoercionException(any, "ObjectId")
+      case _ => throwCoercionException(any, "ObjectId")
     }
   }
   implicit val UUIDCdc = new Codec[UUID, BsonValue] {
@@ -304,11 +304,11 @@ object Mongolia {
       new Value(new Binary(4, bb.array))
     }
     def decode(b: BsonValue) = b.raw match {
-      case u: UUID ⇒ u
-      case b: Binary if b.getType == 4 ⇒ binaryType4ToUUID(b.getData)
-      case a: Array[Byte] if a.length == 16 ⇒ binaryType4ToUUID(a)
-      case s: String if s.length == 36 ⇒ UUID.fromString(s)
-      case _ ⇒ throwCoercionException(b.raw, "UUID")
+      case u: UUID => u
+      case b: Binary if b.getType == 4 => binaryType4ToUUID(b.getData)
+      case a: Array[Byte] if a.length == 16 => binaryType4ToUUID(a)
+      case s: String if s.length == 36 => UUID.fromString(s)
+      case _ => throwCoercionException(b.raw, "UUID")
     }
   }
   implicit val PwdCdc = new Codec[Password, BsonValue] {
@@ -319,10 +319,10 @@ object Mongolia {
       new Value(dbo)
     }
     def decode(b: BsonValue) = b.raw match {
-      case obj: DBObject ⇒
+      case obj: DBObject =>
         val dbo = enrich(obj)
         new Password(dbo("digest").as[Array[Byte]], dbo("algo").as[String], dbo("salt").opt[Array[Byte]].getOrElse(Array.empty), dbo("work").opt[Int].getOrElse(1))
-      case _ ⇒ throwCoercionException(b.raw, "Password")
+      case _ => throwCoercionException(b.raw, "Password")
     }
   }
   implicit val EmlCdc = new Codec[EmailAddress, BsonValue] {
@@ -344,12 +344,12 @@ object Mongolia {
   implicit val BDCdc = new Codec[BigDecimal, BsonValue] {
     def encode(a: BigDecimal): BsonValue = new Value(a.toString)
     def decode(b: BsonValue): BigDecimal = b.raw match {
-      case bd: java.math.BigDecimal ⇒ BigDecimal(bd)
-      case s: String ⇒ BigDecimal(s)
-      case d: Double ⇒ BigDecimal(d)
-      case i: Int ⇒ BigDecimal(i)
-      case l: Long ⇒ BigDecimal(l)
-      case _ ⇒ throwCoercionException(b.raw, "BigDecimal")
+      case bd: java.math.BigDecimal => BigDecimal(bd)
+      case s: String => BigDecimal(s)
+      case d: Double => BigDecimal(d)
+      case i: Int => BigDecimal(i)
+      case l: Long => BigDecimal(l)
+      case _ => throwCoercionException(b.raw, "BigDecimal")
     }
   }
   implicit def EnumCdc[T <: Enum[T]](implicit tag: ClassTag[T]) = new Codec[T, BsonValue] {
@@ -359,7 +359,7 @@ object Mongolia {
       case i: Int => constants(i)
       case name: String => findByName(name)
       case n: Number => constants(n.intValue)
-      case _ ⇒ throwCoercionException(b.raw, tag.runtimeClass.getName)
+      case _ => throwCoercionException(b.raw, tag.runtimeClass.getName)
     }
     @annotation.tailrec
     private def findByName(name: String, idx: Int = 0): T = {
@@ -382,7 +382,7 @@ object Mongolia {
       case i: Int => enum(i)
       case name: String => enum.withName(name)
       case n: Number => enum(n.intValue)
-      case _ ⇒ throwCoercionException(b.raw, enum.getClass.getName)
+      case _ => throwCoercionException(b.raw, enum.getClass.getName)
     }
   }
 
@@ -395,7 +395,7 @@ object Mongolia {
       dbo: BsonValue
     }
     def decode(b: BsonValue): GeoPoint = b.raw match {
-      case dbo: DBObject ⇒
+      case dbo: DBObject =>
         if (dbo.isInstanceOf[java.util.List[_]]) {
           val coords = b.raw.asInstanceOf[java.util.List[Number]]
           new GeoPoint(coords.get(1).floatValue, coords.get(0).floatValue, 0f)
@@ -404,7 +404,7 @@ object Mongolia {
           val radius: Float = dbo("radius").opt[Float].getOrElse(0f)
           new GeoPoint(coords.get(1).floatValue, coords.get(0).floatValue, radius)
         }
-      case _ ⇒ throwCoercionException(b.raw, "GeoPoint")
+      case _ => throwCoercionException(b.raw, "GeoPoint")
     }
   }
 
@@ -414,34 +414,34 @@ object Mongolia {
   }
   implicit def OptCdc[T](implicit codec: Codec[T, BsonValue]) = new Codec[Option[T], BsonValue] {
     def encode(a: Option[T]) = a match {
-      case Some(t) ⇒ codec.encode(t)
-      case _ ⇒ null
+      case Some(t) => codec.encode(t)
+      case _ => null
     }
     def decode(b: BsonValue) = b.raw match {
-      case null ⇒ None
-      case _ ⇒ Some(codec.decode(b))
+      case null => None
+      case _ => Some(codec.decode(b))
     }
   }
   implicit def DBObjectCdc: Codec[DBObject, BsonValue] = DboCdc
   private[this] val DboCdc = new Codec[DBObject, BsonValue] {
     def encode(a: DBObject): BsonValue = a match {
-      case l: BsonList ⇒ l
-      case _ ⇒ enrich(a)
+      case l: BsonList => l
+      case _ => enrich(a)
     }
     def decode(b: BsonValue): DBObject = b.raw match {
-      case list: BasicDBList ⇒ list
+      case list: BasicDBList => list
       case list: org.bson.LazyDBList => list
-      case dbo: DBObject ⇒ dbo.enrich: DBObject
-      case _ ⇒ throwCoercionException(b.raw, "DBObject")
+      case dbo: DBObject => dbo.enrich: DBObject
+      case _ => throwCoercionException(b.raw, "DBObject")
     }
   }
   implicit def BsonObjectCdc: Codec[BsonObject, BsonValue] = RDboCdc
   private[this] val RDboCdc = new Codec[BsonObject, BsonValue] {
     def encode(a: BsonObject): BsonValue = a
     def decode(b: BsonValue): BsonObject = b.raw match {
-      case dbo: BsonObject ⇒ dbo
-      case dbo: DBObject ⇒ dbo.enrich
-      case _ ⇒ throwCoercionException(b.raw, "BsonObject")
+      case dbo: BsonObject => dbo
+      case dbo: DBObject => dbo.enrich
+      case _ => throwCoercionException(b.raw, "BsonObject")
     }
   }
 
@@ -455,13 +455,13 @@ object Mongolia {
     def decode(b: BsonValue): Map[String, T] = {
       var map: Map[String, T] = Map.empty
       b.raw match {
-        case jmap: java.util.Map[_, _] ⇒
+        case jmap: java.util.Map[_, _] =>
           val iter = jmap.asInstanceOf[java.util.Map[String, Any]].entrySet.iterator
           while (iter.hasNext) {
             val entry = iter.next
             map += (entry.getKey -> toValue(entry.getValue))
           }
-        case dbo: DBObject ⇒
+        case dbo: DBObject =>
           val keys = dbo.keys.iterator
           while (keys.hasNext) {
             val key = keys.next
@@ -478,8 +478,8 @@ object Mongolia {
     val iter = list.iterator
     while (i < array.length) {
       iter.next match {
-        case null ⇒ // Ignore
-        case a ⇒ array(i) = codec.decode(new Value(a))
+        case null => // Ignore
+        case a => array(i) = codec.decode(new Value(a))
       }
       i += 1
     }
@@ -488,7 +488,7 @@ object Mongolia {
 
   private def seq2bsonlist[T](seq: GenTraversableOnce[T])(implicit codec: Codec[T, BsonValue]) = {
     val list = new BsonList
-    seq.foreach { t ⇒
+    seq.foreach { t =>
       val value = if (t == null) null else {
         val bson = codec.encode(t)
         if (bson == null) null else bson.raw
@@ -536,12 +536,12 @@ object Mongolia {
   def obj(ignoreNulls: Boolean = false, ignoreEmpty: Boolean = false): BsonObject = new BsonObject(ignoreNulls = ignoreNulls, ignoreEmpty = ignoreEmpty)
   def obj(props: Seq[BsonProp]): BsonObject = {
     val map = new BsonObject
-    props.foreach(p ⇒ if (map.put(p.key, p.raw) != null) throw new IllegalArgumentException("Field \"%s\" occurs multiple times".format(p.key)))
+    props.foreach(p => if (map.put(p.key, p.raw) != null) throw new IllegalArgumentException("Field \"%s\" occurs multiple times".format(p.key)))
     map
   }
   def obj(head: BsonProp, tail: BsonProp*): BsonObject = {
     val map = new BsonObject(new BasicDBObject(head.key, head.raw))
-    tail.foreach(p ⇒ if (map.put(p.key, p.raw) != null) throw new IllegalArgumentException("Field \"%s\" occurs multiple times".format(p.key)))
+    tail.foreach(p => if (map.put(p.key, p.raw) != null) throw new IllegalArgumentException("Field \"%s\" occurs multiple times".format(p.key)))
     map
   }
   def arr(values: BsonValue*): BsonList = seq2bsonlist(values)(Codec.noop)
@@ -549,8 +549,8 @@ object Mongolia {
   def obj[T](map: collection.Map[String, T])(implicit codec: Codec[T, BsonValue]): BsonObject = new BsonObject().add(map)
 
   implicit def enrich(poor: DBObject) = poor match {
-    case rich: BsonObject ⇒ rich
-    case _ ⇒ new BsonObject(poor)
+    case rich: BsonObject => rich
+    case _ => new BsonObject(poor)
   }
   implicit def impoverish(rich: BsonObject) = rich.impoverish
   implicit def impoverish(rich: DocCollection) = rich.impoverish
@@ -591,17 +591,17 @@ object Mongolia {
   private def anyToIterable(any: Any): Iterable[_] = {
     import collection.JavaConversions._
     any match {
-      case arr: Array[AnyRef] ⇒ arr
-      case list: java.lang.Iterable[_] ⇒ list
-      case seq: collection.GenTraversableOnce[_] ⇒ seq.toIterable.asInstanceOf[Iterable[_]]
-      case _ ⇒ throwCoercionException(any, "java.util.List")
+      case arr: Array[AnyRef] => arr
+      case list: java.lang.Iterable[_] => list
+      case seq: collection.GenTraversableOnce[_] => seq.toIterable.asInstanceOf[Iterable[_]]
+      case _ => throwCoercionException(any, "java.util.List")
     }
   }
 
   object BsonField {
     def apply(obj: Any, from: DBObject = null, key: String = null): BsonField = obj match {
-      case null ⇒ if (from == null || from.containsField(key)) new Null(Option(key)) else new Missing(Option(key))
-      case obj ⇒ new Value(obj)
+      case null => if (from == null || from.containsField(key)) new Null(Option(key)) else new Missing(Option(key))
+      case obj => new Value(obj)
     }
     def apply(obj: DBObject, key: String): BsonField = apply(obj.get(key), obj, key)
   }
@@ -615,8 +615,8 @@ object Mongolia {
   final class Null private[Mongolia] (fieldName: Option[String]) extends BsonField {
     def opt[T](implicit codec: Codec[T, BsonValue]) = None
     def as[T](implicit codec: Codec[T, BsonValue]): T = fieldName match {
-      case None ⇒ throw new UnavailableValueException("", "Field value is null")
-      case Some(name) ⇒ throw new UnavailableValueException(name, s"""Field "$name" is null""")
+      case None => throw new UnavailableValueException("", "Field value is null")
+      case Some(name) => throw new UnavailableValueException(name, s"""Field "$name" is null""")
     }
     def asSeqOfOption[T](implicit codec: Codec[T, BsonValue]) = IndexedSeq.empty
     def asSeq[T](implicit codec: Codec[T, BsonValue]) = IndexedSeq.empty
@@ -625,8 +625,8 @@ object Mongolia {
   final class Missing private[Mongolia] (fieldName: Option[String]) extends BsonField {
     def opt[T](implicit codec: Codec[T, BsonValue]) = None
     def as[T](implicit codec: Codec[T, BsonValue]): T = fieldName match {
-      case None ⇒ throw new UnavailableValueException("", "Field does not exist")
-      case Some(name) ⇒ throw new UnavailableValueException(name, s"""Field "$name" does not exist""")
+      case None => throw new UnavailableValueException("", "Field does not exist")
+      case Some(name) => throw new UnavailableValueException(name, s"""Field "$name" does not exist""")
     }
     def asSeqOfOption[T](implicit codec: Codec[T, BsonValue]) = IndexedSeq.empty
     def asSeq[T](implicit codec: Codec[T, BsonValue]) = IndexedSeq.empty
@@ -643,8 +643,8 @@ object Mongolia {
       val iter = list.iterator
       while (i < array.length) {
         array(i) = iter.next match {
-          case null ⇒ None
-          case a ⇒ Some(codec.decode(new Value(a)))
+          case null => None
+          case a => Some(codec.decode(new Value(a)))
         }
         i += 1
       }
@@ -657,8 +657,8 @@ object Mongolia {
       val iter = list.iterator
       while (i < array.length) {
         iter.next match {
-          case null ⇒ // Ignore
-          case a ⇒ array(i) = codec.decode(new Value(a))
+          case null => // Ignore
+          case a => array(i) = codec.decode(new Value(a))
         }
         i += 1
       }
@@ -671,8 +671,8 @@ object Mongolia {
       val iter = iterable.iterator
       while (iter.hasNext) {
         iter.next match {
-          case null ⇒ // Ignore
-          case a ⇒ list ::= codec.decode(new Value(a))
+          case null => // Ignore
+          case a => list ::= codec.decode(new Value(a))
         }
       }
       list.reverse
@@ -692,8 +692,8 @@ object Mongolia {
   implicit final class DocCollection(val underlying: DBCollection) extends AnyVal {
     implicit def impoverish = underlying
     private def SAFE = underlying.getWriteConcern.getWObject.asInstanceOf[Any] match {
-      case w: Int if w < WriteConcern.SAFE.getW ⇒ WriteConcern.SAFE
-      case _ ⇒ underlying.getWriteConcern
+      case w: Int if w < WriteConcern.SAFE.getW => WriteConcern.SAFE
+      case _ => underlying.getWriteConcern
     }
     def safeInsert(dbo: DBObject, more: DBObject*) = {
       if (more.isEmpty) {
@@ -774,14 +774,14 @@ object Mongolia {
     def createUniqueSparseIndex(key: String): Unit = underlying.createIndex(obj(key := ASC), obj("sparse" := true, "unique" := true))
     def createUniqueIndex(keyHead: BsonIntProp, keyTail: BsonIntProp*): Unit = underlying.createIndex(obj(keyHead, keyTail: _*), obj("unique" := true))
     def findOne(anyRef: Object) = anyRef match {
-      case key: DBObject ⇒ underlying.findOne(key)
-      case prop: BsonProp ⇒ underlying.findOne(obj(prop))
-      case value: BsonValue ⇒ underlying.findOne(_id(value))
-      case _ ⇒ underlying.findOne(anyRef)
+      case key: DBObject => underlying.findOne(key)
+      case prop: BsonProp => underlying.findOne(obj(prop))
+      case value: BsonValue => underlying.findOne(_id(value))
+      case _ => underlying.findOne(anyRef)
     }
     def findOpt(key: DBObject, fields: DBObject = null) = underlying.findOne(key, fields) match {
-      case null ⇒ None
-      case doc ⇒ Some(doc.enrich)
+      case null => None
+      case doc => Some(doc.enrich)
     }
   }
 
@@ -830,46 +830,46 @@ object Mongolia {
         var i = 0
         while (i < str.length) {
           str.charAt(i) match {
-            case '\\' ⇒ sb append "\\\\"
-            case '"' ⇒ sb append "\\\""
-            case '\n' ⇒ sb append "\\n"
-            case '\r' ⇒ sb append "\\r"
-            case '\t' ⇒ sb append "\\t"
-            case '\b' ⇒ sb append "\\b"
-            case c if c < 32 ⇒ // Ignore
-            case c ⇒ sb append c
+            case '\\' => sb append "\\\\"
+            case '"' => sb append "\\\""
+            case '\n' => sb append "\\n"
+            case '\r' => sb append "\\r"
+            case '\t' => sb append "\\t"
+            case '\b' => sb append "\\b"
+            case c if c < 32 => // Ignore
+            case c => sb append c
           }
           i += 1
         }
         sb append "\""
       }
       def append(any: Any): Unit = any match {
-        case null ⇒ sb append "null"
-        case s: String ⇒ appendString(s)
-        case d: Double ⇒ if (java.lang.Double.isNaN(d) || java.lang.Double.isInfinite(d)) sb append "null" else sb append d
-        case i: Int ⇒ sb append i
-        case l: Long ⇒ sb append l
-        case b: Boolean ⇒ sb append b
-        case d: java.util.Date ⇒ sb append "{\"$date\":" append d.getTime append '}'
-        case id: ObjectId ⇒ sb append "{\"$oid\":\"" append id.toString append "\"}"
-        case u: UUID ⇒ sb append "{\"$uuid\":\"" append u.toString append "\"}"
-        case a: Array[AnyRef] ⇒ appendList(a)
-        case b: Binary ⇒ if (b.getType == 4) {
+        case null => sb append "null"
+        case s: String => appendString(s)
+        case d: Double => if (java.lang.Double.isNaN(d) || java.lang.Double.isInfinite(d)) sb append "null" else sb append d
+        case i: Int => sb append i
+        case l: Long => sb append l
+        case b: Boolean => sb append b
+        case d: java.util.Date => sb append "{\"$date\":" append d.getTime append '}'
+        case id: ObjectId => sb append "{\"$oid\":\"" append id.toString append "\"}"
+        case u: UUID => sb append "{\"$uuid\":\"" append u.toString append "\"}"
+        case a: Array[AnyRef] => appendList(a)
+        case b: Binary => if (b.getType == 4) {
           sb append "{\"$uuid\":\"" append binaryType4ToUUID(b.getData).toString append "\"}"
         } else {
           sb append "{\"$binary\":\"" append base64.encode(b.getData) append "\",\"$type\":" append b.getType append '}'
         }
-        case r: BsonObject ⇒ appendRef(r.impoverish)
-        case f: Float ⇒ if (java.lang.Float.isNaN(f) || java.lang.Float.isInfinite(f)) sb append "null" else sb append f
-        case _ ⇒ appendRef(any.asInstanceOf[AnyRef])
+        case r: BsonObject => appendRef(r.impoverish)
+        case f: Float => if (java.lang.Float.isNaN(f) || java.lang.Float.isInfinite(f)) sb append "null" else sb append f
+        case _ => appendRef(any.asInstanceOf[AnyRef])
       }
       def appendRef(anyRef: AnyRef): Unit = {
         import collection.JavaConverters._
         anyRef match {
-          case m: java.util.Map[_, _] ⇒ appendMap(m)
-          case l: java.lang.Iterable[_] ⇒ appendList(l.asScala)
-          case t: collection.GenTraversableOnce[_] ⇒ appendList(t)
-          case _ ⇒ serializers.borrow(_.serialize(anyRef, sb))
+          case m: java.util.Map[_, _] => appendMap(m)
+          case l: java.lang.Iterable[_] => appendList(l.asScala)
+          case t: collection.GenTraversableOnce[_] => appendList(t)
+          case _ => serializers.borrow(_.serialize(anyRef, sb))
         }
       }
 
@@ -883,13 +883,13 @@ object Mongolia {
     def markAsPartialObject = underlying.markAsPartialObject
     def isPartialObject: Boolean = underlying.isPartialObject
     def put(key: String, v: Any) = v match {
-      case null if ignoreNulls ⇒ underlying.removeField(key)
-      case l: java.util.List[_] if ignoreEmpty && l.isEmpty ⇒ underlying.removeField(key)
-      case _ ⇒ underlying.put(key, v)
+      case null if ignoreNulls => underlying.removeField(key)
+      case l: java.util.List[_] if ignoreEmpty && l.isEmpty => underlying.removeField(key)
+      case _ => underlying.put(key, v)
     }
     def putAll(o: org.bson.BSONObject) = o match {
-      case m: java.util.Map[_, _] ⇒ putAll(m: java.util.Map[_, _])
-      case _ ⇒ for (k ← o.keySet.asScala) put(k, o.get(k))
+      case m: java.util.Map[_, _] => putAll(m: java.util.Map[_, _])
+      case _ => for (k ← o.keySet.asScala) put(k, o.get(k))
     }
     def putAll(m: java.util.Map[_, _]) = for (entry ← m.entrySet.asScala) put(entry.getKey.toString, entry.getValue)
     def get(key: String) = underlying.get(key)
@@ -950,12 +950,12 @@ object Mongolia {
     def keySet = underlying.keySet
     def add[T](map: collection.Map[String, T])(implicit codec: Codec[T, BsonValue]): BsonObject = {
       map.foreach {
-        case (key, value) ⇒ add(key := value)
+        case (key, value) => add(key := value)
       }
       this
     }
     def rename(fromTo: (String, String)): Unit = rename(fromTo, null)(null)
-    def rename[T](fromTo: (String, String), transform: BsonField ⇒ T)(implicit codec: Codec[T, BsonValue]): Unit = {
+    def rename[T](fromTo: (String, String), transform: BsonField => T)(implicit codec: Codec[T, BsonValue]): Unit = {
       if (underlying.containsField(fromTo._1)) {
         val removed = underlying.removeField(fromTo._1)
         if (transform == null) {
@@ -1021,21 +1021,21 @@ object Mongolia {
       } else throw new IllegalArgumentException(s"${tag.runtimeClass} must be an interface")
 
     def isEmpty = underlying match {
-      case m: java.util.Map[_, _] ⇒ m.isEmpty
-      case _ ⇒ underlying.keySet.isEmpty
+      case m: java.util.Map[_, _] => m.isEmpty
+      case _ => underlying.keySet.isEmpty
     }
     def prop(key: String): BsonProp = new BsonProp(key, new Value(underlying.get(key)))
     def asSeq[T](implicit codec: Codec[T, BsonValue]) = new Value(underlying).asSeq[T]
     def asSeqOfOption[T](implicit codec: Codec[T, BsonValue]) = new Value(underlying).asSeqOfOption[T]
     def add(head: BsonProp, tail: BsonProp*): BsonObject = {
       this.put(head.key, head.raw)
-      tail.foreach { prop ⇒
+      tail.foreach { prop =>
         this.put(prop.key, prop.raw)
       }
       this
     }
     def add(props: Seq[BsonProp]): BsonObject = {
-      props.foreach { prop ⇒
+      props.foreach { prop =>
         this.put(prop.key, prop.raw)
       }
       this
@@ -1043,9 +1043,9 @@ object Mongolia {
     def enrich = this
     def impoverish = underlying
     def _id = underlying.get("_id") match {
-      case null ⇒ throw new IllegalArgumentException("Field \"_id\" is missing")
-      case oid: ObjectId ⇒ oid
-      case any ⇒
+      case null => throw new IllegalArgumentException("Field \"_id\" is missing")
+      case oid: ObjectId => oid
+      case any =>
         import language.reflectiveCalls
         OIDCdc.decode(any)
     }
@@ -1077,7 +1077,7 @@ object Mongolia {
       }
     }
 
-    def map[T](f: BsonObject ⇒ T): T = f(this)
+    def map[T](f: BsonObject => T): T = f(this)
 
   }
 
@@ -1095,8 +1095,8 @@ object Mongolia {
   implicit final class BsonCursor(val cursor: DBCursor) extends AnyVal {
     def impoverish = cursor
     override def toString = map(_.toString).mkString("[", ",", "]")
-    def toSeq() = map(d ⇒ d)
-    def find(foundIt: BsonObject ⇒ Boolean): Option[BsonObject] = {
+    def toSeq() = map(d => d)
+    def find(foundIt: BsonObject => Boolean): Option[BsonObject] = {
       var found: Option[BsonObject] = None
       try {
         while (found.isEmpty && cursor.hasNext) {
@@ -1118,7 +1118,7 @@ object Mongolia {
     } finally {
       cursor.close()
     }
-    def foreach(f: BsonObject ⇒ Unit) {
+    def foreach(f: BsonObject => Unit) {
       try {
         while (cursor.hasNext) {
           f(new BsonObject(cursor.next))
@@ -1127,7 +1127,7 @@ object Mongolia {
         cursor.close()
       }
     }
-    def getOrElse[T](f: BsonObject ⇒ T, t: ⇒ T): T = {
+    def getOrElse[T](f: BsonObject => T, t: => T): T = {
       try {
         if (cursor.hasNext) {
           f(new BsonObject(cursor.next))
@@ -1138,17 +1138,17 @@ object Mongolia {
         cursor.close()
       }
     }
-    def map[T](f: BsonObject ⇒ T): Seq[T] = {
+    def map[T](f: BsonObject => T): Seq[T] = {
       val buffer = collection.mutable.Buffer[T]()
-      foreach { dbo ⇒
+      foreach { dbo =>
         buffer += f(dbo)
       }
       buffer
     }
 
-    def flatMap[T](f: BsonObject ⇒ collection.GenTraversableOnce[T]): Seq[T] = {
+    def flatMap[T](f: BsonObject => collection.GenTraversableOnce[T]): Seq[T] = {
       val buffer = collection.mutable.Buffer[T]()
-      foreach { dbo ⇒
+      foreach { dbo =>
         f(dbo).foreach(buffer += _)
       }
       buffer
@@ -1225,7 +1225,7 @@ object Mongolia {
   def $setOnInsert(prop: BsonProp, more: BsonProp*): BsonProp = "$setOnInsert" := obj(prop, more: _*)
   def $unset(names: String*) = {
     val unsets = new BsonObject
-    names.foreach { name ⇒
+    names.foreach { name =>
       unsets.add(name := 1)
     }
     "$unset" := unsets
@@ -1300,16 +1300,16 @@ object Mongolia {
       val map = new StringBuilder
       val reduce = new StringBuilder
       val br = coffeescript match {
-        case br: java.io.BufferedReader ⇒ br
-        case r ⇒ new java.io.BufferedReader(r)
+        case br: java.io.BufferedReader => br
+        case r => new java.io.BufferedReader(r)
       }
       var line = br.readLine()
       while (line != null) {
         val m = FunctionMatcher.matcher(line)
         if (m.lookingAt()) {
           m.group(1) match {
-            case "map" ⇒ active = Some(map)
-            case "reduce" ⇒ active = Some(reduce)
+            case "map" => active = Some(map)
+            case "reduce" => active = Some(reduce)
           }
           line = m.replaceFirst("")
         }
@@ -1323,15 +1323,15 @@ object Mongolia {
   }
 
   def parseJson(json: String): Any = com.mongodb.util.JSON.parse(json) match {
-    case dbo: DBObject ⇒ enrich(dbo)
-    case a ⇒ a
+    case dbo: DBObject => enrich(dbo)
+    case a => a
   }
   def parseJsonObject(json: String): Option[DBObject] = json match {
-    case null ⇒ None
-    case json ⇒
+    case null => None
+    case json =>
       parseJson(json) match {
-        case dbo: DBObject ⇒ Some(enrich(dbo))
-        case _ ⇒ None
+        case dbo: DBObject => Some(enrich(dbo))
+        case _ => None
       }
   }
 
@@ -1374,15 +1374,15 @@ object Mongolia {
 
     private def convertProxyValue(name: String, value: BsonField, asType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]) =
       mapping.get(asType) match {
-        case Some(converter) ⇒
+        case Some(converter) =>
           value match {
             case value: Value => value.as(converter)
             case _ => null
           }
-        case None ⇒
+        case None =>
           import scuff._
           value match {
-            case value: Value ⇒
+            case value: Value =>
               if (asType.isInstance(value.raw)) {
                 value.raw
               } else if (isProxyable(asType)) {
@@ -1394,73 +1394,73 @@ object Mongolia {
           }
       }
     private def convertProxySet(name: String, shouldBeSet: BsonField, setType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): Set[_] = mapping.get(setType) match {
-      case Some(converter) ⇒ shouldBeSet.asSeq(converter).toSet
-      case None ⇒
+      case Some(converter) => shouldBeSet.asSeq(converter).toSet
+      case None =>
         if (setType.isInterface) {
           shouldBeSet.asSeq[DBObject].map(getProxy(_, mapping)(ClassTag[Any](setType))).toSet
         } else {
           shouldBeSet match {
-            case value: Value ⇒ value.raw match {
-              case list: java.util.ArrayList[_] ⇒
+            case value: Value => value.raw match {
+              case list: java.util.ArrayList[_] =>
                 import collection.JavaConverters._
-                list.asScala.map(elem ⇒ convertProxyValue(name, BsonField(elem), setType, mapping)).toSet
-              case _ ⇒ Set(convertProxyValue(name, value, setType, mapping))
+                list.asScala.map(elem => convertProxyValue(name, BsonField(elem), setType, mapping)).toSet
+              case _ => Set(convertProxyValue(name, value, setType, mapping))
             }
-            case _ ⇒ Set.empty
+            case _ => Set.empty
           }
         }
     }
     private def convertProxyMap(name: String, shouldBeMap: BsonField, valType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): Map[String, _] = {
       shouldBeMap match {
-        case value: Value ⇒
+        case value: Value =>
           mapping.get(valType) match {
-            case Some(valConv) ⇒ MapCdc(valConv).decode(value)
-            case None ⇒ value.raw match {
-              case dbo: DBObject ⇒
+            case Some(valConv) => MapCdc(valConv).decode(value)
+            case None => value.raw match {
+              case dbo: DBObject =>
                 var map = Map.empty[String, Any]
-                dbo.keys.foreach { key ⇒
+                dbo.keys.foreach { key =>
                   val value = convertProxyValue(key, dbo(key), valType, mapping)
                   map += key -> value
                 }
                 map
-              case e: Exception ⇒ throw new InvalidValueTypeException(name, e, s"Cannot convert ${value.raw.getClass.getName}(${value.raw}) to Map[String, ${valType.getName}]")
+              case e: Exception => throw new InvalidValueTypeException(name, e, s"Cannot convert ${value.raw.getClass.getName}(${value.raw}) to Map[String, ${valType.getName}]")
             }
           }
-        case _ ⇒ Map.empty
+        case _ => Map.empty
       }
     }
 
     private def convertProxySeq(name: String, shouldBeList: BsonField, seqType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): IndexedSeq[_] = mapping.get(seqType) match {
-      case Some(converter) ⇒ shouldBeList.asSeq(converter)
-      case None ⇒
+      case Some(converter) => shouldBeList.asSeq(converter)
+      case None =>
         if (seqType.isInterface) {
           shouldBeList.asSeq[DBObject].map(getProxy(_, mapping)(ClassTag[Any](seqType)))
         } else {
           shouldBeList match {
-            case value: Value ⇒ value.raw match {
-              case list: java.util.List[_] ⇒
+            case value: Value => value.raw match {
+              case list: java.util.List[_] =>
                 import collection.JavaConversions._
-                list.toArray().map(elem ⇒ convertProxyValue(name, BsonField(elem), seqType, mapping))
-              case _ ⇒ IndexedSeq(convertProxyValue(name, value, seqType, mapping))
+                list.toArray().map(elem => convertProxyValue(name, BsonField(elem), seqType, mapping))
+              case _ => IndexedSeq(convertProxyValue(name, value, seqType, mapping))
             }
-            case _ ⇒ IndexedSeq.empty
+            case _ => IndexedSeq.empty
           }
         }
     }
     private def convertProxyList(name: String, shouldBeList: BsonField, seqType: Class[_], mapping: Map[Class[_], Codec[_, BsonValue]]): List[_] = mapping.get(seqType) match {
-      case Some(converter) ⇒ shouldBeList.asList(converter)
-      case None ⇒
+      case Some(converter) => shouldBeList.asList(converter)
+      case None =>
         if (seqType.isInterface) {
           shouldBeList.asList[DBObject].map(getProxy(_, mapping)(ClassTag[Any](seqType)))
         } else {
           shouldBeList match {
-            case value: Value ⇒ value.raw match {
-              case list: java.util.ArrayList[_] ⇒
+            case value: Value => value.raw match {
+              case list: java.util.ArrayList[_] =>
                 import collection.JavaConverters._
-                list.asScala.map(elem ⇒ convertProxyValue(name, BsonField(elem), seqType, mapping)).toList
-              case _ ⇒ List(convertProxyValue(name, value, seqType, mapping))
+                list.asScala.map(elem => convertProxyValue(name, BsonField(elem), seqType, mapping)).toList
+              case _ => List(convertProxyValue(name, value, seqType, mapping))
             }
-            case _ ⇒ Nil
+            case _ => Nil
           }
         }
     }
@@ -1468,16 +1468,16 @@ object Mongolia {
     private def getGenericReturnClass(method: java.lang.reflect.Method, depth: Int) = {
         def getGenericType(t: java.lang.reflect.Type, depth: Int): Class[_] = {
           val typeArgs = t match {
-            case pt: java.lang.reflect.ParameterizedType ⇒ pt.getActualTypeArguments()
+            case pt: java.lang.reflect.ParameterizedType => pt.getActualTypeArguments()
           }
           typeArgs(typeArgs.length - 1) match {
-            case pt: java.lang.reflect.ParameterizedType ⇒
+            case pt: java.lang.reflect.ParameterizedType =>
               if (depth == 0) {
                 pt.getRawType.asInstanceOf[Class[_]]
               } else {
                 getGenericType(pt, depth - 1)
               }
-            case clz: Class[_] ⇒ clz
+            case clz: Class[_] => clz
           }
         }
       getGenericType(method.getGenericReturnType, depth)
@@ -1506,8 +1506,8 @@ object Mongolia {
         convertProxyValue(valueName, value, expectedType, mapping)
       }
     } catch {
-      case e: UnavailableValueException ⇒ throw e
-      case e: Exception ⇒ throw new InvalidValueTypeException(valueName, e)
+      case e: UnavailableValueException => throw e
+      case e: Exception => throw new InvalidValueTypeException(valueName, e)
     }
 
     def getProxy[T: ClassTag](dbo: BsonObject, userMapping: Map[Class[_], Codec[_, BsonValue]]): T = {
@@ -1518,16 +1518,16 @@ object Mongolia {
       val fp = new Proxylicious[T]
       val mapping = DefaultProxyMapping ++ userMapping
       val proxy = fp.proxify {
-        case (_, method, args) if args == null || args.length == 0 ⇒
+        case (_, method, args) if args == null || args.length == 0 =>
           if (method.getName == "toString") {
             dbo.toJson()
           } else {
             checkNotNull(extractValue(method.getName, method, dbo(method.getName), method.getReturnType, mapping), method.getName)
           }
-        case (_, method, args) if args != null && args.length == 1 && args(0).isInstanceOf[String] ⇒
+        case (_, method, args) if args != null && args.length == 1 && args(0).isInstanceOf[String] =>
           val valueName = args(0).asInstanceOf[String]
           checkNotNull(extractValue(valueName, method, dbo(valueName), method.getReturnType, mapping), valueName)
-        case (_, method, _) ⇒ throw new IllegalAccessException("Cannot proxy methods with arguments: " + method)
+        case (_, method, _) => throw new IllegalAccessException("Cannot proxy methods with arguments: " + method)
       }
       fp.withEqualsHashCodeOverride(proxy)
     }

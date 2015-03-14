@@ -24,7 +24,7 @@ class TestFSM {
       conn(reconnected)
       fail("Cannot reconnect when already connected")
     } catch {
-      case e: IllegalStateException ⇒ // Expected
+      case e: IllegalStateException => // Expected
     }
     conn(disconnected)
     assertFalse(conn.isFinal)
@@ -40,16 +40,16 @@ class TestFSM {
     parser.start()
     val isoDate = "2012-12-31"
     for (c ← isoDate) c match {
-      case '-' ⇒ parser(dash)
-      case c if c >= '0' && c <= '9' ⇒ parser(digit, c)
+      case '-' => parser(dash)
+      case c if c >= '0' && c <= '9' => parser(digit, c)
     }
     parser(done)
     parser.current match {
-      case Some(comp @ parser.Completed) ⇒ comp.date match {
-        case Some(date) ⇒ assertEquals(isoDate, date.toString)
-        case _ ⇒ fail("Should have some date")
+      case Some(comp @ parser.Completed) => comp.date match {
+        case Some(date) => assertEquals(isoDate, date.toString)
+        case _ => fail("Should have some date")
       }
-      case _ ⇒ fail("current state should be completed")
+      case _ => fail("current state should be completed")
     }
   }
 
@@ -105,10 +105,10 @@ class TestFSM {
     sealed class ParseState extends typed.State[Char] {
       var num = 0
       override def onEvent(evt: Event, char: Char) = evt match {
-        case `digit` ⇒
+        case `digit` =>
           onDigit(char)
           evt
-        case _ ⇒ evt
+        case _ => evt
       }
       def onDigit(char: Char) = num = (num * 10) + (char - '0')
     }
@@ -118,7 +118,7 @@ class TestFSM {
     val Completed = new FinalState {
       var date: Option[java.sql.Date] = None
       override def onEvent(evt: Event) = evt match {
-        case `done` ⇒ date = Some(new java.sql.Date(ParseYear.num - 1900, ParseMonth.num - 1, ParseDay.num))
+        case `done` => date = Some(new java.sql.Date(ParseYear.num - 1900, ParseMonth.num - 1, ParseDay.num))
       }
     }
 
@@ -160,7 +160,7 @@ class TestFSM {
     assertTrue(phone is Active.DialTone)
     val (first, rest) = number.head -> number.tail
     phone(DigitDialed, first)
-    rest.foreach { digit ⇒
+    rest.foreach { digit =>
       assertTrue(phone is Active.Dialing)
       phone(DigitDialed, digit)
     }
@@ -253,21 +253,21 @@ class OldSchoolPhone extends FSM {
     val number = new StringBuilder
     val DialTone = new State {
       override def onEvent(evt: Event, payload: Any): Event = evt match {
-        case DigitDialed ⇒
+        case DigitDialed =>
           val digit = toInt(payload.asInstanceOf[Char])
           DigitDialed(valid = (2 <= digit && digit <= 9))
-        case ReceiverLifted ⇒
+        case ReceiverLifted =>
           number.clear()
           evt
-        case _ ⇒ evt
+        case _ => evt
       }
     }
     val Dialing = new State {
       override def onEvent(evt: Event, payload: Any): Event = evt match {
-        case DigitDialed ⇒
+        case DigitDialed =>
           val digit = toInt(payload.asInstanceOf[Char])
           onEvent(DigitDialed(0 <= digit && digit <= 9), payload)
-        case DigitDialed(true, _) ⇒
+        case DigitDialed(true, _) =>
           number += payload.asInstanceOf[Char]
           DigitDialed(true, number.length == 10)
       }

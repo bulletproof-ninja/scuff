@@ -15,8 +15,8 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) ext
   def putIfAbsent(k: A, v: B): Option[B] = {
     val map = mapRef.get
     map.get(k) match {
-      case existing: Some[_] ⇒ existing
-      case _ ⇒
+      case existing: Some[_] => existing
+      case _ =>
         val updated = map + (k -> v)
         if (mapRef.compareAndSet(map, updated)) {
           None
@@ -30,14 +30,14 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) ext
   def remove(k: A, expected: B): Boolean = {
     val map = mapRef.get
     map.get(k) match {
-      case Some(value) if value == expected ⇒
+      case Some(value) if value == expected =>
         val updated = map - k
         if (mapRef.compareAndSet(map, updated)) {
           true
         } else {
           remove(k, expected)
         }
-      case _ ⇒ false
+      case _ => false
     }
   }
 
@@ -45,14 +45,14 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) ext
   def replace(k: A, expected: B, newvalue: B): Boolean = {
     val map = mapRef.get
     map.get(k) match {
-      case Some(value) if value == expected ⇒
+      case Some(value) if value == expected =>
         val updated = map + (k -> newvalue)
         if (mapRef.compareAndSet(map, updated)) {
           true
         } else {
           replace(k, expected, newvalue)
         }
-      case _ ⇒ false
+      case _ => false
     }
   }
 
@@ -60,14 +60,14 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) ext
   def replace(k: A, v: B): Option[B] = {
     val map = mapRef.get
     map.get(k) match {
-      case replaced: Some[_] ⇒
+      case replaced: Some[_] =>
         val updated = map + (k -> v)
         if (mapRef.compareAndSet(map, updated)) {
           replaced
         } else {
           replace(k, v)
         }
-      case _ ⇒ None
+      case _ => None
     }
   }
 
@@ -148,14 +148,14 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) ext
   override def remove(key: A): Option[B] = {
     val map = mapRef.get
     map.get(key) match {
-      case value: Some[_] ⇒
+      case value: Some[_] =>
         val updated = map - key
         if (mapRef.compareAndSet(map, updated)) {
           value
         } else {
           remove(key)
         }
-      case _ ⇒ None
+      case _ => None
     }
   }
 

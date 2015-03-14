@@ -18,7 +18,7 @@ class InMemoryEventStore[ID, EVT, CAT](implicit execCtx: ExecutionContext) exten
 
   private[this] val pubSub = new PubSub[CAT, Transaction](execCtx)
 
-  def subscribe(subscriber: Transaction ⇒ Unit, filter: CAT ⇒ Boolean) = pubSub.subscribe(subscriber, filter)
+  def subscribe(subscriber: Transaction => Unit, filter: CAT => Boolean) = pubSub.subscribe(subscriber, filter)
 
   protected def publish(txn: Transaction) = pubSub.publish(txn)
 
@@ -53,7 +53,7 @@ class InMemoryEventStore[ID, EVT, CAT](implicit execCtx: ExecutionContext) exten
       }
     }
     f.andThen {
-      case Success(txn) ⇒ publish(txn)
+      case Success(txn) => publish(txn)
     }
     f
   }
@@ -65,46 +65,46 @@ class InMemoryEventStore[ID, EVT, CAT](implicit execCtx: ExecutionContext) exten
 //      txn
 //    }
 //  }.andThen {
-//    case Success(txn) ⇒ publish(txn)
+//    case Success(txn) => publish(txn)
 //  }
-  def replayStream[T](stream: ID)(callback: Iterator[Transaction] ⇒ T): Future[T] = Future {
+  def replayStream[T](stream: ID)(callback: Iterator[Transaction] => T): Future[T] = Future {
     txnList.synchronized {
-      callback(txnList.iterator.withFilter(t ⇒ t.streamId == stream))
+      callback(txnList.iterator.withFilter(t => t.streamId == stream))
     }
   }
-  def replayStreamAfter[T](stream: ID, afterRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T] = Future {
+  def replayStreamAfter[T](stream: ID, afterRevision: Int)(callback: Iterator[Transaction] => T): Future[T] = Future {
     txnList.synchronized {
-      callback(txnList.iterator.withFilter(t ⇒ t.streamId == stream && t.revision > afterRevision))
+      callback(txnList.iterator.withFilter(t => t.streamId == stream && t.revision > afterRevision))
     }
   }
-  def replayStreamTo[T](stream: ID, toRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T] = Future {
+  def replayStreamTo[T](stream: ID, toRevision: Int)(callback: Iterator[Transaction] => T): Future[T] = Future {
     txnList.synchronized {
-      callback(txnList.iterator.withFilter(t ⇒ t.streamId == stream && t.revision <= toRevision))
+      callback(txnList.iterator.withFilter(t => t.streamId == stream && t.revision <= toRevision))
     }
   }
-  def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.Range)(callback: Iterator[Transaction] ⇒ T): Future[T] = Future {
+  def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.Range)(callback: Iterator[Transaction] => T): Future[T] = Future {
     txnList.synchronized {
-      callback(txnList.iterator.withFilter(t ⇒ t.streamId == stream && revisionRange.contains(t.revision)))
+      callback(txnList.iterator.withFilter(t => t.streamId == stream && revisionRange.contains(t.revision)))
     }
   }
-  def replay[T](categories: CAT*)(callback: Iterator[Transaction] ⇒ T): Future[T] = Future {
+  def replay[T](categories: CAT*)(callback: Iterator[Transaction] => T): Future[T] = Future {
     txnList.synchronized {
       val iter = if (categories.isEmpty) {
         txnList.iterator
       } else {
         val catSet = categories.toSet
-        txnList.iterator.withFilter(txn ⇒ catSet.contains(txn.category))
+        txnList.iterator.withFilter(txn => catSet.contains(txn.category))
       }
       callback(iter)
     }
   }
-  def replayFrom[T](fromTimestamp: Long, categories: CAT*)(callback: Iterator[Transaction] ⇒ T): Future[T] = Future {
+  def replayFrom[T](fromTimestamp: Long, categories: CAT*)(callback: Iterator[Transaction] => T): Future[T] = Future {
     txnList.synchronized {
       val iter = if (categories.isEmpty) {
         txnList.iterator.withFilter(_.timestamp >= fromTimestamp)
       } else {
         val catSet = categories.toSet
-        txnList.iterator.withFilter(txn ⇒ catSet.contains(txn.category) && txn.timestamp >= fromTimestamp)
+        txnList.iterator.withFilter(txn => catSet.contains(txn.category) && txn.timestamp >= fromTimestamp)
       }
       callback(iter)
     }

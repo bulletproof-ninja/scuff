@@ -29,57 +29,57 @@ abstract class AbstractEventStoreRepositoryTest {
   var es: EventStore[String, AggrEvent, Unit] = _
   var repo: Repository[Aggr] = _
 
-  private def doAsync(f: Promise[Any] ⇒ Unit) {
+  private def doAsync(f: Promise[Any] => Unit) {
     val something = Promise[Any]
     f(something)
     Await.result(something.future, 15.seconds) match {
-      case t: Throwable ⇒ throw t
-      case Failure(t) ⇒ throw t
-      case _ ⇒
+      case t: Throwable => throw t
+      case Failure(t) => throw t
+      case _ =>
     }
   }
 
   @Test
-  def loadUnknownId = doAsync { done ⇒
+  def loadUnknownId = doAsync { done =>
     repo.load("Foo").onFailure {
-      case e: UnknownIdException ⇒
+      case e: UnknownIdException =>
         assertEquals("Foo", e.id)
         done.success(Unit)
     }
   }
 
   @Test
-  def failedInvariants = doAsync { done ⇒
+  def failedInvariants = doAsync { done =>
     val newFoo = Aggr.create("Foo")
     newFoo(AddNewNumber(-1))
     repo.insert(newFoo).onComplete {
-      case Failure(_) ⇒ done.success("Fail on negative number")
-      case Success(_) ⇒ fail("Should not accept negative numbers")
+      case Failure(_) => done.success("Fail on negative number")
+      case Success(_) => fail("Should not accept negative numbers")
     }
   }
 
   @Test
-  def saveNew = doAsync { done ⇒
+  def saveNew = doAsync { done =>
     val newFoo = Aggr.create("Foo")
     assertEquals(1, newFoo.events.size)
     repo.insert(newFoo).onSuccess {
-      case _ ⇒ done.success(Unit)
+      case _ => done.success(Unit)
     }
   }
   @Test
-  def update = doAsync { done ⇒
+  def update = doAsync { done =>
     val insert = repo.insert {
       val newFoo = Aggr.create("Foo")
       newFoo(AddNewNumber(42))
       newFoo.events match {
-        case AggrCreated() :: NewNumberWasAdded(n) :: Nil ⇒ assertEquals(42, n)
-        case _ ⇒ fail("Event sequence incorrect: " + newFoo.events)
+        case AggrCreated() :: NewNumberWasAdded(n) :: Nil => assertEquals(42, n)
+        case _ => fail("Event sequence incorrect: " + newFoo.events)
       }
       newFoo
     }
     val update1 = insert.flatMap {
-      case _ ⇒
-        repo.update("Foo", 0) { foo ⇒
+      case _ =>
+        repo.update("Foo", 0) { foo =>
           foo(AddNewNumber(42))
           assertEquals(0, foo.events.size)
           foo(AddNewNumber(99))
@@ -87,16 +87,16 @@ abstract class AbstractEventStoreRepositoryTest {
         }.map(_.revision)
     }
     update1.onSuccess {
-      case revision ⇒
+      case revision =>
         assertEquals(1L, revision)
         repo.load("Foo" -> 0).onSuccess {
-          case foo ⇒
+          case foo =>
             assertEquals(0L, foo.revision.get)
             assertTrue(foo.numbers.contains(42))
             assertFalse(foo.numbers.contains(99))
             assertEquals(1, foo.numbers.size)
             repo.load("Foo").onSuccess {
-              case foo ⇒
+              case foo =>
                 assertEquals(1L, foo.revision.get)
                 assertTrue(foo.numbers.contains(42))
                 assertTrue(foo.numbers.contains(99))
@@ -107,35 +107,35 @@ abstract class AbstractEventStoreRepositoryTest {
     }
   }
   @Test
-  def `programmer error` = doAsync { done ⇒
+  def `programmer error` = doAsync { done =>
     val aggrWithRevision = new Aggr("FooBar", new EventHandler(new AggrStateMutator), Some(42))
     repo.insert(aggrWithRevision).onComplete {
-      case Failure(e: IllegalStateException) ⇒
+      case Failure(e: IllegalStateException) =>
         assertTrue(e.getMessage().contains("FooBar") && e.getMessage.contains("42"))
-      case c ⇒
+      case c =>
         fail("Should not happen: " + c)
     }
     val aggrWithNoEvents = new Aggr("FooBar", new EventHandler(new AggrStateMutator), None)
     repo.insert(aggrWithNoEvents).onComplete {
-      case Failure(e: IllegalStateException) ⇒
+      case Failure(e: IllegalStateException) =>
         assertTrue(e.getMessage().contains("FooBar"))
-      case c ⇒
+      case c =>
         fail("Should not happen: " + c)
     }
     val aggrWithEventNoRevision = Aggr.create("FooBar")
     repo.insert(aggrWithEventNoRevision).onComplete {
-      case Success(_) ⇒
+      case Success(_) =>
         done.success(Unit)
-      case c ⇒
+      case c =>
         fail("Should not happen: " + c)
     }
   }
   @Test
-  def `duplicate id` = doAsync { done ⇒
+  def `duplicate id` = doAsync { done =>
     repo.insert(Aggr.create("Baz")).onSuccess {
-      case _ ⇒
+      case _ =>
         repo.insert(Aggr.create("Baz")).onFailure {
-          case e: DuplicateIdException ⇒
+          case e: DuplicateIdException =>
             assertEquals("Baz", e.id)
             done.success(Unit)
         }
@@ -143,16 +143,16 @@ abstract class AbstractEventStoreRepositoryTest {
   }
 
   @Test
-  def `concurrent update` = doAsync { done ⇒
+  def `concurrent update` = doAsync { done =>
     val executor = java.util.concurrent.Executors.newScheduledThreadPool(16)
     val insFut = repo.insert(Aggr.create("Foo"))
     val map = new scuff.LockFreeConcurrentMap[Int, Future[(Int, Unit)]]
     val range = 0 to 250
-    insFut.foreach { _ ⇒
+    insFut.foreach { _ =>
       for (i ← range) {
         val runThis = new Runnable {
           def run {
-            val fut = repo.update("Foo", 0) { foo ⇒
+            val fut = repo.update("Foo", 0) { foo =>
               Future successful foo(AddNewNumber(i))
             }
             map += i -> fut.map(u => u.revision -> u.output)
@@ -162,19 +162,19 @@ abstract class AbstractEventStoreRepositoryTest {
       }
       while (map.size < range.size) {}
       val revisions = map.map {
-        case (i, f) ⇒ Await.result(f, Duration.Inf)._1
+        case (i, f) => Await.result(f, Duration.Inf)._1
       }.toSeq.sorted
       done.complete(Try(assertEquals((1 to range.size).toSeq, revisions)))
     }
   }
   @Test
-  def `noop update`() = doAsync { done ⇒
+  def `noop update`() = doAsync { done =>
     repo.insert(Aggr.create("Foo")).onSuccess {
-      case _ ⇒
-        repo.update("Foo", 0) { foo ⇒
+      case _ =>
+        repo.update("Foo", 0) { foo =>
           Future(2 + 2)
         }.onSuccess {
-          case upd ⇒
+          case upd =>
             assertEquals(4, upd.output)
             assertEquals(0, upd.revision)
             done.success(Unit)
@@ -222,10 +222,10 @@ class AggrStateMutator(var state: AggrState = null, concurrentEvents: List[AggrE
 
   def apply(evt: AggrEvent) = {
     evt match {
-      case AggrCreated() ⇒
+      case AggrCreated() =>
         assertNull(state)
         state = new AggrState
-      case NewNumberWasAdded(number) ⇒
+      case NewNumberWasAdded(number) =>
         assertNotNull(state)
         val newNumbers = state.numbers + number
         state = state.copy(numbers = newNumbers)

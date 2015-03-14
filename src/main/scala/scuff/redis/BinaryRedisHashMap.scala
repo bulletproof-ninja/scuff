@@ -13,7 +13,7 @@ class BinaryRedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Ser
     extends collection.concurrent.Map[K, V] {
   import collection.JavaConverters._
 
-  implicit private def connection[T] = conn.asInstanceOf[(Jedis ⇒ T) ⇒ T]
+  implicit private def connection[T] = conn.asInstanceOf[(Jedis => T) => T]
 
   private[this] val hkey = SafeEncoder.encode(name)
 
@@ -33,8 +33,8 @@ class BinaryRedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Ser
 
   override def put(field: K, value: V): Option[V] = {
     val hfield = keySer.encode(field)
-    val prev = connection { conn ⇒
-      conn.transactionNoWatch { txn ⇒
+    val prev = connection { conn =>
+      conn.transactionNoWatch { txn =>
         val prev = txn.hget(hkey, hfield)
         txn.hset(hkey, hfield, valueSer.encode(value))
         prev
@@ -44,8 +44,8 @@ class BinaryRedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Ser
   }
   override def remove(field: K): Option[V] = {
     val hfield = keySer.encode(field)
-    val removed = connection { conn ⇒
-      conn.transactionNoWatch { txn ⇒
+    val removed = connection { conn =>
+      conn.transactionNoWatch { txn =>
         val removed = txn.hget(hkey, hfield)
         txn.hdel(hkey, hfield)
         removed
@@ -64,15 +64,15 @@ class BinaryRedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Ser
   def get(field: K): Option[V] = Option(getOrNull(field))
   override def apply(field: K): V = {
     getOrNull(field) match {
-      case null ⇒ throw new NoSuchElementException("Not found: " + field)
-      case value ⇒ value
+      case null => throw new NoSuchElementException("Not found: " + field)
+      case value => value
     }
   }
   private def getOrNull(field: K): V = {
-    connection { jedis ⇒
+    connection { jedis =>
       jedis.hget(hkey, keySer.encode(field)) match {
-        case null ⇒ null.asInstanceOf[V]
-        case bytes ⇒ valueSer.decode(bytes)
+        case null => null.asInstanceOf[V]
+        case bytes => valueSer.decode(bytes)
       }
     }
   }
@@ -80,8 +80,8 @@ class BinaryRedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Ser
 
   def putIfAbsent(field: K, value: V): Option[V] = {
     val hfield = keySer.encode(field)
-    val (prevValResp, successResp) = connection { conn ⇒
-      conn.transactionNoWatch { txn ⇒
+    val (prevValResp, successResp) = connection { conn =>
+      conn.transactionNoWatch { txn =>
         txn.hget(hkey, hfield) -> txn.hsetnx(hkey, hfield, valueSer.encode(value))
       }
     }
@@ -95,7 +95,7 @@ class BinaryRedisHashMap[K, V](name: String, conn: CONNECTION, keySer: scuff.Ser
   def del(field: K): Boolean = connection(_.hdel(hkey, keySer.encode(field)) == 1L)
 
   def iterator: Iterator[(K, V)] = {
-    val mapped = connection(_.hgetAll(hkey)).entrySet.asScala.view.map { entry ⇒
+    val mapped = connection(_.hgetAll(hkey)).entrySet.asScala.view.map { entry =>
       keySer.decode(entry.getKey) -> valueSer.decode(entry.getValue)
     }
     mapped.iterator

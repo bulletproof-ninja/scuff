@@ -13,7 +13,7 @@ class BinaryRedisCache[K, V](val defaultTTL: FiniteDuration, conn: CONNECTION, k
   private def connection[T] = if (isShutdown) {
     throw new IllegalStateException("Cache has been shut down")
   } else {
-    conn.asInstanceOf[(Jedis ⇒ T) ⇒ T]
+    conn.asInstanceOf[(Jedis => T) => T]
   }
 
   def store(key: K, value: V, ttl: FiniteDuration) =
@@ -29,7 +29,7 @@ class BinaryRedisCache[K, V](val defaultTTL: FiniteDuration, conn: CONNECTION, k
 
   def lookupAndEvict(key: K): Option[V] = {
     val keyBytes: Array[Byte] = keySer.encode(key)
-    val removed = atomic { txn ⇒
+    val removed = atomic { txn =>
       val removed = txn.get(keyBytes)
       (txn: BinaryRedisPipeline).del(keyBytes: Array[Byte])
       removed
@@ -39,10 +39,10 @@ class BinaryRedisCache[K, V](val defaultTTL: FiniteDuration, conn: CONNECTION, k
 
   def lookup(key: K): Option[V] = Option(getOrNull(key))
 
-  def lookupAndRefresh(key: K, ttl: FiniteDuration): Option[V] = connection { jedis ⇒
+  def lookupAndRefresh(key: K, ttl: FiniteDuration): Option[V] = connection { jedis =>
     getOrNull(keySer.encode(key), jedis) match {
-      case null ⇒ None
-      case value ⇒
+      case null => None
+      case value =>
         refresh(key, ttl, jedis)
         Some(value)
     }
@@ -57,11 +57,11 @@ class BinaryRedisCache[K, V](val defaultTTL: FiniteDuration, conn: CONNECTION, k
   private def getOrNull(key: K): V = connection(getOrNull(keySer.encode(key), _))
   private def getOrNull(keyBytes: Array[Byte], jedis: Jedis): V =
     jedis.get(keyBytes) match {
-      case null ⇒ null.asInstanceOf[V]
-      case bytes ⇒ valueSer.decode(bytes)
+      case null => null.asInstanceOf[V]
+      case bytes => valueSer.decode(bytes)
     }
-  def lookupOrStore(key: K, ttl: FiniteDuration)(constructor: ⇒ V): V = connection(lookupOrStore(_, keySer.encode(key), ttl, constructor))
-  private def lookupOrStore(jedis: Jedis, keyBytes: Array[Byte], ttl: FiniteDuration, constructor: ⇒ V): V = {
+  def lookupOrStore(key: K, ttl: FiniteDuration)(constructor: => V): V = connection(lookupOrStore(_, keySer.encode(key), ttl, constructor))
+  private def lookupOrStore(jedis: Jedis, keyBytes: Array[Byte], ttl: FiniteDuration, constructor: => V): V = {
     val value = getOrNull(keyBytes, jedis)
     if (value != null) {
       value
@@ -89,17 +89,17 @@ class BinaryRedisCache[K, V](val defaultTTL: FiniteDuration, conn: CONNECTION, k
 
   def set(key: K, value: V) = connection(_.set(keySer.encode(key), valueSer.encode(value)))
 
-  private def atomic[T](jedis: Jedis)(block: Transaction ⇒ T): T = {
+  private def atomic[T](jedis: Jedis)(block: Transaction => T): T = {
     val txn = jedis.multi()
     try {
       val t = block(txn)
       txn.exec()
       t
     } catch {
-      case e: Exception ⇒ try { txn.discard() } catch { case _: Exception ⇒ /* Ignore */ }; throw e
+      case e: Exception => try { txn.discard() } catch { case _: Exception => /* Ignore */ }; throw e
     }
   }
 
-  private def atomic[T](block: Transaction ⇒ T): T = connection(jedis ⇒ atomic(jedis)(block))
+  private def atomic[T](block: Transaction => T): T = connection(jedis => atomic(jedis)(block))
 
 }

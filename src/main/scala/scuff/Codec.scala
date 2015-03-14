@@ -62,17 +62,17 @@ trait StreamingSerializer[T] extends Serializer[T] {
 
 class JavaSerializer[T] extends StreamingSerializer[T] {
   def encodeInto(out: OutputStream)(obj: T) = out match {
-    case oos: ObjectOutput ⇒
+    case oos: ObjectOutput =>
       oos.writeObject(obj)
-    case _ ⇒
+    case _ =>
       val oos = new ObjectOutputStream(out)
       oos.writeObject(obj)
       oos.flush()
   }
   def decodeFrom(in: InputStream): T = {
     val obj = in match {
-      case ois: ObjectInput ⇒ ois.readObject()
-      case _ ⇒ new ObjectInputStream(in).readObject()
+      case ois: ObjectInput => ois.readObject()
+      case _ => new ObjectInputStream(in).readObject()
     }
     obj.asInstanceOf[T]
   }

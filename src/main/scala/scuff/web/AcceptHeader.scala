@@ -5,18 +5,18 @@ import javax.activation.MimeType
 
 final class AcceptHeader(mimeTypes: Seq[MimeType]) {
   require(!mimeTypes.isEmpty, "Cannot have an empty Accept header")
-  private[this] val hasMatchAny = mimeTypes.exists(mt ⇒ mt.getPrimaryType() == "*")
-  private def matchesTypes(specific: MimeType) = mimeTypes.exists { mt ⇒
+  private[this] val hasMatchAny = mimeTypes.exists(mt => mt.getPrimaryType() == "*")
+  private def matchesTypes(specific: MimeType) = mimeTypes.exists { mt =>
     mt.getPrimaryType == specific.getPrimaryType && (mt.getSubType == "*" || mt.getSubType == specific.getSubType)
   }
   def preference(): MimeType = preferenceOrderd().head
   def preferenceOrderd(): Seq[MimeType] = {
     if (mimeTypes.size == 1) mimeTypes else {
       val withQ = mimeTypes.zipWithIndex.map {
-        case (mt, idx) ⇒
+        case (mt, idx) =>
           val q = mt.getParameter("q") match {
-            case null ⇒ 1f
-            case q ⇒ Try(q.toFloat).getOrElse(0f)
+            case null => 1f
+            case q => Try(q.toFloat).getOrElse(0f)
           }
           (q, mt, idx)
       }
@@ -64,12 +64,12 @@ object AcceptHeader {
   private def split(str: String): Seq[MimeType] = {
     val types = Splitter.split(str.trim)
     types.length match {
-      case 0 ⇒ Seq.empty
-      case 1 if types(0).length == 0 ⇒ EmptyArray
-      case _ ⇒ types.map(new MimeType(_))
+      case 0 => Seq.empty
+      case 1 if types(0).length == 0 => EmptyArray
+      case _ => types.map(new MimeType(_))
     }
   }
-  def apply(header: String): Option[AcceptHeader] = Option(header).flatMap { header ⇒
+  def apply(header: String): Option[AcceptHeader] = Option(header).flatMap { header =>
     val types = split(header)
     if (types.isEmpty) None else Some(new AcceptHeader(types))
 }

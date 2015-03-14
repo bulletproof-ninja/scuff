@@ -10,7 +10,7 @@ final class SpinLock {
   private[this] val lock = new java.util.concurrent.atomic.AtomicReference[Thread]
 
   @annotation.tailrec
-  def whenLocked[T](code: ⇒ T): T = {
+  def whenLocked[T](code: => T): T = {
     if (lock.compareAndSet(null, Thread.currentThread)) {
       try {
         code

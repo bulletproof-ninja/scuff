@@ -9,7 +9,7 @@ class PubSub[G, E <% G](executor: ExecutionContext)
     extends Faucet {
 
   type F = G
-  type L = E ⇒ Unit
+  type L = E => Unit
 
   private[this] val subscribers = new java.util.concurrent.CopyOnWriteArrayList[FilteringSubscriber]
 
@@ -23,7 +23,7 @@ class PubSub[G, E <% G](executor: ExecutionContext)
     }
   }
 
-  private class FilteringSubscriber(sub: E ⇒ Unit, filter: F ⇒ Boolean) {
+  private class FilteringSubscriber(sub: E => Unit, filter: F => Boolean) {
     def handle(e: E) = try {
       if (filter(e)) {
         executor execute new Runnable {
@@ -31,7 +31,7 @@ class PubSub[G, E <% G](executor: ExecutionContext)
         }
       }
     } catch {
-      case t: Throwable ⇒
+      case t: Throwable =>
         subscribers.remove(this)
         executor.reportFailure(t)
     }
@@ -40,7 +40,7 @@ class PubSub[G, E <% G](executor: ExecutionContext)
   /**
    * Subscribe to events.
    */
-  def subscribe(subscriber: E ⇒ Unit, filter: F ⇒ Boolean): Subscription = {
+  def subscribe(subscriber: E => Unit, filter: F => Boolean): Subscription = {
     val fs = new FilteringSubscriber(subscriber, filter)
     subscribers.add(fs)
     new Subscription {

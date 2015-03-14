@@ -7,7 +7,7 @@ import scuff.eventual._
  * This handler will exclude any streams that fails, to ensure
  * continuous processing of all other streams.
  */
-trait FailSafeTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CAT]#Transaction ⇒ Unit) {
+trait FailSafeTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CAT]#Transaction => Unit) {
 
   type Transaction = EventSource[ID, EVT, CAT]#Transaction
 
@@ -20,7 +20,7 @@ trait FailSafeTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CAT
     if (!isFailed(txn.streamId)) try {
       super.apply(txn)
     } catch {
-      case t: Throwable ⇒ markFailed(txn.streamId, txn.category, t)
+      case t: Throwable => markFailed(txn.streamId, txn.category, t)
     }
   }
 

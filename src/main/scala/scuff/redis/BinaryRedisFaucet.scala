@@ -19,14 +19,14 @@ class BinaryRedisFaucet[A] private[redis] (
     extends Faucet {
 
   type F = A
-  type L = A ⇒ Unit
+  type L = A => Unit
 
   private val (shared, exclusive, newSubscriber) = {
     val rwLock = new ReentrantReadWriteLock
     val exclusive = rwLock.writeLock
     (rwLock.readLock, exclusive, exclusive.newCondition)
   }
-  private class FilteredSubscriber(sub: L, doTell: F ⇒ Boolean) {
+  private class FilteredSubscriber(sub: L, doTell: F => Boolean) {
     def tell(a: A) =
       if (doTell(a)) {
         publishCtx execute new Runnable {
@@ -46,7 +46,7 @@ class BinaryRedisFaucet[A] private[redis] (
   }
 
   private[this] val jedis = new BinaryJedis(info)
-  def subscribe(subscriber: L, filter: A ⇒ Boolean) = {
+  def subscribe(subscriber: L, filter: A => Boolean) = {
     val filteredSub = new FilteredSubscriber(subscriber, filter)
     exclusive.whenLocked {
       if (subscribers.isEmpty) {
@@ -70,8 +70,8 @@ class BinaryRedisFaucet[A] private[redis] (
         awaitSubscribers()
         consumeMessages()
       } catch {
-        case _: InterruptedException ⇒ Thread.currentThread().interrupt()
-        case e: Exception ⇒ publishCtx.reportFailure(e)
+        case _: InterruptedException => Thread.currentThread().interrupt()
+        case e: Exception => publishCtx.reportFailure(e)
       }
 
       def awaitSubscribers() = exclusive.whenLocked {

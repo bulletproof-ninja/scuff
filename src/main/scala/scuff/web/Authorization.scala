@@ -20,8 +20,8 @@ trait Authorization extends HttpServlet {
 
   override def service(req: HttpServletRequest, res: HttpServletResponse) {
     req.getUserPrincipal match {
-      case null ⇒ res.setStatus(SC_UNAUTHORIZED)
-      case user ⇒
+      case null => res.setStatus(SC_UNAUTHORIZED)
+      case user =>
         val allowed = rolesAllowed
         if (allowed.isEmpty || allowed.exists(req.isUserInRole)) {
           super.service(req, res)
@@ -48,7 +48,7 @@ abstract class ApplicationSecurityFilter extends Filter {
 
   private def getRequest(req: HttpServletRequest, res: HttpServletResponse): HttpServletRequest = {
     getAuthenticatedUser(req) match {
-      case Some(authUser) ⇒
+      case Some(authUser) =>
         new HttpServletRequestProxy(req) {
           @volatile var user: Option[UserPrincipal] = Some(authUser)
           override def isUserInRole(role: String) = user.exists(_.roles.contains(role))
@@ -61,18 +61,18 @@ abstract class ApplicationSecurityFilter extends Filter {
           override def getAuthType = classOf[Authorization].getName
           override def getRemoteUser = user.map(_.getName).orNull
         }
-      case _ ⇒ req
+      case _ => req
     }
   }
 
   @inline
   private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
     req.getUserPrincipal match {
-      case null ⇒ chain.doFilter(getRequest(req, res), res)
-      case _: UserPrincipal ⇒
+      case null => chain.doFilter(getRequest(req, res), res)
+      case _: UserPrincipal =>
         throw new IllegalStateException(
           s"${getClass.getName} filter loop detected.")
-      case p: Principal ⇒
+      case p: Principal =>
         throw new IllegalStateException(
           s"${getClass.getName} filter should not be used when other authentication is in place: ${p.getClass.getName}")
     }
@@ -102,16 +102,16 @@ trait LoginPageForwarder extends Filter {
   @inline
   private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
     if (!res.isCommitted) res.getStatus match {
-      case SC_UNAUTHORIZED ⇒
+      case SC_UNAUTHORIZED =>
         if (req.getMethod().equalsIgnoreCase("GET") && AcceptHeader(req).forall(_.matchesAny(acceptTypes))) {
           res.setStatus(SC_FOUND)
           req.getRequestDispatcher(loginPage).forward(req, res)
         } else {
           res.sendError(SC_UNAUTHORIZED)
         }
-      case SC_FORBIDDEN ⇒
+      case SC_FORBIDDEN =>
         res.sendError(SC_FORBIDDEN)
-      case _ ⇒ // Ignore anything else
+      case _ => // Ignore anything else
     }
   }
 

@@ -33,7 +33,7 @@ final class LRUDirectMemoryCache[K, V](maxCapacity: Int, ser: Serializer[V], val
   def lookupAndEvict(key: K): Option[V] = impl.lookupAndEvict(key).map(toValue)
   def lookup(key: K): Option[V] = impl.lookup(key).map(toValue)
   def contains(key: K): Boolean = impl.contains(key)
-  def lookupOrStore(key: K, ttl: FiniteDuration)(constructor: ⇒ V): V = toValue(impl.lookupOrStore(key, ttl)(toBuffer(constructor)))
+  def lookupOrStore(key: K, ttl: FiniteDuration)(constructor: => V): V = toValue(impl.lookupOrStore(key, ttl)(toBuffer(constructor)))
   def shutdown() = impl.shutdown()
   def lookupAndRefresh(key: K, ttl: FiniteDuration): Option[V] = impl.lookupAndRefresh(key, ttl).map(toValue)
   def refresh(key: K, ttl: FiniteDuration) = impl.refresh(key, ttl)

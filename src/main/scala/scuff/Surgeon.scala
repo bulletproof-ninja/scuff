@@ -1,7 +1,7 @@
 package scuff
 
 import scala.annotation._
-import java.lang.reflect.{ Array ⇒ _, _ }
+import java.lang.reflect.{ Array => _, _ }
 
 /**
  * Helper class to operate on the internals
@@ -35,7 +35,7 @@ class Surgeon[T <: AnyRef](patient: T) {
 
   def get[T](wantType: Class[T], exactClass: Boolean = false): Map[Symbol, T] = {
     val filtered = fields.filter {
-      case (name, field) ⇒
+      case (name, field) =>
         if (exactClass) {
           field.getType == wantType
         } else {
@@ -45,7 +45,7 @@ class Surgeon[T <: AnyRef](patient: T) {
         }
     }
     filtered.map {
-      case (name, field) ⇒
+      case (name, field) =>
         name -> field.get(patient).asInstanceOf[T]
     }
   }
@@ -65,7 +65,7 @@ private object Surgeon {
       map
     } else {
       cls.getDeclaredFields.foldLeft(extractFields(cls.getSuperclass, map)) {
-        case (map, field) ⇒
+        case (map, field) =>
           field.setAccessible(true)
           map.updated(Symbol(field.getName), field)
       }

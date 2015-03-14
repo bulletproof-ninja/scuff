@@ -22,9 +22,9 @@ class Props(props: { def getProperty(name: String): String }) {
 
   @throws(classOf[IllegalStateException])
   def required(name: String, validValues: Set[String] = Set.empty): String = optional(name, validValues) match {
-    case None if validValues.isEmpty ⇒ throw new IllegalStateException("Required system property missing: " + name)
-    case None ⇒ throw new IllegalStateException("Required property missing: %s, valid values: %s".format(name, validValues.mkString("[", ", ", "]")))
-    case Some(value) ⇒ value
+    case None if validValues.isEmpty => throw new IllegalStateException("Required system property missing: " + name)
+    case None => throw new IllegalStateException("Required property missing: %s, valid values: %s".format(name, validValues.mkString("[", ", ", "]")))
+    case Some(value) => value
   }
 
 }

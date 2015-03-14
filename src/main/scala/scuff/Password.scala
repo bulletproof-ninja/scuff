@@ -36,12 +36,12 @@ final class Password(passwordDigest: Array[Byte], val algorithm: String, saltByt
   def length = digested.length
 
   override def equals(obj: Any) = obj match {
-    case that: Password ⇒
+    case that: Password =>
       this.workFactor == that.workFactor &&
         this.algorithm.equalsIgnoreCase(that.algorithm) &&
         Arrays.equals(this.salty, that.salty) &&
         Arrays.equals(this.digested, that.digested)
-    case _ ⇒ false
+    case _ => false
   }
 
   override val hashCode = Arrays.hashCode(passwordDigest)
@@ -81,14 +81,14 @@ object Password {
     val md = MessageDigest.getInstance(algo)
     val passwordBytes = password.getBytes(charset)
     iterative match {
-      case Left(workFactor) ⇒
+      case Left(workFactor) =>
         var soFar = 0
         val result = digestUntil(md, salt, passwordBytes) {
           soFar += 1
           soFar == workFactor
         }
         result -> workFactor
-      case Right(duration) ⇒
+      case Right(duration) =>
         val minMillis = duration.toMillis
         val started = System.currentTimeMillis()
         var workFactor = 0
@@ -100,7 +100,7 @@ object Password {
     }
   }
   @annotation.tailrec
-  private def digestUntil(md: MessageDigest, salt: Array[Byte], workingBytes: Array[Byte])(done: ⇒ Boolean): Array[Byte] = {
+  private def digestUntil(md: MessageDigest, salt: Array[Byte], workingBytes: Array[Byte])(done: => Boolean): Array[Byte] = {
     md.update(salt)
     md.update(workingBytes)
     val digested = md.digest()
@@ -123,8 +123,8 @@ object Password {
     require(MessageDigest.getInstance(algorithm) != null)
     require(saltLength >= 0, "Negative salt length is nonsensical")
     work match {
-      case Left(workFactor) ⇒ require(workFactor > 0, "Must have a work factor of at least one, not " + workFactor)
-      case Right(duration) ⇒ require(duration.isFinite, "Must be a finite duration: " + duration)
+      case Left(workFactor) => require(workFactor > 0, "Must have a work factor of at least one, not " + workFactor)
+      case Right(duration) => require(duration.isFinite, "Must be a finite duration: " + duration)
     }
     /**
      * @param algorithm The digest algorithm. This string must be understood by [[java.security.MessageDigest]]

@@ -2,7 +2,7 @@ package scuff
 
 import scala.collection.immutable.Range.Partial
 import scala.collection.immutable.NumericRange
-import java.lang.{ Double ⇒ JD, Float ⇒ JF }
+import java.lang.{ Double => JD, Float => JF }
 
 final class Interval[@specialized(Short, Int, Long, Float, Double) T](
     val fromIncl: Boolean, val from: T,
@@ -14,9 +14,9 @@ final class Interval[@specialized(Short, Int, Long, Float, Double) T](
 
   private def nanException = throw new IllegalArgumentException("Interval cannot contain NaN")
   private def checkForNaN(n: T) = n match {
-    case d: Double if JD.isNaN(d) ⇒ nanException
-    case f: Float if JF.isNaN(f) ⇒ nanException
-    case _ ⇒ // All good
+    case d: Double if JD.isNaN(d) => nanException
+    case f: Float if JF.isNaN(f) => nanException
+    case _ => // All good
   }
 
   def contains(c: T) =
@@ -30,29 +30,29 @@ final class Interval[@specialized(Short, Int, Long, Float, Double) T](
   private def openBracket = if (fromIncl) "[" else "("
   private def closeBracket = if (toIncl) "]" else ")"
   private def numStr(t: T): String = t match {
-    case d: Double ⇒
+    case d: Double =>
       if (d == Double.PositiveInfinity) "∞"
       else if (d == Double.NegativeInfinity) "-∞"
       else d.toString
-    case f: Float ⇒
+    case f: Float =>
       if (f == Float.PositiveInfinity) "∞"
       else if (f == Float.NegativeInfinity) "-∞"
       else f.toString
-    case _ ⇒ t.toString
+    case _ => t.toString
   }
 
   override def toString = if (stringRep != null) stringRep else
     s"$openBracket${numStr(from)},${numStr(to)}$closeBracket"
 
   override def equals(any: Any) = any match {
-    case that: Interval[_] ⇒
+    case that: Interval[_] =>
       val that = any.asInstanceOf[Interval[T]]
       this.ord == that.ord &&
         this.fromIncl == that.fromIncl &&
         this.toIncl == that.toIncl &&
         this.ord.equiv(this.from, that.from) &&
         this.ord.equiv(this.to, that.to)
-    case _ ⇒ false
+    case _ => false
   }
   override def hashCode = from.hashCode ^ to.hashCode
 
@@ -78,7 +78,7 @@ final class Interval[@specialized(Short, Int, Long, Float, Double) T](
 
 object Interval {
 
-  private val field_ord_name = Symbol(classOf[Interval[_]].getDeclaredFields().find(f ⇒ classOf[Ordering[_]] == f.getType).get.getName)
+  private val field_ord_name = Symbol(classOf[Interval[_]].getDeclaredFields().find(f => classOf[Ordering[_]] == f.getType).get.getName)
 
   val Unbounded = new Interval(false, Double.NegativeInfinity, false, Double.PositiveInfinity)
 
@@ -94,7 +94,7 @@ object Interval {
   private val CommaRegex = CommaNotation.r
 
   def parse(str: String): Option[Interval[BigDecimal]] = try {
-    DotRegex.findFirstMatchIn(str).orElse(CommaRegex.findFirstMatchIn(str)).map { m ⇒
+    DotRegex.findFirstMatchIn(str).orElse(CommaRegex.findFirstMatchIn(str)).map { m =>
       val fromIncl = m.group(1) == "["
       val toIncl = m.group(4) == "]"
       val from = BigDecimal(m.group(2).replace(',', '.'))
@@ -102,7 +102,7 @@ object Interval {
       new Interval(fromIncl, from, toIncl, to, str)
     }
   } catch {
-    case _: Exception ⇒ None
+    case _: Exception => None
   }
 
   def apply[@specialized(Short, Int, Long, Float, Double) T](t: (T, T))(implicit n: Ordering[T]): Interval[T] = {
@@ -113,14 +113,14 @@ object Interval {
   }
   def apply[@specialized(Short, Int, Long, Float, Double) T](r: NumericRange[T])(implicit n: Ordering[T]): Interval[T] = {
     val fromIncl = r.start match {
-      case d: Double ⇒ !JD.isInfinite(d)
-      case f: Float ⇒ !JF.isInfinite(f)
-      case _ ⇒ true
+      case d: Double => !JD.isInfinite(d)
+      case f: Float => !JF.isInfinite(f)
+      case _ => true
     }
     val toIncl = r.end match {
-      case d: Double if (JD.isInfinite(d)) ⇒ false
-      case f: Float if (JF.isInfinite(f)) ⇒ false
-      case _ ⇒ r.isInclusive
+      case d: Double if (JD.isInfinite(d)) => false
+      case f: Float if (JF.isInfinite(f)) => false
+      case _ => r.isInclusive
     }
     new Interval(fromIncl, r.start, toIncl, r.end)
   }
@@ -128,7 +128,7 @@ object Interval {
     val range = try {
       partial.by(n.negate(n.one))
     } catch {
-      case _: NumberFormatException ⇒ partial.by(n.one)
+      case _: NumberFormatException => partial.by(n.one)
     }
     apply(range)
   }

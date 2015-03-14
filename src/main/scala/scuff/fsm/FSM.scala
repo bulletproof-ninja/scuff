@@ -16,16 +16,16 @@ object typed {
 
     private[this] def assignParenthood(superState: typed.SuperState[T], ignore: collection.mutable.Set[Any]): Unit = {
       val parent = Some(superState)
-      val baseStates = superState.getClass.getDeclaredFields.filter(f ⇒ classOf[BaseState[T]].isAssignableFrom(f.getType))
-      baseStates.foreach { field ⇒
+      val baseStates = superState.getClass.getDeclaredFields.filter(f => classOf[BaseState[T]].isAssignableFrom(f.getType))
+      baseStates.foreach { field =>
         field.setAccessible(true)
         val subState = field.get(superState)
         if (!ignore.contains(subState)) {
           new scuff.Surgeon(subState).set('parent, parent).set('assignedName, field.getName)
           ignore += subState
           subState match {
-            case ss: typed.SuperState[T] ⇒ assignParenthood(ss, ignore)
-            case _ ⇒ // Ignore
+            case ss: typed.SuperState[T] => assignParenthood(ss, ignore)
+            case _ => // Ignore
           }
         }
       }
@@ -33,15 +33,15 @@ object typed {
 
     @annotation.tailrec
     private def stateMatch(checkState: BaseState[T], current: Option[BaseState[T]]): Boolean = current match {
-      case None ⇒ false
-      case Some(current) ⇒ (current eq checkState) || stateMatch(checkState, current.parent)
+      case None => false
+      case Some(current) => (current eq checkState) || stateMatch(checkState, current.parent)
     }
 
     def is(state: BaseState[T]) = stateMatch(state, currState)
     def current = currState
     def isFinal() = currState match {
-      case Some(_: FinalState[_]) ⇒ true
-      case _ ⇒ false
+      case Some(_: FinalState[_]) => true
+      case _ => false
     }
 
     type Transition = ((typed.Source[T], Event), typed.Target[T])
@@ -57,24 +57,24 @@ object typed {
       currState = Option(state)
     }
     def apply(evt: Event, payload: T = null.asInstanceOf[T]) = currState match {
-      case None ⇒ throw new IllegalStateException("State machine not initialized yet")
-      case Some(source: typed.Source[T]) ⇒
+      case None => throw new IllegalStateException("State machine not initialized yet")
+      case Some(source: typed.Source[T]) =>
         val targetEvent = source.onEvent(evt, payload)
         val target = transition(source, targetEvent)
         if (source ne target) {
           currState = Some(target)
           target.onEvent(targetEvent, payload)
         }
-      case _ ⇒ throw new IllegalStateException("State machine is finalized")
+      case _ => throw new IllegalStateException("State machine is finalized")
     }
     @annotation.tailrec
     private def transition(state: typed.Source[T], evt: Event): typed.Target[T] = {
       val key = state -> evt
       transitionTable.get(key) match {
-        case Some(toState) ⇒ toState
-        case None ⇒ state.parent match {
-          case None ⇒ throw new IllegalStateException(s"${currState.get} cannot handle $evt")
-          case Some(parent) ⇒ transition(parent, evt)
+        case Some(toState) => toState
+        case None => state.parent match {
+          case None => throw new IllegalStateException(s"${currState.get} cannot handle $evt")
+          case Some(parent) => transition(parent, evt)
         }
       }
     }

@@ -10,7 +10,7 @@ import scala.util.control.NoStackTrace
  */
 trait EventSource[ID, EVT, CAT] extends Faucet {
   final type F = CAT
-  type L = Transaction ⇒ Unit
+  type L = Transaction => Unit
 
   case class Transaction(
       timestamp: Long,
@@ -65,17 +65,17 @@ trait EventSource[ID, EVT, CAT] extends Faucet {
    */
   def lastTimestamp: Future[Long]
 
-  def replayStream[T](stream: ID)(callback: Iterator[Transaction] ⇒ T): Future[T]
-  def replayStreamAfter[T](stream: ID, afterRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T]
-  def replayStreamTo[T](stream: ID, toRevision: Int)(callback: Iterator[Transaction] ⇒ T): Future[T]
-  def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.Range)(callback: Iterator[Transaction] ⇒ T): Future[T]
+  def replayStream[T](stream: ID)(callback: Iterator[Transaction] => T): Future[T]
+  def replayStreamAfter[T](stream: ID, afterRevision: Int)(callback: Iterator[Transaction] => T): Future[T]
+  def replayStreamTo[T](stream: ID, toRevision: Int)(callback: Iterator[Transaction] => T): Future[T]
+  def replayStreamRange[T](stream: ID, revisionRange: collection.immutable.Range)(callback: Iterator[Transaction] => T): Future[T]
 
   /**
    * Play back transactions, optionally filtered by one or more categories.
    * @param categories: Optional categories filter
    * @param callback Callback function
    */
-  def replay[T](categories: CAT*)(callback: Iterator[Transaction] ⇒ T): Future[T]
+  def replay[T](categories: CAT*)(callback: Iterator[Transaction] => T): Future[T]
 
   /**
    * Play back events for all instances from a given time forward, optionally
@@ -85,7 +85,7 @@ trait EventSource[ID, EVT, CAT] extends Faucet {
    * @param categories: Optional categories filter
    * @param callback Callback function
    */
-  def replayFrom[T](fromTimestamp: Long, categories: CAT*)(callback: Iterator[Transaction] ⇒ T): Future[T]
+  def replayFrom[T](fromTimestamp: Long, categories: CAT*)(callback: Iterator[Transaction] => T): Future[T]
 
 }
 

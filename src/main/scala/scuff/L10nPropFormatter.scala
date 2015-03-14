@@ -37,7 +37,7 @@ import scala.util.Try
  * @author Nils Kilden-Pedersen
  */
 class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[Locale], charset: Charset)
-    extends ((String, Any*) ⇒ String) {
+    extends ((String, Any*) => String) {
 
   /**
    * Subclass constructor. Used when sub-classing is used for location and naming.
@@ -49,8 +49,8 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
   private[this] val control = new CharsetControl(charset, getClass.getClassLoader)
 
   private[this] val baseName = _baseName match {
-    case Some(bn) ⇒ bn
-    case None ⇒ {
+    case Some(bn) => bn
+    case None => {
       val name = getClass.getName
       if (name endsWith "$") name.substring(0, name.length - 1) else name
     }
@@ -68,14 +68,14 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
 
   private val map: Map[String, Message] = {
       def findText(key: String, bundles: Seq[ResourceBundle]): Option[(String, Locale)] = {
-        bundles.iterator.map { bundle ⇒
+        bundles.iterator.map { bundle =>
           Try(bundle.getString(key) -> bundle.getLocale).toOption
         }.collectFirst {
-          case Some(t) ⇒ t
+          case Some(t) => t
         }
       }
     val bundles = L10nPropFormatter.toResourceBundles(baseName, desiredLocales, control)
-    val allKeys = bundles.flatMap(e ⇒ collection.JavaConversions.enumerationAsScalaIterator(e.getKeys).toSeq).toSet
+    val allKeys = bundles.flatMap(e => collection.JavaConversions.enumerationAsScalaIterator(e.getKeys).toSeq).toSet
     allKeys.foldLeft(Map.empty[String, Message]) {
       case (map, key) => findText(key, bundles).map {
         case (fmt, lang) => map.updated(key, new Message(fmt, lang))
@@ -118,7 +118,7 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
     }
   }
 
-  def get(key: String, parms: Any*): Option[String] = map.get(key).map { msg ⇒
+  def get(key: String, parms: Any*): Option[String] = map.get(key).map { msg =>
     if (msg.parmCount != parms.length) {
       throw new MissingFormatArgumentException(s"Message '$key' expects ${msg.parmCount} parameters, but received ${parms.length}")
     }
@@ -133,7 +133,7 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
   def keySet() = map.keySet
 
   lazy val unformatted: Map[String, String] = map.map {
-    case (key, msg) ⇒ key -> msg.unformatted
+    case (key, msg) => key -> msg.unformatted
   }
 
   def unformatted(key: String): Option[String] = map.get(key).map(_.unformatted)
@@ -152,14 +152,14 @@ object L10nPropFormatter {
     while (matcher.find) {
       set += matcher.group(1).toInt
     }
-    set.headOption.foreach { h ⇒
+    set.headOption.foreach { h =>
       if (h + 1 != set.size) throw new IndexOutOfBoundsException("Parameter mismatch: \"" + format + "\"")
     }
     set.size
   }
   private def toResourceBundles(baseName: String, locales: Seq[Locale], control: CharsetControl): Seq[ResourceBundle] = {
     val expandedLocales =
-        locales.flatMap { locale ⇒
+        locales.flatMap { locale =>
           val buffer = new collection.mutable.ArrayBuffer[Locale](3)
           buffer += locale
           if (locale.getVariant.length > 0) {
@@ -180,7 +180,7 @@ object L10nPropFormatter {
             list
           }
         } catch {
-          case e: MissingResourceException ⇒ list
+          case e: MissingResourceException => list
         }
     }
   }
@@ -221,7 +221,7 @@ private class CharsetControl(charset: Charset, altLoader: ClassLoader) extends R
     val bundleName = toBundleName(baseName, locale)
     var bundle: ResourceBundle = null
     format match {
-      case "java.class" ⇒
+      case "java.class" =>
         try {
           val bundleClass = loader.loadClass(bundleName).asInstanceOf[Class[_ <: ResourceBundle]]
           // If the class isn't a ResourceBundle subclass, throw a
@@ -233,9 +233,9 @@ private class CharsetControl(charset: Charset, altLoader: ClassLoader) extends R
               + " cannot be cast to ResourceBundle")
           }
         } catch {
-          case _: ClassNotFoundException ⇒ // Ignore
+          case _: ClassNotFoundException => // Ignore
         }
-      case "java.properties" ⇒
+      case "java.properties" =>
         val resourceName = toResourceName(bundleName, "properties")
         val classLoader = loader
         val reloadFlag = reload
@@ -263,7 +263,7 @@ private class CharsetControl(charset: Charset, altLoader: ClassLoader) extends R
               }
             })
         } catch {
-          case e: PrivilegedActionException ⇒ throw e.getException()
+          case e: PrivilegedActionException => throw e.getException()
         }
         if (stream != null) {
           try {
@@ -272,7 +272,7 @@ private class CharsetControl(charset: Charset, altLoader: ClassLoader) extends R
             stream.close()
           }
         }
-      case _ ⇒
+      case _ =>
         throw new IllegalArgumentException("unknown format: " + format)
     }
     if (bundle == null && loader != altLoader) {

@@ -71,8 +71,8 @@ package object web {
 
     def getResource: Option[Resource] = {
       req.getServletContext.getResource(req.servletPathInfo) match {
-        case null ⇒ None
-        case url ⇒
+        case null => None
+        case url =>
           val file = new java.io.File(url.toURI)
           if (file.exists) {
             Some(new Resource(url, (file.lastModified / 1000) * 1000))
@@ -85,28 +85,28 @@ package object web {
     def IfMatch() = ETag.IfMatch(req)
     def Accept() = AcceptHeader(req)
     def IfModifiedSince() = req.getDateHeader(HttpHeaders.IfModifiedSince) match {
-      case -1 ⇒ None
-      case ims ⇒ Some(ims)
+      case -1 => None
+      case ims => Some(ims)
     }
     def IfModifiedSince(lastModified: Long): Boolean = {
       IfModifiedSince match {
-        case None ⇒ true
-        case Some(modSince) ⇒
+        case None => true
+        case Some(modSince) =>
           val last = lastModified / 1000L
           val since = modSince / 1000L
           last != since
       }
     }
-    def IfMatch(etag: ⇒ ETag): Boolean = {
+    def IfMatch(etag: => ETag): Boolean = {
       IfMatch match {
-        case None ⇒ false
-        case Some(reqETag) ⇒ reqETag == etag
+        case None => false
+        case Some(reqETag) => reqETag == etag
       }
     }
-    def IfNoneMatch(etag: ⇒ ETag): Boolean = {
+    def IfNoneMatch(etag: => ETag): Boolean = {
       IfNoneMatch match {
-        case None ⇒ false
-        case Some(reqETag) ⇒ reqETag == etag
+        case None => false
+        case Some(reqETag) => reqETag == etag
       }
     }
     def Referer(): Option[String] = req.getHeader(HttpHeaders.Referer) match {

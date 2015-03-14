@@ -53,28 +53,28 @@ trait RedisEventPublisher[ID, EVT, CAT]
   }
   protected def publish(txn: Transaction) = {
     val channel = pubChannels(categorizer.index(txn.category))
-    publishPool { conn ⇒
+    publishPool { conn =>
       channel.publish(txn)(conn)
     }
   }
   private lazy val subChannels = {
     val tg = new ThreadGroup("RedisChannelSubscribers")
-    categories.toList.map { category ⇒
+    categories.toList.map { category =>
       val channelName = publishChannelName(category)
       val tf = Threads.daemonFactory(s"RedisChannelSubscriber($channelName)", tg)
       category -> BinaryRedisFaucet(channelName, subscribeServer, tf, publishCodec, ExecutionContext.global)
     }
   }
-  def subscribe(sub: Transaction ⇒ Unit, include: CAT ⇒ Boolean) = {
-    val subscriptions = subChannels.filter(c ⇒ include(c._1)).map(_._2.subscribe(sub))
+  def subscribe(sub: Transaction => Unit, include: CAT => Boolean) = {
+    val subscriptions = subChannels.filter(c => include(c._1)).map(_._2.subscribe(sub))
     new Subscription {
       def cancel {
         var cancelE: Exception = null
-        subscriptions.foreach { sub ⇒
+        subscriptions.foreach { sub =>
           try {
             sub.cancel()
           } catch {
-            case e: Exception ⇒ if (cancelE == null) cancelE = e
+            case e: Exception => if (cancelE == null) cancelE = e
           }
         }
         if (cancelE != null) throw cancelE

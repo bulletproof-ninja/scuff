@@ -26,7 +26,7 @@ final class MongoStateGenerator[ID](dbColl: DBCollection)(implicit idCdc: scuff.
   dbColl.createIndex("_time")
 
   def lastTimestamp: Option[Long] = {
-    dbColl.find(obj("_time":=$exists(true)), obj("_id" := EXCLUDE, "_time" := INCLUDE)).last("_time").map { doc ⇒
+    dbColl.find(obj("_time":=$exists(true)), obj("_id" := EXCLUDE, "_time" := INCLUDE)).last("_time").map { doc =>
       doc("_time").as[Long]
     }
   }
@@ -35,8 +35,8 @@ final class MongoStateGenerator[ID](dbColl: DBCollection)(implicit idCdc: scuff.
 
   def expectedRevision(streamId: ID): Int = {
     dbColl.findOne(obj("_id" := streamId), RevReadFields) match {
-      case null ⇒ 0
-      case doc ⇒ doc.getAs[Int]("_rev") + 1
+      case null => 0
+      case doc => doc.getAs[Int]("_rev") + 1
     }
   }
 
@@ -58,13 +58,13 @@ final class MongoStateGenerator[ID](dbColl: DBCollection)(implicit idCdc: scuff.
       val setModifier = updateQry("$set").opt[DBObject]
       val useModifiers = setModifier.isDefined || updateQry.isEmpty || updateQry.keys.exists(_ startsWith "$")
       val definitelyUpdate = revTime.map {
-        case (revision, time) ⇒
+        case (revision, time) =>
           require(revision >= 0L, s"Revision for ${streamIds.head} cannot be negative: $revision")
           require(streamIds.tail.isEmpty, "Cannot commit revision $revision for multiple streams: ${streamIds.mkString}")
           setModifier match {
-            case Some(setModifier) ⇒
+            case Some(setModifier) =>
               setModifier.add("_rev" := revision, "_time" := new Date(time))
-            case None ⇒
+            case None =>
               if (useModifiers) {
                 updateQry.add($set("_rev" := revision, "_time" := new Date(time)))
               } else {

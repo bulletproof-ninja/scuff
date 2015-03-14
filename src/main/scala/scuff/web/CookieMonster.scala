@@ -59,7 +59,7 @@ trait CookieMonster[T] {
    * Get value from cookie on request.
    */
   def get(request: http.HttpServletRequest): Option[T] = {
-    Option(request.getCookies).flatMap { array ⇒
+    Option(request.getCookies).flatMap { array =>
       array.find(_.getName == name).flatMap { c =>
         Try(codec.decode(c.getValue)).toOption
       }

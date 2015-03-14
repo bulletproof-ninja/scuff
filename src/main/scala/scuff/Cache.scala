@@ -38,7 +38,7 @@ trait Cache[K, V] {
    * @param key
    * @param constructor The value constructor, if key not found
    */
-  def lookupOrStore(key: K)(constructor: ⇒ V): V
+  def lookupOrStore(key: K)(constructor: => V): V
 
   /**
    * Shutdown cache. This will permanently disable the cache and purge all entries.
@@ -87,7 +87,7 @@ trait Expiry[K, V] { self: Cache[K, V] =>
    * @param constructor The value constructor, if key not found
    * @param ttlSeconds time-to-live if stored. Defaults to [[defaultTTL]]
    */
-  def lookupOrStore(key: K, ttl: FiniteDuration)(constructor: ⇒ V): V
-  final def lookupOrStore(key: K)(constructor: ⇒ V): V = lookupOrStore(key, defaultTTL)(constructor)
+  def lookupOrStore(key: K, ttl: FiniteDuration)(constructor: => V): V
+  final def lookupOrStore(key: K)(constructor: => V): V = lookupOrStore(key, defaultTTL)(constructor)
 
 }

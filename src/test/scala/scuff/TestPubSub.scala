@@ -24,11 +24,11 @@ class TestPubSub {
       }
     val execCtx = concurrent.ExecutionContext.fromExecutor(null, errHandler)
     pubSub = new PubSub[Event, Event](execCtx)
-    val l1 = (e: Event) ⇒ throw new RuntimeException
+    val l1 = (e: Event) => throw new RuntimeException
     pubSub.subscribe(l1)
-    val l2 = (e: Event) ⇒ countDown.countDown()
+    val l2 = (e: Event) => countDown.countDown()
     pubSub.subscribe(l2)
-    val l3 = (e: Event) ⇒ countDown.countDown()
+    val l3 = (e: Event) => countDown.countDown()
     pubSub.subscribe(l3)
     pubSub.publish(new Event)
     pubSub.publish(new Event)

@@ -17,18 +17,18 @@ package object js {
     val sb = new java.lang.StringBuilder
       def appendValue(value: Any) {
         value match {
-          case nb @ (_: java.lang.Number | _: Boolean | null) ⇒ sb append nb
-          case s: Seq[_] ⇒
+          case nb @ (_: java.lang.Number | _: Boolean | null) => sb append nb
+          case s: Seq[_] =>
             sb append "["
             s.foreach(appendValue)
             sb append "]"
-          case s ⇒ sb append '"' append s append '"'
+          case s => sb append '"' append s append '"'
         }
         sb append ','
       }
     sb append "{"
     options.foreach {
-      case (prop, value) ⇒
+      case (prop, value) =>
         sb append prop.name append ':'
         appendValue(value)
     }
@@ -45,8 +45,8 @@ package object js {
   implicit def readerToString(reader: Reader) = {
     val sb = new java.lang.StringBuilder(1024)
     val bufReader = reader match {
-      case br: BufferedReader ⇒ br
-      case _ ⇒ new BufferedReader(reader)
+      case br: BufferedReader => br
+      case _ => new BufferedReader(reader)
     }
     var line = bufReader.readLine()
     while (line != null) {

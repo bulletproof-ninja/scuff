@@ -9,7 +9,7 @@ package scuff
  * similar behavior, but does not guarantee a single instance per key,
  * due to race conditions.
  */
-class Multiton[K, V](factory: K ⇒ V) {
+class Multiton[K, V](factory: K => V) {
 
   @volatile private var map: Map[K, V] = Map.empty
 

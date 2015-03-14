@@ -17,12 +17,12 @@ object Parser {
   private def toBD(s: String) = BigDecimal(s)
   private def toEmail(s: String) = new EmailAddress(s)
   private def toBoolean(s: String) = s.toLowerCase match {
-    case "on" | "true" | "1" | "yes" ⇒ true
-    case "off" | "false" | "0" | "no" ⇒ false
+    case "on" | "true" | "1" | "yes" => true
+    case "off" | "false" | "0" | "no" => false
   }
   private def toGeoPoint(s: String) = scuff.GeoPoint.parse(s).get
 
-  val DefaultConverters: Map[Class[_], String ⇒ Any] = Map(
+  val DefaultConverters: Map[Class[_], String => Any] = Map(
     classOf[String] -> passthrough,
     classOf[java.lang.Object] -> passthrough,
     classOf[Short] -> toShort,
@@ -48,11 +48,11 @@ class Parser[T](implicit tag: ClassTag[T]) {
 
   private class ReturnType(cls: Class[_], genType: java.lang.reflect.Type) {
     private def genericType: Option[Class[_]] = genType match {
-      case pm: java.lang.reflect.ParameterizedType ⇒ pm.getActualTypeArguments() match {
-        case Array(cls: Class[_]) ⇒ Some(cls)
-        case _ ⇒ None
+      case pm: java.lang.reflect.ParameterizedType => pm.getActualTypeArguments() match {
+        case Array(cls: Class[_]) => Some(cls)
+        case _ => None
       }
-      case _ ⇒ None
+      case _ => None
     }
     def isOption = cls == classOf[Option[_]]
     def isList = cls.isAssignableFrom(classOf[List[_]])
@@ -66,10 +66,10 @@ class Parser[T](implicit tag: ClassTag[T]) {
     val allMethods = tag.runtimeClass.getMethods()
     val getterMethods = allMethods.filter(_.getParameterTypes().length == 0)
     require(allMethods.length == getterMethods.length, "Only arg-less methods supported")
-    getterMethods.map(m ⇒ m.getName -> new ReturnType(m.getReturnType, m.getGenericReturnType)).toMap
+    getterMethods.map(m => m.getName -> new ReturnType(m.getReturnType, m.getGenericReturnType)).toMap
   }
 
-  protected def converters: Map[Class[_], String ⇒ Any] = Parser.DefaultConverters
+  protected def converters: Map[Class[_], String => Any] = Parser.DefaultConverters
 
   /**
    * This method will never be called with an empty/null string value,
@@ -78,36 +78,36 @@ class Parser[T](implicit tag: ClassTag[T]) {
    */
   protected def convert(name: String, value: String, toType: Class[_]): Any = {
     converters.get(toType) match {
-      case None ⇒ value.coerceTo(ClassTag(toType)).getOrElse {
+      case None => value.coerceTo(ClassTag(toType)).getOrElse {
         throw new IllegalArgumentException("Cannot coerce %s into %s".format(value, toType.getName))
       }
-      case Some(conv) ⇒ conv(value)
+      case Some(conv) => conv(value)
     }
   }
 
-  def twoPass[A](form: Map[String, Seq[String]])(secondPass: T ⇒ Either[Set[Problem], A]): Either[Set[Problem], A] = {
+  def twoPass[A](form: Map[String, Seq[String]])(secondPass: T => Either[Set[Problem], A]): Either[Set[Problem], A] = {
     var values: Map[String, Any] = Map.empty
     var errors: Set[Problem] = Set.empty
     getters.foreach {
-      case (name, rt) ⇒
-        def convertOrFail(conv: ⇒ Any) {
+      case (name, rt) =>
+        def convertOrFail(conv: => Any) {
             try {
               values += name -> conv
             } catch {
-              case e: Exception ⇒ errors += Problem(name, ProblemType.Syntax)
+              case e: Exception => errors += Problem(name, ProblemType.Syntax)
             }
           }
         val withContent = {
           val list = form.getOrElse(name, Nil).toList
           list.flatMap {
             _.trim match {
-              case "" ⇒ None
-              case s ⇒ Some(s)
+              case "" => None
+              case s => Some(s)
             }
           }
         }
         withContent match {
-          case Nil ⇒
+          case Nil =>
             if (rt.isList) {
               values += (name -> Nil)
             } else if (rt.isOption) {
@@ -115,7 +115,7 @@ class Parser[T](implicit tag: ClassTag[T]) {
             } else {
               errors += Problem(name, ProblemType.Missing)
             }
-          case head :: _ ⇒
+          case head :: _ =>
             if (rt.isOption) {
               convertOrFail(Option(rt.convert(name, head)))
             } else if (rt.isList) {
@@ -135,6 +135,6 @@ class Parser[T](implicit tag: ClassTag[T]) {
       secondPass(t)
     } else Left(errors)
   }
-  def onePass(form: Map[String, Seq[String]]): Either[Set[Problem], T] = twoPass[T](form)(t ⇒ Right(t))
+  def onePass(form: Map[String, Seq[String]]): Either[Set[Problem], T] = twoPass[T](form)(t => Right(t))
 
 }

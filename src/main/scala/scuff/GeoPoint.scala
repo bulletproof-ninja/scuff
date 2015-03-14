@@ -47,8 +47,8 @@ object GeoPoint {
    */
   def parse(str: String, radius: Float = 0f): Try[GeoPoint] = Try {
     regex.findFirstMatchIn(str) match {
-      case None ⇒ throw new IllegalArgumentException("Cannot parse: \"%s\"".format(str))
-      case Some(m) ⇒
+      case None => throw new IllegalArgumentException("Cannot parse: \"%s\"".format(str))
+      case Some(m) =>
         val lat = (m.group(1) + "." + m.group(2)).toFloat
         val lng = (m.group(3) + "." + m.group(4)).toFloat
         new GeoPoint(lat, lng, radius)

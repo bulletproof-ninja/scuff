@@ -11,8 +11,8 @@ class RetryOnExceptionProxylicious[T, E <: Throwable](implicit manifest: reflect
     def include(method: Method) = true
     def before(proxy: T, method: Method, args: Array[Any]) = ()
     def after(proxy: T, method: Method, args: Array[Any], result: Try[Any]): Any = result match {
-      case Success(r) ⇒ r
-      case Failure(e) ⇒
+      case Success(r) => r
+      case Failure(e) =>
         if (retryException.runtimeClass.isInstance(e)) {
           method.invoke(proxy, args.asInstanceOf[Array[Object]]: _*)
         } else {

@@ -31,8 +31,8 @@ final case class EmailAddress @throws(classOf[IllegalArgumentException]) (user: 
   def compareTo(that: EmailAddress) = this.toLowerCase compareTo that.toLowerCase
 
   override def equals(any: Any) = any match {
-    case that: EmailAddress ⇒ this.toLowerCase == that.toLowerCase
-    case _ ⇒ false
+    case that: EmailAddress => this.toLowerCase == that.toLowerCase
+    case _ => false
   }
 
   override def hashCode = toLowerCase.hashCode
@@ -45,13 +45,13 @@ object EmailAddress {
   private val splitPattern = "@".r.pattern
 
   private def split(address: String): (String, String) = maybeSplit(address) match {
-    case None ⇒ throw new IllegalArgumentException("Not valid email address: " + address)
-    case Some(ud) ⇒ ud
+    case None => throw new IllegalArgumentException("Not valid email address: " + address)
+    case Some(ud) => ud
   }
 
   private def maybeSplit(address: String): Option[(String, String)] = splitPattern split address match {
-    case Array(user, domain) ⇒ Some((user, domain))
-    case _ ⇒ None
+    case Array(user, domain) => Some((user, domain))
+    case _ => None
   }
 
   private def isValidLength(user: String, domain: String): Boolean = user.length + domain.length < 254
@@ -59,7 +59,7 @@ object EmailAddress {
   private def isValidDomain(domain: String) = domainPattern.matcher(domain).matches()
 
   def isValid(emailAddress: String): Boolean = maybeSplit(emailAddress) match {
-    case None ⇒ false
-    case Some((user, domain)) ⇒ isValidLength(user, domain) && isValidUser(user) && isValidDomain(domain)
+    case None => false
+    case Some((user, domain)) => isValidLength(user, domain) && isValidUser(user) && isValidDomain(domain)
   }
 }

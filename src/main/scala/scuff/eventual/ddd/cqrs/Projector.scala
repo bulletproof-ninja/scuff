@@ -53,7 +53,7 @@ trait Projector {
     subscribeToFaucet(filter, subscriber, proxySubscriber, latch)
   }
 
-  private def subscribeToFaucet(filter: F, realSubscriber: PUB ⇒ Unit, proxySubscriber: DAT ⇒ Unit, latch: Latch): Future[Subscription] = {
+  private def subscribeToFaucet(filter: F, realSubscriber: PUB => Unit, proxySubscriber: DAT => Unit, latch: Latch): Future[Subscription] = {
     val subscription = faucet.subscribe(proxySubscriber, filter)
     try {
       store.readOnly { implicit conn =>

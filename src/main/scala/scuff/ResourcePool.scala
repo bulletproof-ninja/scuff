@@ -33,7 +33,7 @@ import scala.concurrent.ExecutionContextExecutor
  * resource does not escape the `borrow` scope, but
  * that almost goes without saying, amirite?
  */
-class ResourcePool[R](constructor: ⇒ R, minResources: Int = 0) {
+class ResourcePool[R](constructor: => R, minResources: Int = 0) {
 
   require(minResources >= 0, s"Cannot have less resources than zero: $minResources")
 
@@ -110,7 +110,7 @@ class ResourcePool[R](constructor: ⇒ R, minResources: Int = 0) {
    * @param destructor Optional resource pruning function.
    * @param executor Scheduler or thread on which to run pruning.
    */
-  def startPruning(minimumTimeout: FiniteDuration, destructor: R ⇒ Unit = _ ⇒ Unit, executor: Executor = Threads.DefaultScheduler) {
+  def startPruning(minimumTimeout: FiniteDuration, destructor: R => Unit = _ => Unit, executor: Executor = Threads.DefaultScheduler) {
     val pruner = new Pruner(minimumTimeout.toMillis, destructor)
     executor match {
       case scheduler: ScheduledExecutorService => schedulePruning(scheduler, pruner)
@@ -126,14 +126,14 @@ class ResourcePool[R](constructor: ⇒ R, minResources: Int = 0) {
   @tailrec
   final def pop(): R = {
     pool.get match {
-      case Nil ⇒
+      case Nil =>
         constructor match {
-          case null ⇒ throw new IllegalStateException("Resource constructor returned `null`.")
-          case r ⇒
+          case null => throw new IllegalStateException("Resource constructor returned `null`.")
+          case r =>
             onCheckout(r)
             r
         }
-      case list @ (_, head) :: tail ⇒
+      case list @ (_, head) :: tail =>
         if (pool.compareAndSet(list, tail)) {
           onCheckout(head)
           head
@@ -165,7 +165,7 @@ class ResourcePool[R](constructor: ⇒ R, minResources: Int = 0) {
    */
   protected def onReturn(r: R) {}
 
-  def borrow[A](thunk: R ⇒ A): A = {
+  def borrow[A](thunk: R => A): A = {
     val r = pop()
     val a = thunk(r)
     push(r)

@@ -14,7 +14,7 @@ abstract class ClosureCompilerFilter extends Filter with ClosureCompilerSupport 
 
   @inline
   private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
-    process(req, res) { res ⇒
+    process(req, res) { res =>
       chain.doFilter(req, res)
     }
   }
@@ -27,7 +27,7 @@ abstract class ClosureCompilerFilter extends Filter with ClosureCompilerSupport 
 trait ClosureCompilation extends HttpServlet with ClosureCompilerSupport {
 
   abstract override def doGet(req: HttpServletRequest, res: HttpServletResponse) {
-    process(req, res) { res ⇒
+    process(req, res) { res =>
       super.doGet(req, res)
     }
   }
@@ -47,7 +47,7 @@ sealed trait ClosureCompilerSupport {
   /** Get compiler options for request. Returning `None` will not compile. */
   protected def compilerOptionsFor(req: HttpServletRequest): Option[CompilerOptions]
 
-  protected def process(req: HttpServletRequest, res: HttpServletResponse)(useResponse: HttpServletResponse ⇒ Unit) {
+  protected def process(req: HttpServletRequest, res: HttpServletResponse)(useResponse: HttpServletResponse => Unit) {
     val resProxy = new HttpServletResponseProxy(res)
     useResponse(resProxy)
     compilerOptionsFor(req) match {
@@ -60,10 +60,10 @@ sealed trait ClosureCompilerSupport {
             resProxy.setCharacterEncoding(ClosureCompiler.Encoding)
             resProxy.getWriter.write(js)
           } catch {
-            case t: Throwable ⇒ req.getServletContext().log("Writing to response proxy failed", t)
+            case t: Throwable => req.getServletContext().log("Writing to response proxy failed", t)
           }
         } catch {
-          case e: Exception ⇒
+          case e: Exception =>
             onClosureError(e)
             uncompressed
         }

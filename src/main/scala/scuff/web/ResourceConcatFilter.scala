@@ -30,7 +30,7 @@ abstract class ResourceConcatFilter extends Filter {
     if (filename.indexOf('*') != -1) {
       val filePattern = java.util.regex.Pattern.compile(filename.replace(".", "\\.").replace("*", ".*").replace("$", "\\$").concat("$"))
       val resourceSet = ctx.getResourcePaths(path).asInstanceOf[java.util.Set[String]]
-      resourceSet.asScala.filter(p ⇒ filePattern.matcher(p).find).toList.sorted
+      resourceSet.asScala.filter(p => filePattern.matcher(p).find).toList.sorted
     } else {
       List(path concat filename)
     }
@@ -41,11 +41,11 @@ abstract class ResourceConcatFilter extends Filter {
     val pathPrefix = fullPath.substring(0, sepPos)
     val filename = fullPath.substring(sepPos)
     ConcatGroupMatcher.findFirstMatchIn(filename) match {
-      case None ⇒ expandResources(req.getServletContext, pathPrefix, filename)
-      case Some(matcher) ⇒
+      case None => expandResources(req.getServletContext, pathPrefix, filename)
+      case Some(matcher) =>
         val filenames = NameSplitter.split(matcher.group(1)).toList
         val extension = Option(matcher.group(2)).getOrElse("")
-        filenames.flatMap(filename ⇒ expandResources(req.getServletContext, pathPrefix, filename concat extension))
+        filenames.flatMap(filename => expandResources(req.getServletContext, pathPrefix, filename concat extension))
     }
   }
 
@@ -73,17 +73,17 @@ abstract class ResourceConcatFilter extends Filter {
       case resources => try {
         val ctx = req.getServletContext()
         Option(ctx.getMimeType(resources.head)).foreach(res.setContentType)
-        val lastMod = resources.map { path ⇒
+        val lastMod = resources.map { path =>
           req.getServletContext.getResource(path) match {
-            case null ⇒ 0L
-            case url ⇒
+            case null => 0L
+            case url =>
               val file = new java.io.File(url.toURI)
               file.lastModified
           }
         }.max
         if (req.IfModifiedSince(lastMod)) {
           res.setLastModified(lastMod).setMaxAge(maxAge(req))
-          resources.foreach { resource ⇒
+          resources.foreach { resource =>
             val proxyReq = new HttpServletRequestProxy(req) {
               import collection.JavaConverters._
               override def getServletPath = req.getPathInfo match {
@@ -100,7 +100,7 @@ abstract class ResourceConcatFilter extends Filter {
               override def getHeaders(name: String) = if (isIfModifiedSince(name)) null else super.getHeaders(name)
               override def getHeaderNames = super.getHeaderNames().asScala.filterNot(h => isIfModifiedSince(h)).asJavaEnumeration
             }
-            asComment(resource).foreach { comment ⇒
+            asComment(resource).foreach { comment =>
               printComment(comment, res)
             }
             var resStatus = 0
@@ -133,7 +133,7 @@ abstract class ResourceConcatFilter extends Filter {
           res.setStatus(HttpServletResponse.SC_NOT_MODIFIED)
         }
       } catch {
-        case t: Throwable ⇒
+        case t: Throwable =>
           req.getServletContext.log(getClass.getName, t)
           res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
       }

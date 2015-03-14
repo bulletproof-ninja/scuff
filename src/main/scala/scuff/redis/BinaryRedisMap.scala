@@ -11,20 +11,20 @@ class BinaryRedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueS
     extends collection.concurrent.Map[K, V] {
   import collection.JavaConverters._
 
-  implicit private def connection[T] = conn.asInstanceOf[(Jedis ⇒ T) ⇒ T]
+  implicit private def connection[T] = conn.asInstanceOf[(Jedis => T) => T]
 
   def set(key: K, value: V) = connection(_.set(keySer.encode(key), valueSer.encode(value)))
 
-  private def watch(key: Array[Byte])(proceed: V ⇒ Boolean)(block: Transaction ⇒ Unit): Option[V] = {
+  private def watch(key: Array[Byte])(proceed: V => Boolean)(block: Transaction => Unit): Option[V] = {
       def watch[T](jedis: Jedis): Option[V] = {
         jedis.watch(key)
         Option(jedis.get(key)).map(valueSer.decode) match {
-          case someValue @ Some(value) if proceed(value) ⇒
+          case someValue @ Some(value) if proceed(value) =>
             jedis.transaction(block) match {
               case None => watch(jedis)
               case _ => someValue
             }
-          case _ ⇒
+          case _ =>
             jedis.unwatch()
             None
         }
@@ -43,8 +43,8 @@ class BinaryRedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueS
 
   override def remove(key: K): Option[V] = {
     val keyBytes = keySer.encode(key)
-    val removed = connection { conn ⇒
-      conn.transactionNoWatch { txn ⇒
+    val removed = connection { conn =>
+      conn.transactionNoWatch { txn =>
         val removed = txn.get(keyBytes)
         (txn: BinaryRedisPipeline).del(keyBytes)
         removed
@@ -63,15 +63,15 @@ class BinaryRedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueS
   def get(key: K): Option[V] = Option(getOrNull(key))
   override def apply(key: K): V = {
     getOrNull(key) match {
-      case null ⇒ throw new NoSuchElementException("Not found: " + key)
-      case value ⇒ value
+      case null => throw new NoSuchElementException("Not found: " + key)
+      case value => value
     }
   }
   private def getOrNull(key: K): V = {
-    connection { jedis ⇒
+    connection { jedis =>
       jedis.get(keySer.encode(key)) match {
-        case null ⇒ null.asInstanceOf[V]
-        case bytes ⇒ valueSer.decode(bytes)
+        case null => null.asInstanceOf[V]
+        case bytes => valueSer.decode(bytes)
       }
     }
   }
@@ -79,8 +79,8 @@ class BinaryRedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueS
 
   def putIfAbsent(key: K, value: V): Option[V] = {
     val keyBytes = keySer.encode(key)
-    val (prevValResp, successResp) = connection { conn ⇒
-      conn.transactionNoWatch { txn ⇒
+    val (prevValResp, successResp) = connection { conn =>
+      conn.transactionNoWatch { txn =>
         // We get and attempt to set in same transaction.
         // It should not be possible to get null while setnx fails.
         txn.get(keyBytes) -> txn.setnx(keyBytes, valueSer.encode(value))
@@ -98,9 +98,9 @@ class BinaryRedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueS
   override def clear() = connection(_.flushDB())
 
   def iterator: Iterator[(K, V)] = {
-    connection { jedis ⇒
+    connection { jedis =>
       val keys = jedis.keys(ALL).asScala.toIterable
-      keys.map { key ⇒
+      keys.map { key =>
         keySer.decode(key) -> valueSer.decode(jedis.get(key))
       }
     }.iterator
@@ -108,7 +108,7 @@ class BinaryRedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueS
 
   def remove(key: K, expectedValue: V): Boolean = {
     val keyBytes = keySer.encode(key)
-    val result = watch(keyBytes)(expectedValue == _) { txn ⇒
+    val result = watch(keyBytes)(expectedValue == _) { txn =>
       (txn: BinaryRedisPipeline).del(keyBytes)
     }
     result.isDefined
@@ -116,14 +116,14 @@ class BinaryRedisMap[K, V](conn: CONNECTION, keySer: scuff.Serializer[K], valueS
 
   def replace(key: K, newValue: V): Option[V] = {
     val keyBytes = keySer.encode(key)
-    val result = watch(keyBytes)(old ⇒ true) { txn ⇒
+    val result = watch(keyBytes)(old => true) { txn =>
       txn.set(keyBytes, valueSer.encode(newValue))
     }
     result
   }
   def replace(key: K, oldValue: V, newValue: V): Boolean = {
     val keyBytes = keySer.encode(key)
-    val result = watch(keyBytes)(oldValue == _) { txn ⇒
+    val result = watch(keyBytes)(oldValue == _) { txn =>
       txn.set(keyBytes, valueSer.encode(newValue))
     }
     result.isDefined

@@ -6,9 +6,9 @@ object IO {
   @annotation.tailrec
   private def transfer(in: InputStream, out: OutputStream, buffer: Array[Byte]) {
     in.read(buffer) match {
-      case -1 ⇒ // Stop
-      case 0 ⇒ transfer(in, out, buffer)
-      case len ⇒
+      case -1 => // Stop
+      case 0 => transfer(in, out, buffer)
+      case len =>
         out.write(buffer, 0, len)
         transfer(in, out, buffer)
     }
@@ -17,9 +17,9 @@ object IO {
   @annotation.tailrec
   private def transfer(in: Reader, out: Writer, buffer: Array[Char]) {
     in.read(buffer) match {
-      case -1 ⇒ // Stop
-      case 0 ⇒ transfer(in, out, buffer)
-      case len ⇒
+      case -1 => // Stop
+      case 0 => transfer(in, out, buffer)
+      case len =>
         out.write(buffer, 0, len)
         transfer(in, out, buffer)
     }
@@ -38,7 +38,7 @@ object IO {
     try {
       transfer(in, out, buffer)
     } catch {
-      case eof: EOFException ⇒ // Some faulty implementations throw EOF
+      case eof: EOFException => // Some faulty implementations throw EOF
     }
   }
   /**
@@ -52,7 +52,7 @@ object IO {
     try {
       transfer(in, out, buffer)
     } catch {
-      case eof: EOFException ⇒ // Some faulty implementations throw EOF
+      case eof: EOFException => // Some faulty implementations throw EOF
     }
   }
 }

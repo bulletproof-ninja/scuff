@@ -17,8 +17,8 @@ trait MapSnapshots[ID, AR <: AggregateRoot, CAT] extends EventStoreRepository[ID
   @annotation.tailrec
   private def trySave(id: AR#ID, snapshot: Snapshot) {
     snapshots.putIfAbsent(id, snapshot) match {
-      case None ⇒ // Success
-      case Some(other) ⇒
+      case None => // Success
+      case Some(other) =>
         if (snapshot.revision > other.revision) { // replace with later revision
           if (!snapshots.replace(id, other, snapshot)) {
             trySave(id, snapshot)

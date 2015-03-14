@@ -24,7 +24,8 @@ class TestSurgeon {
     val expected = Map('bar -> "baz", 'foo -> "baz")
     val actual = surgeon.get(classOf[String])
     assertEquals(expected, actual)
-    val num = surgeon.get(classOf[Number]).map(_._2.intValue).sum
+    val numberFields = surgeon.get(classOf[Number]).filter(kv => List('num, 'd).contains(kv._1))
+    val num = numberFields.map(_._2.intValue).sum
     assertEquals(43, num)
     val d = surgeon.get(classOf[Double]).map(_._2.doubleValue).sum
     assertEquals(1.23d, d, 0.0001d)

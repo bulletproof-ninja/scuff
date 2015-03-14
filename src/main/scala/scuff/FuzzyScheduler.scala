@@ -62,12 +62,12 @@ class FuzzyScheduler(scheduler: ScheduledExecutorService) {
         try {
           pr.run()
         } catch {
-          case th: Throwable ⇒ pr.onException(th)
+          case th: Throwable => pr.onException(th)
         }
         if (pr.isAlive) try {
           schedule(pr)
         } catch {
-          case e: RejectedExecutionException ⇒ // Ok
+          case e: RejectedExecutionException => // Ok
         }
       }
     }

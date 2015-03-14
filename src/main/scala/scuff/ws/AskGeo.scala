@@ -22,7 +22,7 @@ class AskGeo(urlPrefix: String, parser: AskGeo.Parser) {
           query append p.latitude append ',' append p.longitude
         }
       appendPoint(points.head)
-      points.tail.foreach { p ⇒
+      points.tail.foreach { p =>
         query append ';'
         appendPoint(p)
       }
@@ -59,7 +59,7 @@ object AskGeo {
         throw new IllegalStateException(msg)
       }
       val data = root.get("data").asInstanceOf[jList[jMap[String, jMap[String, String]]]].asScala
-      data.map { jsObj ⇒
+      data.map { jsObj =>
         val tz = jsObj.get("TimeZone").get("TimeZoneId")
         java.util.TimeZone.getTimeZone(tz)
       }

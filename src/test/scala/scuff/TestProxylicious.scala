@@ -17,15 +17,15 @@ class TestProxylicious {
     val doubler = new proxyfier.Sandwich {
       def include(method: Method) = {
         method.getParameterTypes match {
-          case Array(Integer.TYPE, Integer.TYPE) ⇒ method named 'apply returns Integer.TYPE
-          case _ ⇒ false
+          case Array(Integer.TYPE, Integer.TYPE) => method named 'apply returns Integer.TYPE
+          case _ => false
         }
       }
       def before(proxy: Arithmetic, method: Method, args: Array[Any]) {}
       def after(proxy: Arithmetic, method: Method, args: Array[Any], result: Try[Any]): Any = {
         result match {
-          case Failure(t) ⇒ throw t
-          case Success(r: Int) ⇒ r * 2
+          case Failure(t) => throw t
+          case Success(r: Int) => r * 2
         }
       }
     }
@@ -55,7 +55,7 @@ class TestProxylicious {
       multiply(5, 6)
       fail("Should fail on illegal state")
     } catch {
-      case e: Exception ⇒ assertEquals(classOf[IllegalStateException], e.getClass)
+      case e: Exception => assertEquals(classOf[IllegalStateException], e.getClass)
     }
     assertEquals(42, retryingMultiply(6, 7))
   }

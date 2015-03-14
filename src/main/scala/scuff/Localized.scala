@@ -8,7 +8,7 @@ object Localized {
 
   def makeKey(locales: Locale*) = new Key(locales ++ stripCountries(locales))
 
-  private def stripCountries(locales: Seq[Locale]): Seq[Locale] = locales.flatMap { l ⇒
+  private def stripCountries(locales: Seq[Locale]): Seq[Locale] = locales.flatMap { l =>
     if (l.getCountry == "") {
       None
     } else {
@@ -36,8 +36,8 @@ class Localized[T](val byLang: Map[Locale, T], val defaultLang: Locale) extends 
   def makeKey(locales: Locale*) = Localized.makeKey(locales: _*)
   def apply(locales: Locale*): T = apply(makeKey(locales: _*))
   def apply(key: Localized.Key): T = findT(key) match {
-    case None ⇒ byLang(defaultLang)
-    case Some(t) ⇒ t
+    case None => byLang(defaultLang)
+    case Some(t) => t
   }
 
   private def findT(key: Localized.Key): Option[T] = {

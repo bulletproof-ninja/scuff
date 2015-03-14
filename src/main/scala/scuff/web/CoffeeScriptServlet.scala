@@ -38,8 +38,8 @@ abstract class CoffeeScriptServlet extends HttpServlet {
   protected def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.DefaultConfig(newJavascriptEngine))
   private[this] val compilerPool = new ResourcePool[CoffeeScriptCompiler](createCompiler) {
     // Don't discard compiler on exception, it still works :-)
-    override def borrow[A](use: CoffeeScriptCompiler ⇒ A): A = {
-      val result = super.borrow { compiler ⇒
+    override def borrow[A](use: CoffeeScriptCompiler => A): A = {
+      val result = super.borrow { compiler =>
         Try(use(compiler))
       }
       result.get
@@ -83,8 +83,8 @@ abstract class CoffeeScriptServlet extends HttpServlet {
 
   private def respond(req: HttpServletRequest, res: HttpServletResponse) {
     req.getResource match {
-      case None ⇒ res.setStatus(HttpServletResponse.SC_NOT_FOUND)
-      case Some(Resource(url, lastModified)) ⇒
+      case None => res.setStatus(HttpServletResponse.SC_NOT_FOUND)
+      case Some(Resource(url, lastModified)) =>
         if (req.IfModifiedSince(lastModified)) {
           val js = compile(req.servletPathInfo, url)
           res.setDateHeader(LastModified, lastModified)
@@ -103,7 +103,7 @@ abstract class CoffeeScriptServlet extends HttpServlet {
     try {
       respond(req, res)
     } catch {
-      case e: Exception ⇒
+      case e: Exception =>
         log(s"Failed to compile: ${req.servletPathInfo}", e)
         res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage)
     }
@@ -111,11 +111,11 @@ abstract class CoffeeScriptServlet extends HttpServlet {
 
 }
 
-trait Ice { self: CoffeeScriptServlet ⇒
+trait Ice { self: CoffeeScriptServlet =>
   final override def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.IcedConfig(newJavascriptEngine))
 }
 
-//trait Redux { self: CoffeeScriptServlet ⇒
+//trait Redux { self: CoffeeScriptServlet =>
 //  import CoffeeScriptCompiler.Use
 //  final override def newCoffeeCompiler() = new CoffeeScriptCompiler()
 //}

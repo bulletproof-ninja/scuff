@@ -24,7 +24,7 @@ import java.util.concurrent.Callable
  */
 final class HashBasedSerialExecutionContext(
   threads: IndexedSeq[ExecutorService],
-  failureReporter: Throwable ⇒ Unit = t ⇒ t.printStackTrace(System.err))
+  failureReporter: Throwable => Unit = t => t.printStackTrace(System.err))
     extends ExecutionContext {
 
   private[this] val numThreads = threads.size
@@ -44,7 +44,7 @@ final class HashBasedSerialExecutionContext(
     def run = try {
       runnable.run()
     } catch {
-      case t: Throwable ⇒ reportFailure(t)
+      case t: Throwable => reportFailure(t)
     }
   }
 
@@ -73,7 +73,7 @@ object HashBasedSerialExecutionContext {
    * @param threadFactory The thread factory used to create the threads
    * @param failureReporter Sink for exceptions
    */
-  def apply(numThreads: Int, threadFactory: java.util.concurrent.ThreadFactory, failureReporter: Throwable ⇒ Unit = t ⇒ t.printStackTrace(System.err)) = {
+  def apply(numThreads: Int, threadFactory: java.util.concurrent.ThreadFactory, failureReporter: Throwable => Unit = t => t.printStackTrace(System.err)) = {
     val threads = new Array[ExecutorService](numThreads)
     for (idx ← 0 until numThreads) {
       threads(idx) = Threads.newSingleThreadExecutor(threadFactory, failureReporter)

@@ -19,7 +19,7 @@ class FreeGeoIP(urlPrefix: String, parser: FreeGeoIP.Parser) {
         reader.close()
       }
     } catch {
-      case _: java.io.FileNotFoundException ⇒ None
+      case _: java.io.FileNotFoundException => None
     }
   }
 
@@ -41,8 +41,8 @@ object FreeGeoIP {
     def format = "json"
 
     private def toFloat(any: Any) = String.valueOf(any) match {
-      case "" | "null" ⇒ None
-      case l ⇒ Try(l.toFloat).toOption
+      case "" | "null" => None
+      case l => Try(l.toFloat).toOption
     }
     def parseGeoPoint(buf: java.io.BufferedReader): Option[GeoPoint] = {
       val root = JsonParserPool.borrow(_.parse(buf)).asInstanceOf[jMap[String, Any]]

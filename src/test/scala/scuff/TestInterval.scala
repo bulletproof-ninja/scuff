@@ -16,11 +16,11 @@ class TestInterval {
       }
     Seq(
       "[45.00;59.00)", "[45.00;59.00[", "[45.00,59.00)", "[45.00,59.00[",
-      "[45,00;59,00)", "[45,00;59,00[").map(s ⇒ s -> Interval.parse(s)).foreach {
-        case (str, si) ⇒
+      "[45,00;59,00)", "[45,00;59,00[").map(s => s -> Interval.parse(s)).foreach {
+        case (str, si) =>
           si match {
-            case None ⇒ fail("Should be valid interval string: " + str)
-            case Some(si) ⇒ assertSome(si)
+            case None => fail("Should be valid interval string: " + str)
+            case Some(si) => assertSome(si)
           }
       }
   }
@@ -90,25 +90,25 @@ class TestInterval {
       Interval(Double.NaN -> 5d)
       fail("Should fail on NaN")
     } catch {
-      case e: IllegalArgumentException ⇒ assertTrue(e.getMessage.contains("NaN"))
+      case e: IllegalArgumentException => assertTrue(e.getMessage.contains("NaN"))
     }
     try {
       Interval(1d -> Double.NaN)
       fail("Should fail on NaN")
     } catch {
-      case e: IllegalArgumentException ⇒ assertTrue(e.getMessage.contains("NaN"))
+      case e: IllegalArgumentException => assertTrue(e.getMessage.contains("NaN"))
     }
     try {
       Interval(Float.NaN -> 5f)
       fail("Should fail on NaN")
     } catch {
-      case e: IllegalArgumentException ⇒ assertTrue(e.getMessage.contains("NaN"))
+      case e: IllegalArgumentException => assertTrue(e.getMessage.contains("NaN"))
     }
     try {
       Interval(1f -> Float.NaN)
       fail("Should fail on NaN")
     } catch {
-      case e: IllegalArgumentException ⇒ assertTrue(e.getMessage.contains("NaN"))
+      case e: IllegalArgumentException => assertTrue(e.getMessage.contains("NaN"))
     }
   }
 

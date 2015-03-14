@@ -31,7 +31,7 @@ final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: FiniteDuration 
   private var isShutdown = false
   private def checkShutdown() = if (isShutdown) throw new IllegalStateException("Cache has been disabled.")
 
-  private def writeLock[T](doIt: ⇒ T): T = {
+  private def writeLock[T](doIt: => T): T = {
     lock.writeLock.lock()
     try {
       checkShutdown()
@@ -41,7 +41,7 @@ final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: FiniteDuration 
     }
   }
 
-  private def readLock[T](doIt: ⇒ T): T = {
+  private def readLock[T](doIt: => T): T = {
     lock.readLock.lock()
     try {
       checkShutdown()
@@ -70,11 +70,11 @@ final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: FiniteDuration 
   def refresh(key: K, ttl: FiniteDuration): Boolean = lookupAndRefresh(key, ttl).isDefined
   def lookupAndRefresh(key: K, ttl: FiniteDuration): Option[V] = readLock {
     map.get(key) match {
-      case null ⇒ None
-      case entry if !entry.isStale() ⇒
+      case null => None
+      case entry if !entry.isStale() =>
         entry.refresh(ttl.toSeconds.toInt)
         entry.value
-      case _ ⇒ None
+      case _ => None
     }
   }
 
@@ -84,13 +84,13 @@ final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: FiniteDuration 
     map.clear()
   }
 
-  def lookupOrStore(key: K, ttl: FiniteDuration)(construct: ⇒ V): V = {
+  def lookupOrStore(key: K, ttl: FiniteDuration)(construct: => V): V = {
     lookup(key) match {
-      case Some(value) ⇒ value
-      case None ⇒ writeLock {
+      case Some(value) => value
+      case None => writeLock {
         returnValue(map.get(key)) match {
-          case Some(value) ⇒ value
-          case None ⇒ storeInsideLock(key, construct, ttl.toSeconds.toInt)
+          case Some(value) => value
+          case None => storeInsideLock(key, construct, ttl.toSeconds.toInt)
         }
       }
     }
@@ -125,7 +125,7 @@ final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: FiniteDuration 
     def sleep() = try {
       Thread.sleep(sleepTimeMs)
     } catch {
-      case _: InterruptedException ⇒
+      case _: InterruptedException =>
         writeLock(map.clear())
         this.interrupt()
     }

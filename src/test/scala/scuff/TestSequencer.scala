@@ -6,12 +6,12 @@ import org.junit.Assert._
 class TestSequencer {
 
   var seen: List[(Long, java.lang.Long)] = _
-  var consumer: (Long, java.lang.Long) ⇒ Unit = _
+  var consumer: (Long, java.lang.Long) => Unit = _
 
   @Before
   def setup {
     seen = Nil
-    consumer = (s: Long, t: java.lang.Long) ⇒ {
+    consumer = (s: Long, t: java.lang.Long) => {
       seen = (s, t) :: seen
     }
   }
@@ -27,7 +27,7 @@ class TestSequencer {
     }
     assertEquals(10, seen.size)
     var expected = seq
-    seen.reverse.foreach { case (s, t) ⇒ assertEquals(expected, s); assertEquals(expected, t); expected += 1 }
+    seen.reverse.foreach { case (s, t) => assertEquals(expected, s); assertEquals(expected, t); expected += 1 }
   }
 
   @Test
@@ -46,7 +46,7 @@ class TestSequencer {
     sequencer.apply(2L, 2L)
     assertEquals(6, seen.size)
     var expected = 0L
-    seen.reverse.foreach { case (s, t) ⇒ assertEquals(expected, s); assertEquals(expected, t); expected += 1 }
+    seen.reverse.foreach { case (s, t) => assertEquals(expected, s); assertEquals(expected, t); expected += 1 }
   }
 
   @Test(expected = classOf[MonotonicSequencer.DuplicateSequenceNumberException])
@@ -58,7 +58,7 @@ class TestSequencer {
   @Test
   def `Duplicates can be intercepted instead of throwing exception` {
     var ignored = 0L
-    val dupeHandler = (s: Long, t: java.lang.Long) ⇒ ignored = s
+    val dupeHandler = (s: Long, t: java.lang.Long) => ignored = s
     val sequencer = new MonotonicSequencer[Long, java.lang.Long](consumer, 5, 0, dupeHandler)
     sequencer.apply(4L, 4L)
     assertEquals(4L, ignored)
@@ -74,10 +74,10 @@ class TestSequencer {
         assertTrue(seen.size <= capacity)
       }
     } catch {
-      case e: MonotonicSequencer[_, _]#BufferCapacityExceeded ⇒
+      case e: MonotonicSequencer[_, _]#BufferCapacityExceeded =>
         assertEquals(1L, e.buffer.head._1)
         var expected = 1L
-        e.buffer.foreach { case (s, t) ⇒ assertEquals(expected, s); assertEquals(expected, t); expected += 1 }
+        e.buffer.foreach { case (s, t) => assertEquals(expected, s); assertEquals(expected, t); expected += 1 }
     }
   }
 
@@ -91,7 +91,7 @@ class TestSequencer {
     sequencer.apply(0L, 0L)
     assertEquals(1024, seen.size)
     var expected = 0L
-    seen.reverse.foreach { case (s, t) ⇒ assertEquals(expected, s); assertEquals(expected, t); expected += 1 }
+    seen.reverse.foreach { case (s, t) => assertEquals(expected, s); assertEquals(expected, t); expected += 1 }
   }
 
   @Test

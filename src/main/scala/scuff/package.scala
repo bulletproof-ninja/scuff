@@ -29,7 +29,7 @@ package object scuff {
      */
     def levenshtein(s2: String): Int = {
         def minimum(i1: Int, i2: Int, i3: Int) = min(min(i1, i2), i3)
-      val dist = Array.tabulate(s2.length + 1, str.length + 1) { (j, i) ⇒ if (j == 0) i else if (i == 0) j else 0 }
+      val dist = Array.tabulate(s2.length + 1, str.length + 1) { (j, i) => if (j == 0) i else if (i == 0) j else 0 }
       for (j ← 1 to s2.length; i ← 1 to str.length)
         dist(j)(i) = if (s2(j - 1) == str(i - 1)) dist(j - 1)(i - 1)
         else minimum(dist(j - 1)(i) + 1, dist(j)(i - 1) + 1, dist(j - 1)(i - 1) + 1)
@@ -66,7 +66,7 @@ package object scuff {
   }
 
   implicit final class ScuffLock(val lock: java.util.concurrent.locks.Lock) extends AnyVal {
-    def whenLocked[T](code: ⇒ T): T = {
+    def whenLocked[T](code: => T): T = {
       lock.lock()
       try {
         code
@@ -80,8 +80,8 @@ package object scuff {
   import concurrent.Future
   implicit final class ScuffTry[T](val t: Try[T]) extends AnyVal {
     def toFuture: Future[T] = t match {
-      case Success(res) ⇒ Future.successful(res)
-      case Failure(e) ⇒ Future.failed(e)
+      case Success(res) => Future.successful(res)
+      case Failure(e) => Future.failed(e)
     }
   }
 
@@ -107,28 +107,28 @@ package object scuff {
         }
       }
     if (toType == classOf[String]) Option(from).map(String.valueOf(_).asInstanceOf[T]) else {
-      val ctors = toType.getConstructors.asInstanceOf[Array[Constructor[T]]].filter(ctor ⇒ isParmTypeMatch(ctor.getParameterTypes))
-      val ctorSuccess = ctors.iterator.map(ctor ⇒ Try(ctor.newInstance(from))).collectFirst {
-        case Success(t) ⇒ t
+      val ctors = toType.getConstructors.asInstanceOf[Array[Constructor[T]]].filter(ctor => isParmTypeMatch(ctor.getParameterTypes))
+      val ctorSuccess = ctors.iterator.map(ctor => Try(ctor.newInstance(from))).collectFirst {
+        case Success(t) => t
       }
       ctorSuccess.orElse {
-        val factoryMethods = toType.getMethods().filter { method ⇒
+        val factoryMethods = toType.getMethods().filter { method =>
           Modifier.isStatic(method.getModifiers) &&
             toType.isAssignableFrom(method.getReturnType) &&
             isParmTypeMatch(method.getParameterTypes)
         }
-        val lazyInvoke = factoryMethods.iterator.map { m ⇒
+        val lazyInvoke = factoryMethods.iterator.map { m =>
           try {
             m.invoke(null, from).asInstanceOf[T] match {
-              case null ⇒ Failure(new NullPointerException)
-              case t ⇒ Success(t)
+              case null => Failure(new NullPointerException)
+              case t => Success(t)
             }
           } catch {
-            case e: Exception ⇒ Failure(e)
+            case e: Exception => Failure(e)
           }
         }
         lazyInvoke.collectFirst {
-          case Success(t) ⇒ t
+          case Success(t) => t
         }
       }
     }
@@ -140,8 +140,8 @@ package object scuff {
   }
 
   implicit final class ScuffMap[A, B](val map: Map[A, B]) extends AnyVal {
-    def merge(other: Map[A, B], collisionHandler: (B, B) ⇒ B): Map[A, B] = {
-      val merged = map.keySet.intersect(other.keySet).toSeq.map { key ⇒
+    def merge(other: Map[A, B], collisionHandler: (B, B) => B): Map[A, B] = {
+      val merged = map.keySet.intersect(other.keySet).toSeq.map { key =>
         val merged = collisionHandler(map(key), other(key))
         key -> merged
       }.toMap
@@ -149,7 +149,7 @@ package object scuff {
     }
     def intersectEquals(other: Map[A, B]): Boolean = {
       val intersection = map.keySet.intersect(other.keySet)
-      intersection.nonEmpty && intersection.forall { key ⇒ map(key) == other(key) }
+      intersection.nonEmpty && intersection.forall { key => map(key) == other(key) }
     }
   }
 

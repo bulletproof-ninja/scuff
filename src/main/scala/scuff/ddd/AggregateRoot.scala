@@ -3,8 +3,8 @@ package scuff.ddd
 trait AggregateRoot {
   override final lazy val hashCode = id.hashCode ^ revision.getOrElse(-1)
   override final def equals(obj: Any) = obj match {
-    case that: AggregateRoot ⇒ this.id == that.id && this.revision == that.revision
-    case _ ⇒ false
+    case that: AggregateRoot => this.id == that.id && this.revision == that.revision
+    case _ => false
   }
 
   /** ID type. */

@@ -51,8 +51,8 @@ private class JavaxMailRoom(session: Session, headers: (String, String)*) extend
     wrt.close()
     val contentType = new javax.mail.internet.ContentType(doc.mimeType)
     contentType.getParameter("charset") match {
-      case null ⇒ contentType.setParameter("charset", doc.encoding)
-      case cs ⇒ require(cs.toUpperCase == doc.encoding.toUpperCase, "MIME-type charset and encoding do not match: %s vs. %s".format(cs, doc.encoding))
+      case null => contentType.setParameter("charset", doc.encoding)
+      case cs => require(cs.toUpperCase == doc.encoding.toUpperCase, "MIME-type charset and encoding do not match: %s vs. %s".format(cs, doc.encoding))
     }
     new DataHandler(new ByteArrayDataSource(out.toByteArray, contentType.toString))
   }
@@ -73,7 +73,7 @@ private class JavaxMailRoom(session: Session, headers: (String, String)*) extend
     val bodyPart = new MimeBodyPart
     bodyPart.setDataHandler(toDataHandler(body))
     multipart.addBodyPart(bodyPart)
-    attachments.foreach { attachment ⇒
+    attachments.foreach { attachment =>
       val part = new MimeBodyPart
       part.setFileName(attachment.name)
       part.setDataHandler(toDataHandler(attachment))
@@ -81,7 +81,7 @@ private class JavaxMailRoom(session: Session, headers: (String, String)*) extend
     }
     msg.setContent(multipart)
     headers.foreach {
-      case (key, value) ⇒ msg.setHeader(key, value)
+      case (key, value) => msg.setHeader(key, value)
     }
     Transport.send(msg)
   }
@@ -109,7 +109,7 @@ object MailRoom {
     props.setProperty("mail.smtp.host", smtpServer.getHostName)
     props.setProperty("mail.smtp.port", smtpServer.getPort.toString)
     val auth = userPass.map {
-      case (user, pass) ⇒
+      case (user, pass) =>
         props.setProperty("mail.smtp.auth", "true")
         props.setProperty("mail.smtp.submitter", user)
         new javax.mail.Authenticator {
@@ -117,7 +117,7 @@ object MailRoom {
         }
     }.getOrElse(null)
     otherProps.foreach {
-      case (key, value) ⇒ props.setProperty(key, String.valueOf(value))
+      case (key, value) => props.setProperty(key, String.valueOf(value))
     }
     Session.getInstance(props, auth)
   }

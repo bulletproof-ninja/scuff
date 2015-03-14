@@ -38,10 +38,10 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
   }
   def isCommitted() = false
   def flushBuffer() = writer match {
-    case Some(w) ⇒ w.flush()
-    case None ⇒ out match {
-      case None ⇒ // Ignore
-      case Some(out) ⇒ out.flush()
+    case Some(w) => w.flush()
+    case None => out match {
+      case None => // Ignore
+      case Some(out) => out.flush()
     }
   }
 
@@ -54,31 +54,31 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
   def setDateHeader(name: String, value: Long) = setHeader(name, dateFmt.format(new java.util.Date(value)))
 
   def getHeader(name: String): String = headers.get(name.toLowerCase) match {
-    case None ⇒ null
-    case Some(header) ⇒ header._2.headOption.getOrElse(null)
+    case None => null
+    case Some(header) => header._2.headOption.getOrElse(null)
   }
   def getHeaders(name: String) = headers.get(name.toLowerCase) match {
-    case None ⇒ java.util.Collections.emptyList()
-    case Some(headers) ⇒ headers._2.asJavaCollection
+    case None => java.util.Collections.emptyList()
+    case Some(headers) => headers._2.asJavaCollection
   }
   def containsHeader(name: String) = headers.contains(name.toLowerCase)
   def getHeaderNames() = headers.values.map(_._1).asJavaCollection
 
   def getBytes: Array[Byte] = out match {
-    case None ⇒ Array()
-    case Some(out) ⇒ out.buffer.toByteArray()
+    case None => Array()
+    case Some(out) => out.buffer.toByteArray()
   }
   def getBufferSize = out match {
-    case None ⇒ 0
-    case Some(out) ⇒ out.buffer.size
+    case None => 0
+    case Some(out) => out.buffer.size
   }
   private[this] var bufferSizeHint = 4096 * 2
   def setBufferSize(hint: Int) = bufferSizeHint = hint
   private[this] val dateFmt = RFC822
   def getDateHeaders(name: String): Seq[Long] =
     headers.get(name.toLowerCase) match {
-      case None ⇒ Seq.empty
-      case Some((_, values)) ⇒ values.flatMap(t => Try(dateFmt.parse(t).getTime).toOption)
+      case None => Seq.empty
+      case Some((_, values)) => values.flatMap(t => Try(dateFmt.parse(t).getTime).toOption)
     }
 
   var status = delegate.getStatus()
@@ -149,18 +149,18 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
   def propagate(stat: Int = status) {
     for (cookie ← cookies) delegate.addCookie(cookie)
     if (inError) message match {
-      case None ⇒ delegate.sendError(status)
-      case Some(message) ⇒ delegate.sendError(status, message)
+      case None => delegate.sendError(status)
+      case Some(message) => delegate.sendError(status, message)
     }
     else redirect match {
-      case Some(redirect) ⇒ delegate.sendRedirect(redirect)
-      case None ⇒
+      case Some(redirect) => delegate.sendRedirect(redirect)
+      case None =>
         for ((name, values) ← headers.values; value ← values) {
           delegate.addHeader(name, value)
         }
         message match {
-          case None ⇒ delegate.setStatus(stat)
-          case Some(message) ⇒ delegate.setStatus(stat, message)
+          case None => delegate.setStatus(stat)
+          case Some(message) => delegate.setStatus(stat, message)
         }
         delegate.setCharacterEncoding(characterEncoding)
         contentLength.foreach(delegate.setContentLength)

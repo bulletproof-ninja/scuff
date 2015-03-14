@@ -8,8 +8,8 @@ object CoffeeScriptCompiler {
 
   sealed abstract class Version(compilerPath: String) {
     def compiler(): Reader = getClass().getResourceAsStream(compilerPath) match {
-      case null ⇒ sys.error("Cannot find compiler script in classpath: " + compilerPath)
-      case stream ⇒ new InputStreamReader(stream, "UTF-8")
+      case null => sys.error("Cannot find compiler script in classpath: " + compilerPath)
+      case stream => new InputStreamReader(stream, "UTF-8")
     }
     def defaultOptions: Map[Symbol, Any] = Map.empty
   }
@@ -27,7 +27,7 @@ object CoffeeScriptCompiler {
     case object ASM extends Use("\"use asm\";\n")
   }
 
-  case class Config(version: Version = Version.Original, options: Map[Symbol, Any] = Map.empty, newEngine: () => ScriptEngine = newJavascriptEngine, useDirective: Use = null, compiler: () ⇒ Reader = () => null)
+  case class Config(version: Version = Version.Original, options: Map[Symbol, Any] = Map.empty, newEngine: () => ScriptEngine = newJavascriptEngine, useDirective: Use = null, compiler: () => Reader = () => null)
   private val coffeeScriptCodeVarName = "coffeeScriptCode"
 
 }
@@ -52,10 +52,10 @@ class CoffeeScriptCompiler(config: CoffeeScriptCompiler.Config = new CoffeeScrip
     }
     try {
       config.newEngine() match {
-        case engine: Compilable ⇒
+        case engine: Compilable =>
           val compSrc: String = compilerSource
           engine.compile(compSrc + ";\n" + jsCompile())
-        case _ ⇒ sys.error(s"Cannot find Javascript engine!")
+        case _ => sys.error(s"Cannot find Javascript engine!")
       }
     } finally {
       compilerSource.close()

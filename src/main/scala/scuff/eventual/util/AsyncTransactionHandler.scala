@@ -7,7 +7,7 @@ import scuff.eventual._
  * NOTICE: This trait supports [[HashBasedSerialExecutionContext]]
  * to ensure serialized stream execution.
  */
-trait AsyncTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CAT]#Transaction ⇒ Unit) {
+trait AsyncTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CAT]#Transaction => Unit) {
 
   /**
    * Execution context.
@@ -20,7 +20,7 @@ trait AsyncTransactionHandler[ID, EVT, CAT] extends (EventSource[ID, EVT, CAT]#T
   @inline private def callSuper(txn: TXN) = try {
     super.apply(txn)
   } catch {
-    case t: Throwable ⇒ asyncTransactionCtx.reportFailure(ProcessingException(t, txn))
+    case t: Throwable => asyncTransactionCtx.reportFailure(ProcessingException(t, txn))
   }
 
   abstract override def apply(txn: TXN) {

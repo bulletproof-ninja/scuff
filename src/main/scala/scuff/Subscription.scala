@@ -10,5 +10,5 @@ trait Faucet {
   /** Listener type */
   type L
   /** Start subscription. */
-  def subscribe(s: L, include: F ⇒ Boolean = _ ⇒ true): Subscription
+  def subscribe(s: L, include: F => Boolean = _ => true): Subscription
 }

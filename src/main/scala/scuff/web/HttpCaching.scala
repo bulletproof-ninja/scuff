@@ -37,7 +37,7 @@ trait HttpCaching extends HttpServlet {
     override def fillInStackTrace: Throwable = this
   }
 
-  private def fetchResource(res: HttpServletResponse, fetch: HttpServletResponse ⇒ Unit): Cached = {
+  private def fetchResource(res: HttpServletResponse, fetch: HttpServletResponse => Unit): Cached = {
     import collection.JavaConverters._
     val proxy = new HttpServletResponseProxy(res)
     fetch(proxy)
@@ -54,10 +54,10 @@ trait HttpCaching extends HttpServlet {
     }
     new Cached(proxy.getBytes, lastMod, headers, proxy.getContentType, proxy.getCharacterEncoding, proxy.getLocale)
   }
-  private def respond(cacheKey: Any, req: HttpServletRequest, res: HttpServletResponse)(getResource: HttpServletResponse ⇒ Unit) =
+  private def respond(cacheKey: Any, req: HttpServletRequest, res: HttpServletResponse)(getResource: HttpServletResponse => Unit) =
     try {
       val cached = cache.lookupOrStore(cacheKey)(fetchResource(res, getResource)) match {
-        case currCache ⇒
+        case currCache =>
           if (currCache.lastModified != fetchLastModified(req)) { // Server cache invalid
             val freshCache = fetchResource(res, getResource)
             cache.store(cacheKey, freshCache)
@@ -67,8 +67,8 @@ trait HttpCaching extends HttpServlet {
           }
       }
       val isClientCacheInvalid = cached.lastModified match {
-        case Some(lastModified) ⇒ req.IfModifiedSince(lastModified)
-        case None ⇒ !req.IfNoneMatch(cached.eTag)
+        case Some(lastModified) => req.IfModifiedSince(lastModified)
+        case None => !req.IfNoneMatch(cached.eTag)
       }
       if (isClientCacheInvalid) {
         cached.flushTo(res)
@@ -76,7 +76,7 @@ trait HttpCaching extends HttpServlet {
         res.setStatus(SC_NOT_MODIFIED)
       }
     } catch {
-      case NotOkException ⇒ // Response already populated
+      case NotOkException => // Response already populated
     }
 
   override def destroy {
@@ -86,8 +86,8 @@ trait HttpCaching extends HttpServlet {
 
   override def service(req: HttpServletRequest, res: HttpServletResponse) {
     if (req.getMethod == "GET") makeCacheKey(req) match {
-      case Some(cacheKey) ⇒ respond(cacheKey, req, res) { res ⇒ super.service(req, res) }
-      case _ ⇒ super.service(req, res)
+      case Some(cacheKey) => respond(cacheKey, req, res) { res => super.service(req, res) }
+      case _ => super.service(req, res)
     }
     else {
       super.service(req, res)

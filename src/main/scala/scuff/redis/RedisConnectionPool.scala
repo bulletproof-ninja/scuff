@@ -12,17 +12,17 @@ import redis.clients.util.Pool
 import scuff.{Clock, Threads}
 
 class RedisConnectionPool(pool: Pool[Jedis], enforceDB: Option[Int]) extends CONNECTION {
-  def apply(code: Jedis ⇒ Any): Any = connection(retry = true)(code)
+  def apply(code: Jedis => Any): Any = connection(retry = true)(code)
   def this(pool: Pool[Jedis], enforceDB: Int) = this(pool, Some(enforceDB))
   private[this] val db = enforceDB.getOrElse(-1)
-  def connection[T](retry: Boolean = true)(code: Jedis ⇒ T): T = {
+  def connection[T](retry: Boolean = true)(code: Jedis => T): T = {
     var returned = false
     val jedis = pool.getResource()
     try {
       if (db != -1 && jedis.getDB != db) jedis.select(db)
       code(jedis)
     } catch {
-      case je: JedisConnectionException ⇒
+      case je: JedisConnectionException =>
         pool.returnBrokenResource(jedis: Jedis)
         returned = true
         if (retry) {
@@ -43,16 +43,16 @@ class RedisConnectionPool(pool: Pool[Jedis], enforceDB: Option[Int]) extends CON
    * @param whenLocked Code block to execute when lock is acquired
    * @param clock Clock implementation. Defaults to system clock.
    */
-  def lock[T](lockKey: String, maxHoldLock: FiniteDuration, maxWaitLock: Duration)(whenLocked: Jedis ⇒ T)(implicit clock: Clock = Clock.System): Future[T] = {
+  def lock[T](lockKey: String, maxHoldLock: FiniteDuration, maxWaitLock: Duration)(whenLocked: Jedis => T)(implicit clock: Clock = Clock.System): Future[T] = {
     val waitExpiry = if (maxWaitLock.isFinite) clock.now(TimeUnit.MILLISECONDS) + maxWaitLock.toMillis else Long.MaxValue
     lock(lockKey, maxHoldLock.toSeconds.toInt, waitExpiry, (maxWaitLock.isFinite && maxWaitLock.length == 0), whenLocked)
   }
-  private def lock[T](lockKey: String, holdLockSeconds: Int, waitExpiry: Long, failFast: Boolean, whenLocked: Jedis ⇒ T)(implicit clock: Clock): Future[T] = {
+  private def lock[T](lockKey: String, holdLockSeconds: Int, waitExpiry: Long, failFast: Boolean, whenLocked: Jedis => T)(implicit clock: Clock): Future[T] = {
     connection(retry = true) { jedis =>
       tryLock(lockKey, holdLockSeconds, waitExpiry, failFast, whenLocked, jedis)
     }
   }
-  private def tryLock[T](lockKey: String, holdLockSeconds: Int, waitExpiry: Long, failFast: Boolean, whenLocked: Jedis ⇒ T, jedis: Jedis)(implicit clock: Clock): Future[T] = {
+  private def tryLock[T](lockKey: String, holdLockSeconds: Int, waitExpiry: Long, failFast: Boolean, whenLocked: Jedis => T, jedis: Jedis)(implicit clock: Clock): Future[T] = {
     val now = clock.now(TimeUnit.SECONDS)
     val thisExpiry = (now + holdLockSeconds).toInt
     if (jedis.setnx(lockKey, String.valueOf(thisExpiry)) == 1L) {
@@ -61,9 +61,9 @@ class RedisConnectionPool(pool: Pool[Jedis], enforceDB: Option[Int]) extends CON
       Future failed new TimeoutException("Failed to immediately acquire lock")
     } else {
       jedis.get(lockKey) match {
-        case null ⇒
+        case null =>
           lock(lockKey, holdLockSeconds, waitExpiry, false, whenLocked)
-        case thatExpiry ⇒
+        case thatExpiry =>
           val expiry = thatExpiry.toLong
           if (now >= expiry) {
             val replacedExpiry = jedis.getSet(lockKey, String.valueOf(thisExpiry))
@@ -79,7 +79,7 @@ class RedisConnectionPool(pool: Pool[Jedis], enforceDB: Option[Int]) extends CON
     }
   }
   class LockTimeExceeded[T](val result: T, maxSeconds: Int) extends IllegalStateException(s"Lock time exceeded $maxSeconds seconds. Lock code was executed, but lock exclusivity cannot be guaranteed.")
-  private def locked[T](lockKey: String, maxSeconds: Int, whenLocked: Jedis ⇒ T, jedis: Jedis)(implicit clock: Clock): Future[T] = {
+  private def locked[T](lockKey: String, maxSeconds: Int, whenLocked: Jedis => T, jedis: Jedis)(implicit clock: Clock): Future[T] = {
     val redisExpiry = clock.now(TimeUnit.SECONDS) + maxSeconds
     try {
       jedis.expire(lockKey, maxSeconds)
@@ -94,10 +94,10 @@ class RedisConnectionPool(pool: Pool[Jedis], enforceDB: Option[Int]) extends CON
         case Failure(e) => Future failed e
       }
     } catch {
-      case e: Exception ⇒ Future failed e
+      case e: Exception => Future failed e
     }
   }
-  private def tryLockLater[T](lockKey: String, maxSeconds: Int, waitExpiry: Long, whenLocked: Jedis ⇒ T)(implicit clock: Clock): Future[T] = {
+  private def tryLockLater[T](lockKey: String, maxSeconds: Int, waitExpiry: Long, whenLocked: Jedis => T)(implicit clock: Clock): Future[T] = {
     val promise = Promise[T]
     val retry = new Runnable {
       def run = promise completeWith lock(lockKey, maxSeconds, waitExpiry, false, whenLocked)

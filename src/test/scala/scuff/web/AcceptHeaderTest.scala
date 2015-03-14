@@ -14,10 +14,10 @@ class AcceptHeaderTest {
     assertFalse(AcceptHeader("image/*").get.matches("text/html"))
     assertFalse(AcceptHeader("text/*").get.matches("image/jpeg"))
     assertTrue(AcceptHeader("*/*").get.matches("image/jpeg"))
-    assertTrue(AcceptHeader("*/*").forall(h ⇒ h.matchesAny(acceptTypes)))
-    assertTrue(AcceptHeader("text/*").forall(h ⇒ h.matchesAny(acceptTypes)))
-    assertFalse(AcceptHeader("image/*").forall(h ⇒ h.matchesAny(acceptTypes)))
-    assertTrue(AcceptHeader("").forall(h ⇒ h.matchesAny(acceptTypes)))
+    assertTrue(AcceptHeader("*/*").forall(h => h.matchesAny(acceptTypes)))
+    assertTrue(AcceptHeader("text/*").forall(h => h.matchesAny(acceptTypes)))
+    assertFalse(AcceptHeader("image/*").forall(h => h.matchesAny(acceptTypes)))
+    assertTrue(AcceptHeader("").forall(h => h.matchesAny(acceptTypes)))
   }
 
   @Test
