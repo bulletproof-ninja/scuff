@@ -2,18 +2,18 @@ package scuff
 
 import java.util.concurrent.atomic.AtomicLong
 import scala.annotation.tailrec
+import LamportClock._
 
-final class LamportClock(init: Long = 0) {
+final class LamportClock(private[this] val counter: CASLong) {
+  def this(init: Long = 0) = this(new AtomicCASLong(init))
 
-  private[this] val counter = new AtomicLong(init)
-
-  def next(): Long = counter.incrementAndGet()
+  def next(): Long = counter.incrAndGet()
 
   @tailrec
   def next(sync: Long): Long = {
-    val last = counter.get
+    val last = counter.value
     val nextTs = (last max sync) + 1
-    if (counter.compareAndSet(last, nextTs)) {
+    if (counter.compAndSwap(last, nextTs)) {
       nextTs
     } else {
       next(sync)
@@ -22,10 +22,24 @@ final class LamportClock(init: Long = 0) {
 
   @tailrec
   def sync(update: Long): Unit = {
-    val curr = counter.get
-    if (update > curr && !counter.compareAndSet(curr, update)) {
+    val curr = counter.value
+    if (update > curr && !counter.compAndSwap(curr, update)) {
       sync(update)
     }
   }
 
+}
+
+object LamportClock {
+  trait CASLong {
+    def value: Long
+    def compAndSwap(expected: Long, update: Long): Boolean
+    def incrAndGet(): Long
+  }
+  private final class AtomicCASLong(private[this] val al: AtomicLong) extends CASLong {
+    def this(init: Long = 0) = this(new AtomicLong(init))
+    def value: Long = al.get
+    def compAndSwap(expected: Long, update: Long): Boolean = al.compareAndSet(expected, update)
+    def incrAndGet(): Long = al.incrementAndGet()
+  }
 }
