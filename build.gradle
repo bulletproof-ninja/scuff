@@ -88,3 +88,18 @@ dependencies {
     compile "com.datastax.cassandra:cassandra-driver-core:2.1.4"
     compile "io.fastjson:boon:0.30"
 }
+
+compileScala {
+    scalaCompileOptions.additionalParameters = [
+        "-feature", "-optimise","–unchecked", "-deprecation","–explaintypes",
+        "–Xdisable-assertions", //"-Xfatal-warnings",
+        "-Ybackend:GenBCode", "-Yclosure-elim",
+    ]
+}
+
+compileTestScala {
+    scalaCompileOptions.additionalParameters = [
+        "-Xcheckinit", "-optimise", "-Xnowarn",
+        "-Ybackend:GenBCode", "-Yclosure-elim",
+    ]
+}
