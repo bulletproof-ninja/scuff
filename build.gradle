@@ -99,7 +99,8 @@ compileScala {
 
 compileTestScala {
     scalaCompileOptions.additionalParameters = [
-        "-Xcheckinit", "-optimise", "-Xnowarn",
+        "-nowarn",
+        "-Xcheckinit", "-optimise",
         "-Ybackend:GenBCode", "-Yclosure-elim",
     ]
 }
