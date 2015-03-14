@@ -14,13 +14,14 @@ import scala.concurrent.ExecutionContextExecutor
  * Unbounded lock-free resource pool.
  *
  * This pool can be used as a more efficient replacement
- * for [[ThreadLocal]], in that it will never create more
- * instances than there are threads, like [[ThreadLocal]],
+ * for [[java.lang.ThreadLocal]], in that it will never create more
+ * instances than there are threads, like [[java.lang.ThreadLocal]],
  * but has much higher probability for creating less.
  *
  * However, unlike traditional resource pools, the pool has
  * no upper limit on resources being created, so be careful
- * if that is a concern.
+ * if that is a concern. This is done to avoid any locking
+ * (or spinning) penalty.
  *
  * Any resource is deliberately discarded when
  * an exception occurs, to avoid potentially

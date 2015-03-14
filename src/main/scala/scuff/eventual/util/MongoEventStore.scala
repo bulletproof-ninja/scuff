@@ -36,8 +36,8 @@ object MongoEventStore {
  *       stream: 34534, // Stream identifier
  *       rev: 987, // Stream revision
  *     }
- *     time: { "$date" : "2011-12-08T18:41:32.079Z"}, // Indexed. For reference purposes.
- *     category: "FooBar",
+ *     time: 1426320727122, // Indexed. For globally consistent sequencing.
+ *     category: "FooBar", // Type dependent
  *     events: []
  *   }
  * }}}
@@ -136,16 +136,6 @@ abstract class MongoEventStore[ID, EVT, CAT](dbColl: DBCollection)(implicit idCo
         throw new DuplicateRevisionException(stream, conflicting)
     }(PiggyBack)
   }
-
-//  private def tryAppend(category: CAT, stream: ID, revision: Int, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] =
-//    record(category, stream, revision, events, metadata).recoverWith {
-//      case _: DuplicateRevisionException => tryAppend(category, stream, revision + 1, events, metadata)
-//    }
-//
-//  def append(category: CAT, stream: ID, events: List[_ <: EVT], metadata: Map[String, String]): Future[Transaction] = {
-//    val revision = store.find("_id.stream" := stream).last("_id.rev").map(_.getAs[Int]("_id.rev")).getOrElse(-1) + 1
-//    tryAppend(category, stream, revision, events, metadata)
-//  }
 
   // TODO: Make non-blocking once supported by the driver.
   private def query[T](filter: DBObject, ordering: DBObject, handler: Iterator[Transaction] => T): Future[T] = Future {

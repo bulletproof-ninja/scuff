@@ -4,10 +4,10 @@ package scuff
  * Class that guarantees exactly one instance per key being created.
  * This is known as a
  *  <a href="http://en.wikipedia.org/wiki/Multiton">Multiton</a>.
- * NOTICE: [[scala.collection.mutable.ConcurrentMap#getOrElse]] and
- * [[scala.collection.mutable.ConcurrentMap#putIfAbsent]] provides
- * similar behavior, but does not guarantee a single instance per key,
- * due to race conditions.
+ * NOTICE: [[scala.collection.concurrent.Map#getOrElse]] and
+ * [[scala.collection.concurrent.Map#putIfAbsent]] provides
+ * similar behavior, but cannot guarantee a single instance per
+ * key, due to race conditions.
  */
 class Multiton[K, V](factory: K => V) {
 

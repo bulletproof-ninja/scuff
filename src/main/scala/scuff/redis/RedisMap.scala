@@ -4,7 +4,7 @@ import redis.clients.jedis._
 import redis.clients.util.SafeEncoder._
 
 /**
- * Redis general implementation of [[scala.collection.mutable.ConcurrentMap]].
+ * Redis general implementation of [[scala.collection.concurrent.Map]].
  * @see [[scuff.redis.RedisHashMap]] for Hash implementation.
  */
 class RedisMap(conn: CONNECTION, keyPrefix: String = "")

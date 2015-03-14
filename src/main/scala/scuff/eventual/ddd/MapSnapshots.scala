@@ -4,7 +4,7 @@ import scuff.ddd._
 import concurrent._
 
 /**
- * Trait that stores snapshots in a a [[concurrent.Map]]. Should probably be
+ * Trait that stores snapshots in a a [[scala.collection.concurrent.Map]]. Should probably be
  * used in conjunction with a limiter, something to determine if a given
  * revision should be snapshotted, e.g. [[FixedIntervalSnapshots]] or [[LoadTimeSnapshots]],
  * unless memory consumption is a non-issue.

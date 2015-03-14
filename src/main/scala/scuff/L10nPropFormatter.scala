@@ -204,7 +204,7 @@ object L10nPropFormatter {
 
   /**
    * Construct instance to match the provided class, which is not a
-   * subclass of [[PropertiesFormatter]].
+   * subclass of [[L10nPropFormatter]].
    * @param baseName The class which name will match `.properties` file in same package
    * @param desiredLocale The preferred locale
    * @return new instance
