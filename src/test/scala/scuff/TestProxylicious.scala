@@ -47,18 +47,6 @@ class TestProxylicious {
     val pure = p.proxify(handler)
     assertEquals(42, pure.foo)
   }
-  @Test def `retrying` {
-    val multiply = new Multiply with ThirtiethTimesACharm
-    val proxyfier = new util.RetryOnExceptionProxylicious[Arithmetic, IllegalStateException]
-    val retryingMultiply = proxyfier.withRetry(multiply)
-    try {
-      multiply(5, 6)
-      fail("Should fail on illegal state")
-    } catch {
-      case e: Exception => assertEquals(classOf[IllegalStateException], e.getClass)
-    }
-    assertEquals(42, retryingMultiply(6, 7))
-  }
 
   trait Arithmetic {
     def apply(a: Int, b: Int): Int

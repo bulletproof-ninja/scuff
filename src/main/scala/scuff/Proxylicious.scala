@@ -3,7 +3,7 @@ package scuff
 import java.lang.reflect.{InvocationHandler, InvocationTargetException, Method, Proxy, UndeclaredThrowableException}
 
 import language.implicitConversions
-import reflect.ClassTag
+import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
 /**

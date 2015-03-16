@@ -1,6 +1,6 @@
 package scuff
 
-import reflect.ClassTag
+import scala.reflect.ClassTag
 
 /**
  * Monotonic sequencer.

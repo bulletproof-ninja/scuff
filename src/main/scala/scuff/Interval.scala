@@ -65,7 +65,7 @@ final class Interval[@specialized(Short, Int, Long, Float, Double) T](
     out.writeObject(stringRep)
   }
   private def readObject(in: java.io.ObjectInputStream) {
-    val surgeon = new scuff.reflect.Surgeon(this)
+    val surgeon = new reflect.Surgeon(this)
     surgeon.set('fromIncl, in.readBoolean)
     surgeon.set('toIncl, in.readBoolean)
     surgeon.set('from, in.readObject)

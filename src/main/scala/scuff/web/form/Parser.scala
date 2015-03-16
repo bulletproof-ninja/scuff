@@ -1,11 +1,11 @@
 package scuff.web.form
 
-import scuff.ScuffAny
-import reflect.ClassTag
-import scuff.Proxylicious
-import util._
 import java.lang.reflect.Method
-import scuff.EmailAddress
+
+import scala.{BigDecimal, Left, Right}
+import scala.reflect.ClassTag
+
+import scuff.{EmailAddress, GeoPoint}
 import scuff.reflect.DynamicConstructor
 
 object Parser {

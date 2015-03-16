@@ -145,7 +145,7 @@ object MailRoom {
     def dump(out: OutputStream) {
       val is = new FileInputStream(file)
       try {
-        import scuff.io._
+        import io.ScuffInputStream
         is.copyTo(out)
       } finally {
         is.close()

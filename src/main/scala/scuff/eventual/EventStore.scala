@@ -1,9 +1,11 @@
 package scuff.eventual
 
-import scuff._
-import concurrent.{ Promise, Future }
 import java.io.InvalidObjectException
+
+import scala.concurrent.Future
 import scala.util.control.NoStackTrace
+
+import scuff.Faucet
 
 /**
  * Event source.
