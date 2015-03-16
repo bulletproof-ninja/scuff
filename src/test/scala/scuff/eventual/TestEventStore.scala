@@ -1,25 +1,16 @@
 package scuff.eventual
 
-import org.junit._
+import java.io.{ObjectInputStream, ObjectOutputStream}
+
+import scala.language.implicitConversions
+
+import org.junit.{Before, Test}
 import org.junit.Assert._
-import scuff.eventual._
-import scuff.eventual.util.InMemoryEventStore
-import concurrent._
-import duration._
-import scala.util._
-import scuff.eventual.ddd.EventHandler
-import scuff.eventual.ddd.StateMutator
-import scuff.eventual.ddd.EventHandler
-import scuff.eventual.ddd.MapSnapshots
-import scuff.eventual.ddd.EventStoreRepository
+
 import scuff.Threads
-import scuff.Clock
-import language.implicitConversions
-import scuff.Surgeon
-import scuff.ByteOutputStream
-import java.io.ObjectOutputStream
-import java.io.ObjectInputStream
-import scuff.ByteInputStream
+import scuff.eventual.util.InMemoryEventStore
+import scuff.io.{ByteInputStream, ByteOutputStream}
+import scuff.reflect.Surgeon
 
 abstract class TestEventStore {
 

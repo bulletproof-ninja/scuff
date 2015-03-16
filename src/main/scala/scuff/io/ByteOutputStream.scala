@@ -1,10 +1,13 @@
-package scuff
+package scuff.io
 
 import java.io.OutputStream
 import java.util.Arrays
 
-final class ByteOutputStream extends OutputStream {
-  private[this] var bytes = new Array[Byte](256)
+/**
+ * Unsynchronized [[OutputStream]].
+ */
+final class ByteOutputStream(initSize: Int = 512) extends OutputStream {
+  private[this] var bytes = new Array[Byte](initSize)
   private[this] var idx = 0
   def toArray = if (bytes.length == idx) bytes else Arrays.copyOf(bytes, idx)
   @inline

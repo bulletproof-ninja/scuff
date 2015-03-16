@@ -6,6 +6,7 @@ import scuff.Proxylicious
 import util._
 import java.lang.reflect.Method
 import scuff.EmailAddress
+import scuff.reflect.DynamicConstructor
 
 object Parser {
   private def passthrough(s: String) = s
@@ -78,7 +79,7 @@ class Parser[T](implicit tag: ClassTag[T]) {
    */
   protected def convert(name: String, value: String, toType: Class[_]): Any = {
     converters.get(toType) match {
-      case None => value.coerceTo(ClassTag(toType)).getOrElse {
+      case None => DynamicConstructor(value)(ClassTag(toType)).getOrElse {
         throw new IllegalArgumentException("Cannot coerce %s into %s".format(value, toType.getName))
       }
       case Some(conv) => conv(value)

@@ -39,12 +39,12 @@ trait StreamingSerializer[T] extends Serializer[T] {
   def decodeFrom(in: InputStream): T
 
   def encode(t: T): Array[Byte] = {
-    val out = new ByteOutputStream
+    val out = new io.ByteOutputStream
     encodeInto(out)(t)
     out.toArray
   }
 
-  def decode(bytes: Array[Byte]) = decodeFrom(new ByteInputStream(bytes))
+  def decode(bytes: Array[Byte]) = decodeFrom(new io.ByteInputStream(bytes))
   @inline protected final def asDataInput[T](in: InputStream)(handle: DataInput => T): T = in match {
     case oi: DataInput => handle(oi)
     case _ => handle(new DataInputStream(in))

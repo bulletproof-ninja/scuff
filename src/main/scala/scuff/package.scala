@@ -85,57 +85,7 @@ package object scuff {
     }
   }
 
-  private[scuff] val primitiveToWrapper: Map[Class[_], Class[_]] = Map(
-    classOf[Boolean] -> classOf[java.lang.Boolean],
-    classOf[Char] -> classOf[java.lang.Character],
-    classOf[Short] -> classOf[java.lang.Short],
-    classOf[Byte] -> classOf[java.lang.Byte],
-    classOf[Int] -> classOf[java.lang.Integer],
-    classOf[Long] -> classOf[java.lang.Long],
-    classOf[Double] -> classOf[java.lang.Double],
-    classOf[Float] -> classOf[java.lang.Float])
-
-  private def coerce[T](from: AnyRef, toType: Class[T]): Option[T] = {
-      def isParmTypeMatch(parmTypes: Array[Class[_]]) = {
-        if (parmTypes.length != 1) {
-          false
-        } else if (parmTypes(0).isPrimitive) {
-          val pt = primitiveToWrapper(parmTypes(0))
-          pt.isInstance(from)
-        } else {
-          parmTypes(0).isInstance(from)
-        }
-      }
-    if (toType == classOf[String]) Option(from).map(String.valueOf(_).asInstanceOf[T]) else {
-      val ctors = toType.getConstructors.asInstanceOf[Array[Constructor[T]]].filter(ctor => isParmTypeMatch(ctor.getParameterTypes))
-      val ctorSuccess = ctors.iterator.map(ctor => Try(ctor.newInstance(from))).collectFirst {
-        case Success(t) => t
-      }
-      ctorSuccess.orElse {
-        val factoryMethods = toType.getMethods().filter { method =>
-          Modifier.isStatic(method.getModifiers) &&
-            toType.isAssignableFrom(method.getReturnType) &&
-            isParmTypeMatch(method.getParameterTypes)
-        }
-        val lazyInvoke = factoryMethods.iterator.map { m =>
-          try {
-            m.invoke(null, from).asInstanceOf[T] match {
-              case null => Failure(new NullPointerException)
-              case t => Success(t)
-            }
-          } catch {
-            case e: Exception => Failure(e)
-          }
-        }
-        lazyInvoke.collectFirst {
-          case Success(t) => t
-        }
-      }
-    }
-  }
-
   implicit final class ScuffAny[A](val any: A) extends AnyVal {
-    def coerceTo[T](implicit tag: ClassTag[T]): Option[T] = coerce[T](any.asInstanceOf[AnyRef], tag.runtimeClass.asInstanceOf[Class[T]])
     def optional(some: Boolean): Option[A] = if (some) Option(any) else None
   }
 

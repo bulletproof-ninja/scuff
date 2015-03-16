@@ -12,6 +12,7 @@ import com.mongodb._
 import scala.util.Try
 import javax.script.ScriptEngine
 import js.CoffeeScriptCompiler
+import scuff.reflect.DynamicConstructor
 
 /**
  * Convenience DSL for the MongoDB Java driver.
@@ -1388,7 +1389,7 @@ object Mongolia {
               } else if (isProxyable(asType)) {
                 getProxy(value.as[DBObject], mapping)(ClassTag[Any](asType))
               } else {
-                new ScuffAny(value.raw).coerceTo[Any](ClassTag(asType)).getOrElse(throw new InvalidValueTypeException(name, s"Cannot convert ${value.raw.getClass.getName}(${value.raw}) to ${asType.getName}"))
+                DynamicConstructor[Any](value.raw)(ClassTag(asType)).getOrElse(throw new InvalidValueTypeException(name, s"Cannot convert ${value.raw.getClass.getName}(${value.raw}) to ${asType.getName}"))
               }
             case _ => null
           }

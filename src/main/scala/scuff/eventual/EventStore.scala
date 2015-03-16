@@ -38,7 +38,7 @@ trait EventSource[ID, EVT, CAT] extends Faucet {
       case evt => evt.asInstanceOf[EVT] :: readEvents(in)
     }
     private def readObject(in: java.io.ObjectInputStream) {
-      val surgeon = new Surgeon(this)
+      val surgeon = new scuff.reflect.Surgeon(this)
       surgeon.set('timestamp, in.readLong)
       surgeon.set('category, in.readObject)
       surgeon.set('streamId, in.readObject)

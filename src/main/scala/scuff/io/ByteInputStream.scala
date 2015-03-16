@@ -1,7 +1,10 @@
-package scuff
+package scuff.io
 
 import java.io.InputStream
 
+/**
+ * Unsynchronized [[InputStream]].
+ */
 final class ByteInputStream(bytes: Array[Byte], offset: Int = 0, len: Int = -1) extends InputStream {
   private[this] final val endIdx = if (len == -1) bytes.length - offset else len
   private[this] var idx = offset

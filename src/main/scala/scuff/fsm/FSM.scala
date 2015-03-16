@@ -21,7 +21,7 @@ object typed {
         field.setAccessible(true)
         val subState = field.get(superState)
         if (!ignore.contains(subState)) {
-          new scuff.Surgeon(subState).set('parent, parent).set('assignedName, field.getName)
+          new scuff.reflect.Surgeon(subState).set('parent, parent).set('assignedName, field.getName)
           ignore += subState
           subState match {
             case ss: typed.SuperState[T] => assignParenthood(ss, ignore)
