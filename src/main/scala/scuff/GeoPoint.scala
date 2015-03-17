@@ -6,10 +6,10 @@ package scuff
  * @param longitude The decimal longitude
  * @param radius The radius. Cannot be negative or NaN. Defaults to 0.
  */
-case class GeoPoint(latitude: Float, longitude: Float, radius: Float = 0f) {
+case class GeoPoint(latitude: Double, longitude: Double, radius: Float = 0f) {
   require(radius >= 0f, "Radius cannot be negative or NaN: " + radius)
-  require(-90f <= latitude && latitude <= 90f, s"Latitude must be within ±90 degrees: $latitude")
-  require(-180f <= longitude && longitude <= 180f, s"Longitude must be within ±180 degrees: $longitude")
+  require(-90d <= latitude && latitude <= 90d, s"Latitude must be within ±90 degrees: $latitude")
+  require(-180d <= longitude && longitude <= 180d, s"Longitude must be within ±180 degrees: $longitude")
 
   private lazy val R = {
     import math._
@@ -22,7 +22,7 @@ case class GeoPoint(latitude: Float, longitude: Float, radius: Float = 0f) {
   }
 
   /** Distance in meters. */
-  def distance(that: GeoPoint): Float = {
+  def distance(that: GeoPoint): Double = {
     import math._
     val R = (this.R + that.R) / 2d
     val dLat = toRadians(this.latitude - that.latitude)
@@ -31,7 +31,7 @@ case class GeoPoint(latitude: Float, longitude: Float, radius: Float = 0f) {
       sin(dLat / 2) * sin(dLat / 2) +
         sin(dLng / 2) * sin(dLng / 2) * cos(toRadians(this.latitude)) * cos(toRadians(that.latitude))
     val c = 2 * atan2(sqrt(a), sqrt(1 - a))
-    (R * c).asInstanceOf[Float]
+    (R * c)
   }
 }
 
