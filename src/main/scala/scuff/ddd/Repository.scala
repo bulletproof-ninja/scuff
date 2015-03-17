@@ -48,11 +48,11 @@ trait Repository[AR <: AggregateRoot] {
 
   private[this] final val EventPrefix = s"${compat.Platform.EOL}\t * "
   class InvariantFailure(aggr: AR#ID, events: List[DomainEvent], cause: Exception)
-    extends RuntimeException(s"""Aggregate $aggr invariant failure: "${cause.getMessage}" after applying events:${events.mkString(EventPrefix, EventPrefix, "")}""", cause)
+    extends RuntimeException(s"""Aggregate $aggr invariant failure: "${cause.getMessage}" with events:${events.mkString(EventPrefix, EventPrefix, "")}""", cause)
 
   final class Updated[T] (val revision: Int, val output: T)
 
-  @implicitNotFound("Cannot find implicit Map[String, String] of metadata. If no metadata desired, define as empty: implicit metadata = Map.empty[String, String]")
+  @implicitNotFound("Cannot find implicit Map[String, String] of metadata. If no metadata desired, define as empty: implicit def metadata = Map.empty[String, String]")
   final def update[T](id: AR#ID, basedOnRevision: Option[Int], causalTimestamp: Long)(updateBlock: AR => Future[T])(implicit metadata: Map[String, String]): Future[Updated[T]] =
     basedOnRevision match {
       case Some(revision) => update(id, revision, causalTimestamp)(updateBlock)
