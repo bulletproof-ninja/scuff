@@ -54,7 +54,7 @@ class CoffeeScriptCompiler(config: CoffeeScriptCompiler.Config = new CoffeeScrip
       config.newEngine() match {
         case engine: Compilable =>
           val compSrc: String = compilerSource
-          engine.compile(compSrc + ";\n" + jsCompile())
+          engine.compile(s"$compSrc;\n${jsCompile()}")
         case _ => sys.error(s"Cannot find Javascript engine!")
       }
     } finally {
