@@ -29,20 +29,23 @@ trait Repository[AR <: AggregateRoot] {
    * due to the automatic retry on concurrent updates.
    * @param id The aggregate ID
    * @param basedOnRevision Revision, which update will be based on
-   * @param causalTimestamp Optional timestamp. Can be used to ensure global causal sequencing.
-   * @param updateBlock The transaction code block. This may be executed multiple times if concurrent updates occur
+   * @param updateThunk The transaction update thunk. This may be executed multiple times if concurrent updates occur
    */
   @implicitNotFound("Cannot find implicit Map[String, String] of metadata. If no metadata desired, provide empty")
-  final def update[T](id: AR#ID, basedOnRevision: Int, causalTimestamp: Long = Long.MinValue)(updateBlock: AR => Future[T])(implicit metadata: Map[String, String]): Future[Updated[T]] = {
-    update(id, basedOnRevision, metadata, causalTimestamp) { aggr =>
-      updateBlock(aggr).map { t =>
-        if (aggr.events.nonEmpty) try {
-          aggr.checkInvariants()
-        } catch {
-          case e: Exception => throw new InvariantFailure(id, aggr.events, e)
-        }
+  final def update[T](id: AR#ID, basedOnRevision: Int)(updateThunk: AR => Future[T])(implicit metadata: Map[String, String]): Future[Updated[T]] = {
+    update(id, basedOnRevision, metadata) { aggr =>
+      updateThunk(aggr).map { t =>
+        checkInvariants(aggr)
         t
       }(Threads.PiggyBack)
+    }
+  }
+
+  private def checkInvariants(aggr: AR) {
+    if (aggr.events.nonEmpty) try {
+      aggr.checkInvariants()
+    } catch {
+      case e: Exception => throw new InvariantFailure(aggr.id, aggr.events, e)
     }
   }
 
@@ -50,42 +53,35 @@ trait Repository[AR <: AggregateRoot] {
   class InvariantFailure(aggr: AR#ID, events: List[DomainEvent], cause: Exception)
     extends RuntimeException(s"""Aggregate $aggr invariant failure: "${cause.getMessage}" with events:${events.mkString(EventPrefix, EventPrefix, "")}""", cause)
 
-  final class Updated[T] (val revision: Int, val output: T)
+  final class Updated[T](val revision: Int, val output: T)
 
-  @implicitNotFound("Cannot find implicit Map[String, String] of metadata. If no metadata desired, define as empty: implicit def metadata = Map.empty[String, String]")
-  final def update[T](id: AR#ID, basedOnRevision: Option[Int], causalTimestamp: Long)(updateBlock: AR => Future[T])(implicit metadata: Map[String, String]): Future[Updated[T]] =
-    basedOnRevision match {
-      case Some(revision) => update(id, revision, causalTimestamp)(updateBlock)
-      case _ => update(id, Int.MaxValue, causalTimestamp)(updateBlock)
-    }
   @implicitNotFound("Cannot find implicit Map[String, String] of metadata. If no metadata desired, define as empty: implicit metadata = Map.empty[String, String]")
   final def update[T](id: AR#ID, basedOnRevision: Option[Int])(updateBlock: AR => Future[T])(implicit metadata: Map[String, String]): Future[Updated[T]] =
     basedOnRevision match {
       case Some(revision) => update(id, revision)(updateBlock)
       case _ => update(id, Int.MaxValue)(updateBlock)
     }
-  protected def update[T](id: AR#ID, basedOnRevision: Int, metadata: Map[String, String], causalTimestamp: Long)(updateBlock: AR => Future[T]): Future[Updated[T]]
+  protected def update[T](id: AR#ID, basedOnRevision: Int, metadata: Map[String, String])(updateBlock: AR => Future[T]): Future[Updated[T]]
 
   /**
    * Insert new aggregate root and publish committed events.
    * <p>NOTICE: No commands should be applied to the aggregate instance
    * after it's been saved, as it can neither be persisted.
    * @param aggr Aggregate root to save
-   * @param causalTimestamp Optional timestamp. Can be used to ensure global causal sequencing.
    * @return Aggregate instance or [[scuff.ddd.DuplicateIdException]] if the ID is already used
    * or [[IllegalStateException]] if the instance has a revision number
    */
   @implicitNotFound("Cannot find implicit Map[String, String] of metadata. If no metadata desired, define as empty: implicit metadata = Map.empty[String, String]")
-  final def insert(aggr: AR, causalTimestamp: Long = Long.MinValue)(implicit metadata: Map[String, String]): Future[AR#ID] = {
+  final def insert(aggr: AR)(implicit metadata: Map[String, String]): Future[AR#ID] = {
     try {
-      if (aggr.events.nonEmpty) aggr.checkInvariants()
-      insert(metadata, aggr, causalTimestamp)
+      checkInvariants(aggr)
+      insert(metadata, aggr)
     } catch {
       case e: Exception => Future.failed(e)
     }
   }
-  protected def insert(metadata: Map[String, String], aggr: AR, causalTimestamp: Long): Future[AR#ID]
+  protected def insert(metadata: Map[String, String], aggr: AR): Future[AR#ID]
 }
 
-class UnknownIdException(val id: Any) extends RuntimeException("Unknown aggregate: " + id)
-class DuplicateIdException(val id: Any) extends RuntimeException("Aggregate is already saved: " + id)
+case class UnknownIdException(id: Any) extends RuntimeException("Unknown aggregate: " + id)
+case class DuplicateIdException(id: Any) extends RuntimeException("Aggregate already exists: " + id)
