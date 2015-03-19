@@ -15,7 +15,7 @@ class BinaryRedisPublisher[T](channelName: String, serializer: Codec[T, Array[By
    *  @return Number of receivers.
    */
   @annotation.implicitNotFound("Cannot find implicit Jedis or Pipeline")
-  def publish(msg: T)(implicit conn: PublishMagnet): Unit = conn match {
+  def publish(msg: T)(implicit conn: JedisMagnet): Unit = conn match {
     case Right(pl) => pl.publish(byteName, serializer.encode(msg))
     case Left(jedis) => jedis.publish(byteName, serializer.encode(msg))
   }

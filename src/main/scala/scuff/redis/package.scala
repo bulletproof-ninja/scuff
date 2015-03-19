@@ -12,12 +12,12 @@ import scala.util.Try
 package object redis {
 
   type JedisConnection = BinaryJedisCommands with JedisCommands with MultiKeyBinaryCommands with MultiKeyCommands
-  type JedisPipeline = BinaryRedisPipeline with RedisPipeline with MultiKeyBinaryRedisPipeline // with MultiKeyCommandsPipeline
+  type JedisPipeline = BinaryRedisPipeline with RedisPipeline with MultiKeyBinaryRedisPipeline
 
-  type PublishMagnet = Either[JedisConnection, JedisPipeline]
+  type JedisMagnet = Either[JedisConnection, JedisPipeline]
 
-  implicit def toPublishMagnet(jedis: JedisConnection): PublishMagnet = Left(jedis)
-  implicit def toPublishMagnet(pl: JedisPipeline): PublishMagnet = Right(pl)
+  implicit def toJedisMagnet(jedis: JedisConnection): JedisMagnet = Left(jedis)
+  implicit def toJedisMagnet(pl: JedisPipeline): JedisMagnet = Right(pl)
 
   implicit def uri2Info(uri: java.net.URI) = {
     val userInfo: Option[(String, Option[String])] = Option(uri.getUserInfo).map { userInfo =>
