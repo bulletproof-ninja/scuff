@@ -16,7 +16,7 @@ trait AggregateRoot {
   /** Current revision. */
   def revision: Option[Int]
   /** Events produced. */
-  def events: List[_ <: EVT]
+  def events: List[EVT]
   /**
    * Check invariants of this aggregate and
    * throw an exception on failure.
