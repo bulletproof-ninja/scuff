@@ -46,7 +46,7 @@ class TestPassword {
   }
 
   @Test def slowButSafe {
-    import concurrent.duration._
+    import scala.concurrent.duration._
     val config = new Password.Config("SHA-256", 7, 133.milliseconds)
     val str = "Foo and Bar went for a walk with パスワードは"
     val before = System.currentTimeMillis()

@@ -2,7 +2,7 @@ package scuff
 
 import org.junit._
 import org.junit.Assert._
-import concurrent.duration._
+import scala.concurrent.duration._
 
 object TestCache {
 case class Foo(id: Int, name: String)

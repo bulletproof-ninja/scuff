@@ -4,8 +4,10 @@ import java.util.concurrent.{ Executor, Executors }
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import redis.clients.jedis.{ BinaryJedis, BinaryJedisPubSub, JedisShardInfo }
 import redis.clients.util.SafeEncoder
-import scuff.{ Faucet, JavaSerializer, ScuffLock, Serializer, Subscription, Threads }
+import scuff._
+import scuff.concurrent._
 import java.util.concurrent.ThreadFactory
+import scala.concurrent.ExecutionContext
 
 /**
  * Redis pub/sub channel.
@@ -15,7 +17,7 @@ class BinaryRedisFaucet[A] private[redis] (
   info: JedisShardInfo,
   subscriberThread: Executor,
   serializer: Serializer[A],
-  publishCtx: concurrent.ExecutionContext)
+  publishCtx: ExecutionContext)
     extends Faucet {
 
   type F = A
@@ -104,14 +106,14 @@ object BinaryRedisFaucet {
    */
   def apply[A](
     channelName: String, server: JedisShardInfo, jedisSubscriberThread: Executor,
-    serializer: Serializer[A], publishCtx: concurrent.ExecutionContext): BinaryRedisFaucet[A] = {
+    serializer: Serializer[A], publishCtx: ExecutionContext): BinaryRedisFaucet[A] = {
     val rc = new BinaryRedisFaucet(SafeEncoder.encode(channelName), server, jedisSubscriberThread, serializer, publishCtx)
     rc.start()
     rc
   }
 
   def apply[A](channelName: String, server: JedisShardInfo, subscriberThreadFactory: java.util.concurrent.ThreadFactory,
-    serializer: Serializer[A], publishCtx: concurrent.ExecutionContext): BinaryRedisFaucet[A] = {
+    serializer: Serializer[A], publishCtx: ExecutionContext): BinaryRedisFaucet[A] = {
     val subscriptionThread = Executors newSingleThreadExecutor new ThreadFactory {
       def newThread(r: Runnable) = {
         val thread = subscriberThreadFactory.newThread(r)
@@ -126,11 +128,11 @@ object BinaryRedisFaucet {
     apply(channelName, server, subscriptionThread, serializer, publishCtx)
   }
 
-  def apply[A](channelName: String, server: JedisShardInfo, serializer: Serializer[A], publishCtx: concurrent.ExecutionContext): BinaryRedisFaucet[A] = {
+  def apply[A](channelName: String, server: JedisShardInfo, serializer: Serializer[A], publishCtx: ExecutionContext): BinaryRedisFaucet[A] = {
     apply(channelName, server, Threads.daemonFactory(channelName), serializer, publishCtx)
   }
 
-  def apply[A](channelName: String, server: JedisShardInfo, publishCtx: concurrent.ExecutionContext): BinaryRedisFaucet[A] = {
+  def apply[A](channelName: String, server: JedisShardInfo, publishCtx: ExecutionContext): BinaryRedisFaucet[A] = {
     apply(channelName, server, new JavaSerializer[A], publishCtx)
   }
 

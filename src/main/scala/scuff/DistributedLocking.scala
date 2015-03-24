@@ -87,7 +87,7 @@ object DistributedLocking {
         case Failure(ioe: BindException) => startServerSocket(Some(port -> ioe))
         case Failure(e) => throw e
         case Success(server) =>
-          val thread = Threads.daemonFactory(getClass.getName) newThread new Runnable {
+          val thread = concurrent.Threads.daemonFactory(getClass.getName) newThread new Runnable {
             // Accept clients, then disconnect them, to verify server liveness.
             def run = {
               while (!Thread.currentThread.isInterrupted) {

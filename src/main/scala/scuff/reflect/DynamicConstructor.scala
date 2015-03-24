@@ -9,9 +9,9 @@ import language.existentials
 object DynamicConstructor {
 
   private type Key = (Class[_], Class[_])
-  private type Ctor = AnyRef => Any
+  private type Factory = AnyRef => Any
 
-  private[this] val cache = new scuff.LockFreeConcurrentMap[Key, Ctor]
+  private[this] val cache = new scuff.concurrent.LockFreeConcurrentMap[Key, Factory]
 
   def apply[T: ClassTag](any: Any): Option[T] = {
     val anyRef = any.asInstanceOf[AnyRef]
@@ -42,7 +42,7 @@ object DynamicConstructor {
   @inline
   private def invokeStatic[T](m: Method)(arg: AnyRef): T = m.invoke(null, arg).asInstanceOf[T]
   @inline
-  private def invokeCtor[T](ctor: Constructor[_])(arg: AnyRef): T = ctor.newInstance(arg).asInstanceOf[T]
+  private def invokeFactory[T](ctor: Constructor[_])(arg: AnyRef): T = ctor.newInstance(arg).asInstanceOf[T]
 
   private def construct[T](toType: Class[T], from: AnyRef): Option[(T, AnyRef => T)] = {
       def isParmTypeMatch(parmTypes: Array[Class[_]]) = {
@@ -61,8 +61,8 @@ object DynamicConstructor {
     }
     else {
       val ctors = toType.getConstructors.filter(ctor => isParmTypeMatch(ctor.getParameterTypes))
-      val ctorSuccess = ctors.iterator.map(ctor => Try(invokeCtor[T](ctor)(from) -> ctor)).collectFirst {
-        case Success((t, ctor)) => t.asInstanceOf[T] -> invokeCtor[T](ctor) _
+      val ctorSuccess = ctors.iterator.map(ctor => Try(invokeFactory[T](ctor)(from) -> ctor)).collectFirst {
+        case Success((t, ctor)) => t.asInstanceOf[T] -> invokeFactory[T](ctor) _
       }
       ctorSuccess.orElse {
         val factoryMethods = toType.getMethods().filter { method =>

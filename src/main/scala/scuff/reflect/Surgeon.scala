@@ -2,7 +2,7 @@ package scuff.reflect
 
 import scala.annotation._
 import java.lang.reflect._
-import scuff.LockFreeConcurrentMap
+import scuff.concurrent.LockFreeConcurrentMap
 
 /**
  * Helper class to operate on the internals

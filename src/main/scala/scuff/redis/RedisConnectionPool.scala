@@ -9,7 +9,8 @@ import scala.util.{Failure, Success, Try}
 import redis.clients.jedis.Jedis
 import redis.clients.jedis.exceptions.JedisConnectionException
 import redis.clients.util.Pool
-import scuff.{Clock, Threads}
+import scuff.Clock
+import scuff.concurrent._
 
 class RedisConnectionPool(pool: Pool[Jedis], enforceDB: Option[Int]) extends CONNECTION {
   def apply(code: Jedis => Any): Any = connection(retry = true)(code)

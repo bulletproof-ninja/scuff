@@ -21,7 +21,7 @@ import scala.concurrent.duration._
 final class LRUHeapCache[K, V](maxCapacity: Int, val defaultTTL: FiniteDuration = Duration.Zero, staleCheckFreq: FiniteDuration = 10.seconds, lock: ReadWriteLock = new ReentrantReadWriteLock)
     extends Cache[K, V] with Expiry[K, V] {
 
-  @inline implicit private def Millis = concurrent.duration.MILLISECONDS
+  @inline implicit private def Millis = scala.concurrent.duration.MILLISECONDS
   @inline private def clock = Clock.System
 
   override def toString = readLock(map.toString)

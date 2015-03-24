@@ -1,4 +1,4 @@
-package scuff
+package scuff.concurrent
 
 /**
  * Lock-free concurrent Map.
@@ -6,7 +6,7 @@ package scuff
 final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) extends collection.concurrent.Map[A, B] {
 
   require(initialMap != null, "Initial map cannot be null")
-  
+
   private[this] val EmptyMap = initialMap.empty
 
   private[this] val mapRef = new java.util.concurrent.atomic.AtomicReference(initialMap)

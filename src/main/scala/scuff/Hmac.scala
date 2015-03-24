@@ -59,7 +59,7 @@ abstract class Hmac[A] extends Serializer[A] {
   protected def macAlgo: String = Hmac.DefaultAlgorithm
   protected def macAlgoSpec: AlgorithmParameterSpec = null
 
-  private[this] val macPool = new ResourcePool(newMac)
+  private[this] val macPool = new concurrent.ResourcePool(newMac)
   private def newMac: Mac = {
     val mac = Mac.getInstance(macAlgo)
     macAlgoSpec match {

@@ -2,7 +2,7 @@ package scuff
 
 import java.util.Arrays
 import java.nio.charset.Charset
-import concurrent.duration._
+import scala.concurrent.duration._
 
 /**
  * Password representation that stores a digested, non-reversible,

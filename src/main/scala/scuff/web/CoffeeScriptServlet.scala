@@ -6,9 +6,9 @@ import HttpHeaders._
 import scuff.js._
 import java.net.URL
 import CoffeeScriptCompiler._
-import scuff.ResourcePool
+import scuff.concurrent.ResourcePool
 import scala.util.Try
-import concurrent.duration._
+import scala.concurrent.duration._
 import javax.script._
 
 private object CoffeeScriptServlet {

@@ -1,12 +1,15 @@
-package scuff
+package scuff.concurrent
 
-import org.junit._
+import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
+
+import scala.concurrent.ExecutionContext
+import scala.language.reflectiveCalls
+import scala.util.{Failure, Random, Success}
+
 import org.junit.Assert._
-import java.util.concurrent._
-import scala.util.Random
-import scala.util.Failure
-import scala.util.Success
-import concurrent.blocking
+import org.junit.Test
+
+import scuff.ScuffRandom
 
 class TestThreads extends Serializable {
   @Test
@@ -24,7 +27,7 @@ class TestThreads extends Serializable {
 
   @Test
   def javaFutures {
-    implicit val ec = concurrent.ExecutionContext.global
+    implicit val ec = ExecutionContext.global
     val rand = new Random
     val futures = (1 to 1500).map { i =>
       val f = new java.util.concurrent.Future[Int] {

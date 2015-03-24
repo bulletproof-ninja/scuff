@@ -2,6 +2,7 @@ package scuff
 
 import org.junit._
 import org.junit.Assert._
+import scala.concurrent.ExecutionContext
 
 class TestPubSub {
 
@@ -11,7 +12,7 @@ class TestPubSub {
 
   @Before
   def setup {
-    pubSub = new PubSub[Event, Event](concurrent.ExecutionContext.global)
+    pubSub = new PubSub[Event, Event](ExecutionContext.global)
   }
 
   @Test(timeout = 2000)
@@ -22,7 +23,7 @@ class TestPubSub {
         exceptions += t
         countDown.countDown()
       }
-    val execCtx = concurrent.ExecutionContext.fromExecutor(null, errHandler)
+    val execCtx = ExecutionContext.fromExecutor(null, errHandler)
     pubSub = new PubSub[Event, Event](execCtx)
     val l1 = (e: Event) => throw new RuntimeException
     pubSub.subscribe(l1)

@@ -1,6 +1,6 @@
 package scuff
 
-import concurrent.ExecutionContext
+import scala.concurrent.ExecutionContext
 
 /**
  * Simple publish/subscribe mechanism.

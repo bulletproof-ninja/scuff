@@ -1,19 +1,9 @@
-package scuff
+package scuff.concurrent
 
-import java.util.concurrent.ThreadFactory
-import java.util.concurrent.Executors
-import scala.concurrent.ExecutionContextExecutor
-import java.util.concurrent.Executor
-import scala.concurrent.Promise
+import java.util.concurrent.{Executor, LinkedBlockingQueue, ScheduledExecutorService, ScheduledThreadPoolExecutor, SynchronousQueue, ThreadFactory, ThreadPoolExecutor, TimeUnit}
+
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, ExecutionContextExecutorService, Future, Promise}
 import scala.util.Try
-import java.util.concurrent.ScheduledExecutorService
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.TimeUnit
-import scala.concurrent.ExecutionContext
-import java.util.concurrent.ThreadPoolExecutor
-import java.util.concurrent.SynchronousQueue
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.ScheduledThreadPoolExecutor
 
 /**
  * Thread helper class.
@@ -28,7 +18,7 @@ object Threads {
 
   private[this] val ScuffThreadGroup = newThreadGroup(getClass.getName, daemon = false, printStackTrace)
   final val Blocking = {
-    val exec = newCachedThreadPool(factory(s"${getClass.getName}.Blocking", ScuffThreadGroup), t => () /* Will be reported from ExecutionContext */)
+    val exec = newCachedThreadPool(factory(s"${getClass.getName}.Blocking", ScuffThreadGroup), t => () /* Will be reported from ExecutionContext */ )
     ExecutionContext.fromExecutor(exec, printStackTrace)
   }
 
@@ -42,8 +32,8 @@ object Threads {
   }
   def javaFutureConverter[T] = _javaFutureConverter.asInstanceOf[JavaFutureConverter[T]]
   class JavaFutureConverter[T](sleepMs: Long = 1, failureReporter: Throwable => Unit = printStackTrace)
-      extends (java.util.concurrent.Future[T] => concurrent.Future[T]) {
-    type QueueItem[T] = (Promise[T], java.util.concurrent.Future[T])
+      extends (java.util.concurrent.Future[T] => Future[T]) {
+    private type QueueItem[T] = (Promise[T], java.util.concurrent.Future[T])
     private[this] val queue = new collection.mutable.Queue[QueueItem[T]]
     private[Threads] val thread = new Thread("scuff.Threads.JavaFutureConverter") {
       this setUncaughtExceptionHandler new Thread.UncaughtExceptionHandler {
@@ -53,38 +43,45 @@ object Threads {
       }
       override def run {
         while (!Thread.currentThread.isInterrupted) {
-          queue.synchronized {
+          val completed = queue.synchronized {
             if (queue.isEmpty) {
               queue.wait()
-            } else {
-              queue.dequeueAll(_._2.isDone()).foreach {
-                case (promise, f) => promise complete Try(f.get)
-              }
-              Thread sleep sleepMs
             }
+            queue.dequeueAll(_._2.isDone())
+          }
+          if (completed.nonEmpty) {
+            completed.foreach {
+              case (promise, f) => promise complete Try(f.get)
+            }
+          } else {
+            Thread sleep sleepMs
           }
         }
       }
     }
-    def apply(f: java.util.concurrent.Future[T]): concurrent.Future[T] = {
+    def apply(f: java.util.concurrent.Future[T]): Future[T] = {
       val promise = Promise[T]
       queue.synchronized {
-        val notify = queue.isEmpty
+        val doNotify = queue.isEmpty
         queue enqueue promise -> f
-        queue.notify()
+        if (doNotify) queue.notify()
       }
       promise.future
     }
   }
 
-  def newScheduledThreadPool(corePoolSize: Int, threadFactory: ThreadFactory, failureReporter: Throwable => Unit = printStackTrace) = {
-    val exec = new ScheduledThreadPoolExecutor(corePoolSize, threadFactory) {
+  def newScheduledThreadPool(
+      corePoolSize: Int, threadFactory: ThreadFactory,
+      failureReporter: Throwable => Unit = printStackTrace): ScheduledExecutorService with ExecutionContext = {
+
+    val exec = new ScheduledThreadPoolExecutor(corePoolSize, threadFactory) with ExecutionContext {
       override def afterExecute(r: Runnable, t: Throwable) {
         super.afterExecute(r, t)
         if (t != null) {
-          failureReporter(t)
+          reportFailure(t)
         }
       }
+      def reportFailure(t: Throwable) = failureReporter(t)
     }
     Runtime.getRuntime addShutdownHook new Thread {
       override def run {
@@ -97,17 +94,18 @@ object Threads {
   lazy val DefaultScheduler = newScheduledThreadPool(Runtime.getRuntime.availableProcessors, Threads.factory("scuff.DefaultScheduler", ScuffThreadGroup))
 
   /** Executor encapsulating a single `Thread` for a single execution. Cannot be re-used. */
-  def newSingleRunExecutor(tf: ThreadFactory, failureReporter: Throwable => Unit = printStackTrace): Executor = new Executor {
+  def newSingleRunExecutor(tf: ThreadFactory, failureReporter: Throwable => Unit = printStackTrace): ExecutionContextExecutor = new ExecutionContextExecutor {
     def execute(r: Runnable) {
       val thread = tf newThread new Runnable {
         def run = try {
           r.run()
         } catch {
-          case t: Throwable => failureReporter(t)
+          case t: Throwable => reportFailure(t)
         }
       }
       thread.start()
     }
+    def reportFailure(t: Throwable) = failureReporter(t)
   }
 
   /**
@@ -116,21 +114,23 @@ object Threads {
    * another to another thread, and only use this when you're certain
    * that it's OK to execute on the existing thread.
    */
-  abstract class SameThreadExecutor extends concurrent.ExecutionContextExecutor {
+  abstract class SameThreadExecutor extends ExecutionContextExecutor {
     def execute(runnable: Runnable) = runnable.run()
   }
 
-  def newCachedThreadPool(threadFactory: ThreadFactory, failureReporter: Throwable => Unit = printStackTrace): ExecutorService = {
+  def newCachedThreadPool(threadFactory: ThreadFactory, failureReporter: Throwable => Unit = printStackTrace): ExecutionContextExecutorService = {
     val exec = new ThreadPoolExecutor(0, Integer.MAX_VALUE,
       60L, TimeUnit.SECONDS,
       new SynchronousQueue[Runnable],
-      threadFactory) {
+      threadFactory) with ExecutionContextExecutorService {
+
       override def afterExecute(r: Runnable, t: Throwable) {
         super.afterExecute(r, t)
         if (t != null) {
-          failureReporter(t)
+          reportFailure(t)
         }
       }
+      def reportFailure(t: Throwable) = failureReporter(t)
     }
     Runtime.getRuntime addShutdownHook new Thread {
       override def run {
@@ -140,17 +140,19 @@ object Threads {
     exec
   }
 
-  def newSingleThreadExecutor(threadFactory: ThreadFactory, failureReporter: Throwable => Unit = printStackTrace) = {
+  def newSingleThreadExecutor(threadFactory: ThreadFactory, failureReporter: Throwable => Unit = printStackTrace): ExecutionContextExecutorService = {
     val exec = new ThreadPoolExecutor(1, 1,
       0L, TimeUnit.MILLISECONDS,
       new LinkedBlockingQueue[Runnable],
-      threadFactory) {
+      threadFactory) with ExecutionContextExecutorService {
+
       override def afterExecute(r: Runnable, t: Throwable) {
         super.afterExecute(r, t)
         if (t != null) {
-          failureReporter(t)
+          reportFailure(t)
         }
       }
+      def reportFailure(t: Throwable) = failureReporter(t)
     }
     Runtime.getRuntime addShutdownHook new Thread {
       override def run {
@@ -202,9 +204,8 @@ object Threads {
 }
 
 private[scuff] class ScuffThreadFactory(name: String, threadGroup: ThreadGroup, exceptionHandler: Thread.UncaughtExceptionHandler, daemon: Boolean) extends ThreadFactory {
-  private val nameFormat = name + "[%d]"
   private val counter = new java.util.concurrent.atomic.AtomicInteger
-  private def newName = nameFormat.format(counter.getAndIncrement)
+  private def newName = s"$name[${counter.getAndIncrement}]"
   def newThread(runnable: Runnable) = {
     val t = new Thread(threadGroup, runnable, newName)
     t.setUncaughtExceptionHandler(exceptionHandler)

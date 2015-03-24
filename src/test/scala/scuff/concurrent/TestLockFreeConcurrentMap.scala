@@ -1,4 +1,4 @@
-package scuff
+package scuff.concurrent
 
 import org.junit._
 import org.junit.Assert._

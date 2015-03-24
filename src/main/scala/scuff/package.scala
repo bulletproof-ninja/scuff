@@ -1,15 +1,12 @@
-import java.lang.reflect.{ Constructor, Modifier }
 
 import scala.Range
 import scala.collection.immutable.NumericRange
-import scala.concurrent.{ Await, Future }
-import scala.concurrent.duration.Duration
+import scala.concurrent.Future
 import scala.language.implicitConversions
-import scala.math.{ BigDecimal, BigInt, Numeric, min }
-import scala.reflect.ClassTag
-import scala.util.{ Failure, Random, Success, Try }
+import scala.math.{BigDecimal, BigInt, Numeric, min}
+import scala.util.{Failure, Random, Success, Try}
 
-import scuff.{ Cache, Codec, Expiry, Numbers, Threads }
+import scuff.{Cache, Codec, Expiry, Numbers}
 
 package object scuff {
   import scala.math._
@@ -65,19 +62,8 @@ package object scuff {
 
   }
 
-  implicit final class ScuffLock(val lock: java.util.concurrent.locks.Lock) extends AnyVal {
-    def whenLocked[T](code: => T): T = {
-      lock.lock()
-      try {
-        code
-      } finally {
-        lock.unlock()
-      }
-    }
-  }
-
   import scala.util.{ Try, Success, Failure }
-  import concurrent.Future
+  import scala.concurrent.Future
   implicit final class ScuffTry[T](val t: Try[T]) extends AnyVal {
     def toFuture: Future[T] = t match {
       case Success(res) => Future.successful(res)
@@ -149,21 +135,9 @@ package object scuff {
     }
   }
 
-  implicit final class ScuffScalaFuture[T](val f: concurrent.Future[T]) extends AnyVal {
-    def get(implicit maxWait: Duration): T =
-      if (f.isCompleted) {
-        f.value.get.get
-      } else {
-        Await.result(f, maxWait)
-      }
-  }
-
-  implicit final class ScuffJavaFuture[T](val f: java.util.concurrent.Future[T]) extends AnyVal {
-    def asScala(implicit conv: java.util.concurrent.Future[T] => concurrent.Future[T] = Threads.javaFutureConverter): concurrent.Future[T] = conv(f)
-  }
-
   implicit final class ScuffTraversable[T <: Traversable[_]](val t: T) extends AnyVal {
     def optional: Option[T] = if (t.isEmpty) None else Some(t)
   }
+
 
 }

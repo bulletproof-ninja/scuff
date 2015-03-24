@@ -1,7 +1,7 @@
 package scuff.ddd
 
 import scala.concurrent.Future
-import scuff.Threads
+import scuff.concurrent.Threads
 import scala.annotation.implicitNotFound
 
 /**

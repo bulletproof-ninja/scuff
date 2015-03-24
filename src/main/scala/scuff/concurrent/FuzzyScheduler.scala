@@ -1,4 +1,4 @@
-package scuff
+package scuff.concurrent
 
 import java.util.concurrent._
 import scala.concurrent.duration._

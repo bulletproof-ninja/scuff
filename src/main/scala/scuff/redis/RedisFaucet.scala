@@ -6,6 +6,8 @@ import _root_.redis.clients.util._
 import java.util.concurrent._
 import collection.JavaConverters._
 import java.util.concurrent.locks._
+import scala.concurrent.ExecutionContext
+import scuff.concurrent._
 
 /**
  * Redis pub/sub channel.
@@ -14,7 +16,7 @@ class RedisFaucet private (
   channelName: String,
   info: JedisShardInfo,
   subscriberThread: Executor,
-  publishCtx: concurrent.ExecutionContext)
+  publishCtx: ExecutionContext)
     extends BinaryRedisFaucet(SafeEncoder.encode(channelName), info, subscriberThread, StringSerializer, publishCtx) {
 }
 
@@ -31,7 +33,7 @@ object RedisFaucet {
     channelName: String,
     server: JedisShardInfo,
     jedisSubscriberThread: Executor,
-    publishCtx: concurrent.ExecutionContext): RedisFaucet = {
+    publishCtx: ExecutionContext): RedisFaucet = {
 
     val rc = new RedisFaucet(channelName, server, jedisSubscriberThread, publishCtx)
     rc.start()
@@ -42,12 +44,12 @@ object RedisFaucet {
     channelName: String,
     server: JedisShardInfo,
     subscriberThreadFactory: java.util.concurrent.ThreadFactory,
-    publishCtx: concurrent.ExecutionContext): RedisFaucet = {
+    publishCtx: ExecutionContext): RedisFaucet = {
     val subscriptionThread = Threads.newSingleRunExecutor(subscriberThreadFactory)
     apply(channelName, server, subscriptionThread, publishCtx)
   }
 
-  def apply(channelName: String, server: JedisShardInfo, publishCtx: concurrent.ExecutionContext): RedisFaucet = {
+  def apply(channelName: String, server: JedisShardInfo, publishCtx: ExecutionContext): RedisFaucet = {
     apply(channelName, server, Threads.factory(classOf[RedisFaucet].getName), publishCtx)
   }
 
