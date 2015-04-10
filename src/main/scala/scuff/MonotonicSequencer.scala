@@ -17,12 +17,12 @@ import scala.reflect.ClassTag
  * @param dupeConsumer Duplicate consumer. Optional, defaults to throwing a [[MonotonicSequencer.DuplicateSequenceNumberException]].
  * If a lower than expected sequence number is received, this function is called instead of the pass-through consumer.
  */
-final class MonotonicSequencer[@specialized(Int, Long) S, T >: Null <: AnyRef](
+final class MonotonicSequencer[@specialized(Int, Long) S: Numeric, T >: Null: ClassTag](
     consumer: (S, T) => Unit,
-    private var expectedSeqNum: S,
+    private[this] var expectedSeqNum: S,
     bufferLimit: Int = 0,
     gapHandler: MonotonicSequencer.GapHandler[S] = MonotonicSequencer.NoOpGapHandler[S],
-    dupeConsumer: (S, T) => Unit = (s: S, t: T) => throw new MonotonicSequencer.DuplicateSequenceNumberException(s))(implicit seqType: Numeric[S], manifest: ClassTag[T]) {
+    dupeConsumer: (S, T) => Unit = (s: S, t: T) => throw new MonotonicSequencer.DuplicateSequenceNumberException(s)) {
 
   /**
    * @param consumer The pass-through consumer
@@ -32,20 +32,21 @@ final class MonotonicSequencer[@specialized(Int, Long) S, T >: Null <: AnyRef](
    * @param dupeConsumer Duplicate consumer. Optional, defaults to throwing a [[MonotonicSequencer.DuplicateSequenceNumberException]].
    * If a lower than expected sequence number is received, this function is called instead of the pass-through consumer.
    */
-  def this(consumer: (S, T) => Unit, expectedSeqNum: S, bufferLimit: Int, dupeConsumer: (S, T) => Unit)(implicit seqType: Numeric[S], manifest: ClassTag[T]) =
+  def this(consumer: (S, T) => Unit, expectedSeqNum: S, bufferLimit: Int, dupeConsumer: (S, T) => Unit) =
     this(consumer, expectedSeqNum, bufferLimit, MonotonicSequencer.NoOpGapHandler[S], dupeConsumer)
 
-  private def incrementSeqNum() = expectedSeqNum = seqType.plus(expectedSeqNum, seqType.one)
-  private def add(s: S, i: Int) = seqType.plus(s, seqType.fromInt(i))
-  private def subtract(s1: S, s2: S) = seqType.toInt(seqType.minus(s1, s2))
-  private def lessThanExpected(s: S) = seqType.compare(expectedSeqNum, s) > 0
+  private[this] val seqType: Numeric[S] = implicitly
+  @inline private def incrementSeqNum() = expectedSeqNum = seqType.plus(expectedSeqNum, seqType.one)
+  @inline private def add(s: S, i: Int) = seqType.plus(s, seqType.fromInt(i))
+  @inline private def subtract(s1: S, s2: S) = seqType.toInt(seqType.minus(s1, s2))
+  @inline private def lessThanExpected(s: S) = seqType.compare(expectedSeqNum, s) > 0
 
-  private var array = {
+  private[this] var array = {
     val arraySize = if (bufferLimit <= 0) 16 else bufferLimit
     new NotNullArray(new Array(arraySize))
   }
 
-  private var offset: S = _
+  private[this] var offset: S = _
 
   private val purgeHandler = (idx: Int, t: T) => {
     val s = add(offset, idx)
