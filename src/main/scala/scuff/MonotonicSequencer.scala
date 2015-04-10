@@ -19,7 +19,7 @@ import scala.reflect.ClassTag
  */
 final class MonotonicSequencer[@specialized(Int, Long) S: Numeric, T >: Null: ClassTag](
     consumer: (S, T) => Unit,
-    private[this] var expectedSeqNum: S,
+    private var expectedSeqNum: S,
     bufferLimit: Int = 0,
     gapHandler: MonotonicSequencer.GapHandler[S] = MonotonicSequencer.NoOpGapHandler[S],
     dupeConsumer: (S, T) => Unit = (s: S, t: T) => throw new MonotonicSequencer.DuplicateSequenceNumberException(s)) {
@@ -46,7 +46,7 @@ final class MonotonicSequencer[@specialized(Int, Long) S: Numeric, T >: Null: Cl
     new NotNullArray(new Array(arraySize))
   }
 
-  private[this] var offset: S = _
+  private var offset: S = _
 
   private val purgeHandler = (idx: Int, t: T) => {
     val s = add(offset, idx)
