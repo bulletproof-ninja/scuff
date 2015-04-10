@@ -14,13 +14,27 @@ import scala.concurrent.ExecutionContextExecutor
 import java.util.concurrent.CountDownLatch
 
 object LockFreeExecutionContext {
+  /**
+   * Queue abstraction. Exists to avoid potentially megamorphic call-sites.
+   */
+  trait RunQueue {
+    def poll(): Runnable
+    def offer(r: Runnable): Boolean
+  }
+  private object DefaultQueue extends RunQueue {
+    private[this] val queue = new ConcurrentLinkedQueue[Runnable]
+    def poll(): Runnable = queue.poll()
+    def offer(r: Runnable): Boolean = queue.offer(r)
+  }
+
   private lazy val DefaultThreadFactory = Threads.factory(classOf[LockFreeExecutionContext].getName)
   def apply(
     numThreads: Int,
     tf: ThreadFactory = DefaultThreadFactory,
+    queue: RunQueue = DefaultQueue,
     failureReporter: Throwable => Unit = t => t.printStackTrace(System.err),
     whenIdle: => Unit = Thread.`yield`) = {
-    val svc = new LockFreeExecutionContext(numThreads, tf, failureReporter, whenIdle)
+    val svc = new LockFreeExecutionContext(numThreads, tf, queue, failureReporter, whenIdle)
     svc.start()
     svc
   }
@@ -31,28 +45,32 @@ object LockFreeExecutionContext {
  * High throughput executor. Use this for temporary processing
  * of predictably high load, and shut down when done, as it
  * relies on spinning threads, due to the lock-free nature.
- * NOTICE: This class is safe to use for multiple producers,
+ * NOTICE: This class is safe to use for multiple producers
+ * (that is, if the `RunQueue` implementation supports it, default does),
  * but cannot safely be shut down, unless all producers have
  * stopped. This could in theory be negated by use of external
  * synchronization, but would defeat the purpose of this class.
- * So, either use single producer (and shutdown), or ensure that
- * all production has stopped when shutting down.
+ * So, either use single producer (and shutdown), or determine
+ * in some way that all production has stopped before shutting down.
  */
-class LockFreeExecutionContext private (numThreads: Int, tf: ThreadFactory, failureReporter: Throwable => Unit, whenIdle: => Unit)
+final class LockFreeExecutionContext private (
+  consumerThreads: Int,
+  tf: ThreadFactory,
+  queue: LockFreeExecutionContext.RunQueue,
+  failureReporter: Throwable => Unit,
+  whenIdle: => Unit)
     extends ExecutionContextExecutor {
 
-  require(numThreads > 0, s"Must have at least 1 thread. Received $numThreads")
+  require(consumerThreads > 0, s"Must have at least 1 consumer thread. Received $consumerThreads")
 
   @volatile private var isShutdown = false
 
-  private[this] val queue = new ConcurrentLinkedQueue[Runnable]
-
-  private[this] val activeThreads = new CountDownLatch(numThreads)
+  private[this] val activeThreads = new CountDownLatch(consumerThreads)
 
   private[LockFreeExecutionContext] def start() = threads.foreach(_.start)
 
   private[this] val threads =
-    for (_ <- 1 to numThreads) yield tf newThread new Runnable {
+    for (_ <- 1 to consumerThreads) yield tf newThread new Runnable {
 
       def run = try pollQueue() finally activeThreads.countDown()
 
@@ -71,9 +89,12 @@ class LockFreeExecutionContext private (numThreads: Int, tf: ThreadFactory, fail
       }
     }
 
+  @annotation.tailrec
   def execute(runnable: Runnable): Unit = {
     if (isShutdown) throw new RejectedExecutionException("Has been shut down")
-    queue offer runnable
+    if (!queue.offer(runnable)) {
+      execute(runnable)
+    }
   }
 
   def reportFailure(cause: Throwable): Unit = failureReporter(cause)
