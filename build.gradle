@@ -11,7 +11,7 @@ def bintrayVersion = {
     if (version.endsWith('-SNAPSHOT')) {
         java.text.SimpleDateFormat format = new java.text.SimpleDateFormat('yyyyMMddHHmm')
         format.setCalendar(Calendar.getInstance(TimeZone.getTimeZone('UTC')))
-        return "$version-${format.format(new Date())}"
+        return version.replace('SNAPSHOT', format.format(new Date()))
     } else {
         return version
     }
