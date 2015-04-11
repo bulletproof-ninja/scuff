@@ -71,7 +71,6 @@ bintray {
         name = "Scuff"
         version {
             name = bintrayVersion
-            vcsTag = bintrayVersion
         }
     }
 }
