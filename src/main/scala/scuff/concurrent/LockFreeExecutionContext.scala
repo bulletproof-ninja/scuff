@@ -31,10 +31,10 @@ object LockFreeExecutionContext {
   def apply(
     numThreads: Int,
     tf: ThreadFactory = DefaultThreadFactory,
-    queue: RunQueue = DefaultQueue,
     failureReporter: Throwable => Unit = t => t.printStackTrace(System.err),
-    whenIdle: => Unit = Thread.`yield`) = {
-    val svc = new LockFreeExecutionContext(numThreads, tf, queue, failureReporter, whenIdle)
+    whenIdle: => Unit = Thread.`yield`,
+    queue: RunQueue = DefaultQueue) = {
+    val svc = new LockFreeExecutionContext(numThreads, tf, failureReporter, whenIdle, queue)
     svc.start()
     svc
   }
@@ -56,9 +56,9 @@ object LockFreeExecutionContext {
 final class LockFreeExecutionContext private (
   consumerThreads: Int,
   tf: ThreadFactory,
-  queue: LockFreeExecutionContext.RunQueue,
   failureReporter: Throwable => Unit,
-  whenIdle: => Unit)
+  whenIdle: => Unit,
+  queue: LockFreeExecutionContext.RunQueue)
     extends ExecutionContextExecutor {
 
   require(consumerThreads > 0, s"Must have at least 1 consumer thread. Received $consumerThreads")
