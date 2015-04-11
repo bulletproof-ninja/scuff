@@ -19,6 +19,14 @@ object RxFuture {
     subscribe(callback)
     callback.future
   }
+  def apply[V](thunk: V => Unit) = new RxFuture[V, Unit] {
+    def onNext(value: V) = thunk(value)
+    protected def whenCompleted() = ()
+  }
+  def apply[V, R](result: R)(thunk: V => Unit) = new RxFuture[V, R] {
+    def onNext(value: V) = thunk(value)
+    protected def whenCompleted() = result
+  }
 }
 
 abstract class RxFuture[V, +R] extends RxCallback[V] {
