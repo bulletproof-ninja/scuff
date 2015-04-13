@@ -4,14 +4,16 @@ import language.implicitConversions
 import scala.concurrent.Future
 import scala.util.control.NonFatal
 
-import scuff.concurrent.Threads
+import scuff.concurrent.Threads.PiggyBack
 
 /**
  * Aggregate root repository.
  */
-trait Repository[AR <: AggregateRoot] {
+abstract class Repository[AR](implicit protected val aggr: AggrRoot[AR]) {
+  type ID = aggr.ID
+  type EVT = aggr.EVT
 
-  def exists(id: AR#ID): Future[Boolean]
+  def exists(id: ID): Future[Boolean]
 
   /**
    * Load aggregate. Only for reading the aggregate.
@@ -20,15 +22,15 @@ trait Repository[AR <: AggregateRoot] {
    * @param revision Load a specific revision, or None for most latest (default)
    * @return The specific or latest revision of AR or [[scuff.ddd.UnknownIdException]]
    */
-  def load(id: AR#ID, revision: Option[Int] = None): Future[AR]
-  final def load(id: (AR#ID, Int)): Future[AR] = load(id._1, Some(id._2))
-  final def load(id: AR#ID, revision: Int): Future[AR] = load(id, Some(revision))
+  def load(id: ID, revision: Option[Int] = None): Future[AR]
+  final def load(id: (ID, Int)): Future[AR] = load(id._1, Some(id._2))
+  final def load(id: ID, revision: Int): Future[AR] = load(id, Some(revision))
 
   private def checkInvariants(ar: AR) = {
-    if (ar.events.nonEmpty) try {
-      ar.checkInvariants()
+    if (aggr.events(ar).nonEmpty) try {
+      aggr.checkInvariants(ar)
     } catch {
-      case e: Exception => throw new InvariantFailure(ar.id, ar.events, e)
+      case e: Exception => throw new InvariantFailure(aggr.id(ar), aggr.events(ar), e)
     }
 
   }
@@ -36,7 +38,7 @@ trait Repository[AR <: AggregateRoot] {
     updateThunk(ar).map { t =>
       checkInvariants(ar)
       t
-    }(Threads.PiggyBack)
+    }(PiggyBack)
   }
 
   @inline
@@ -52,7 +54,7 @@ trait Repository[AR <: AggregateRoot] {
    * @param metadata The update metadata
    * @param updateThunk The transaction update thunk. This may be executed multiple times if concurrent updates occur
    */
-  final def update[T](id: AR#ID, basedOnRevision: Int, metadata: Map[String, String])(updateThunk: AR => Future[T]): Future[Updated[T]] =
+  final def update[T](id: ID, basedOnRevision: Int, metadata: Map[String, String])(updateThunk: AR => Future[T]): Future[Updated[T]] =
     update(metadata, id, basedOnRevision, updateThenCheckInvariants(updateThunk))
 
   /**
@@ -64,13 +66,13 @@ trait Repository[AR <: AggregateRoot] {
    * @param basedOnRevision Revision, which update will be based on
    * @param updateThunk The transaction update thunk. This may be executed multiple times if concurrent updates occur
    */
-  final def update[T](id: AR#ID, basedOnRevision: Int)(updateThunk: AR => Future[T]): Future[Updated[T]] =
+  final def update[T](id: ID, basedOnRevision: Int)(updateThunk: AR => Future[T]): Future[Updated[T]] =
     update(Map.empty, id, basedOnRevision, updateThenCheckInvariants(updateThunk))
 
-  final def update[T](id: AR#ID, basedOnRevision: Option[Int], metadata: Map[String, String])(updateThunk: AR => Future[T]): Future[Updated[T]] =
+  final def update[T](id: ID, basedOnRevision: Option[Int], metadata: Map[String, String])(updateThunk: AR => Future[T]): Future[Updated[T]] =
     update(metadata, id, basedOnRevision, updateThenCheckInvariants(updateThunk))
 
-  final def update[T](id: AR#ID, basedOnRevision: Option[Int])(updateThunk: AR => Future[T]): Future[Updated[T]] =
+  final def update[T](id: ID, basedOnRevision: Option[Int])(updateThunk: AR => Future[T]): Future[Updated[T]] =
     update(Map.empty, id, basedOnRevision, updateThenCheckInvariants(updateThunk))
 
   /**
@@ -81,7 +83,7 @@ trait Repository[AR <: AggregateRoot] {
    * @param updateThunk The block of coding invoking changes to the AR
    * @return `Future` indicating successful update or failure. Should fail with [[scuff.ddd.UnknownIdException]] if AR id is unknown.
    */
-  protected def update[T](metadata: Map[String, String], id: AR#ID, basedOnRevision: Int, updateThunk: AR => Future[T]): Future[Updated[T]]
+  protected def update[T](metadata: Map[String, String], id: ID, basedOnRevision: Int, updateThunk: AR => Future[T]): Future[Updated[T]]
 
   /**
    * Insert new aggregate root and publish committed events.
@@ -91,7 +93,7 @@ trait Repository[AR <: AggregateRoot] {
    * @return `Future` indicating successful insertion or failure. Fails with [[scuff.ddd.DuplicateIdException]] if AR id already exists,
    * and [[java.lang.IllegalStateException]] if `revision` is present (e.g. `Some(revision)`).
    */
-  final def insert(aggr: AR, metadata: Map[String, String] = Map.empty): Future[AR#ID] = {
+  final def insert(aggr: AR, metadata: Map[String, String] = Map.empty): Future[ID] = {
     try {
       checkInvariants(aggr)
       insert(metadata, aggr)
@@ -107,10 +109,10 @@ trait Repository[AR <: AggregateRoot] {
    * @return `Future` indicating successful insertion or failure. Should fail with [[scuff.ddd.DuplicateIdException]] if AR id already exists,
    * and [[java.lang.IllegalStateException]] if `revision` is present (not `None`).
    */
-  protected def insert(metadata: Map[String, String], aggr: AR): Future[AR#ID]
+  protected def insert(metadata: Map[String, String], aggr: AR): Future[ID]
 
   private[this] final val EventPrefix = s"${compat.Platform.EOL}\t * "
-  final class InvariantFailure(aggr: AR#ID, events: List[DomainEvent], cause: Exception)
+  final class InvariantFailure(aggr: ID, events: List[EVT], cause: Exception)
     extends RuntimeException(s"""Aggregate $aggr invariant failure: "${cause.getMessage}" with events:${events.mkString(EventPrefix, EventPrefix, "")}""", cause)
 
   final class Updated[T](val revision: Int, val output: T)

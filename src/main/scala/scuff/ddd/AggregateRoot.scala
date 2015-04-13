@@ -1,5 +1,8 @@
 package scuff.ddd
 
+/**
+ * Aggregate root trait.
+ */
 trait AggregateRoot {
   override final lazy val hashCode = id.hashCode ^ revision.getOrElse(-1)
   override final def equals(obj: Any) = obj match {
@@ -22,4 +25,29 @@ trait AggregateRoot {
    * throw an exception on failure.
    */
   def checkInvariants(): Unit
+}
+
+/**
+ * Type-class for generic aggregate root.
+ */
+trait AggrRoot[AR] {
+  type ID
+  type EVT
+  def domainEvt: DomainEvt[EVT]
+  def id(ar: AR): ID
+  def revision(ar: AR): Option[Int]
+  def events(ar: AR): List[EVT]
+  def checkInvariants(ar: AR): Unit
+}
+
+/**
+ * Type-class instance for aggregate roots extending [[scuff.ddd.AggregateRoot]].
+ */
+class DefaultAggrRoot[AR <: AggregateRoot](implicit val domainEvt: DomainEvt[AR#EVT]) extends AggrRoot[AR] {
+  type ID = AR#ID
+  type EVT = AR#EVT
+  def id(ar: AR) = ar.id
+  def revision(ar: AR) = ar.revision
+  def events(ar: AR) = ar.events
+  def checkInvariants(ar: AR) = ar.checkInvariants()
 }
