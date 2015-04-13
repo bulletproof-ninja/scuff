@@ -30,12 +30,12 @@ object RxFuture {
     subscribe(callback)
     callback.future
   }
-  def apply[V](thunk: V => Unit) = new RxFuture[V, Unit] {
-    def onNext(value: V) = thunk(value)
+  def apply[V](next: V => Unit) = new RxFuture[V, Unit] {
+    def onNext(value: V) = next(value)
     protected def result() = ()
   }
-  def apply[V, R](result: R)(thunk: V => Unit) = new RxFuture[V, R] {
-    def onNext(value: V) = thunk(value)
+  def apply[V, R](result: R)(next: V => Unit) = new RxFuture[V, R] {
+    def onNext(value: V) = next(value)
     protected def result() = result
   }
 }
