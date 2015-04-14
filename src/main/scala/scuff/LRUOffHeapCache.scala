@@ -8,7 +8,7 @@ import scala.concurrent.duration._
  * This cache allows you to store arbitrary sized objects off
  * the JVM heap, thereby not affecting GC times.
  */
-final class LRUDirectMemoryCache[K, V](maxCapacity: Int, ser: Serializer[V], val defaultTTL: FiniteDuration = Duration.Zero, staleCheckFreq: FiniteDuration = 10.seconds, lock: ReadWriteLock = new ReentrantReadWriteLock)
+final class LRUOffHeapCache[K, V](maxCapacity: Int, ser: Serializer[V], val defaultTTL: FiniteDuration = Duration.Zero, staleCheckFreq: FiniteDuration = 10.seconds, lock: ReadWriteLock = new ReentrantReadWriteLock)
   extends Cache[K, V] with Expiry[K, V] {
 
   private[this] val impl = new LRUHeapCache[K, ByteBuffer](maxCapacity, defaultTTL, staleCheckFreq, lock)
