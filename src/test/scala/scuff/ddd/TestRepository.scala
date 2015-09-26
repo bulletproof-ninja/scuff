@@ -1,16 +1,15 @@
 package scuff.ddd
 
-import org.junit._
-import org.junit.Assert._
-import scuff.ddd.util.ConcurrentMapRepository
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
-import concurrent.ExecutionContext.Implicits.global
+import java.util.concurrent.{ CountDownLatch, LinkedBlockingQueue, TimeUnit }
+
+import scala.collection.immutable.{ Seq => ISeq }
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-//import scuff.ddd.util.EventPublishingConcurrentMapRepository
-import java.util.concurrent.ArrayBlockingQueue
-import collection.immutable.{ Seq => ISeq }
-import java.util.concurrent.LinkedBlockingQueue
+
+import org.junit.Assert._
+import org.junit.Test
+
+import scuff.ddd.util.ConcurrentMapRepository
 
 class TestRepository {
 
