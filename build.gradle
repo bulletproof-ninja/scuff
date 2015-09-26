@@ -18,7 +18,7 @@ def bintrayVersion = {
 }()
 
 task wrapper(type: Wrapper) {
-    gradleVersion = "2.3"
+    gradleVersion = "2.6"
 }
 
 repositories {
@@ -76,10 +76,10 @@ bintray {
 }
 
 dependencies {
-    testCompile "junit:junit:4.11"
+    testCompile "junit:junit:4.12"
     testCompile "org.mockito:mockito-all:1.10.19"
 
-    compile "org.scala-lang:scala-reflect:2.11.6"
+    compile "org.scala-lang:scala-reflect:2.11.7"
     compile "com.google.javascript:closure-compiler:v20140407"
     compile "javax.mail:mail:1.4.7"
     compile "org.mongodb:mongo-java-driver:2.12.5"
@@ -93,7 +93,8 @@ compileScala {
     scalaCompileOptions.additionalParameters = [
         "-feature", "-optimise","–unchecked", "-deprecation","–explaintypes",
         "–Xdisable-assertions", //"-Xfatal-warnings",
-        "-Ybackend:GenBCode", "-Yclosure-elim",
+        //"-Ybackend:GenBCode", 
+        "-Yclosure-elim",
     ]
 }
 
