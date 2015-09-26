@@ -19,6 +19,13 @@ final class Interval[@specialized(Short, Int, Long, Float, Double) T](
     case _ => // All good
   }
 
+  def toStream(step: T)(implicit integral: Integral[T]): Stream[T] = {
+    val start = if (fromIncl) from else integral.plus(from, integral.one)
+    val end = if (toIncl) to else integral.minus(to, integral.one)
+    Stream.range(start, end, step)
+  }
+  def toStream(implicit integral: Integral[T]): Stream[T] = toStream(integral.one)
+
   def contains(c: T) =
     (fromIncl && ord.gteq(c, from) || ord.gt(c, from)) &&
       (toIncl && ord.lteq(c, to) || ord.lt(c, to))
@@ -33,12 +40,12 @@ final class Interval[@specialized(Short, Int, Long, Float, Double) T](
     case d: Double =>
       if (d == Double.PositiveInfinity) "∞"
       else if (d == Double.NegativeInfinity) "-∞"
-      else d.toString
+      else String valueOf d
     case f: Float =>
       if (f == Float.PositiveInfinity) "∞"
       else if (f == Float.NegativeInfinity) "-∞"
-      else f.toString
-    case _ => t.toString
+      else String valueOf f
+    case _ => String valueOf t
   }
 
   override def toString = if (stringRep != null) stringRep else
@@ -105,8 +112,17 @@ object Interval {
     case _: Exception => None
   }
 
-  def apply[@specialized(Short, Int, Long, Float, Double) T](t: (T, T))(implicit n: Ordering[T]): Interval[T] = {
+  def inclExcl[@specialized(Short, Int, Long, Float, Double) T](t: (T, T))(implicit n: Ordering[T]): Interval[T] = {
     new Interval(true, t._1, false, t._2)
+  }
+  def inclIncl[@specialized(Short, Int, Long, Float, Double) T](t: (T, T))(implicit n: Ordering[T]): Interval[T] = {
+    new Interval(true, t._1, true, t._2)
+  }
+  def exclIncl[@specialized(Short, Int, Long, Float, Double) T](t: (T, T))(implicit n: Ordering[T]): Interval[T] = {
+    new Interval(false, t._1, true, t._2)
+  }
+  def exclExcl[@specialized(Short, Int, Long, Float, Double) T](t: (T, T))(implicit n: Ordering[T]): Interval[T] = {
+    new Interval(false, t._1, false, t._2)
   }
   def apply(r: Range): Interval[Int] = {
     new Interval(true, r.start, r.isInclusive, r.end)
@@ -135,7 +151,7 @@ object Interval {
 
   import language.implicitConversions
 
-  implicit def tuple[@specialized(Short, Int, Long, Float, Double) T](t: (T, T))(implicit n: Ordering[T]): Interval[T] = apply(t)
+  implicit def tuple[@specialized(Short, Int, Long, Float, Double) T](t: (T, T))(implicit n: Ordering[T]): Interval[T] = inclExcl(t)
   implicit def range(r: Range): Interval[Int] = apply(r)
   implicit def numRange[@specialized(Short, Int, Long, Float, Double) T](r: NumericRange[T])(implicit n: Ordering[T]): Interval[T] = apply(r)
   implicit def partialRange[@specialized(Short, Int, Long, Float, Double) T](partial: Range.Partial[T, NumericRange[T]])(implicit n: Numeric[T]): Interval[T] = apply(partial)

@@ -44,7 +44,7 @@ object Threads {
       override def run {
         while (!Thread.currentThread.isInterrupted) {
           val completed = queue.synchronized {
-            if (queue.isEmpty) {
+            while (queue.isEmpty) {
               queue.wait()
             }
             queue.dequeueAll(_._2.isDone())

@@ -6,9 +6,9 @@ trait Subscription {
 
 trait Faucet {
   /** Filter type. */
-  type F
-  /** Listener type */
-  type L
+  type Filter
+  /** Consumer type */
+  type Consumer
   /** Start subscription. */
-  def subscribe(s: L, include: F => Boolean = _ => true): Subscription
+  def subscribe(s: Consumer, include: Filter => Boolean = _ => true): Subscription
 }

@@ -1,9 +1,15 @@
 package scuff.concurrent
 
+import scala.collection.immutable.Map
+import scala.language.{ existentials, implicitConversions }
+
 /**
- * Lock-free concurrent Map.
- */
-final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) extends collection.concurrent.Map[A, B] {
+  * Lock-free concurrent Map.
+  * Wrapper-class that turns any immutable Map into a
+  * lock-free concurrent map.
+  */
+final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]())
+    extends collection.concurrent.Map[A, B] {
 
   require(initialMap != null, "Initial map cannot be null")
 
@@ -104,8 +110,9 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) ext
       this
     } else {
       val map = mapRef.get
-      var updated = map
-      keys.foreach(updated -= _)
+      val updated = keys.foldLeft(map) {
+        case (map, key) => map - key
+      }
       if (mapRef.compareAndSet(map, updated)) {
         this
       } else {
@@ -120,8 +127,9 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) ext
       this
     } else {
       val map = mapRef.get
-      var updated = map
-      copyMap.foreach(updated += _)
+      val updated = copyMap.foldLeft(map) {
+        case (map, entry) => map + entry
+      }
       if (mapRef.compareAndSet(map, updated)) {
         this
       } else {
@@ -131,7 +139,7 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) ext
   }
 
   override def clear() {
-    mapRef.set(mapRef.get.empty)
+    mapRef.set(EmptyMap)
   }
 
   override def contains(key: A) = mapRef.get.contains(key)
@@ -140,9 +148,9 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]()) ext
 
   override def toString() = "LockFreeConcurrent" concat super.toString()
 
-  def snapshot() = mapRef.get
+  def snapshot[M <: Map[A, B]](): M = mapRef.get.asInstanceOf[M]
 
-  def drain(): Map[A, B] = mapRef.getAndSet(EmptyMap)
+  def drain[M <: Map[A, B]](): M = mapRef.getAndSet(EmptyMap).asInstanceOf[M]
 
   @annotation.tailrec
   override def remove(key: A): Option[B] = {

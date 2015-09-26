@@ -67,4 +67,34 @@ class TestDoubleDispatch {
     three.dispatch(Simple)
     assertEquals(3, last)
   }
+
+  @Test
+  def `functional` {
+    trait `123` extends DoubleDispatch[Callback123[Long]]
+    class One extends `123` {
+      def dispatch(callback: Callback123[Long]) = callback(this)
+    }
+    class Two extends `123` {
+      def dispatch(callback: Callback123[Long]) = callback(this)
+    }
+    class Three extends `123` {
+      def dispatch(callback: Callback123[Long]) = callback(this)
+    }
+    trait Callback123[A] {
+      type RT = A
+      def apply(one: One): RT
+      def apply(two: Two): RT
+      def apply(three: Three): RT
+    }
+    class Multiplier(m: Int) extends Callback123[Long] {
+      def apply(one: One): Long = 1L * m
+      def apply(two: Two): Long = 2L * m
+      def apply(three: Three): Long = 3L * m
+    }
+    val list = List(new One, new Two, new Three) zip List(5, 11, 33).map(new Multiplier(_)) zip List(5L, 22L, 99L)
+    list.foreach {
+      case ((ott, m), expected) =>
+        assertEquals(expected, ott.dispatch(m))
+    }
+  }
 }

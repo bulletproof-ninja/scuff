@@ -9,31 +9,32 @@ import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.ExecutionContext
 
 /**
- * Unbounded lock-free resource pool.
- *
- * This pool can be used as a more efficient replacement
- * for [[java.lang.ThreadLocal]], in that it will never create more
- * instances than there are threads, like [[java.lang.ThreadLocal]],
- * but has much higher probability for creating less.
- *
- * However, unlike traditional resource pools, the pool has
- * no upper limit on resources being created, so be careful
- * if that is a concern. This is done to avoid any locking
- * (or spinning) penalty.
- *
- * Any resource is deliberately discarded when
- * an exception occurs, to avoid potentially
- * corrupted resources. This behavior can be changed
- * on a case-by-case basis by sub-classing and
- * overriding `borrow` and preventing non-destructive
- * exceptions from reaching `super.borrow`.
- *
- * NOTICE: As with any pool, make absolutely sure the
- * resource does not escape the `borrow` scope, but
- * that almost goes without saying, amirite?
- */
+  * Unbounded lock-free resource pool.
+  *
+  * This pool can be used as a more efficient replacement
+  * for [[java.lang.ThreadLocal]], in that it will never create more
+  * instances than there are threads, like [[java.lang.ThreadLocal]],
+  * but has much higher probability for creating less.
+  *
+  * However, unlike traditional resource pools, the pool has
+  * no upper limit on resources being created, so be careful
+  * if that is a concern. This is done to avoid any locking
+  * (or spinning) penalty.
+  *
+  * Any resource is deliberately discarded when
+  * an exception occurs, to avoid potentially
+  * corrupted resources. This behavior can be changed
+  * on a case-by-case basis by sub-classing and
+  * overriding `borrow` and preventing non-destructive
+  * exceptions from reaching `super.borrow`.
+  *
+  * NOTICE: As with any pool, make absolutely sure the
+  * resource does not escape the `borrow` scope, but
+  * that almost goes without saying, amirite?
+  */
 class ResourcePool[R](constructor: => R, minResources: Int = 0) {
 
   require(minResources >= 0, s"Cannot have less resources than zero: $minResources")
@@ -57,7 +58,7 @@ class ResourcePool[R](constructor: => R, minResources: Int = 0) {
             pruner.run()
           } catch {
             case e: Exception => exec match {
-              case exeCtx: ExecutionContextExecutor => exeCtx.reportFailure(e)
+              case exeCtx: ExecutionContext => exeCtx.reportFailure(e)
               case _ => e.printStackTrace(System.err)
             }
           }
@@ -91,7 +92,7 @@ class ResourcePool[R](constructor: => R, minResources: Int = 0) {
         case poolList if minResources == 0 || poolList.size > minResources =>
           poolList.reverse match {
             case (lastUsed, pruned) :: remaining if lastUsed + timeoutMillis < now =>
-              if (pool.compareAndSet(poolList, remaining.reverse)) {
+              if (pool.weakCompareAndSet(poolList, remaining.reverse)) {
                 Some(pruned)
               } else {
                 pruneLast(now)
@@ -104,13 +105,13 @@ class ResourcePool[R](constructor: => R, minResources: Int = 0) {
   }
 
   /**
-   * Start a thread to prune resources that have
-   * not been used for at least the given minimum
-   * timeout.
-   * @param minimumTimeout The minimum amount of time a resource has been unused before being eligible for pruning.
-   * @param destructor Optional resource pruning function.
-   * @param executor Scheduler or thread on which to run pruning.
-   */
+    * Start a thread to prune resources that have
+    * not been used for at least the given minimum
+    * timeout.
+    * @param minimumTimeout The minimum amount of time a resource has been unused before being eligible for pruning.
+    * @param destructor Optional resource pruning function.
+    * @param executor Scheduler or thread on which to run pruning.
+    */
   def startPruning(minimumTimeout: FiniteDuration, destructor: R => Unit = _ => Unit, executor: Executor = Threads.DefaultScheduler) {
     val pruner = new Pruner(minimumTimeout.toMillis, destructor)
     executor match {
@@ -135,7 +136,7 @@ class ResourcePool[R](constructor: => R, minResources: Int = 0) {
             r
         }
       case list @ (_, head) :: tail =>
-        if (pool.compareAndSet(list, tail)) {
+        if (pool.weakCompareAndSet(list, tail)) {
           onCheckout(head)
           head
         } else {
@@ -145,25 +146,25 @@ class ResourcePool[R](constructor: => R, minResources: Int = 0) {
   }
   final def push(r: R) {
       @tailrec
-      def pushUntilSuccessful(time: Long = System.currentTimeMillis) {
+      def pushUntilSuccessful(time: Long) {
         val list = pool.get
-        if (!pool.compareAndSet(list, (time, r) :: list)) {
+        if (!pool.weakCompareAndSet(list, (time, r) :: list)) {
           pushUntilSuccessful(time)
         }
       }
     onReturn(r)
-    pushUntilSuccessful()
+    pushUntilSuccessful(System.currentTimeMillis)
   }
 
   /**
-   * Called before a resource is
-   * borrowed from the pool.
-   */
+    * Called before a resource is
+    * borrowed from the pool.
+    */
   protected def onCheckout(r: R) {}
   /**
-   * Called before a resource is
-   * returned to the pool.
-   */
+    * Called before a resource is
+    * returned to the pool.
+    */
   protected def onReturn(r: R) {}
 
   def borrow[A](thunk: R => A): A = {

@@ -1,17 +1,19 @@
 package scuff.web
 
 import scala.util.Try
+
 import javax.activation.MimeType
 
 final class AcceptHeader(mimeTypes: Seq[MimeType]) {
-  require(!mimeTypes.isEmpty, "Cannot have an empty Accept header")
+  private[this] val count = mimeTypes.size
+  require(count > 0, "Cannot have an empty Accept header")
   private[this] val hasMatchAny = mimeTypes.exists(mt => mt.getPrimaryType() == "*")
   private def matchesTypes(specific: MimeType) = mimeTypes.exists { mt =>
     mt.getPrimaryType == specific.getPrimaryType && (mt.getSubType == "*" || mt.getSubType == specific.getSubType)
   }
   def preference(): MimeType = preferenceOrderd().head
   def preferenceOrderd(): Seq[MimeType] = {
-    if (mimeTypes.size == 1) mimeTypes else {
+    if (count == 1) mimeTypes else {
       val withQ = mimeTypes.zipWithIndex.map {
         case (mt, idx) =>
           val q = mt.getParameter("q") match {
@@ -26,7 +28,7 @@ final class AcceptHeader(mimeTypes: Seq[MimeType]) {
   def matches(specific: String): Boolean = hasMatchAny || matchesTypes(new MimeType(specific))
   def matches(specific: MimeType): Boolean = hasMatchAny || matchesTypes(specific)
   def matchesAny(specifics: Traversable[MimeType]) = hasMatchAny || specifics.exists(matchesTypes)
-      }
+}
 
 object AcceptHeader {
   private type MTT = (Float, MimeType, Int)
@@ -56,7 +58,7 @@ object AcceptHeader {
         -1
       } else {
         1
-  }
+      }
     }
   }
   private val Splitter = """\s*,\s*""".r.pattern
@@ -72,7 +74,7 @@ object AcceptHeader {
   def apply(header: String): Option[AcceptHeader] = Option(header).flatMap { header =>
     val types = split(header)
     if (types.isEmpty) None else Some(new AcceptHeader(types))
-}
+  }
 
   def apply(req: javax.servlet.http.HttpServletRequest): Option[AcceptHeader] = {
     import collection.JavaConverters._

@@ -87,25 +87,25 @@ class TestInterval {
     assertEquals(None, Interval.parse("[45.99,59,25["))
     assertEquals(None, Interval.parse("[45,99 59,25["))
     try {
-      Interval(Double.NaN -> 5d)
+      Interval.inclExcl(Double.NaN -> 5d)
       fail("Should fail on NaN")
     } catch {
       case e: IllegalArgumentException => assertTrue(e.getMessage.contains("NaN"))
     }
     try {
-      Interval(1d -> Double.NaN)
+      Interval.inclExcl(1d -> Double.NaN)
       fail("Should fail on NaN")
     } catch {
       case e: IllegalArgumentException => assertTrue(e.getMessage.contains("NaN"))
     }
     try {
-      Interval(Float.NaN -> 5f)
+      Interval.inclExcl(Float.NaN -> 5f)
       fail("Should fail on NaN")
     } catch {
       case e: IllegalArgumentException => assertTrue(e.getMessage.contains("NaN"))
     }
     try {
-      Interval(1f -> Float.NaN)
+      Interval.inclExcl(1f -> Float.NaN)
       fail("Should fail on NaN")
     } catch {
       case e: IllegalArgumentException => assertTrue(e.getMessage.contains("NaN"))

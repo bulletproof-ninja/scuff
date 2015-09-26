@@ -3,10 +3,10 @@ import scala.Range
 import scala.collection.immutable.NumericRange
 import scala.concurrent.Future
 import scala.language.implicitConversions
-import scala.math.{BigDecimal, BigInt, Numeric, min}
-import scala.util.{Failure, Random, Success, Try}
+import scala.math.{ BigDecimal, BigInt, Numeric, min }
+import scala.util.{ Failure, Random, Success, Try }
 
-import scuff.{Cache, Codec, Expiry, Numbers}
+import scuff.{ Cache, Codec, Expiry, Numbers }
 
 package object scuff {
   import scala.math._
@@ -20,10 +20,10 @@ package object scuff {
     def optional: Option[String] = if (str.length == 0) None else Some(str)
 
     /**
-     * Calculate Levenshtein distance.
-     * Taken, and modified, from:
-     * http://rosettacode.org/wiki/Levenshtein_distance#Scala
-     */
+      * Calculate Levenshtein distance.
+      * Taken, and modified, from:
+      * http://rosettacode.org/wiki/Levenshtein_distance#Scala
+      */
     def levenshtein(s2: String): Int = {
         def minimum(i1: Int, i2: Int, i3: Int) = min(min(i1, i2), i3)
       val dist = Array.tabulate(s2.length + 1, str.length + 1) { (j, i) => if (j == 0) i else if (i == 0) j else 0 }
@@ -76,7 +76,7 @@ package object scuff {
   }
 
   implicit final class ScuffMap[A, B](val map: Map[A, B]) extends AnyVal {
-    def merge(other: Map[A, B], collisionHandler: (B, B) => B): Map[A, B] = {
+    def merge(other: Map[A, B])(collisionHandler: (B, B) => B): Map[A, B] = {
       val merged = map.keySet.intersect(other.keySet).toSeq.map { key =>
         val merged = collisionHandler(map(key), other(key))
         key -> merged
@@ -138,6 +138,5 @@ package object scuff {
   implicit final class ScuffTraversable[T <: Traversable[_]](val t: T) extends AnyVal {
     def optional: Option[T] = if (t.isEmpty) None else Some(t)
   }
-
 
 }

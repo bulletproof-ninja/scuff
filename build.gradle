@@ -11,7 +11,7 @@ def bintrayVersion = {
     if (version.endsWith('-SNAPSHOT')) {
         java.text.SimpleDateFormat format = new java.text.SimpleDateFormat('yyyyMMddHHmm')
         format.setCalendar(Calendar.getInstance(TimeZone.getTimeZone('UTC')))
-        return version.replace('SNAPSHOT', format.format(new Date()))
+        return version.replace('SNAPSHOT', "b" + format.format(new Date()))
     } else {
         return version
     }
@@ -79,12 +79,12 @@ dependencies {
     testCompile "junit:junit:4.11"
     testCompile "org.mockito:mockito-all:1.10.19"
 
-    compile "org.scala-lang:scala-library:2.11.6"
+    compile "org.scala-lang:scala-reflect:2.11.6"
     compile "com.google.javascript:closure-compiler:v20140407"
     compile "javax.mail:mail:1.4.7"
     compile "org.mongodb:mongo-java-driver:2.12.5"
     compile "javax.servlet:javax.servlet-api:3.0.1"
-    compile "redis.clients:jedis:2.6.2"
+    compile "redis.clients:jedis:2.7.0"
     compile "com.datastax.cassandra:cassandra-driver-core:2.1.4"
     compile "io.fastjson:boon:0.32"
 }

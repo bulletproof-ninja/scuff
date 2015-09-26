@@ -7,6 +7,7 @@ import scala.concurrent.duration.Duration
 import scuff.concurrent.Threads
 import java.util.concurrent.Executor
 import language.implicitConversions
+import scala.concurrent.duration.FiniteDuration
 
 package object concurrent {
   implicit def exeCtxToExecutor(ec: ExecutionContext): Executor = new Executor {
@@ -20,13 +21,14 @@ package object concurrent {
       val promise = Promise[Unit]
       ec execute new Runnable {
         def run = promise complete Try(runnable.run)
+        override def hashCode = runnable.hashCode
       }
       promise.future
     }
     def submit[T](callable: Callable[T]): Future[T] = {
       val promise = Promise[T]
       ec execute new Runnable {
-        def run = promise complete Try(callable.call())
+        def run = promise complete Try(callable.call)
         override def hashCode = callable.hashCode
       }
       promise.future
@@ -41,12 +43,13 @@ package object concurrent {
   }
 
   implicit final class ScuffScalaFuture[T](val f: Future[T]) extends AnyVal {
-    def get(implicit maxWait: Duration): T =
+    def get(maxWait: Duration = Duration.Inf): T =
       if (f.isCompleted) {
         f.value.get.get
       } else {
         Await.result(f, maxWait)
       }
+    def flatten[A](implicit mustBeFuture: Future[A] =:= T): Future[A] = f.asInstanceOf[Future[Future[A]]].flatMap(identity)(Threads.PiggyBack)
   }
 
   implicit final class ScuffJavaFuture[T](val f: java.util.concurrent.Future[T]) extends AnyVal {
@@ -54,14 +57,38 @@ package object concurrent {
   }
 
   implicit final class ScuffLock(val lock: java.util.concurrent.locks.Lock) extends AnyVal {
-    def whenLocked[T](code: => T): T = {
-      lock.lock()
+
+    def tryFor[T](dur: FiniteDuration)(thunk: => T): Option[T] = {
+      if (lock.tryLock(dur.length, dur.unit)) try {
+        Some(thunk)
+      } finally {
+        lock.unlock()
+      }
+      else None
+    }
+
+    def apply[T](thunk: => T): T = {
+      lock.lockInterruptibly()
       try {
-        code
+        thunk
       } finally {
         lock.unlock()
       }
     }
+    def uninterruptibly[T](thunk: => T) = {
+      lock.lock()
+      try {
+        thunk
+      } finally {
+        lock.unlock()
+      }
+    }
+  }
+
+  implicit final class ScuffCondition(val cond: java.util.concurrent.locks.Condition) extends AnyVal {
+    def await(condition: => Boolean): Unit = while (!condition) cond.await()
+    def signalIf(condition: Boolean): Unit = if (condition) cond.signal()
+    def signalAllIf(condition: Boolean): Unit = if (condition) cond.signalAll()
   }
 
 }

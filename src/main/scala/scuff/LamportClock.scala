@@ -4,8 +4,8 @@ import java.util.concurrent.atomic.AtomicLong
 import scala.annotation.tailrec
 import LamportClock._
 
-final class LamportClock(private[this] val counter: CASLong) {
-  def this(init: Long = 0) = this(new AtomicCASLong(init))
+final class LamportClock(counter: CASLong) {
+  def this(init: Long) = this(new AtomicCASLong(init))
 
   def next(): Long = counter.incrAndGet()
 
@@ -36,8 +36,8 @@ object LamportClock {
     def compAndSwap(expected: Long, update: Long): Boolean
     def incrAndGet(): Long
   }
-  private final class AtomicCASLong(private[this] val al: AtomicLong) extends CASLong {
-    def this(init: Long = 0) = this(new AtomicLong(init))
+  private final class AtomicCASLong(al: AtomicLong) extends CASLong {
+    def this(init: Long) = this(new AtomicLong(init))
     def value: Long = al.get
     def compAndSwap(expected: Long, update: Long): Boolean = al.compareAndSet(expected, update)
     def incrAndGet(): Long = al.incrementAndGet()

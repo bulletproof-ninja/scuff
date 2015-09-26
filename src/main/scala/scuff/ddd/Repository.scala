@@ -1,123 +1,94 @@
 package scuff.ddd
 
-import language.implicitConversions
-import scala.concurrent.Future
+import scala.collection.immutable.Seq
+import scala.concurrent.{ ExecutionContext, Future }
+import scala.language.implicitConversions
+import scala.util.{ Failure, Success, Try }
 import scala.util.control.NonFatal
-
 import scuff.concurrent.Threads.PiggyBack
+import scuff.concurrent.Threads
 
 /**
  * Aggregate root repository.
  */
-abstract class Repository[AR](implicit protected val aggr: AggrRoot[AR]) {
-  type ID = aggr.ID
-  type EVT = aggr.EVT
-
-  def exists(id: ID): Future[Boolean]
+trait Repository[AR, ID] {
 
   /**
-   * Load aggregate. Only for reading the aggregate.
-   * Any modifications cannot be saved.
+   * Does aggregate exist?
+   * @return Current revision, if exists
+   */
+  def exists(id: ID): Future[Option[Int]]
+
+  /**
+   * Load aggregate. Only for reading.
+   * Modifications cannot be saved.
    * @param id The instance ID
-   * @param revision Load a specific revision, or None for most latest (default)
-   * @return The specific or latest revision of AR or [[scuff.ddd.UnknownIdException]]
+   * @return The latest revision of AR or [[scuff.ddd.UnknownIdException]]
    */
-  def load(id: ID, revision: Option[Int] = None): Future[AR]
-  final def load(id: (ID, Int)): Future[AR] = load(id._1, Some(id._2))
-  final def load(id: ID, revision: Int): Future[AR] = load(id, Some(revision))
+  def load(id: ID): Future[(AR, Int)]
+  /**
+   * Update aggregate.
+   * @param id The instance id
+   * @param expectedRevision The revision that this update is based on. `None` if unknown or irrelevant.
+   * @param metadata Optional metadata.
+   * @param updateThunk The code block responsible for updating. If no events are returned, the repository will
+   * @return New revision, or [[scuff.ddd.UnknownIdException]] if unknown id.
+   */
+  def update(id: ID, expectedRevision: Option[Int], metadata: Map[String, String] = Map.empty)(updateThunk: (AR, Int) => Future[AR]): Future[Int]
 
-  private def checkInvariants(ar: AR) = {
-    if (aggr.events(ar).nonEmpty) try {
-      aggr.checkInvariants(ar)
-    } catch {
-      case e: Exception => throw new InvariantFailure(aggr.id(ar), aggr.events(ar), e)
-    }
-
-  }
-  private def updateThenCheckInvariants[T](updateThunk: AR => Future[T])(ar: AR): Future[T] = {
-    updateThunk(ar).map { t =>
-      checkInvariants(ar)
-      t
-    }(PiggyBack)
-  }
-
-  @inline
-  private implicit def intRevision(rev: Option[Int]): Int = rev.getOrElse(Int.MaxValue)
+  final def update(id: ID, expectedRevision: Int, metadata: Map[String, String])(updateThunk: (AR, Int) => Future[AR]): Future[Int] =
+    update(id, Some(expectedRevision), metadata)(updateThunk)
+  final def update(id: ID, expectedRevision: Int)(updateThunk: (AR, Int) => Future[AR]): Future[Int] =
+    update(id, Some(expectedRevision))(updateThunk)
 
   /**
-   * Update aggregate. Changes are committed and potential revision conflicts are
-   * automatically retried. To back out of the transaction, throw an exception.
-   * NOTICE: Anything done in this block must be thread-safe and idempotent,
-   * due to the automatic retry on concurrent updates.
-   * @param id The aggregate ID
-   * @param basedOnRevision Revision, which update will be based on
-   * @param metadata The update metadata
-   * @param updateThunk The transaction update thunk. This may be executed multiple times if concurrent updates occur
+   * Insert new aggregate. Must, by definition, be given revision `0`.
+   * @param ar The instance to insert
+   * @param events The events.
+   * @param metadata Optional metadata.
+   * @return The revision (always `0`) if successful, or [[scuff.ddd.DuplicateIdException]] if id already exists
    */
-  final def update[T](id: ID, basedOnRevision: Int, metadata: Map[String, String])(updateThunk: AR => Future[T]): Future[Updated[T]] =
-    update(metadata, id, basedOnRevision, updateThenCheckInvariants(updateThunk))
+  def insert(id: ID, ar: AR, metadata: Map[String, String] = Map.empty): Future[Int]
+}
 
-  /**
-   * Update aggregate. Changes are committed and potential revision conflicts are
-   * automatically retried. To back out of the transaction, throw an exception.
-   * NOTICE: Anything done in this block must be thread-safe and idempotent,
-   * due to the automatic retry on concurrent updates.
-   * @param id The aggregate ID
-   * @param basedOnRevision Revision, which update will be based on
-   * @param updateThunk The transaction update thunk. This may be executed multiple times if concurrent updates occur
-   */
-  final def update[T](id: ID, basedOnRevision: Int)(updateThunk: AR => Future[T]): Future[Updated[T]] =
-    update(Map.empty, id, basedOnRevision, updateThenCheckInvariants(updateThunk))
+abstract class EventCentricRepository[AR, ID, EVT](impl: Repository[AR, ID])(implicit publishCtx: ExecutionContext)
+    extends Repository[(AR, Seq[EVT]), ID] {
+  type ARwithEvents = (AR, Seq[EVT])
+  protected def publish(id: ID, revision: Int, events: Seq[EVT], metadata: Map[String, String])
 
-  final def update[T](id: ID, basedOnRevision: Option[Int], metadata: Map[String, String])(updateThunk: AR => Future[T]): Future[Updated[T]] =
-    update(metadata, id, basedOnRevision, updateThenCheckInvariants(updateThunk))
-
-  final def update[T](id: ID, basedOnRevision: Option[Int])(updateThunk: AR => Future[T]): Future[Updated[T]] =
-    update(Map.empty, id, basedOnRevision, updateThenCheckInvariants(updateThunk))
-
-  /**
-   * Update implementation.
-   * @param metadata The update metadata.
-   * @param id The AR id
-   * @param basedOnRevision The revision that this update is based on. Will be `Int.MaxValue` if unknown or irrelevant.
-   * @param updateThunk The block of coding invoking changes to the AR
-   * @return `Future` indicating successful update or failure. Should fail with [[scuff.ddd.UnknownIdException]] if AR id is unknown.
-   */
-  protected def update[T](metadata: Map[String, String], id: ID, basedOnRevision: Int, updateThunk: AR => Future[T]): Future[Updated[T]]
-
-  /**
-   * Insert new aggregate root and publish committed events.
-   * <p>NOTICE: No commands should be applied to the aggregate instance
-   * after it's been saved, as it cannot be persisted again. Instead `update`.
-   * @param aggr Aggregate root to save
-   * @return `Future` indicating successful insertion or failure. Fails with [[scuff.ddd.DuplicateIdException]] if AR id already exists,
-   * and [[java.lang.IllegalStateException]] if `revision` is present (e.g. `Some(revision)`).
-   */
-  final def insert(aggr: AR, metadata: Map[String, String] = Map.empty): Future[ID] = {
-    try {
-      checkInvariants(aggr)
-      insert(metadata, aggr)
-    } catch {
-      case NonFatal(e) => Future failed e
+  private def publishEvents(id: ID, revision: Int, events: Seq[EVT], metadata: Map[String, String]) {
+    if (events.nonEmpty) try publish(id, revision, events, metadata) catch {
+      case NonFatal(e) => publishCtx.reportFailure(e)
     }
   }
 
-  /**
-   * Insert implementation.
-   * @param metadata The insert metadata
-   * @param aggr The AR to insert
-   * @return `Future` indicating successful insertion or failure. Should fail with [[scuff.ddd.DuplicateIdException]] if AR id already exists,
-   * and [[java.lang.IllegalStateException]] if `revision` is present (not `None`).
-   */
-  protected def insert(metadata: Map[String, String], aggr: AR): Future[ID]
+  def exists(id: ID): Future[Option[Int]] = impl.exists(id)
+  def load(id: ID): Future[(ARwithEvents, Int)] = impl.load(id).map {
+    case (ar, rev) => ar -> Nil -> rev
+  }
+  def update(id: ID, expectedRevision: Option[Int], metadata: Map[String, String] = Map.empty)(updateThunk: (ARwithEvents, Int) => Future[ARwithEvents]): Future[Int] = {
+    @volatile var updatedAR: Future[ARwithEvents] = null
+    val updatedRev = impl.update(id, expectedRevision, metadata) {
+      case (ar, rev) =>
+        updatedAR = updateThunk(ar -> Nil, rev)
+        updatedAR.map(_._1)
+    }
+    for (rev <- updatedRev; (ar, events) <- updatedAR) {
+      publishEvents(id, rev, events, metadata)
+    }
+    updatedRev
+  }
 
-  private[this] final val EventPrefix = s"${compat.Platform.EOL}\t * "
-  final class InvariantFailure(aggr: ID, events: List[EVT], cause: Exception)
-    extends RuntimeException(s"""Aggregate $aggr invariant failure: "${cause.getMessage}" with events:${events.mkString(EventPrefix, EventPrefix, "")}""", cause)
-
-  final class Updated[T](val revision: Int, val output: T)
+  def insert(id: ID, arWithEvents: ARwithEvents, metadata: Map[String, String] = Map.empty): Future[Int] = {
+    val (ar, events) = arWithEvents
+    val inserted = impl.insert(id, ar, metadata)
+    for (rev <- inserted) {
+      publishEvents(id, rev, events, metadata)
+    }
+    inserted
+  }
 
 }
 
-case class UnknownIdException(id: Any) extends RuntimeException("Unknown aggregate: " + id)
-case class DuplicateIdException(id: Any) extends RuntimeException("Aggregate already exists: " + id)
+final case class UnknownIdException(id: Any) extends RuntimeException(s"Unknown id: $id")
+final case class DuplicateIdException(id: Any) extends RuntimeException(s"Id already exists: $id")

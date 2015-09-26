@@ -1,15 +1,14 @@
 package scuff
 
 import java.util.ArrayDeque
-import java.util.Queue
 
 /**
- * Simple bounded circular queue that
- * replaces the oldest entry with the newest
- * when capacity is reached.
- * NOTE: This implementation is NOT thread-safe 
- * if used concurrently.
- */
+  * Simple bounded circular queue that
+  * replaces the oldest entry with the newest
+  * when capacity is reached.
+  * NOTE: This implementation is NOT thread-safe
+  * if used concurrently.
+  */
 final class CircularQueue[T](capacity: Int) {
   private[this] val deque = new ArrayDeque[T](capacity)
 
@@ -20,6 +19,8 @@ final class CircularQueue[T](capacity: Int) {
     }
     deque.addLast(t)
   }
+
+  def contains(elem: T): Boolean = deque.contains(elem)
 
   /** Remove head of queue. */
   def next(): Option[T] = Option(deque.pollFirst)
