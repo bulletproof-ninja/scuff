@@ -9,7 +9,7 @@ import java.util.ArrayDeque
   * NOTE: This implementation is NOT thread-safe
   * if used concurrently.
   */
-final class CircularQueue[T](capacity: Int) {
+final class CircularBuffer[T](capacity: Int) {
   private[this] val deque = new ArrayDeque[T](capacity)
 
   /** Append to tail of queue. */
