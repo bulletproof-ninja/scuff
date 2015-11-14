@@ -3,17 +3,16 @@ package scuff.io
 import java.io.InputStream
 
 /**
- * Unsynchronized [[InputStream]].
- */
+  * Unsynchronized [[InputStream]].
+  */
 final class ByteInputStream(bytes: Array[Byte], offset: Int = 0, len: Int = -1) extends InputStream {
   private[this] final val endIdx = if (len == -1) bytes.length - offset else len
   private[this] var idx = offset
-  @inline
-  override def available = endIdx - idx
-  def read() = {
+  @inline override def available = endIdx - idx
+  def read(): Int = {
     if (available > 0) {
       idx += 1
-      bytes(idx - 1)
+      bytes(idx - 1) & 0xff
     } else {
       -1
     }
