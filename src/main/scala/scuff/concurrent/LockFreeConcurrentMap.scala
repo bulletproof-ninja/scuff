@@ -172,10 +172,7 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]())
       case Some(value) => value
       case _ =>
         val newValue = makeValue
-        putIfAbsent(key, newValue) match {
-          case Some(existing) => existing
-          case None => newValue
-        }
+        putIfAbsent(key, newValue) getOrElse newValue
     }
   }
 
