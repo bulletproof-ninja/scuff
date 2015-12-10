@@ -13,7 +13,7 @@ object serialVersionUID {
       }
     }
   }
-  def apply[T <: AnyRef](t: T): Long = serialUIDCache.get(t.getClass)
+  def apply(ref: AnyRef): Long = serialUIDCache.get(ref.getClass)
   def apply(cls: Class[_]): Long = serialUIDCache.get(cls)
   def apply[T <: AnyRef: ClassTag]: Long = serialUIDCache.get(classTag[T].runtimeClass)
 }

@@ -1,38 +1,33 @@
 package scuff
 
 /**
- * Class that guarantees exactly one instance per key being created.
- * This is known as a
- *  <a href="http://en.wikipedia.org/wiki/Multiton">Multiton</a>.
- * NOTICE: [[scala.collection.concurrent.Map#getOrElse]] and
- * [[scala.collection.concurrent.Map#putIfAbsent]] provides
- * similar behavior, but cannot guarantee a single instance per
- * key, due to race conditions.
- */
-class Multiton[K, V](factory: K => V) {
+  * Class that guarantees exactly one instance created per
+  * argument (based on `equals` equality).
+  * NOTICE: [[scala.collection.concurrent.Map#getOrElse]] and
+  * [[scala.collection.concurrent.Map#putIfAbsent]] can provide
+  * similar behavior, but cannot guarantee a single instance per
+  * key, due to inherent race conditions.
+  */
+class Memoizer[A, R](impl: A => R) {
 
-  @volatile private var map: Map[K, V] = Map.empty
+  @volatile private var map: Map[A, R] = Map.empty
 
-  private def getOrNull(key: K) = map.getOrElse(key, null.asInstanceOf[V])
+  private def getOrNull(arg: A) = map.getOrElse(arg, null.asInstanceOf[R])
 
-  /**
-   * Return value associated with key, and if not already constructed,
-   * call factory and store.
-   * @param key The key to use for lookup
-   * @return The singleton value associated with the key
-   */
-  def apply(key: K): V = {
-    var value = getOrNull(key)
-    if (value == null) {
-      this.synchronized {
-        value = getOrNull(key)
-        // DCL for the WIN!
-        if (value == null) {
-          value = factory(key)
-          map += (key -> value)
+  def apply(arg: A): R = {
+    getOrNull(arg) match {
+      case null =>
+        this.synchronized {
+          getOrNull(arg) match {
+            case null =>
+              val res = impl(arg)
+              map = map.updated(arg, res)
+              res
+            case res => res
+          }
         }
-      }
+      case res => res
     }
-    value
   }
+
 }

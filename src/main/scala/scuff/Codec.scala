@@ -27,7 +27,7 @@ object Codec {
     def encode(a: A) = codec.encode(a).utf8
     def decode(b: Array[Byte]) = codec.decode(b.utf8)
   }
-  def UTF8[A](codec: Codec[A, Array[Byte]])(implicit dummy: ClassTag[A]) = new Codec[A, String] {
+  def UTF8[A: ClassTag](codec: Codec[A, Array[Byte]]) = new Codec[A, String] {
     def encode(a: A) = codec.encode(a).utf8
     def decode(b: String) = codec.decode(b.utf8)
   }

@@ -24,10 +24,10 @@ private object CoffeeScriptServlet {
 }
 
 /**
- * Perform on-the-fly conversion of CoffeeScript
- * to JavaScript.
- * <p>Use with [[scuff.web.Ice]] for Iced CoffeeScript.
- */
+  * Perform on-the-fly conversion of CoffeeScript to JavaScript.
+  *
+  * Use with [[scuff.web.Ice]] for Iced CoffeeScript.
+  */
 abstract class CoffeeScriptServlet extends HttpServlet {
   import CoffeeScriptCompiler._
   import CoffeeScriptServlet._
@@ -75,10 +75,10 @@ abstract class CoffeeScriptServlet extends HttpServlet {
   }
 
   /**
-   * Max age, in seconds.
-   * @param req The HTTP request.
-   * Passed for querying, in case max-age depends on the request.
-   */
+    * Max age, in seconds.
+    * @param req The HTTP request.
+    * Passed for querying, in case max-age depends on the request.
+    */
   protected def maxAge(req: HttpServletRequest): Int
 
   private def respond(req: HttpServletRequest, res: HttpServletResponse) {

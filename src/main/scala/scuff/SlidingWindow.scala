@@ -17,10 +17,9 @@ object SlidingWindow {
 
   type EpochMillis = Long
 
-  @specialized(Int, Long, Float, Double)
-  trait Reducer[-T, R, F] extends ((R, R) => R) {
+  trait Reducer[@specialized(AnyRef, Int, Long, Float, Double) T, @specialized(AnyRef, Int, Long, Float, Double) R, @specialized(AnyRef, Int, Long, Float, Double) F]
+      extends ((R, R) => R) {
     def init(t: T): R
-    def apply(x: R, y: R): R
     def finalize(r: R): Option[F]
     def default: Option[F] = None
   }
@@ -28,21 +27,23 @@ object SlidingWindow {
   /** System clock with various timestamp granularity. */
   object SystemClock {
     /** Current sys time, millisecond granularity. */
-    def Milliseconds: EpochMillis = System.currentTimeMillis
+    def asMilliseconds: EpochMillis = System.currentTimeMillis
     /** Current sys time, second granularity. */
-    def Seconds: EpochMillis = (System.currentTimeMillis / 1000) * 1000
+    def asSeconds: EpochMillis = (System.currentTimeMillis / 1000) * 1000
     /** Current sys time, minute granularity. */
-    def Minutes: EpochMillis = (System.currentTimeMillis / 60000) * 60000
+    def asMinutes: EpochMillis = (System.currentTimeMillis / 60000) * 60000
     /** Current sys time, hour granularity. */
-    def Hours: EpochMillis = (System.currentTimeMillis / 360000) * 360000
+    def asHours: EpochMillis = (System.currentTimeMillis / 360000) * 360000
     /** Current sys time, day granularity. */
-    def Days: EpochMillis = (System.currentTimeMillis / 8640000) * 8640000
+    def asDays: EpochMillis = (System.currentTimeMillis / 8640000) * 8640000
   }
-
+  //  trait Window {
+  //    def toInterval(now: EpochMillis): Interval[EpochMillis]
+  //  }
   case class Window(length: Duration, offset: FiniteDuration = Duration.Zero) {
     private[this] val offsetMillis = offset.toMillis
-    val spanMs: Option[Long] = if (length.isFinite) Some(length.toMillis + offsetMillis) else None
-    val finiteSpanMs = spanMs.getOrElse(-1L)
+    private[this] val spanMs: Option[Long] = if (length.isFinite) Some(length.toMillis + offsetMillis) else None
+    //    val finiteSpanMs = spanMs.getOrElse(-1L)
     def toInterval(now: EpochMillis): Interval[EpochMillis] = spanMs match {
       case Some(spanMs) => new Interval(false, now - spanMs, true, now - offsetMillis)
       case None => new Interval(true, Long.MinValue, true, now - offsetMillis)
@@ -63,33 +64,33 @@ object SlidingWindow {
   }
 
   case class Sum[N: Numeric]() extends Reducer[N, N, N] {
-    private[this] val n = implicitly[Numeric[N]]
+    private def num = implicitly[Numeric[N]]
     def init(n: N) = n
-    def apply(x: N, y: N) = n.plus(x, y)
+    def apply(x: N, y: N) = num.plus(x, y)
     def finalize(sum: N) = Some(sum)
   }
 
   case class Average[N: Numeric]() extends Reducer[N, (N, Int), N] {
-    private[this] val n = implicitly[Numeric[N]]
-    private[this] val div = n match {
+    private def num = implicitly[Numeric[N]]
+    private[this] val div = num match {
       case f: Fractional[N] => f.div _
       case i: Integral[N] => i.quot _
-      case _ => (x: N, y: N) => n.fromInt(n.toInt(x) / n.toInt(y))
+      case num => (x: N, y: N) => num.fromInt(math.round(num.toFloat(x) / num.toFloat(y)))
     }
     def init(value: N) = value -> 1
-    def apply(x: (N, Int), y: (N, Int)) = n.plus(x._1, y._1) -> (x._2 + y._2)
+    def apply(x: (N, Int), y: (N, Int)) = num.plus(x._1, y._1) -> (x._2 + y._2)
     def finalize(sumAndCount: (N, Int)) = {
       val (sum, count) = sumAndCount
       if (count == 0) None
-      else Some(div(sum, n.fromInt(count)))
+      else Some(div(sum, num.fromInt(count)))
     }
   }
 
-  trait MapProvider[@specialized(Int, Long, Float, Double) V] {
-    /** Map accessor. */
-    def apply[T](thunk: TimeMap => T): T
-    trait TimeMap {
-      def upsert(ts: EpochMillis, value: V)(update: (V, V) => V)
+  trait StoreProvider[@specialized(AnyRef, Int, Long, Float, Double) V] {
+    /** Store accessor. */
+    def apply[T](thunk: TimeStore => T): T
+    trait TimeStore {
+      def upsert(ts: EpochMillis, insert: V)(update: (V, V) => V)
       def querySince(ts: EpochMillis)(callback: StreamCallback[(EpochMillis, V)])
       /**
         * Optional method. Can return Future(None) if unsupported, but
@@ -97,34 +98,31 @@ object SlidingWindow {
         * NOTE: The reduce function passed is guaranteed to be identical
         * to the update function used in `upsert`, thus this method
         * can be cheaply implemented by maintaining a single running
-        * reduction on `upsert` (thus ignoring the reduce function here).
+        * reduction on `upsert` (thus ignoring the passed reduce function).
         */
       def queryAll(reduce: (V, V) => V): Future[Option[V]]
     }
   }
-  private abstract class SynchedMapProvider[V] extends MapProvider[V] {
-    abstract class UnsynchedTimeMap extends TimeMap {
+  private abstract class SynchedMapProvider[V] extends StoreProvider[V] {
+    abstract class UnsynchedTimeStore extends TimeStore {
       protected type M <: java.util.Map[EpochMillis, V]
       protected def map: M
-      private[this] var foreverValue = null.asInstanceOf[V]
-      def queryAll(reduce: (V, V) => V): Future[Option[V]] = Future successful Option(foreverValue)
+      private[this] var foreverValue: Option[V] = None
+      def queryAll(reduce: (V, V) => V): Future[Option[V]] = Future successful foreverValue
       def upsert(ts: EpochMillis, value: V)(update: (V, V) => V) {
         map.put(ts, value) match {
           case null => // No update necessary
           case oldValue => map.put(ts, update(oldValue, value))
         }
-        foreverValue = foreverValue match {
-          case null => value
-          case oldValue => update(oldValue, value)
-        }
+        foreverValue = foreverValue.map(update(_, value)) orElse Some(value)
       }
     }
-    protected val timeMap: UnsynchedTimeMap
-    def apply[T](thunk: TimeMap => T): T = timeMap.synchronized(thunk(timeMap))
+    protected val timeStore: UnsynchedTimeStore
+    def apply[T](thunk: TimeStore => T): T = timeStore.synchronized(thunk(timeStore))
   }
-  def TreeMapProvider[V]: MapProvider[V] = new TreeMapProvider
+  def TreeMapProvider[V]: StoreProvider[V] = new TreeMapProvider
   private class TreeMapProvider[V] extends SynchedMapProvider[V] {
-    protected val timeMap = new UnsynchedTimeMap {
+    protected val timeStore = new UnsynchedTimeStore {
       protected type M = java.util.TreeMap[EpochMillis, V]
       protected val map = new M
       def querySince(ts: EpochMillis)(callback: StreamCallback[(EpochMillis, V)]) {
@@ -135,9 +133,9 @@ object SlidingWindow {
       }
     }
   }
-  def HashMapProvider[V]: MapProvider[V] = new HashMapProvider
+  def HashMapProvider[V]: StoreProvider[V] = new HashMapProvider
   private class HashMapProvider[V] extends SynchedMapProvider[V] {
-    protected val timeMap = new UnsynchedTimeMap {
+    protected val timeStore = new UnsynchedTimeStore {
       protected type M = java.util.HashMap[EpochMillis, V]
       protected val map = new M(256)
       def querySince(ts: EpochMillis)(callback: StreamCallback[(EpochMillis, V)]) {
@@ -157,29 +155,29 @@ object SlidingWindow {
 
   def apply[T, R, F](reducer: Reducer[T, R, F], window: Window, otherWindows: Window*): SlidingWindow[T, R, F] =
     new SlidingWindow[T, R, F](reducer, (window +: otherWindows).toSet)
-  def apply[T, R, F](reducer: Reducer[T, R, F], mapProvider: MapProvider[R], window: Window, otherWindows: Window*): SlidingWindow[T, R, F] =
-    new SlidingWindow[T, R, F](reducer, (window +: otherWindows).toSet, mapProvider)
+  def apply[T, R, F](reducer: Reducer[T, R, F], storeProvider: StoreProvider[R], window: Window, otherWindows: Window*): SlidingWindow[T, R, F] =
+    new SlidingWindow[T, R, F](reducer, (window +: otherWindows).toSet, storeProvider)
 }
 
-class SlidingWindow[-T, R, F](
+class SlidingWindow[T, R, F](
     reducer: Reducer[T, R, F],
     windows: Set[Window],
-    mapProvider: MapProvider[R] = TreeMapProvider[R],
-    clock: => SlidingWindow.EpochMillis = SystemClock.Milliseconds) {
+    storeProvider: StoreProvider[R] = TreeMapProvider[R],
+    clock: => SlidingWindow.EpochMillis = SystemClock.asMilliseconds) {
 
   import SlidingWindow._
   require(windows.nonEmpty, "No windows provided")
 
   private[this] val (finiteWindows, foreverWindows) = windows.partition(_.length.isFinite)
 
-  def add(value: T, time: EpochMillis = clock): Unit = mapProvider(_.upsert(time, reducer.init(value))(reducer))
+  def add(value: T, time: EpochMillis = clock): Unit = storeProvider(_.upsert(time, reducer.init(value))(reducer))
   def addMany(values: Traversable[T], time: EpochMillis = clock) = if (values.nonEmpty) {
     val reduced = values.map(reducer.init).reduce(reducer)
-    mapProvider(_.upsert(time, reduced)(reducer))
+    storeProvider(_.upsert(time, reduced)(reducer))
   }
   def addBatch(valuesWithTime: Traversable[(T, EpochMillis)]) = if (valuesWithTime.nonEmpty) {
     val reducedByTime = valuesWithTime.groupBy(_._2).mapValues(_.map(t => reducer.init(t._1)).reduce(reducer))
-    mapProvider { map =>
+    storeProvider { map =>
       reducedByTime.foreach {
         case (time, value) => map.upsert(time, value)(reducer)
       }
@@ -195,7 +193,7 @@ class SlidingWindow[-T, R, F](
     * increasing (or equal to previous).
     */
   def snapshot(now: EpochMillis = clock): Future[Map[Window, F]] = {
-    val (finitesFuture, foreverFuture) = mapProvider { tsMap =>
+    val (finitesFuture, foreverFuture) = storeProvider { tsMap =>
       val sinceForever = if (foreverWindows.isEmpty) NoFuture else tsMap.queryAll(reducer)
       val initMap = new java.util.HashMap[Window, R](windows.size * 2, 1f)
       val finiteMap =

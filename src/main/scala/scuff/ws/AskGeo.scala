@@ -5,9 +5,9 @@ import java.net.URL
 import scuff.GeoPoint
 
 /**
- * Retrieve various geo-location information from geo-points.
- * This class uses the web service at http://www.askgeo.com
- */
+  * Retrieve various geo-location information from geo-points.
+  * This class uses the web service at http://www.askgeo.com
+  */
 class AskGeo(urlPrefix: String, parser: AskGeo.Parser) {
 
   def this(apiID: String, apiKey: String, parser: AskGeo.Parser = AskGeo.DefaultJsonParser) =

@@ -1,13 +1,13 @@
 package scuff.concurrent
 
-import java.util.concurrent.{Executor, LinkedBlockingQueue, ScheduledExecutorService, ScheduledThreadPoolExecutor, SynchronousQueue, ThreadFactory, ThreadPoolExecutor, TimeUnit}
-
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, ExecutionContextExecutorService, Future, Promise}
+import java.util.concurrent.{ Executor, LinkedBlockingQueue, ScheduledExecutorService, ScheduledThreadPoolExecutor, SynchronousQueue, ThreadFactory, ThreadPoolExecutor, TimeUnit }
+import scala.concurrent.{ ExecutionContext, ExecutionContextExecutor, ExecutionContextExecutorService, Future, Promise }
 import scala.util.Try
+import scala.util.control.NonFatal
 
 /**
- * Thread helper class.
- */
+  * Thread helper class.
+  */
 object Threads {
 
   val SystemThreadGroup = rootThreadGroup(Thread.currentThread.getThreadGroup)
@@ -60,19 +60,23 @@ object Threads {
       }
     }
     def apply(f: java.util.concurrent.Future[T]): Future[T] = {
-      val promise = Promise[T]
-      queue.synchronized {
-        val doNotify = queue.isEmpty
-        queue enqueue promise -> f
-        if (doNotify) queue.notify()
+      if (f.isDone) {
+        try Future successful f.get catch { case NonFatal(e) => Future failed e }
+      } else {
+        val promise = Promise[T]
+        queue.synchronized {
+          val notifyOnContent = queue.isEmpty
+          queue enqueue promise -> f
+          if (notifyOnContent) queue.notify()
+        }
+        promise.future
       }
-      promise.future
     }
   }
 
   def newScheduledThreadPool(
-      corePoolSize: Int, threadFactory: ThreadFactory,
-      failureReporter: Throwable => Unit = printStackTrace): ScheduledExecutorService with ExecutionContext = {
+    corePoolSize: Int, threadFactory: ThreadFactory,
+    failureReporter: Throwable => Unit = printStackTrace): ScheduledExecutorService with ExecutionContext = {
 
     val exec = new ScheduledThreadPoolExecutor(corePoolSize, threadFactory) with ExecutionContext {
       override def afterExecute(r: Runnable, t: Throwable) {
@@ -109,11 +113,11 @@ object Threads {
   }
 
   /**
-   * `ExecutionContext`, which executes on the same thread.
-   * Use this to prevent a cheap execution having to pass through
-   * another to another thread, and only use this when you're certain
-   * that it's OK to execute on the existing thread.
-   */
+    * `ExecutionContext`, which executes on the same thread.
+    * Use this to prevent a cheap execution having to pass through
+    * another to another thread, and only use this when you're certain
+    * that it's OK to execute on the existing thread.
+    */
   abstract class SameThreadExecutor extends ExecutionContextExecutor {
     def execute(runnable: Runnable) = runnable.run()
   }

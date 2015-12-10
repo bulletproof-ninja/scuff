@@ -14,12 +14,7 @@ import scala.concurrent.ExecutionContext
 /**
   * Unbounded lock-free resource pool.
   *
-  * This pool can be used as a more efficient replacement
-  * for [[java.lang.ThreadLocal]], in that it will never create more
-  * instances than there are threads, like [[java.lang.ThreadLocal]],
-  * but has much higher probability for creating less.
-  *
-  * However, unlike traditional resource pools, the pool has
+  * Unlike traditional resource pools, the pool has
   * no upper limit on resources being created, so be careful
   * if that is a concern. This is done to avoid any locking
   * (or spinning) penalty.
@@ -35,12 +30,12 @@ import scala.concurrent.ExecutionContext
   * resource does not escape the `borrow` scope, but
   * that almost goes without saying, amirite?
   */
-class ResourcePool[R](constructor: => R, minResources: Int = 0) {
+class ResourcePool[R](newResource: => R, minResources: Int = 0) {
 
   require(minResources >= 0, s"Cannot have less resources than zero: $minResources")
 
   private val pool = {
-    val initialResources = (0 until minResources).map(_ => 0L -> constructor).toList
+    val initialResources = (0 until minResources).map(_ => 0L -> newResource).toList
     new AtomicReference[List[(Long, R)]](initialResources)
   }
 
@@ -68,7 +63,7 @@ class ResourcePool[R](constructor: => R, minResources: Int = 0) {
     }
   }
 
-  private final class Pruner(timeoutMillis: Long, destructor: R => Unit) extends Runnable {
+  private final class Pruner(timeoutMillis: Long, cleanup: R => Unit) extends Runnable {
     require(timeoutMillis > 0, "Timeout must be > 0 milliseconds")
 
     def delayMillis = timeoutMillis * 2
@@ -80,7 +75,7 @@ class ResourcePool[R](constructor: => R, minResources: Int = 0) {
     def pruneTail(now: Long = System.currentTimeMillis) {
       pruneLast(now) match {
         case Some(pruned) =>
-          destructor(pruned)
+          Try(cleanup(pruned)) // Best effort cleanup
           pruneTail(now)
         case _ => // Stop
       }
@@ -129,7 +124,7 @@ class ResourcePool[R](constructor: => R, minResources: Int = 0) {
   final def pop(): R = {
     pool.get match {
       case Nil =>
-        constructor match {
+        newResource match {
           case null => throw new IllegalStateException("Resource constructor returned `null`.")
           case r =>
             onCheckout(r)
