@@ -86,7 +86,7 @@ dependencies {
     compile "javax.servlet:javax.servlet-api:3.0.1"
     compile "redis.clients:jedis:2.7.0"
     compile "com.datastax.cassandra:cassandra-driver-core:2.1.4"
-    compile "io.fastjson:boon:0.32"
+    compile "io.fastjson:boon:0.33"
 }
 
 compileScala {
