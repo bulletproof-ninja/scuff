@@ -1,5 +1,9 @@
 package scuff
 
+import java.util.concurrent.locks.Lock
+import java.util.concurrent.locks.ReentrantLock
+import scuff.concurrent.LockFreeConcurrentMap
+
 /**
   * Class that guarantees exactly one instance created per
   * argument (based on `equals` equality).
@@ -8,25 +12,31 @@ package scuff
   * similar behavior, but cannot guarantee a single instance per
   * key, due to inherent race conditions.
   */
-class Memoizer[A, R](impl: A => R) {
+class Memoizer[A, R](make: A => R) {
 
-  @volatile private var map: Map[A, R] = Map.empty
-
-  private def getOrNull(arg: A) = map.getOrElse(arg, null.asInstanceOf[R])
+  private val locks = new collection.concurrent.TrieMap[A, Lock]
+  private def synchronized(arg: A)(thunk: => R): R = {
+    val lock = locks.get(arg) getOrElse {
+      val lock = new ReentrantLock
+      locks.putIfAbsent(arg, lock) getOrElse lock
+    }
+    lock.lock()
+    try {
+      thunk
+    } finally {
+      lock.unlock
+      locks.remove(arg, lock)
+    }
+  }
+  private[this] val map = new LockFreeConcurrentMap[A, R]
 
   def apply(arg: A): R = {
-    getOrNull(arg) match {
-      case null =>
-        this.synchronized {
-          getOrNull(arg) match {
-            case null =>
-              val res = impl(arg)
-              map = map.updated(arg, res)
-              res
-            case res => res
-          }
+    map.get(arg) match {
+      case Some(res) => res
+      case None =>
+        synchronized(arg) {
+          map.getOrElseUpdate(arg, make(arg))
         }
-      case res => res
     }
   }
 
