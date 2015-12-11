@@ -49,7 +49,7 @@ package object redis {
     new JedisPool(config, info.getHost, info.getPort, Protocol.DEFAULT_TIMEOUT, info.getPassword, db.getOrElse(0), name)
   }
 
-  implicit final class ScuffJedis(val jedis: BinaryJedis) extends AnyVal {
+  implicit class ScuffJedis(private val jedis: BinaryJedis) extends AnyVal {
     /**
      * @return Some(value) if successful, None if any watches failed.
      */

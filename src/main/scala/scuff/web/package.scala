@@ -25,7 +25,7 @@ package object web {
   @inline
   implicit def toHttpRes(res: ServletResponse) = res.asInstanceOf[HttpServletResponse]
 
-  implicit class ScuffResponse(val res: HttpServletResponse) extends AnyVal {
+  implicit class ScuffResponse(private val res: HttpServletResponse) extends AnyVal {
     def setHeader(etag: ETag): HttpServletResponse = { etag.setTo(res); res }
     def addHeader(etag: ETag): HttpServletResponse = { etag.addTo(res); res }
     def setMaxAge(seconds: Int): HttpServletResponse = {
@@ -45,7 +45,7 @@ package object web {
       cm.set(res, value)
     }
   }
-  implicit class ScuffRequest(val req: HttpServletRequest) extends AnyVal {
+  implicit class ScuffRequest(private val req: HttpServletRequest) extends AnyVal {
     def getClientScheme: String = {
       val scheme = req.getHeader("X-Forwarded-Proto") match {
         case null => req.getHeader("X-Forwarded-Protocol")

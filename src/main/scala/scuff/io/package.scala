@@ -6,7 +6,7 @@ package object io {
 
   final val DefaultBufferSize = 8 * 1024
 
-  implicit final class ScuffInputStream(val in: InputStream) extends AnyVal {
+  implicit class ScuffInputStream(private val in: InputStream) extends AnyVal {
     @annotation.tailrec
     private def transfer(in: InputStream, out: OutputStream, buffer: Array[Byte]) {
       in.read(buffer) match {
@@ -31,7 +31,7 @@ package object io {
     }
   }
 
-  implicit final class ScuffReader(val in: Reader) extends AnyVal {
+  implicit class ScuffReader(private val in: Reader) extends AnyVal {
     @annotation.tailrec
     private def transfer(in: Reader, out: Writer, buffer: Array[Char]) {
       in.read(buffer) match {

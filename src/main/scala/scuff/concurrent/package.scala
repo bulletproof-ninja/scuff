@@ -10,10 +10,13 @@ import language.implicitConversions
 import scala.concurrent.duration.FiniteDuration
 
 package object concurrent {
-  implicit def exeCtxToExecutor(ec: ExecutionContext): Executor = new Executor {
-    def execute(runnable: Runnable): Unit = ec.execute(runnable)
+  implicit def exeCtxToExecutor(ec: ExecutionContext): Executor = ec match {
+    case exe: Executor => exe
+    case _ => new Executor {
+      def execute(runnable: Runnable): Unit = ec.execute(runnable)
+    }
   }
-  implicit final class ScuffExecutor(val ec: Executor) extends AnyVal {
+  implicit class ScuffExecutor(private val ec: Executor) extends AnyVal {
     def execute(thunk: => Unit): Unit = ec execute new Runnable {
       def run = thunk
     }
@@ -42,7 +45,7 @@ package object concurrent {
     }
   }
 
-  implicit final class ScuffScalaFuture[T](val f: Future[T]) extends AnyVal {
+  implicit class ScuffScalaFuture[T](private val f: Future[T]) extends AnyVal {
     def get(maxWait: Duration = Duration.Inf): T =
       if (f.isCompleted) {
         f.value.get.get
@@ -52,11 +55,11 @@ package object concurrent {
     def flatten[A](implicit mustBeFuture: Future[A] =:= T): Future[A] = f.asInstanceOf[Future[Future[A]]].flatMap(identity)(Threads.PiggyBack)
   }
 
-  implicit final class ScuffJavaFuture[T](val f: java.util.concurrent.Future[T]) extends AnyVal {
+  implicit class ScuffJavaFuture[T](private val f: java.util.concurrent.Future[T]) extends AnyVal {
     def asScala(implicit conv: java.util.concurrent.Future[T] => Future[T] = Threads.javaFutureConverter): Future[T] = conv(f)
   }
 
-  implicit final class ScuffLock(val lock: java.util.concurrent.locks.Lock) extends AnyVal {
+  implicit class ScuffLock(private val lock: java.util.concurrent.locks.Lock) extends AnyVal {
 
     def tryFor[T](dur: FiniteDuration)(thunk: => T): Option[T] = {
       if (lock.tryLock(dur.length, dur.unit)) try {
@@ -85,7 +88,7 @@ package object concurrent {
     }
   }
 
-  implicit final class ScuffCondition(val cond: java.util.concurrent.locks.Condition) extends AnyVal {
+  implicit class ScuffCondition(private val cond: java.util.concurrent.locks.Condition) extends AnyVal {
     def await(condition: => Boolean): Unit = while (!condition) cond.await()
     def signalIf(condition: Boolean): Unit = if (condition) cond.signal()
     def signalAllIf(condition: Boolean): Unit = if (condition) cond.signalAll()

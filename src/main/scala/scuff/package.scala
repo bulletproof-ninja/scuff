@@ -16,8 +16,8 @@ package object scuff {
   type TimedCache[K, V] = Cache[K, V] with Expiry[K, V]
   type Serializer[T] = Codec[T, Array[Byte]]
 
-  implicit final class ScuffString(val str: String) extends AnyVal {
-    def optional: Option[String] = if (str.length == 0) None else Some(str)
+  implicit class ScuffString(private val str: String) extends AnyVal {
+    def optional: Option[String] = if (str == null || str.length == 0) None else Some(str)
 
     /**
       * Calculate Levenshtein distance.
@@ -64,18 +64,18 @@ package object scuff {
 
   import scala.util.{ Try, Success, Failure }
   import scala.concurrent.Future
-  implicit final class ScuffTry[T](val t: Try[T]) extends AnyVal {
+  implicit class ScuffTry[T](private val t: Try[T]) extends AnyVal {
     def toFuture: Future[T] = t match {
       case Success(res) => Future.successful(res)
       case Failure(e) => Future.failed(e)
     }
   }
 
-  implicit final class ScuffAny[A](val any: A) extends AnyVal {
+  implicit class ScuffAny[A](private val any: A) extends AnyVal {
     def optional(some: Boolean): Option[A] = if (some) Option(any) else None
   }
 
-  implicit final class ScuffMap[A, B](val map: Map[A, B]) extends AnyVal {
+  implicit class ScuffMap[A, B](private val map: Map[A, B]) extends AnyVal {
     def merge(other: Map[A, B])(collisionHandler: (B, B) => B): Map[A, B] = {
       val merged = map.keySet.intersect(other.keySet).toSeq.map { key =>
         val merged = collisionHandler(map(key), other(key))
@@ -89,34 +89,27 @@ package object scuff {
     }
   }
 
-  implicit final class ScuffByte(val b: Byte) extends AnyVal {
+  implicit class ScuffByte(private val b: Byte) extends AnyVal {
     def unsigned() = Numbers.unsigned(b)
   }
-  implicit final class ScuffShort(val s: Short) extends AnyVal {
+  implicit class ScuffShort(private val s: Short) extends AnyVal {
     def unsigned() = Numbers.unsigned(s)
   }
-  implicit final class ScuffLong(val l: Long) extends AnyVal {
+  implicit class ScuffLong(private val l: Long) extends AnyVal {
     def toByteArray() = Numbers.longToBytes(l)
     def unsigned() = Numbers.unsigned(l)
   }
-  implicit final class ScuffInt(val i: Int) extends AnyVal {
+  implicit class ScuffInt(private val i: Int) extends AnyVal {
     def toByteArray() = Numbers.intToBytes(i)
     def unsigned() = Numbers.unsigned(i)
   }
-  implicit final class ScuffByteArray(val arr: Array[Byte]) extends AnyVal {
+  implicit class ScuffByteArray(private val arr: Array[Byte]) extends AnyVal {
     def toLong(offset: Int = 0) = Numbers.bytesToLong(arr, offset)
     def toInt(offset: Int = 0) = Numbers.bytesToInt(arr, offset)
     def utf8: String = new String(arr, UTF8)
   }
 
-  implicit final class ScuffArray[T](val arr: Array[T]) extends AnyVal {
-    private def NoSuchElement = new NoSuchElementException(s"Array.length = ${arr.length}")
-    def take2(): (T, T) = if (arr.length >= 2) arr(0) -> arr(1) else throw NoSuchElement
-    def take3(): (T, T, T) = if (arr.length >= 3) (arr(0), arr(1), arr(2)) else throw NoSuchElement
-    def take4(): (T, T, T, T) = if (arr.length >= 4) (arr(0), arr(1), arr(2), arr(3)) else throw NoSuchElement
-  }
-
-  implicit final class ScuffRandom(val rand: Random) extends AnyVal {
+  implicit class ScuffRandom(private val rand: Random) extends AnyVal {
     def nextInRange(r: Range): Int = nextInRange(NumericRange.inclusive(r.head, r.last, 1))
     def nextInRange[T](r: Range.Partial[T, NumericRange[T]])(implicit num: Numeric[T]): T = nextInRange(r.by(num.one))
     def nextInRange[T](r: NumericRange[T])(implicit num: Numeric[T]): T = {
@@ -135,7 +128,7 @@ package object scuff {
     }
   }
 
-  implicit final class ScuffTraversable[T <: Traversable[_]](val t: T) extends AnyVal {
+  implicit class ScuffTraversable[T <: Traversable[_]](private val t: T) extends AnyVal {
     def optional: Option[T] = if (t.isEmpty) None else Some(t)
   }
 
