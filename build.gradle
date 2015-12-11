@@ -1,5 +1,5 @@
 plugins {
-    id "com.jfrog.bintray" version "1.3.1"
+    id "com.jfrog.bintray" version "1.4"
 }
 
 apply plugin: "scala"
@@ -9,7 +9,7 @@ version = "0.1.5-SNAPSHOT"
 
 def bintrayVersion = {
     if (version.endsWith('-SNAPSHOT')) {
-        java.text.SimpleDateFormat format = new java.text.SimpleDateFormat('yyyyMMddHHmm')
+        java.text.SimpleDateFormat format = new java.text.SimpleDateFormat('yyMMddHHmm')
         format.setCalendar(Calendar.getInstance(TimeZone.getTimeZone('UTC')))
         return version.replace('SNAPSHOT', "b" + format.format(new Date()))
     } else {
