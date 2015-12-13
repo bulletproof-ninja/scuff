@@ -12,7 +12,7 @@ class TestNumbers {
 
   @Test
   def `back and forth` {
-    for (_ ← 1 to 1000) {
+    for (_ <- 1 to 1000) {
       val arrL1 = new Array[Byte](8)
       val arrI1 = new Array[Byte](4)
       r.nextBytes(arrL1)
@@ -28,7 +28,7 @@ class TestNumbers {
 
   @Test
   def `forth and back` {
-    for (_ ← 1 to 1000) {
+    for (_ <- 1 to 1000) {
       val l1 = r.nextLong
       val i1 = r.nextInt
       val arrL = Numbers.longToBytes(l1)
@@ -42,7 +42,7 @@ class TestNumbers {
 
   @Test
   def long2bytes {
-    for (_ ← 1 to 1000) {
+    for (_ <- 1 to 1000) {
       val arrL = new Array[Byte](8)
       val arrI = new Array[Byte](4)
       val l = r.nextLong
@@ -59,7 +59,7 @@ class TestNumbers {
   }
   @Test
   def bytes2long {
-    for (_ ← 1 to 1000) {
+    for (_ <- 1 to 1000) {
       val arrL = new Array[Byte](8)
       val arrI = new Array[Byte](4)
       r.nextBytes(arrL)

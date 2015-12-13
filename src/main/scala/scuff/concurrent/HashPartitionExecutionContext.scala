@@ -83,7 +83,7 @@ object HashPartitionExecutionContext {
     getHash: Runnable => Int = _.hashCode,
     failureReporter: Throwable => Unit = _.printStackTrace(System.err)) = {
     val threads = new Array[ExecutorService](numThreads)
-    for (idx ← 0 until numThreads) {
+    for (idx <- 0 until numThreads) {
       threads(idx) = Threads.newSingleThreadExecutor(threadFactory, failureReporter)
     }
       def shutdownAll(exes: Seq[ExecutorService]): Future[Unit] = {

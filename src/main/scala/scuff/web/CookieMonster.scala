@@ -50,8 +50,8 @@ trait CookieMonster[T] {
     val cookie = new http.Cookie(name, codec.encode(value))
     cookie.setHttpOnly(isHttpOnly)
     cookie.setMaxAge(maxAge.toSeconds.toFloat.round)
-    for (path ← Option(path)) cookie.setPath(path)
-    for (domain ← Option(domain(req))) cookie.setDomain(domain)
+    for (path <- Option(path)) cookie.setPath(path)
+    for (domain <- Option(domain(req))) cookie.setDomain(domain)
     res.addCookie(cookie)
   }
 

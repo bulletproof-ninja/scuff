@@ -39,7 +39,7 @@ class TestFSM {
     assertEquals(None, parser.current)
     parser.start()
     val isoDate = "2012-12-31"
-    for (c ← isoDate) c match {
+    for (c <- isoDate) c match {
       case '-' => parser(dash)
       case c if c >= '0' && c <= '9' => parser(digit, c)
     }

@@ -147,7 +147,7 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
    * Propagate from proxy to delegate.
    */
   def propagate(stat: Int = status) {
-    for (cookie ← cookies) delegate.addCookie(cookie)
+    for (cookie <- cookies) delegate.addCookie(cookie)
     if (inError) message match {
       case None => delegate.sendError(status)
       case Some(message) => delegate.sendError(status, message)
@@ -155,7 +155,7 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
     else redirect match {
       case Some(redirect) => delegate.sendRedirect(redirect)
       case None =>
-        for ((name, values) ← headers.values; value ← values) {
+        for ((name, values) <- headers.values; value <- values) {
           delegate.addHeader(name, value)
         }
         message match {

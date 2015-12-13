@@ -20,7 +20,7 @@ class TestSequencer {
   def `Normal sequence must work` {
     val seq = 1001L
     val sequencer = new MonotonicSequencer[Long, java.lang.Long](consumer, seq)
-    for (i ← 0 until 10) {
+    for (i <- 0 until 10) {
       val s = seq + i
       sequencer.apply(s, java.lang.Long.valueOf(s))
       assertEquals(i + 1, seen.size)
@@ -69,7 +69,7 @@ class TestSequencer {
     val capacity = 10
     val sequencer = new MonotonicSequencer[Long, java.lang.Long](consumer, 0L, capacity)
     try {
-      for (s ← 1L to (capacity * 2L)) {
+      for (s <- 1L to (capacity * 2L)) {
         sequencer.apply(s, java.lang.Long.valueOf(s))
         assertTrue(seen.size <= capacity)
       }
@@ -84,7 +84,7 @@ class TestSequencer {
   @Test
   def `Buffer capacity must expand` {
     val sequencer = new MonotonicSequencer[Long, java.lang.Long](consumer, 0L, 0)
-    for (s ← 1L until 1024L) {
+    for (s <- 1L until 1024L) {
       sequencer.apply(s, java.lang.Long.valueOf(s))
       assertTrue(seen.isEmpty)
     }

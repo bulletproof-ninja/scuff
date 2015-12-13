@@ -14,7 +14,7 @@ trait HttpCaching extends HttpServlet {
       new ETag(tag)(false)
     }
     def flushTo(res: HttpServletResponse) {
-      for ((name, values) ← headers; value ← values) res.addHeader(name, value)
+      for ((name, values) <- headers; value <- values) res.addHeader(name, value)
       if (lastModified.isEmpty) {
         eTag.addTo(res)
       }
