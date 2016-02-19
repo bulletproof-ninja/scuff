@@ -132,4 +132,8 @@ package object scuff {
     def optional: Option[T] = if (t.isEmpty) None else Some(t)
   }
 
+  implicit class ScuffBooleanFunction[I](private val f: I => Boolean) extends AnyVal {
+    def negate: I => Boolean = (inp: I) => !f(inp)
+  }
+
 }

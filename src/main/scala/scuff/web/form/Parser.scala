@@ -1,11 +1,10 @@
 package scuff.web.form
 
 import java.lang.reflect.Method
-
 import scala.{BigDecimal, Left, Right}
 import scala.reflect.ClassTag
-
-import scuff.{EmailAddress, GeoPoint}
+import scuff.{EmailAddress}
+import scuff.geo.Point
 import scuff.reflect.DynamicConstructor
 
 object Parser {
@@ -21,7 +20,7 @@ object Parser {
     case "on" | "true" | "1" | "yes" => true
     case "off" | "false" | "0" | "no" => false
   }
-  private def toGeoPoint(s: String) = scuff.GeoPoint.parse(s).get
+  private def toGeoPoint(s: String) = Point.parse(s).get
 
   val DefaultConverters: Map[Class[_], String => Any] = Map(
     classOf[String] -> passthrough,
@@ -39,7 +38,7 @@ object Parser {
     classOf[Boolean] -> toBoolean,
     classOf[java.lang.Boolean] -> toBoolean,
     classOf[BigDecimal] -> toBD,
-    classOf[scuff.GeoPoint] -> toGeoPoint,
+    classOf[scuff.geo.Point] -> toGeoPoint,
     classOf[EmailAddress] -> toEmail)
 }
 

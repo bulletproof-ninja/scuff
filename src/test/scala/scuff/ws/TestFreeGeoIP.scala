@@ -19,8 +19,8 @@ class TestFreeGeoIP {
     FreeGeoIP.DefaultJsonParser.parseGeoPoint(reader) match {
       case None => fail("Should return a geopoint")
       case Some(gp) =>
-        assertEquals(42.8333f, gp.latitude, 0.000001f)
-        assertEquals(12.8333f, gp.longitude, 0.000001f)
+        assertEquals(42.8333, gp.latitude, 0.00005)
+        assertEquals(12.8333, gp.longitude, 0.00005)
     }
   }
 

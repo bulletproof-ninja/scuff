@@ -4,6 +4,7 @@ import org.junit._
 import org.junit.Assert._
 import java.util.Locale
 import java.nio.charset.Charset
+import java.util.MissingFormatArgumentException
 
 class TestL10nPropFormatter {
 
@@ -129,6 +130,48 @@ class TestL10nPropFormatter {
     val foo = SomeText()
     val text = foo("do_you_speak", foo("two_languages", Locale.ENGLISH, java.util.Locale.FRENCH))
     assertEquals("Do you speak both English AND French?", text)
+  }
+
+  @Test
+  def `conditional formatting` {
+    val foo = SomeText()
+
+    assertEquals("There are no messages, Hank", foo("message.counter.name", 0, "Hank"))
+    assertEquals("There is one message, Hank", foo("message.counter.name", 1, "Hank"))
+    assertEquals("There are two messages, Hank", foo("message.counter.name", 2, "Hank"))
+    assertEquals("There are 3 messages, Hank", foo("message.counter.name", 3, "Hank"))
+    assertEquals("There are 99 messages, Hank", foo("message.counter.name", 99, "Hank"))
+
+    assertEquals("There are no messages", foo("message.counter", 0))
+    assertEquals("There is one message", foo("message.counter", 1))
+    assertEquals("There are 2 messages", foo("message.counter", 2))
+    assertEquals("There are 3 messages", foo("message.counter", 3))
+    assertEquals("There are 99 messages", foo("message.counter", 99))
+
+    try {
+      foo("message.counter")
+      fail("Should throw MissingFormatArgumentException")
+    } catch {
+      case e: MissingFormatArgumentException =>
+        assertTrue(e.getMessage contains "expects 1")
+        assertTrue(e.getMessage contains "received 0")
+    }
+    try {
+      foo("message.counter", 0, "Hank")
+      fail("Should throw MissingFormatArgumentException")
+    } catch {
+      case e: MissingFormatArgumentException =>
+        assertTrue(e.getMessage contains "expects 1")
+        assertTrue(e.getMessage contains "received 2")
+    }
+    try {
+      foo("message.counter", 99, "Hank")
+      fail("Should throw MissingFormatArgumentException")
+    } catch {
+      case e: MissingFormatArgumentException =>
+        assertTrue(e.getMessage contains "expects 1")
+        assertTrue(e.getMessage contains "received 2")
+    }
   }
 
 }

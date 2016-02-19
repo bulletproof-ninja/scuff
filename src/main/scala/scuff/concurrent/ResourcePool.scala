@@ -10,6 +10,11 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.ExecutionContext
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.CancellationException
+import java.util.concurrent.TimeoutException
+import java.util.concurrent.Delayed
 
 /**
   * Unbounded lock-free resource pool.
@@ -39,16 +44,48 @@ class ResourcePool[R](newResource: => R, minResources: Int = 0) {
     new AtomicReference[List[(Long, R)]](initialResources)
   }
 
-  private def schedulePruning(exec: ScheduledExecutorService, pruner: Pruner) {
-    exec.scheduleWithFixedDelay(pruner, pruner.delayMillis, pruner.intervalMillis, TimeUnit.MILLISECONDS)
+  private def schedulePruning(exec: ScheduledExecutorService, pruner: Pruner) = {
+    exec.scheduleWithFixedDelay(pruner, pruner.delayMillis, pruner.intervalMillis, TimeUnit.MILLISECONDS).asInstanceOf[ScheduledFuture[Nothing]]
   }
 
-  private def startPruningThread(exec: Executor, pruner: Pruner) {
+  private def startPruningThread(exec: Executor, pruner: Pruner): ScheduledFuture[Nothing] = {
     assert(!exec.isInstanceOf[ScheduledExecutorService])
+    val cancelled = new CountDownLatch(1)
+    val thread = new AtomicReference[Thread]
+    object schedule extends ScheduledFuture[Nothing] {
+      def cancel(interrupt: Boolean): Boolean = {
+        val cancel = cancelled.getCount != 0
+        cancelled.countDown()
+        if (interrupt) {
+          thread.get match {
+            case null => // Ignore
+            case thr =>
+              thread.compareAndSet(thr, null)
+              thr.interrupt()
+          }
+        }
+        cancel
+      }
+      def isCancelled(): Boolean = cancelled.getCount == 0L
+      def isDone(): Boolean = isCancelled
+      def get(): Nothing = {
+        cancelled.await()
+        throw new CancellationException
+      }
+      def get(time: Long, unit: TimeUnit): Nothing = {
+        if (cancelled.await(time, unit)) {
+          throw new CancellationException
+        } else {
+          throw new TimeoutException
+        }
+      }
+      def getDelay(unit: TimeUnit): Long = ???
+      def compareTo(that: Delayed): Int = ???
+    }
     exec execute new Runnable {
       def run {
         Thread.sleep(pruner.delayMillis) // Initial sleep
-        while (!Thread.currentThread.isInterrupted) {
+        while (cancelled.getCount != 0L) {
           try {
             pruner.run()
           } catch {
@@ -57,10 +94,11 @@ class ResourcePool[R](newResource: => R, minResources: Int = 0) {
               case _ => e.printStackTrace(System.err)
             }
           }
-          Thread.sleep(pruner.intervalMillis)
+          cancelled.await(pruner.intervalMillis, TimeUnit.MILLISECONDS)
         }
       }
     }
+    schedule
   }
 
   private final class Pruner(timeoutMillis: Long, cleanup: R => Unit) extends Runnable {
@@ -107,7 +145,10 @@ class ResourcePool[R](newResource: => R, minResources: Int = 0) {
     * @param destructor Optional resource pruning function.
     * @param executor Scheduler or thread on which to run pruning.
     */
-  def startPruning(minimumTimeout: FiniteDuration, destructor: R => Unit = _ => Unit, executor: Executor = Threads.DefaultScheduler) {
+  def startPruning(
+    minimumTimeout: FiniteDuration,
+    destructor: R => Unit = _ => Unit,
+    executor: Executor = Threads.DefaultScheduler): ScheduledFuture[Nothing] = {
     val pruner = new Pruner(minimumTimeout.toMillis, destructor)
     executor match {
       case scheduler: ScheduledExecutorService => schedulePruning(scheduler, pruner)

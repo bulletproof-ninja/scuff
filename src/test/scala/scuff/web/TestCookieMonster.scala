@@ -7,6 +7,7 @@ import java.util.concurrent.TimeUnit
 import org.mockito.Mockito._
 import javax.servlet.http._
 import org.mockito.ArgumentCaptor
+import scala.concurrent.duration._
 
 class TestCookieMonster {
   @Test
@@ -53,5 +54,20 @@ class TestCookieMonster {
         assertNotSame(user, cookieUser)
         assertEquals(user, cookieUser)
     }
+  }
+
+  @Test(expected = classOf[RuntimeException])
+  def `invalid name` {
+    object InvalidName extends CookieMonster[Int] {
+      def name = "foo:bar"
+      def codec = new Codec[Int, String] {
+        def encode(i: Int) = i.toString
+        def decode(s: String) = s.toInt
+      }
+      val maxAge = 30.minutes
+    }
+    implicit val req = mock(classOf[HttpServletRequest])
+    val res = mock(classOf[HttpServletResponse])
+    InvalidName.set(res, 42)
   }
 }

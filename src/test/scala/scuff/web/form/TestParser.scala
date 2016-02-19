@@ -17,7 +17,7 @@ object TestParser {
   }
 
   trait Beano2 {
-    def latLng: scuff.GeoPoint
+    def latLng: scuff.geo.Point
   }
 
 }
@@ -68,7 +68,7 @@ class TestParser {
     }
     Parser.onePass(form.updated("latLng", Seq("-45.1234  123.4433"))) match {
       case Left(errors) => fail("Should not fail, but does: " + errors)
-      case Right(b) => assertEquals(scuff.GeoPoint(-45.1234, 123.4433), b.latLng)
+      case Right(b) => assertEquals(scuff.geo.Point(-45.1234, 123.4433), b.latLng)
     }
   }
 

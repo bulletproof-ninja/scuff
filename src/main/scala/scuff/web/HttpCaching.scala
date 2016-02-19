@@ -4,6 +4,7 @@ import javax.servlet._
 import http._
 import HttpServletResponse._
 import scuff.LRUHeapCache
+import scala.util.control.NoStackTrace
 
 trait HttpCaching extends HttpServlet {
   case class Cached(bytes: Array[Byte], lastModified: Option[Long], headers: List[(String, List[String])], contentType: String, encoding: String, locale: java.util.Locale) {
@@ -30,17 +31,17 @@ trait HttpCaching extends HttpServlet {
   private lazy val defaultCache = new LRUHeapCache[Any, Cached](Int.MaxValue)
   protected def cache: scuff.Cache[Any, Cached] = defaultCache
 
+  /** If possible (e.g. static file system resource), return last modified of resource requested. */
   protected def fetchLastModified(req: HttpServletRequest): Option[Long]
+  /** Make cache key for requested resource. `None` means no caching. */
   protected def makeCacheKey(req: HttpServletRequest): Option[Any]
 
-  private case object NotOkException extends RuntimeException {
-    override def fillInStackTrace: Throwable = this
-  }
+  private case object NotOkException extends RuntimeException with NoStackTrace
 
-  private def fetchResource(res: HttpServletResponse, fetch: HttpServletResponse => Unit): Cached = {
+  private def fetchResource(res: HttpServletResponse, buildResponse: HttpServletResponse => Unit): Cached = {
     import collection.JavaConverters._
     val proxy = new HttpServletResponseProxy(res)
-    fetch(proxy)
+    buildResponse(proxy)
     if (proxy.status != SC_OK) {
       proxy.propagate()
       throw NotOkException
@@ -54,23 +55,23 @@ trait HttpCaching extends HttpServlet {
     }
     new Cached(proxy.getBytes, lastMod, headers, proxy.getContentType, proxy.getCharacterEncoding, proxy.getLocale)
   }
-  private def respond(cacheKey: Any, req: HttpServletRequest, res: HttpServletResponse)(getResource: HttpServletResponse => Unit) =
+  private def respond(cacheKey: Any, req: HttpServletRequest, res: HttpServletResponse)(buildResponse: HttpServletResponse => Unit) =
     try {
-      val cached = cache.lookupOrStore(cacheKey)(fetchResource(res, getResource)) match {
+      val cached = cache.lookupOrStore(cacheKey)(fetchResource(res, buildResponse)) match {
         case currCache =>
           if (currCache.lastModified != fetchLastModified(req)) { // Server cache invalid
-            val freshCache = fetchResource(res, getResource)
+            val freshCache = fetchResource(res, buildResponse)
             cache.store(cacheKey, freshCache)
             freshCache
           } else {
             currCache
           }
       }
-      val isClientCacheInvalid = cached.lastModified match {
+      val isBrowserCacheInvalid = cached.lastModified match {
         case Some(lastModified) => req.IfModifiedSince(lastModified)
         case None => !req.IfNoneMatch(cached.eTag)
       }
-      if (isClientCacheInvalid) {
+      if (isBrowserCacheInvalid) {
         cached.flushTo(res)
       } else {
         res.setStatus(SC_NOT_MODIFIED)
@@ -88,8 +89,7 @@ trait HttpCaching extends HttpServlet {
     if (req.getMethod == "GET") makeCacheKey(req) match {
       case Some(cacheKey) => respond(cacheKey, req, res) { res => super.service(req, res) }
       case _ => super.service(req, res)
-    }
-    else {
+    } else {
       super.service(req, res)
     }
   }

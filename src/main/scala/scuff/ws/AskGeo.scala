@@ -2,7 +2,7 @@ package scuff.ws
 
 import java.net.URL
 
-import scuff.GeoPoint
+import scuff.geo
 
 /**
   * Retrieve various geo-location information from geo-points.
@@ -13,12 +13,12 @@ class AskGeo(urlPrefix: String, parser: AskGeo.Parser) {
   def this(apiID: String, apiKey: String, parser: AskGeo.Parser = AskGeo.DefaultJsonParser) =
     this("http://api.askgeo.com/v1/%s/%s/query.%s".format(apiID, apiKey, parser.format), parser)
 
-  def getTimeZones(points: GeoPoint*): Seq[java.util.TimeZone] = {
+  def getTimeZones(points: geo.Point*): Seq[java.util.TimeZone] = {
     if (points.isEmpty) {
       Seq.empty
     } else {
       val query = new StringBuilder("?databases=TimeZone&points=")
-        def appendPoint(p: GeoPoint) {
+        def appendPoint(p: geo.Point) {
           query append p.latitude append ',' append p.longitude
         }
       appendPoint(points.head)

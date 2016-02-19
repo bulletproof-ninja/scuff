@@ -10,6 +10,7 @@ import scuff.concurrent.ResourcePool
 import scala.util.Try
 import scala.concurrent.duration._
 import javax.script._
+import java.util.concurrent.ScheduledFuture
 
 private object CoffeeScriptServlet {
   import CoffeeScriptCompiler._
@@ -34,7 +35,8 @@ abstract class CoffeeScriptServlet extends HttpServlet {
 
   private lazy val ScriptEngineMgr = new ScriptEngineManager
 
-  protected def newJavascriptEngine() = ScriptEngineMgr.getEngineByName("javascript")
+  protected def engineName = "javascript"
+  protected def newJavascriptEngine() = ScriptEngineMgr.getEngineByName(engineName)
   protected def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.DefaultConfig(newJavascriptEngine))
   private[this] val compilerPool = new ResourcePool[CoffeeScriptCompiler](createCompiler) {
     // Don't discard compiler on exception, it still works :-)
@@ -57,20 +59,29 @@ abstract class CoffeeScriptServlet extends HttpServlet {
     log(s"$comp instance removed from pool. ${compilerPool.size} remaining.")
   }
 
+  @volatile private var pruner: Option[ScheduledFuture[_]] = None
+
   override def init() {
     super.init()
-    compilerPool.startPruning(120.minutes, onCompilerTimeout)
+    this.pruner = Some(compilerPool.startPruning(120.minutes, onCompilerTimeout))
+  }
+
+  override def destroy {
+    pruner.foreach(_.cancel(true))
   }
 
   protected def coffeeCompilation(coffeeScript: String, filename: String): String =
     compilerPool.borrow(_.compile(coffeeScript, filename))
 
   private def compile(path: String, url: URL): String = {
+    val started = System.currentTimeMillis()
     val script = url.openStream()
     try {
       coffeeCompilation(script, path)
     } finally {
       script.close()
+      val dur = System.currentTimeMillis() - started
+      log(s"Compiled $path in $dur ms.")
     }
   }
 

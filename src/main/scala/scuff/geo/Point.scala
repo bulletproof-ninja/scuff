@@ -1,13 +1,19 @@
-package scuff
+package scuff.geo
+
+import scala.math.atan2
+import scala.math.cos
+import scala.math.pow
+import scala.math.sin
+import scala.math.sqrt
+import scala.math.toRadians
+import scala.util.Try
 
 /**
- * Geographical 2D point.
+ * WGS-84 geographical point.
  * @param latitude The decimal latitude
  * @param longitude The decimal longitude
- * @param radius The radius. Cannot be negative or NaN. Defaults to 0.
  */
-case class GeoPoint(latitude: Double, longitude: Double, radius: Float = 0f) {
-  require(radius >= 0f, "Radius cannot be negative or NaN: " + radius)
+case class Point(latitude: Double, longitude: Double) {
   require(-90d <= latitude && latitude <= 90d, s"Latitude must be within ±90 degrees: $latitude")
   require(-180d <= longitude && longitude <= 180d, s"Longitude must be within ±180 degrees: $longitude")
 
@@ -22,7 +28,7 @@ case class GeoPoint(latitude: Double, longitude: Double, radius: Float = 0f) {
   }
 
   /** Distance in meters. */
-  def distance(that: GeoPoint): Double = {
+  def distance(that: Point): Double = {
     import math._
     val R = (this.R + that.R) / 2d
     val dLat = toRadians(this.latitude - that.latitude)
@@ -35,9 +41,9 @@ case class GeoPoint(latitude: Double, longitude: Double, radius: Float = 0f) {
   }
 }
 
-object GeoPoint {
+object Point {
   import scala.util.Try
-  private val regex = """^(-?\d{1,3})(?:[.,·'](\d*))?[^\d-]+(-?\d{1,3})(?:[.,·'](\d*))?$""".r
+  private val regex = """^([-+]?\d{1,3})(?:[.,·'](\d*))?[^\d-]+([-+]?\d{1,3})(?:[.,·'](\d*))?$""".r
 
   /**
    * Parse string of decimal latitude then longitude, e.g.
@@ -45,13 +51,13 @@ object GeoPoint {
    * @param str The lat/lng decimal string
    * @param radius The radius in meters. Cannot be negative or NaN. Defaults to 0.
    */
-  def parse(str: String, radius: Float = 0f): Try[GeoPoint] = Try {
+  def parse(str: String): Try[Point] = Try {
     regex.findFirstMatchIn(str) match {
       case None => throw new IllegalArgumentException(s"""Cannot parse: \"$str\"""")
       case Some(m) =>
-        val lat = (m.group(1) + "." + m.group(2)).toDouble
-        val lng = (m.group(3) + "." + m.group(4)).toDouble
-        new GeoPoint(lat, lng, radius)
+        val lat = s"${m group 1}.${m group 2}".toDouble
+        val lng = s"${m group 3}.${m group 4}".toDouble
+        new Point(lat, lng)
     }
   }
 }
