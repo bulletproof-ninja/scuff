@@ -1,10 +1,12 @@
 plugins {
-    id "com.jfrog.bintray" version "1.4"
+    id "com.jfrog.bintray" version "1.5"
 }
 
 apply plugin: "scala"
 apply plugin: "maven-publish"
 sourceCompatibility = 1.7
+targetCompatibility = 1.7
+
 version = "0.1.5-SNAPSHOT"
 
 def bintrayVersion = {
@@ -18,7 +20,7 @@ def bintrayVersion = {
 }()
 
 task wrapper(type: Wrapper) {
-    gradleVersion = "2.7"
+    gradleVersion = "2.11"
 }
 
 repositories {
@@ -87,21 +89,4 @@ dependencies {
     compile "redis.clients:jedis:2.7.0"
     compile "com.datastax.cassandra:cassandra-driver-core:2.1.4"
     compile "io.fastjson:boon:0.33"
-}
-
-compileScala {
-    scalaCompileOptions.additionalParameters = [
-        "-feature", "-optimise","–unchecked", "-deprecation","–explaintypes",
-        "–Xdisable-assertions", //"-Xfatal-warnings",
-        //"-Ybackend:GenBCode", 
-        "-Yclosure-elim",
-    ]
-}
-
-compileTestScala {
-    scalaCompileOptions.additionalParameters = [
-        "-nowarn",
-        "-Xcheckinit", "-optimise",
-        "-Ybackend:GenBCode", "-Yclosure-elim",
-    ]
 }
