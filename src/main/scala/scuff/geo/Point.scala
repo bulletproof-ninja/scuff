@@ -1,11 +1,6 @@
 package scuff.geo
 
-import scala.math.atan2
-import scala.math.cos
-import scala.math.pow
-import scala.math.sin
-import scala.math.sqrt
-import scala.math.toRadians
+import scala.math._
 import scala.util.Try
 
 /**
