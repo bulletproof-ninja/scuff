@@ -1,11 +1,6 @@
 plugins {
-    id "com.jfrog.bintray" version "1.5"
+    id "com.jfrog.bintray" version '1.5'
 }
-
-apply plugin: "scala"
-apply plugin: "maven-publish"
-sourceCompatibility = 1.7
-targetCompatibility = 1.7
 
 version = "0.1.5-SNAPSHOT"
 
@@ -22,9 +17,15 @@ def bintrayVersion = {
 task wrapper(type: Wrapper) {
     gradleVersion = "2.11"
 }
-
-repositories {
-    mavenCentral()
+allprojects {
+	repositories {
+	    mavenCentral()
+	}
+	apply plugin: 'scala'
+	apply plugin: 'maven-publish'
+    apply plugin: 'eclipse'
+	sourceCompatibility = 1.7
+	targetCompatibility = 1.7
 }
 
 jar {
@@ -78,15 +79,27 @@ bintray {
 }
 
 dependencies {
-    testCompile "junit:junit:4.12"
-    testCompile "org.mockito:mockito-all:1.10.19"
+    testCompile "junit:junit:$vJUnit"
+    testCompile "org.mockito:mockito-all:$vMockito"
 
-    compile "org.scala-lang:scala-reflect:2.11.7"
-    compile "com.google.javascript:closure-compiler:v20140407"
-    compile "javax.mail:mail:1.4.7"
-    compile "org.mongodb:mongo-java-driver:2.12.5"
-    compile "javax.servlet:javax.servlet-api:3.0.1"
-    compile "redis.clients:jedis:2.7.0"
-    compile "com.datastax.cassandra:cassandra-driver-core:2.1.4"
-    compile "io.fastjson:boon:0.33"
+    compile "org.scala-lang:scala-reflect:$vScala"
+
+    compile "javax.mail:mail:$vMailApi"
+    compile "io.fastjson:boon:$vBoon"
+
+    compile "javax.servlet:javax.servlet-api:$vServletApi"
+}
+
+project(':redis') {
+    dependencies {
+        compile rootProject
+        compile "redis.clients:jedis:$vJedis"
+    }
+	jar {
+	    baseName = "${rootProject.name}-redis_2.11"
+	    version = rootProject.version
+	    manifest {
+	        attributes "Implementation-Title": rootProject.name, "Implementation-Version": rootProject.version
+	    }
+	}
 }

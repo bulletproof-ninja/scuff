@@ -1,14 +1,14 @@
 package scuff
 
-import _root_.redis.clients.util.SafeEncoder
+import _root_.redis.clients.util.{ SafeEncoder, Pool }
 import _root_.redis.clients.jedis._
-import _root_.redis.clients.util.Pool
+import commands._
 import language.implicitConversions
 import scala.util.Try
 
 /**
- * This package requires the Jedis project.
- */
+  * This package requires the Jedis project.
+  */
 package object redis {
 
   type JedisConnection = BinaryJedisCommands with JedisCommands with MultiKeyBinaryCommands with MultiKeyCommands
@@ -51,8 +51,8 @@ package object redis {
 
   implicit class ScuffJedis(private val jedis: BinaryJedis) extends AnyVal {
     /**
-     * @return Some(value) if successful, None if any watches failed.
-     */
+      * @return Some(value) if successful, None if any watches failed.
+      */
     def transaction[T](block: Transaction => T): Option[T] = {
       val txn = jedis.multi()
       val t = try {
@@ -67,9 +67,9 @@ package object redis {
       }
     }
     /**
-     * @return Value from transaction block
-     * @throws IllegalStateException if a WATCH has been issued
-     */
+      * @return Value from transaction block
+      * @throws IllegalStateException if a WATCH has been issued
+      */
     @throws[IllegalStateException]
     def transactionNoWatch[T](block: Transaction => T): T = {
       if (jedis.getClient.isInWatch) throw new IllegalStateException("Connection is unexpectedly in WATCH mode")

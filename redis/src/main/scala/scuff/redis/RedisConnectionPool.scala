@@ -2,9 +2,9 @@ package scuff.redis
 
 import java.util.concurrent.TimeUnit
 
-import scala.concurrent.{Future, Promise, TimeoutException}
-import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.{ Future, Promise, TimeoutException }
+import scala.concurrent.duration.{ Duration, FiniteDuration }
+import scala.util.{ Failure, Success, Try }
 
 import redis.clients.jedis.Jedis
 import redis.clients.jedis.exceptions.JedisConnectionException
@@ -17,33 +17,30 @@ class RedisConnectionPool(pool: Pool[Jedis], enforceDB: Option[Int]) extends CON
   def this(pool: Pool[Jedis], enforceDB: Int) = this(pool, Some(enforceDB))
   private[this] val db = enforceDB.getOrElse(-1)
   def connection[T](retry: Boolean = true)(code: Jedis => T): T = {
-    var returned = false
     val jedis = pool.getResource()
     try {
       if (db != -1 && jedis.getDB != db) jedis.select(db)
       code(jedis)
     } catch {
       case je: JedisConnectionException =>
-        pool.returnBrokenResource(jedis: Jedis)
-        returned = true
         if (retry) {
           connection(retry = false)(code)
         } else {
           throw je
         }
     } finally {
-      if (!returned) pool.returnResource(jedis)
+      jedis.close()
     }
   }
 
   /**
-   * Execute code under a lock.
-   * @param lockKey The key to lock. Make sure this key is globally unique, to avoid accidental name clash.
-   * @param maxHoldLock The max time the key will be locked. It is ESSENTIAL that this time not be exceeded to guarantee exclusivity. It is advised to include a large margin of error.
-   * @param maxWaitLock The max wait time allowed to acquire the lock. Passing 0 will force fail-fast behavior.
-   * @param whenLocked Code block to execute when lock is acquired
-   * @param clock Clock implementation. Defaults to system clock.
-   */
+    * Execute code under a lock.
+    * @param lockKey The key to lock. Make sure this key is globally unique, to avoid accidental name clash.
+    * @param maxHoldLock The max time the key will be locked. It is ESSENTIAL that this time not be exceeded to guarantee exclusivity. It is advised to include a large margin of error.
+    * @param maxWaitLock The max wait time allowed to acquire the lock. Passing 0 will force fail-fast behavior.
+    * @param whenLocked Code block to execute when lock is acquired
+    * @param clock Clock implementation. Defaults to system clock.
+    */
   def lock[T](lockKey: String, maxHoldLock: FiniteDuration, maxWaitLock: Duration)(whenLocked: Jedis => T)(implicit clock: Clock = Clock.System): Future[T] = {
     val waitExpiry = if (maxWaitLock.isFinite) clock.now(TimeUnit.MILLISECONDS) + maxWaitLock.toMillis else Long.MaxValue
     lock(lockKey, maxHoldLock.toSeconds.toInt, waitExpiry, (maxWaitLock.isFinite && maxWaitLock.length == 0), whenLocked)
