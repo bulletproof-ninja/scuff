@@ -5,21 +5,21 @@ import java.lang.reflect._
 import scuff.concurrent.LockFreeConcurrentMap
 
 /**
- * Helper class to operate on the internals
- * of an arbitrary object.
- * Useful for, among other things, setting
- * final fields on deserialization.
- * @author Nils Kilden-Pedersen
- */
+  * Helper class to operate on the internals
+  * of an arbitrary object.
+  * Useful for, among other things, setting
+  * final fields on deserialization.
+  * @author Nils Kilden-Pedersen
+  */
 class Surgeon[T <: AnyRef](patient: T) {
 
-  private[this] val fields = Surgeon.getFields(patient.getClass)
+  private[this] val fields = Surgeon.fields.get(patient.getClass)
 
   /**
-   * Set field value reflectively.
-   * @param name Field name
-   * @param value Field value
-   */
+    * Set field value reflectively.
+    * @param name Field name
+    * @param value Field value
+    */
   def set(field: Symbol, value: Any): this.type = {
     fields(field).set(patient, value)
     this
@@ -28,10 +28,10 @@ class Surgeon[T <: AnyRef](patient: T) {
   def has(field: Symbol): Boolean = fields.contains(field)
 
   /**
-   * Get field value reflectively.
-   * @param name Field name
-   * @return Field value
-   */
+    * Get field value reflectively.
+    * @param name Field name
+    * @return Field value
+    */
   def get[T](field: Symbol): T = fields(field).get(patient).asInstanceOf[T]
 
   def get[T](wantType: Class[T], exactClass: Boolean = false): Map[Symbol, T] = {
@@ -54,13 +54,6 @@ class Surgeon[T <: AnyRef](patient: T) {
 
 private object Surgeon {
 
-  def getFields(cls: Class[_]): Map[Symbol, Field] = {
-    fields.get(cls).getOrElse {
-      val map = extractFields(cls)
-      fields.putIfAbsent(cls, map).getOrElse(map)
-    }
-  }
-
   private def extractFields(cls: Class[_], map: Map[Symbol, Field] = Map.empty): Map[Symbol, Field] = {
     if (cls == null) {
       map
@@ -73,5 +66,7 @@ private object Surgeon {
     }
   }
 
-  private val fields = new LockFreeConcurrentMap[Class[_], Map[Symbol, Field]]
+  val fields = new ClassValue[Map[Symbol, Field]] {
+    def computeValue(cls: Class[_]) = extractFields(cls)
+  }
 }
