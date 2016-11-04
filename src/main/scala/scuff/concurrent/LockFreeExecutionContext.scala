@@ -21,7 +21,7 @@ object LockFreeExecutionContext {
     def poll(): Runnable
     def offer(r: Runnable): Boolean
   }
-  private object DefaultQueue extends RunQueue {
+  private class DefaultQueue extends RunQueue {
     private[this] val queue = new ConcurrentLinkedQueue[Runnable]
     def poll(): Runnable = queue.poll()
     def offer(r: Runnable): Boolean = queue.offer(r)
@@ -33,7 +33,7 @@ object LockFreeExecutionContext {
     tf: ThreadFactory = DefaultThreadFactory,
     failureReporter: Throwable => Unit = t => t.printStackTrace(System.err),
     whenIdle: => Unit = Thread.`yield`,
-    queue: RunQueue = DefaultQueue) = {
+    queue: RunQueue = new DefaultQueue) = {
     val svc = new LockFreeExecutionContext(numThreads, tf, failureReporter, whenIdle, queue)
     svc.start()
     svc
