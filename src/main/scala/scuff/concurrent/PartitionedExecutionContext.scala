@@ -6,6 +6,7 @@ import scala.concurrent._
 import scala.concurrent.duration._
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
+import scala.util.control.NonFatal
 
 /**
   * `ExecutionContext`, which serializes execution of `Runnable`
@@ -23,14 +24,14 @@ import java.util.concurrent.TimeUnit
   * @param shutdownExecutors Executors' shutdown function
   * @param failureReporter The failure reporter function
   */
-final class HashPartitionExecutionContext(
-  singleThreadExecutors: IndexedSeq[Executor],
+final class PartitionedExecutionContext(
+  singleThreadExecutors: Seq[Executor],
   shutdownExecutors: => Future[Unit],
   getHash: Runnable => Int = _.hashCode,
   failureReporter: Throwable => Unit = _.printStackTrace(System.err))
     extends ExecutionContextExecutor {
 
-  require(singleThreadExecutors.length > 0, "Must have at least one thread")
+  require(singleThreadExecutors.size > 0, "Must have at least one thread")
 
   private[this] val threads = singleThreadExecutors.toArray
 
@@ -50,7 +51,7 @@ final class HashPartitionExecutionContext(
     def run = try {
       runnable.run()
     } catch {
-      case t: Throwable => reportFailure(t)
+      case NonFatal(th) => reportFailure(th)
     }
   }
 
@@ -67,10 +68,10 @@ final class HashPartitionExecutionContext(
   def shutdown(): Future[Unit] = shutdownFuture
 }
 
-object HashPartitionExecutionContext {
-  lazy val global = HashPartitionExecutionContext(
+object PartitionedExecutionContext {
+  lazy val global = PartitionedExecutionContext(
     Runtime.getRuntime.availableProcessors,
-    Threads.factory(classOf[HashPartitionExecutionContext].getName + ".global"))
+    Threads.factory(classOf[PartitionedExecutionContext].getName + ".global"))
 
   /**
     * @param numThreads Number of threads used for parallelism
@@ -79,7 +80,7 @@ object HashPartitionExecutionContext {
     */
   def apply(
     numThreads: Int,
-    threadFactory: java.util.concurrent.ThreadFactory = Threads.factory(classOf[HashPartitionExecutionContext].getName),
+    threadFactory: java.util.concurrent.ThreadFactory = Threads.factory(classOf[PartitionedExecutionContext].getName),
     getHash: Runnable => Int = _.hashCode,
     failureReporter: Throwable => Unit = _.printStackTrace(System.err)) = {
     val threads = new Array[ExecutorService](numThreads)
@@ -94,6 +95,6 @@ object HashPartitionExecutionContext {
           }
         }(Threads.Blocking)
       }
-    new HashPartitionExecutionContext(threads, shutdownAll(threads), getHash, failureReporter)
+    new PartitionedExecutionContext(threads, shutdownAll(threads), getHash, failureReporter)
   }
 }

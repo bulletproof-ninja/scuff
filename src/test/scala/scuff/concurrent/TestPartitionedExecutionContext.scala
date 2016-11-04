@@ -9,7 +9,7 @@ import scala.concurrent.Future
 import scala.util.Random
 import java.util.concurrent.ConcurrentLinkedQueue
 
-class TestHashPartitionExecutionContext {
+class TestPartitionedExecutionContext {
 
   @annotation.tailrec
   private def updateMap(hash: Int, thread: Thread, map: collection.concurrent.Map[Int, Set[Thread]]) {
@@ -28,7 +28,7 @@ class TestHashPartitionExecutionContext {
   @Test
   def verify {
     val numThreads = 16
-    val ec = HashPartitionExecutionContext(numThreads)
+    val ec = PartitionedExecutionContext(numThreads)
     val jobsPerHash = 100
     val hashRange = -5000 to 5000
     val threadsByHash = new LockFreeConcurrentMap[Int, Set[Thread]]
