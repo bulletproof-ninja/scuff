@@ -166,7 +166,7 @@ final class MonotonicSequencer[@specialized(Int, Long) S: Numeric, T >: Null: Cl
    * Buffer capacity was exceeded. The supplied buffer contains events received, including the event
    * that caused the capacity breach, in ordered sequence.
    */
-  class BufferCapacityExceeded(val buffer: List[(S, T)]) extends RuntimeException("Buffer capacity exceeded")
+  case class BufferCapacityExceeded(buffer: List[(S, T)]) extends RuntimeException("Buffer capacity exceeded")
 
 }
 
