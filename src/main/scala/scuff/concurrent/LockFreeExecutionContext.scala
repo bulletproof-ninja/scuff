@@ -15,10 +15,12 @@ import java.util.concurrent.CountDownLatch
 
 object LockFreeExecutionContext {
   /**
-   * Queue abstraction. Exists to avoid potentially megamorphic call-sites.
-   */
+    * Queue abstraction.
+    */
   trait RunQueue {
+    /** Get next or `null`. */
     def poll(): Runnable
+    /** Add to queue, if possible. */
     def offer(r: Runnable): Boolean
   }
   private class DefaultQueue extends RunQueue {
@@ -42,17 +44,18 @@ object LockFreeExecutionContext {
 }
 
 /**
- * High throughput executor. Use this for temporary processing
- * of predictably high load, and shut down when done, as it
- * relies on spinning threads, due to the lock-free nature.
- * NOTICE: This class is safe to use for multiple producers
- * (that is, if the `RunQueue` implementation supports it, default does),
- * but cannot safely be shut down, unless all producers have
- * stopped. This could in theory be negated by use of external
- * synchronization, but would defeat the purpose of this class.
- * So, either use single producer (and shutdown), or determine
- * in some way that all production has stopped before shutting down.
- */
+  * High throughput executor. Use this for temporary processing
+  * of predictably high load, and shut down when done, as it
+  * relies on spinning threads, due to the lock-free nature.
+  * NOTICE: This class is safe to use for multiple producers
+  * (that is, if the `RunQueue` implementation supports it; the default one does),
+  * but cannot safely be shut down, unless all producers have
+  * stopped. This could in theory be negated by use of external
+  * synchronization, but would defeat the purpose of this class.
+  * So, either use single producer (and shutdown when done),
+  * or determine, in some way, that all production has stopped before
+  * shutting down.
+  */
 final class LockFreeExecutionContext private (
   consumerThreads: Int,
   tf: ThreadFactory,
@@ -100,9 +103,9 @@ final class LockFreeExecutionContext private (
   def reportFailure(cause: Throwable): Unit = failureReporter(cause)
 
   /**
-   * Shut down executor, completing jobs already submitted.
-   * @return Shutdown completion future
-   */
+    * Shut down executor, completing jobs already submitted.
+    * @return Shutdown completion future
+    */
   def shutdown(): Future[Unit] = {
     isShutdown = true
     Threads.Blocking.submit(activeThreads.await)
