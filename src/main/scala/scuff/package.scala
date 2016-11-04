@@ -123,6 +123,7 @@ package object scuff {
         case _: BigDecimal => BigDecimal(next).asInstanceOf[T]
         case _: BigInt => BigInt(math.round(next)).asInstanceOf[T]
         case _: Short => math.round(next).asInstanceOf[T]
+        case _: Character => math.round(next).asInstanceOf[Char].asInstanceOf[T]
         case _ => throw new IllegalArgumentException(s"${num.zero.getClass.getName} is unsupported")
       }
     }

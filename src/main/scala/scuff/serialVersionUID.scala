@@ -9,11 +9,10 @@ object serialVersionUID {
         serialField.setAccessible(true)
         serialField.get(cls).asInstanceOf[Long]
       } getOrElse {
-        sys.error(s"No static `serialVersionUID` defined on $cls")
+        sys.error(s"No `serialVersionUID` defined on $cls")
       }
     }
   }
-  def apply(ref: AnyRef): Long = serialUIDCache.get(ref.getClass)
   def apply(cls: Class[_]): Long = serialUIDCache.get(cls)
   def apply[T <: AnyRef: ClassTag]: Long = serialUIDCache.get(classTag[T].runtimeClass)
 }

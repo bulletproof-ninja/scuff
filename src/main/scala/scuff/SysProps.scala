@@ -5,9 +5,9 @@ import scala.language.reflectiveCalls
 /**
  * Look up environment variables with property override.
  */
-class Props(props: { def getProperty(name: String): String }) {
+class Props(getProperty: String => String) {
   def optional(name: String, validValues: Set[String] = Set.empty): Option[String] = {
-    var value = props.getProperty(name)
+    var value = getProperty(name)
     if (value == null) {
       value = System.getenv(name)
     }
@@ -29,7 +29,7 @@ class Props(props: { def getProperty(name: String): String }) {
 
 }
 
-object SysProps extends Props(new { def getProperty(name: String) = System.getProperty(name) })
+object SysProps extends Props(System.getProperty)
 
 object Props {
   import java.io._
@@ -39,6 +39,6 @@ object Props {
     require(file.canRead, "Cannot read: " + file)
     val props = new java.util.Properties
     props.load(new FileReader(file))
-    new Props(props)
+    new Props(props.getProperty)
   }
 }

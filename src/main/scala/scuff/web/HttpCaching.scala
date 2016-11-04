@@ -29,7 +29,7 @@ trait HttpCaching extends HttpServlet {
   }
 
   private lazy val defaultCache = new LRUHeapCache[Any, Cached](Int.MaxValue)
-  protected def cache: scuff.Cache[Any, Cached] = defaultCache
+  protected def cache: scuff.Cache[Any, Cached] { type R[T] = T } = defaultCache
 
   /** If possible (e.g. static file system resource), return last modified of resource requested. */
   protected def fetchLastModified(req: HttpServletRequest): Option[Long]

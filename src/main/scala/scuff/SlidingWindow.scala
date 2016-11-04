@@ -1,6 +1,6 @@
 package scuff
 
-import concurrent.{ Threads, StreamCallback, StreamResult }
+import concurrent.{ Threads, StreamCallback, StreamPromise }
 import java.util.concurrent.ScheduledExecutorService
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -98,7 +98,7 @@ object SlidingWindow {
         * NOTE: The reduce function passed is guaranteed to be identical
         * to the update function used in `upsert`, thus this method
         * can be cheaply implemented by maintaining a single running
-        * reduction on `upsert` (thus ignoring the passed reduce function).
+        * reduction on `upsert` (thus ignoring the reduce function).
         */
       def queryAll(reduce: (V, V) => V): Future[Option[V]]
     }
@@ -201,7 +201,7 @@ class SlidingWindow[T, R, F](
         else {
           val cutoffs = finiteWindows.map(w => w -> w.toInterval(now))
           val querySinceCutoff = tsMap.querySince(cutoffs.map(_._2.from).min) _
-          StreamResult.fold(querySinceCutoff)(initMap) {
+          StreamPromise.fold(querySinceCutoff)(initMap) {
             case (map, (ts, value)) =>
               cutoffs.foldLeft(map) {
                 case (map, (finiteWindow, period)) =>

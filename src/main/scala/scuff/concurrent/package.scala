@@ -7,7 +7,7 @@ import scala.concurrent.duration.Duration
 import scuff.concurrent.Threads
 import java.util.concurrent.Executor
 import language.implicitConversions
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 package object concurrent {
   implicit def exeCtxToExecutor(ec: ExecutionContext): Executor = ec match {
@@ -45,8 +45,11 @@ package object concurrent {
     }
   }
 
+  val DefaultTimeout = 30.seconds
+
   implicit class ScuffScalaFuture[T](private val f: Future[T]) extends AnyVal {
-    def get(maxWait: Duration = Duration.Inf): T =
+    def await: T = await(DefaultTimeout)
+    def await(maxWait: FiniteDuration): T =
       if (f.isCompleted) {
         f.value.get.get
       } else {

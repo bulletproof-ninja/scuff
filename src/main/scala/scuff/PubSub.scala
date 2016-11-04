@@ -2,21 +2,32 @@ package scuff
 
 import scala.concurrent.ExecutionContext
 import scala.util.control.NonFatal
+import scuff.concurrent.StreamCallback
+import scuff.concurrent.Threads
+import scala.util.Try
+import scuff.concurrent.HashPartitionExecutionContext
 
 /**
- * Simple publish/subscribe mechanism.
- */
-class PubSub[F, MSG <% F](notificationCtx: ExecutionContext)
-    extends Faucet {
+  * Simple publish/subscribe mechanism.
+  * @param consumerCtx The execution context that consumers will
+  * be notified on. Defaults to same thread as `publish` is called on.
+  */
+class PubSub[F, MSG <% F](consumerCtx: ExecutionContext = Threads.PiggyBack)
+    extends Feed {
 
-  type Filter = F
-  type Consumer = MSG => Unit
+  type Selector = F
+  type Consumer = StreamCallback[MSG]
 
   private[this] val subscribers = new java.util.concurrent.CopyOnWriteArrayList[FilteringSubscriber]
 
+  protected def newRunnable(hash: Int)(r: => Unit): Runnable = new Runnable {
+    def run = r
+    override def hashCode = hash
+  }
+
   /**
-   * Publish message.
-   */
+    * Publish message.
+    */
   def publish(msg: MSG) {
     val i = subscribers.iterator
     while (i.hasNext) {
@@ -24,28 +35,37 @@ class PubSub[F, MSG <% F](notificationCtx: ExecutionContext)
     }
   }
 
-  private class FilteringSubscriber(sub: MSG => Unit, filter: Filter => Boolean) {
+  private class FilteringSubscriber(
+      consumer: Consumer, include: F => Boolean, hash: Int) {
     def handle(msg: MSG) = try {
-      if (filter(msg)) {
-        notificationCtx execute new Runnable {
-          def run = sub(msg)
+      if (include(msg)) {
+        consumerCtx execute newRunnable(hash) {
+          try consumer.onNext(msg) catch {
+            case NonFatal(e) =>
+              consumerCtx reportFailure e
+              cancelSubscription()
+          }
         }
       }
     } catch {
       case NonFatal(e) =>
-        subscribers.remove(this)
-        notificationCtx.reportFailure(e)
+        consumerCtx reportFailure e
+        cancelSubscription()
+    }
+    def cancelSubscription() {
+      subscribers.remove(this)
+      consumerCtx execute newRunnable(hash)(Try(consumer.onCompleted))
     }
   }
 
   /**
-   * Subscribe to events.
-   */
-  def subscribe(subscriber: MSG => Unit, filter: Filter => Boolean): Subscription = {
-    val fs = new FilteringSubscriber(subscriber, filter)
+    * Subscribe to events.
+    */
+  def subscribe(filter: F => Boolean)(subscriber: Consumer): Subscription = {
+    val fs = new FilteringSubscriber(subscriber, filter, subscriber.hashCode)
     subscribers.add(fs)
     new Subscription {
-      def cancel = subscribers.remove(fs)
+      def cancel = fs.cancelSubscription()
     }
   }
 

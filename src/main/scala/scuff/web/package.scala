@@ -1,22 +1,24 @@
 package scuff
 
-import java.net.{InetAddress, URL}
+import java.net.{ InetAddress, URL }
 import java.util.Locale
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
 
-import javax.servlet.{ServletRequest, ServletResponse}
-import javax.servlet.http.{HttpServletRequest, HttpServletResponse}
+import javax.servlet.{ ServletRequest, ServletResponse }
+import javax.servlet.http.{ HttpServletRequest, HttpServletResponse }
+import javax.activation.MimeType
 
 package web {
   case class Resource(url: URL, lastModified: Long)
 }
 
 package object web {
-  private val RFC822Pool = new ThreadLocal[java.text.SimpleDateFormat] {
-    override def initialValue = new java.text.SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z", java.util.Locale.US)
+  private val RFC822Pool = scuff.ThreadLocal {
+    new java.text.SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z", java.util.Locale.US)
   }
+
   /** ThreadLocal safe date parser. */
   def RFC822 = RFC822Pool.get()
 
@@ -134,6 +136,16 @@ package object web {
       req.getServletPath concat pathInfo
     }
 
+  }
+
+  implicit class ScuffMimeType(private val mt: MimeType) extends AnyVal {
+    def q: Float = mt.getParameter("q") match {
+      case null => 1f
+      case q => try q.toFloat catch {
+        case nfe: NumberFormatException => 0f
+      }
+    }
+    def parm(name: String): Option[String] = Option(mt.getParameter(name))
   }
 
 }
