@@ -9,7 +9,7 @@ import scala.concurrent.Future
 import org.junit.Assert._
 import org.junit.Test
 
-import scuff.ddd.util.ConcurrentMapRepository
+import scuff.ddd.util.MapRepository
 
 class TestRepository {
 
@@ -24,7 +24,7 @@ class TestRepository {
   @Test
   def `insert success` {
     withLatch(2) { latch =>
-      val repo = new ConcurrentMapRepository[Customer, Int]
+      val repo = new MapRepository[Int, Customer]
       val hank = Customer("Hank", "12345")
       repo.insert(5, hank).foreach { rev =>
         assertEquals(0, rev)
@@ -47,8 +47,9 @@ class TestRepository {
   def `event publishing` {
     case class Notification(id: Int, revision: Int, events: ISeq[VeryBasicEvent])
     val notifications = new LinkedBlockingQueue[Notification]
-    val repo = new EventCentricRepository[Customer, Int, VeryBasicEvent](new ConcurrentMapRepository) {
-      def publish(id: Int, revision: Int, events: ISeq[VeryBasicEvent], metadata: Map[String, String]) {
+    val repo = new EventEmittingRepository[Int, Customer, VeryBasicEvent](new MapRepository, global) {
+      type Event = VeryBasicEvent
+      def publish(id: Int, revision: Int, events: ISeq[Event], metadata: Map[String, String]) {
         notifications offer Notification(id, revision, events)
       }
     }
