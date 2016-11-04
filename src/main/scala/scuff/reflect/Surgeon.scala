@@ -3,6 +3,7 @@ package scuff.reflect
 import scala.annotation._
 import java.lang.reflect._
 import scuff.concurrent.LockFreeConcurrentMap
+import scala.reflect.{ClassTag, classTag}
 
 /**
   * Helper class to operate on the internals
@@ -34,7 +35,9 @@ class Surgeon[T <: AnyRef](patient: T) {
     */
   def get[T](field: Symbol): T = fields(field).get(patient).asInstanceOf[T]
 
-  def get[T](wantType: Class[T], exactClass: Boolean = false): Map[Symbol, T] = {
+  def getAll[T: ClassTag]: Map[Symbol, T] = getAll[T](false)
+  def getAll[T: ClassTag](exactClass: Boolean): Map[Symbol, T] = {
+    val wantType = classTag[T].runtimeClass
     val filtered = fields.filter {
       case (name, field) =>
         if (exactClass) {
