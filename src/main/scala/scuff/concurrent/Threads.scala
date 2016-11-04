@@ -191,6 +191,9 @@ object Threads {
     val tg = if (threadGroup != null) threadGroup else newThreadGroup(name, daemon = true)
     new ScuffThreadFactory(name, tg, tg, true)
   }
+  def newThreadFactory(threadGroup: ThreadGroup): ThreadFactory = {
+    new ScuffThreadFactory(threadGroup.getName, threadGroup, threadGroup, threadGroup.isDaemon)
+  }
 
   final class ExecutorProxy[E <: Executor](real: E, reporter: Throwable => Unit) extends Executor {
     implicit def executor = real
