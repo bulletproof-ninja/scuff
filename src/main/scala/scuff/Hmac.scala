@@ -71,7 +71,7 @@ abstract class Hmac[A] extends Serializer[A] {
 
   def encode(a: A): Array[Byte] = {
     val rawBytes = codec.encode(a)
-    val macBytes = macPool.borrow(_.doFinal(rawBytes))
+    val macBytes = macPool.use(_.doFinal(rawBytes))
     val output = new Array[Byte](4 + rawBytes.length + macBytes.length)
     Numbers.intToBytes(rawBytes.length, output)
     System.arraycopy(rawBytes, 0, output, 4, rawBytes.length)
@@ -95,7 +95,7 @@ abstract class Hmac[A] extends Serializer[A] {
     val rawByteLen = Numbers.bytesToInt(arr)
     val macOffset = 4 + rawByteLen
     val rawBytes = Arrays.copyOfRange(arr, 4, macOffset)
-    val newMac = macPool.borrow(_.doFinal(rawBytes))
+    val newMac = macPool.use(_.doFinal(rawBytes))
     if (bytesMatch(newMac, arr, macOffset)) {
       codec.decode(rawBytes)
     } else {

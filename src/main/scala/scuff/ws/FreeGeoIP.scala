@@ -41,7 +41,7 @@ object FreeGeoIP {
     def format = "json"
 
     def parseGeoPoint(buf: java.io.BufferedReader): Option[geo.Point] = {
-      val root = JsonParserPool.borrow(_.parse(buf)).asInstanceOf[jMap[String, Any]]
+      val root = JsonParserPool.use(_.parse(buf)).asInstanceOf[jMap[String, Any]]
       val latitude = root.get("latitude").asInstanceOf[Number].doubleValue
       val longitude = root.get("longitude").asInstanceOf[Number].doubleValue
       if (latitude == 0d && longitude == 0d && root.get("country_code") == ReservedCountryCode) {

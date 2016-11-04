@@ -40,9 +40,9 @@ abstract class CoffeeScriptServlet extends HttpServlet {
   protected def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.DefaultConfig(newJavascriptEngine))
   private[this] val compilerPool = new ResourcePool[CoffeeScriptCompiler](createCompiler) {
     // Don't discard compiler on exception, it still works :-)
-    override def borrow[A](use: CoffeeScriptCompiler => A): A = {
-      val result = super.borrow { compiler =>
-        Try(use(compiler))
+    override def use[A](thunk: CoffeeScriptCompiler => A): A = {
+      val result = super.use { compiler =>
+        Try(thunk(compiler))
       }
       result.get
     }
@@ -71,7 +71,7 @@ abstract class CoffeeScriptServlet extends HttpServlet {
   }
 
   protected def coffeeCompilation(coffeeScript: String, filename: String): String =
-    compilerPool.borrow(_.compile(coffeeScript, filename))
+    compilerPool.use(_.compile(coffeeScript, filename))
 
   private def compile(path: String, url: URL): String = {
     val started = System.currentTimeMillis()

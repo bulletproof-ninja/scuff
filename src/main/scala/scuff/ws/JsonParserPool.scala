@@ -5,4 +5,4 @@ import scuff.concurrent.ResourcePool
 
 private object JsonParserFactoryPool extends ResourcePool(new JsonParserFactory)
 
-private[ws] object JsonParserPool extends ResourcePool(JsonParserFactoryPool.borrow(_.createFastParser))
+private[ws] object JsonParserPool extends ResourcePool(JsonParserFactoryPool.use(_.createFastParser))

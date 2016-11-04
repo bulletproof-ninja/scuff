@@ -28,11 +28,11 @@ import java.util.concurrent.Delayed
   * an exception occurs, to avoid potentially
   * corrupted resources. This behavior can be changed
   * on a case-by-case basis by sub-classing and
-  * overriding `borrow` and preventing non-destructive
-  * exceptions from reaching `super.borrow`.
+  * overriding `use` and preventing non-destructive
+  * exceptions from reaching `super.use`.
   *
   * NOTICE: As with any pool, make absolutely sure the
-  * resource does not escape the `borrow` scope, but
+  * resource does not escape the `use` scope, but
   * that almost goes without saying, amirite?
   */
 class ResourcePool[R](newResource: => R, minResources: Int = 0) {
@@ -203,7 +203,7 @@ class ResourcePool[R](newResource: => R, minResources: Int = 0) {
     */
   protected def onReturn(r: R) {}
 
-  def borrow[A](thunk: R => A): A = {
+  def use[A](thunk: R => A): A = {
     val r = pop()
     val a = thunk(r)
     push(r)
