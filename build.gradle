@@ -29,7 +29,7 @@ allprojects {
 }
 
 jar {
-    baseName = "scuff_2.11"
+    baseName = "scuff_$vScala"
     manifest {
         attributes "Implementation-Title": "scuff", "Implementation-Version": version
     }
@@ -54,11 +54,6 @@ publishing {
             from components.java
             artifact sourceJar
             artifact docsJar
-            pom.withXml { xml ->
-                xml.asNode().dependencies.dependency.findAll{ ! ['boon','mail'].contains(it.artifactId.text()) }.each { dep ->
-                    dep.scope[0].value = "provided"
-                }
-            }
         }
     }
 }
@@ -82,24 +77,11 @@ dependencies {
     testCompile "junit:junit:$vJUnit"
     testCompile "org.mockito:mockito-all:$vMockito"
 
-    compile "org.scala-lang:scala-reflect:$vScala"
+    compileOnly "org.scala-lang:scala-reflect:$vScala.+"
 
     compile "javax.mail:mail:$vMailApi"
     compile "io.fastjson:boon:$vBoon"
 
-    compile "javax.servlet:javax.servlet-api:$vServletApi"
+    compileOnly "javax.servlet:javax.servlet-api:$vServletApi"
 }
 
-project(':redis') {
-    dependencies {
-        compile rootProject
-        compile "redis.clients:jedis:$vJedis"
-    }
-	jar {
-	    baseName = "${rootProject.name}-redis_2.11"
-	    version = rootProject.version
-	    manifest {
-	        attributes "Implementation-Title": rootProject.name, "Implementation-Version": rootProject.version
-	    }
-	}
-}
