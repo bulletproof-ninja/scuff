@@ -5,7 +5,7 @@ import scala.util.control.NonFatal
 import scuff.concurrent.StreamCallback
 import scuff.concurrent.Threads
 import scala.util.Try
-import scuff.concurrent.HashPartitionExecutionContext
+import scuff.concurrent.PartitionedExecutionContext
 
 /**
   * Simple publish/subscribe mechanism.
