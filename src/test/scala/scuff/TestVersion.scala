@@ -28,13 +28,13 @@ class TestSerialVersionUID {
 
   @Test(expected=classOf[RuntimeException])
   def `failing` {
-    val ver = version[Baz]
+    version[Baz]
     fail("Should have failed due to lack of annotation")
   }
 
   @Test
   def `instance` {
     val anyRef: AnyRef = new Foo("Hello")
-    assertEquals(5, version(anyRef))
+    assertEquals(5, version(anyRef.getClass))
   }
 }

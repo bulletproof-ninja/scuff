@@ -22,14 +22,14 @@ class TestSurgeon {
     assertEquals("baz", surgeon.get[String]('bar))
     assertEquals("baz", surgeon.get[String]('foo))
     val expected = Map('bar -> "baz", 'foo -> "baz")
-    val actual = surgeon.get(classOf[String])
+    val actual = surgeon.getAll[String]
     assertEquals(expected, actual)
-    val numberFields = surgeon.get(classOf[Number]).filter(kv => List('num, 'd).contains(kv._1))
+    val numberFields = surgeon.getAll[Number].filter(kv => List('num, 'd).contains(kv._1))
     val num = numberFields.map(_._2.intValue).sum
     assertEquals(43, num)
-    val d = surgeon.get(classOf[Double]).map(_._2.doubleValue).sum
+    val d = surgeon.getAll[java.lang.Double](exactClass = true).map(_._2.doubleValue).sum
     assertEquals(1.23d, d, 0.0001d)
-    val i = surgeon.get(classOf[Integer]).map(_._2.intValue).sum
+    val i = surgeon.getAll[Integer].map(_._2.intValue).sum
     assertEquals(42, i)
   }
 }

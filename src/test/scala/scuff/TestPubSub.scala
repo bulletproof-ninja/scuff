@@ -3,16 +3,17 @@ package scuff
 import org.junit._
 import org.junit.Assert._
 import scala.concurrent.ExecutionContext
+import scuff.concurrent.PartitionedExecutionContext
+import scuff.concurrent.StreamCallback
 
 class TestPubSub {
 
   class Event
 
-  var pubSub: PubSub[Event, Event] = _
-
-  @Before
-  def setup {
-    pubSub = new PubSub[Event, Event](ExecutionContext.global)
+  implicit def f2sb[T](f: T => Unit) = new StreamCallback[T] {
+    def onNext(t: T) = f(t)
+    def onError(e: Throwable) = e.printStackTrace()
+    def onCompleted() = ()
   }
 
   @Test(timeout = 2000)
@@ -23,17 +24,15 @@ class TestPubSub {
         exceptions += t
         countDown.countDown()
       }
-    val execCtx = ExecutionContext.fromExecutor(null, errHandler)
-    pubSub = new PubSub[Event, Event](execCtx)
-    val l1 = (e: Event) => throw new RuntimeException
-    pubSub.subscribe(l1)
-    val l2 = (e: Event) => countDown.countDown()
-    pubSub.subscribe(l2)
-    val l3 = (e: Event) => countDown.countDown()
-    pubSub.subscribe(l3)
+    val execCtx = PartitionedExecutionContext(numThreads = 2, failureReporter = errHandler)
+    val pubSub = new PubSub[Event, Event](execCtx)
+    val s1 = pubSub.subscribe() { e: Event => throw new RuntimeException }
+    val s2 = pubSub.subscribe()((e: Event) => countDown.countDown())
+    val s3 = pubSub.subscribe() { e: Event => countDown.countDown() }
     pubSub.publish(new Event)
     pubSub.publish(new Event)
     countDown.await()
     assertEquals(2, exceptions.size)
+    s1.cancel(); s2.cancel(); s3.cancel()
   }
 }
