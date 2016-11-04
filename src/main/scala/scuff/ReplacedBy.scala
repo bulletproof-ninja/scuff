@@ -6,3 +6,10 @@ package scuff
 trait ReplacedBy[T] {
   def upgrade(): T
 }
+
+/**
+  * Trait to provide a downgrade path to versioned types.
+  */
+trait Replaces[T] {
+  def downgrade(): T
+}
