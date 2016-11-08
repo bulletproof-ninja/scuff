@@ -5,6 +5,7 @@ import org.junit.Assert._
 import scala.concurrent.ExecutionContext
 import scuff.concurrent.PartitionedExecutionContext
 import scuff.concurrent.StreamCallback
+import java.util.concurrent.TimeUnit
 
 class TestPubSub {
 
@@ -16,12 +17,12 @@ class TestPubSub {
     def onCompleted() = ()
   }
 
-  @Test(timeout = 5000)
+  @Test
   def exceptional {
     val countDown = new java.util.concurrent.CountDownLatch(6)
-    val exceptions = collection.mutable.Buffer[Throwable]()
+    val exceptions = collection.concurrent.TrieMap[Throwable, Unit]()
       def errHandler(t: Throwable) {
-        exceptions += t
+        exceptions += t -> Unit
         countDown.countDown()
       }
     val execCtx = PartitionedExecutionContext(numThreads = 2, failureReporter = errHandler)
@@ -31,7 +32,7 @@ class TestPubSub {
     val s3 = pubSub.subscribe() { e: Event => countDown.countDown() }
     pubSub.publish(new Event)
     pubSub.publish(new Event)
-    countDown.await()
+    assertTrue(countDown.await(5, TimeUnit.SECONDS))
     assertEquals(2, exceptions.size)
     s1.cancel(); s2.cancel(); s3.cancel()
   }
