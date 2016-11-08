@@ -2,12 +2,12 @@ package scuff.web
 
 import org.junit._
 import org.junit.Assert._
-import javax.activation.MimeType
+import scuff.MediaType
 
 class AcceptHeaderTest {
   @Test
   def basic {
-    val acceptTypes = Set(new MimeType("text/html"))
+    val acceptTypes = Set(MediaType("text/html"))
     assertTrue(AcceptHeader("text/html").get.matches("text/html"))
     assertTrue(AcceptHeader("*/*").get.matches("text/html"))
     assertTrue(AcceptHeader("text/*").get.matches("text/html"))
@@ -31,18 +31,18 @@ class AcceptHeaderTest {
   @Test
   def preference {
     val ah = AcceptHeader("text/html; q=1.0, text/*; q=0.8, image/gif; q=0.6, image/jpeg; q=0.6, image/*; q=0.5, */*; q=0.1").get
-    assertTrue(ah.preference.`match`("text/html"))
+    assertTrue(ah.preference.matches("text/html"))
     val ah2 = AcceptHeader("audio/*; q=0.2, audio/basic").get
-    assertEquals("audio/basic", ah2.preference.getBaseType)
+    assertEquals("audio/basic", ah2.preference.baseType)
   }
   @Test
   def rfc2616_1 {
     val byPreference = AcceptHeader("text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c").get.preferenceOrdered
     assertEquals(4, byPreference.size)
-    assertTrue(byPreference(0).`match`("text/html"))
-    assertTrue(byPreference(1).`match`("text/x-c"))
-    assertTrue(byPreference(2).`match`("text/x-dvi"))
-    assertTrue(byPreference(3).`match`("text/plain"))
+    assertTrue(byPreference(0).matches("text/html"))
+    assertTrue(byPreference(1).matches("text/x-c"))
+    assertTrue(byPreference(2).matches("text/x-dvi"))
+    assertTrue(byPreference(3).matches("text/plain"))
   }
   @Test
   def rfc2616_2 {
@@ -64,16 +64,16 @@ class AcceptHeaderTest {
     val byPreference = ah.preferenceOrdered
     assertEquals(5, byPreference.size)
     assertEquals("text/html; level=1", byPreference(0).toString)
-    assertTrue(byPreference(1).`match`("text/html;level=3"))
-    assertTrue(byPreference(1).`match`("text/html"))
+    assertTrue(byPreference(1).matches("text/html;level=3"))
+    assertTrue(byPreference(1).matches("text/html"))
     assertEquals("*/*; q=0.5", byPreference(2).toString)
     assertTrue(ah.matches("image/jpeg"))
-    assertEquals(new MimeType("text/html; level=2; q=0.4").toString, byPreference(3).toString)
+    assertEquals(MediaType("text/html; level=2; q=0.4").toString, byPreference(3).toString)
   }
   @Test
   def versioned {
     val request = AcceptHeader("application/vnd.scuff+json;v=41, application/vnd.scuff+json;v=42").get
-    val expected = new MimeType("application/vnd.scuff+json")
+    val expected = MediaType("application/vnd.scuff+json")
     assertTrue(request.matches(expected))
     assertFalse(request.matches("application/json"))
     request.withParm(expected, "v", _.toInt).sortBy(_._2).reverse.headOption match {

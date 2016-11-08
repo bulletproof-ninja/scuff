@@ -8,7 +8,6 @@ import scala.language.implicitConversions
 
 import javax.servlet.{ ServletRequest, ServletResponse }
 import javax.servlet.http.{ HttpServletRequest, HttpServletResponse }
-import javax.activation.MimeType
 
 package web {
   case class Resource(url: URL, lastModified: Long)
@@ -136,16 +135,6 @@ package object web {
       req.getServletPath concat pathInfo
     }
 
-  }
-
-  implicit class ScuffMimeType(private val mt: MimeType) extends AnyVal {
-    def q: Float = mt.getParameter("q") match {
-      case null => 1f
-      case q => try q.toFloat catch {
-        case nfe: NumberFormatException => 0f
-      }
-    }
-    def parm(name: String): Option[String] = Option(mt.getParameter(name))
   }
 
 }

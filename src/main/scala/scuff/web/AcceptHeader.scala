@@ -1,50 +1,49 @@
 package scuff.web
 
 import scala.util.Try
+import scuff.MediaType
 
-import javax.activation.MimeType
-
-final class AcceptHeader(mimeTypes: Seq[MimeType]) {
-  require(mimeTypes.nonEmpty, "Cannot have an empty Accept header")
-  private[this] val hasMatchAny = mimeTypes.exists(mt => mt.getPrimaryType() == "*")
-  private def matchesTypes(specific: MimeType) = mimeTypes.exists { mt =>
-    mt.getPrimaryType == specific.getPrimaryType && (mt.getSubType == "*" || mt.getSubType == specific.getSubType)
+final class AcceptHeader(contentTypes: Seq[MediaType]) {
+  require(contentTypes.nonEmpty, "Cannot have an empty Accept header")
+  private[this] val hasMatchAny = contentTypes.exists(mt => mt.primaryType == "*")
+  private def matchesTypes(specific: MediaType) = contentTypes.exists { mt =>
+    mt.primaryType == specific.primaryType && (mt.subType == "*" || mt.subType == specific.subType)
   }
 
-  def preference(): MimeType = preferenceOrdered.head
-  def withParm(mt: MimeType, parm: String): Seq[(MimeType, String)] = withParm(mt, parm, identity)
-  def withParm[P](matchType: MimeType, parm: String, map: String => P): Seq[(MimeType, P)] =
-    mimeTypes.iterator
-      .filter(_.`match`(matchType))
+  def preference(): MediaType = preferenceOrdered.head
+  def withParm(mt: MediaType, parmName: String): Seq[(MediaType, String)] = withParm(mt, parmName, identity)
+  def withParm[P](matchType: MediaType, parmName: String, map: String => P): Seq[(MediaType, P)] =
+    contentTypes.iterator
+      .filter(_.matches(matchType))
       .flatMap { mt =>
-        mt.parm("v").flatMap(p => Try(map(p)).toOption.map(mt -> _))
+        mt.parm(parmName).flatMap(p => Try(map(p)).toOption.map(mt -> _))
       }.toStream
-  def preferenceOrdered(): Seq[MimeType] = {
-    if (mimeTypes.size == 1) mimeTypes else {
-      val withQ = mimeTypes.zipWithIndex.map {
+  def preferenceOrdered(): Seq[MediaType] = {
+    if (contentTypes.size == 1) contentTypes else {
+      val weigthed = contentTypes.zipWithIndex.map {
         case (mt, idx) => (mt.q, mt, idx)
       }
-      withQ.sorted(AcceptHeader.MimeTypeOrdering).map(_._2)
+      weigthed.sorted(AcceptHeader.Ordering).map(_._2)
     }
   }
-  def matches(specific: String): Boolean = matches(new MimeType(specific))
-  def matches(specific: MimeType): Boolean = hasMatchAny || matchesTypes(specific)
-  def matchesAny(specifics: Traversable[MimeType]): Boolean = hasMatchAny || specifics.exists(matchesTypes)
+  def matches(specific: String): Boolean = hasMatchAny || matches(MediaType(specific))
+  def matches(specific: MediaType): Boolean = hasMatchAny || matchesTypes(specific)
+  def matchesAny(specifics: Traversable[MediaType]): Boolean = hasMatchAny || specifics.exists(matchesTypes)
 }
 
 object AcceptHeader {
-  private type MTT = (Float, MimeType, Int)
-  private val MimeTypeOrdering = new math.Ordering[MTT] {
-    def compare(x: MTT, y: MTT): Int = {
+  private type Weigthed = (Float, MediaType, Int)
+  private val Ordering = new math.Ordering[Weigthed] {
+    def compare(x: Weigthed, y: Weigthed): Int = {
       if (x._1 == y._1) {
         val xmt = x._2
         val ymt = y._2
-        if (xmt.getPrimaryType == "*") 1
-        else if (ymt.getPrimaryType == "*") -1
-        else if (xmt.getPrimaryType == ymt.getPrimaryType) {
-          if (xmt.getSubType == "*") 1
-          else if (ymt.getSubType == "*") -1
-          else if (xmt.getSubType == ymt.getSubType) {
+        if (xmt.primaryType == "*") 1
+        else if (ymt.primaryType == "*") -1
+        else if (xmt.primaryType == ymt.primaryType) {
+          if (xmt.subType == "*") 1
+          else if (ymt.subType == "*") -1
+          else if (xmt.subType == ymt.subType) {
             -xmt.toString.compareToIgnoreCase(ymt.toString)
           } else {
             x._3 - y._3
@@ -57,9 +56,9 @@ object AcceptHeader {
     }
   }
   private val Splitter = """\s*,\s*""".r.pattern
-  private def split(str: String): Seq[MimeType] = {
+  private def split(str: String): Seq[MediaType] = {
     val types = Splitter.split(str.trim).map(_.trim).filter(_.length > 0)
-    types.map(new MimeType(_))
+    types.map(MediaType(_))
   }
   def apply(header: String): Option[AcceptHeader] = Option(header).flatMap { header =>
     val types = split(header)

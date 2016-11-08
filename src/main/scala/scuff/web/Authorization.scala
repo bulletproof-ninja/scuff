@@ -5,6 +5,7 @@ import javax.servlet.http._
 import java.security.Principal
 import HttpServletResponse._
 import scuff.UserPrincipal
+import scuff.MediaType
 
 /**
  * Application authorization trait. Apply to servlets
@@ -85,14 +86,12 @@ abstract class ApplicationSecurityFilter extends Filter {
  */
 trait LoginPageForwarder extends Filter {
 
-  import javax.activation.MimeType
-
   /** Login page path. */
   protected def loginPage: String
 
-  private[this] val defaultAcceptTypes = Set("text/html").map(new MimeType(_))
+  private[this] val defaultAcceptTypes = Set("text/html").map(MediaType(_))
   /** Accept types this filter applies to. Default is only "text/html". */
-  protected def acceptTypes: Set[MimeType] = defaultAcceptTypes
+  protected def acceptTypes: Set[MediaType] = defaultAcceptTypes
 
   abstract override def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) {
     super.doFilter(req, res, chain)
