@@ -16,7 +16,7 @@ class TestPubSub {
     def onCompleted() = ()
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 5000)
   def exceptional {
     val countDown = new java.util.concurrent.CountDownLatch(6)
     val exceptions = collection.mutable.Buffer[Throwable]()
