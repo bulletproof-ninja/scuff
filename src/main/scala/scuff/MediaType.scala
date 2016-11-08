@@ -20,10 +20,40 @@ object MediaType {
     apply(primaryType, subType, parms.toSeq: _*)
 
   def apply(contentType: String): MediaType = new MediaType(new MimeType(contentType))
+
+  private val FindTreeSuffix = """\+(.+)$""".r
+  private def asTreeType(mediaType: MediaType): Option[mediaType.TreeType] = {
+    FindTreeSuffix.findFirstMatchIn(mediaType.subType).flatMap(m => Option(m.group(1))).map { suffix =>
+      val subType = mediaType.subType
+      val (prefix, typeName) = subType.indexOf('.') match {
+        case -1 =>
+          None ->
+            subType.substring(0, subType.length - suffix.length - 1)
+        case dot =>
+          Some(subType.substring(0, dot)) ->
+            subType.substring(dot + 1, subType.length - suffix.length - 1)
+      }
+      new mediaType.TreeType(prefix, typeName, suffix)
+    }
+  }
 }
 
 /** Immutable media type. */
 class MediaType private (private val mimeType: MimeType) {
+
+  case class TreeType private[MediaType] (prefix: Option[String], typeName: String, suffixType: String) {
+    def pruned: MediaType = {
+      val mt = new MimeType(primaryType, suffixType)
+      parmNames.foreach { name =>
+        mt.setParameter(name, mimeType.getParameter(name))
+      }
+      new MediaType(mt)
+    }
+    override def toString() = MediaType.this.toString
+  }
+
+  def pruned: MediaType = treeType.map(_.pruned) getOrElse this
+  def treeType: Option[TreeType] = MediaType.asTreeType(this)
 
   def baseType = mimeType.getBaseType
   def primaryType = mimeType.getPrimaryType
@@ -64,7 +94,8 @@ class MediaType private (private val mimeType: MimeType) {
   /** Matches the base type, ignores parameters. */
   def matches(string: String): Boolean = this.mimeType.`match`(string)
   /** Matches the base type, ignores parameters. */
-  def matches(that: MediaType): Boolean = this.mimeType.`match`(that.mimeType)
+  def matches(that: MediaType): Boolean =
+    (this eq that) || this.mimeType.`match`(that.mimeType)
 
   override def toString = mimeType.toString
 }

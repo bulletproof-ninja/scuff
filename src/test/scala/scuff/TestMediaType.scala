@@ -34,4 +34,21 @@ class TestMediaType {
     assertEquals(None, mt3.parm("bar"))
     assertEquals("Hello", mt4.parm("bar").get)
   }
+
+  @Test
+  def tree {
+    val html = MediaType("text/html")
+    assertEquals(None, html.treeType)
+    val xhtml = MediaType("text/xhtml+xml;charset=utf8")
+    assertEquals(None, xhtml.treeType.get.prefix)
+    assertEquals("xhtml", xhtml.treeType.get.typeName)
+    assertEquals("xml", xhtml.treeType.get.suffixType)
+    val vendor = MediaType("application/vnd.scuff.foo+json;charset=utf8")
+    assertEquals("vnd", vendor.treeType.get.prefix.get)
+    assertEquals("scuff.foo", vendor.treeType.get.typeName)
+    assertEquals("json", vendor.treeType.get.suffixType)
+    assertTrue(MediaType("application/*").matches(vendor))
+    assertFalse(MediaType("application/json").matches(vendor))
+    assertTrue(MediaType("application/json").matches(vendor.pruned))
+  }
 }
