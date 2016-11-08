@@ -102,7 +102,10 @@ class TestProxylicious {
     }
     val p = new Proxylicious[Values]
     val valuesP = p.withToStringOverride(values, "Values")
-    assertEquals("Values(b=42,a=Foo)", valuesP.toString)
+    assertTrue {
+      "Values(b=42,a=Foo)" == valuesP.toString ||
+        "Values(a=Foo,b=42)" == valuesP.toString
+    }
   }
 
 }
