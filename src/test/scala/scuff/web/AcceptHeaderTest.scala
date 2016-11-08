@@ -8,24 +8,24 @@ class AcceptHeaderTest {
   @Test
   def basic {
     val acceptTypes = Set(MediaType("text/html"))
-    assertTrue(AcceptHeader("text/html").get.matches("text/html"))
-    assertTrue(AcceptHeader("*/*").get.matches("text/html"))
-    assertTrue(AcceptHeader("text/*").get.matches("text/html"))
-    assertFalse(AcceptHeader("image/*").get.matches("text/html"))
-    assertFalse(AcceptHeader("text/*").get.matches("image/jpeg"))
-    assertTrue(AcceptHeader("*/*").get.matches("image/jpeg"))
-    assertTrue(AcceptHeader("*/*").forall(h => h.matchesAny(acceptTypes)))
-    assertTrue(AcceptHeader("text/*").forall(h => h.matchesAny(acceptTypes)))
-    assertFalse(AcceptHeader("image/*").forall(h => h.matchesAny(acceptTypes)))
-    assertTrue(AcceptHeader("").forall(h => h.matchesAny(acceptTypes)))
+    assertTrue(AcceptHeader("text/html").get.accepts("text/html"))
+    assertTrue(AcceptHeader("*/*").get.accepts("text/html"))
+    assertTrue(AcceptHeader("text/*").get.accepts("text/html"))
+    assertFalse(AcceptHeader("image/*").get.accepts("text/html"))
+    assertFalse(AcceptHeader("text/*").get.accepts("image/jpeg"))
+    assertTrue(AcceptHeader("*/*").get.accepts("image/jpeg"))
+    assertTrue(AcceptHeader("*/*").forall(h => h.acceptsAny(acceptTypes)))
+    assertTrue(AcceptHeader("text/*").forall(h => h.acceptsAny(acceptTypes)))
+    assertFalse(AcceptHeader("image/*").forall(h => h.acceptsAny(acceptTypes)))
+    assertTrue(AcceptHeader("").forall(h => h.acceptsAny(acceptTypes)))
   }
 
   @Test
   def complex {
     val ah = AcceptHeader("text/html; q=1.0, text/*; q=0.8, image/gif; q=0.6, image/jpeg; q=0.6, image/*; q=0.5").get
-    assertTrue(ah.matches("image/png"))
-    assertTrue(ah.matches("text/plain"))
-    assertFalse(ah.matches("application/json"))
+    assertTrue(ah.accepts("image/png"))
+    assertTrue(ah.accepts("text/plain"))
+    assertFalse(ah.accepts("application/json"))
   }
 
   @Test
@@ -67,20 +67,25 @@ class AcceptHeaderTest {
     assertTrue(byPreference(1).matches("text/html;level=3"))
     assertTrue(byPreference(1).matches("text/html"))
     assertEquals("*/*; q=0.5", byPreference(2).toString)
-    assertTrue(ah.matches("image/jpeg"))
+    assertTrue(ah.accepts("image/jpeg"))
     assertEquals(MediaType("text/html; level=2; q=0.4").toString, byPreference(3).toString)
   }
   @Test
   def versioned {
     val request = AcceptHeader("application/vnd.scuff+json;v=41, application/vnd.scuff+json;v=42").get
     val expected = MediaType("application/vnd.scuff+json")
-    assertTrue(request.matches(expected))
-    assertFalse(request.matches("application/json"))
+    assertTrue(request.accepts(expected))
+    assertFalse(request.accepts("application/json"))
     request.withParm(expected, "v", _.toInt).sortBy(_._2).reverse.headOption match {
       case None => fail("Should match")
       case Some((mt, version)) =>
         assertEquals(42, version)
     }
-
+  }
+  @Test
+  def `vendor match` {
+    val plainJson = AcceptHeader("application/json").get
+    val responseType = MediaType("application/vnd.scuff+json")
+    assertTrue(plainJson.accepts(responseType))
   }
 }

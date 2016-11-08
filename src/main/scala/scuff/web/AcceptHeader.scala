@@ -3,32 +3,36 @@ package scuff.web
 import scala.util.Try
 import scuff.MediaType
 
-final class AcceptHeader(contentTypes: Seq[MediaType]) {
-  require(contentTypes.nonEmpty, "Cannot have an empty Accept header")
-  private[this] val hasMatchAny = contentTypes.exists(mt => mt.primaryType == "*")
-  private def matchesTypes(specific: MediaType) = contentTypes.exists { mt =>
-    mt.primaryType == specific.primaryType && (mt.subType == "*" || mt.subType == specific.subType)
+final class AcceptHeader(acceptTypes: Seq[MediaType]) {
+  require(acceptTypes.nonEmpty, "Cannot have an empty Accept header")
+  private[this] val hasMatchAny = acceptTypes.exists(mt => mt.primaryType == "*")
+  private def matchesTypes(specific: MediaType) = {
+    val pruned = specific.pruned
+    acceptTypes.exists { mt =>
+      mt.primaryType == specific.primaryType &&
+        (mt.subType == "*" || mt.subType == specific.subType || mt.subType == pruned.subType)
+    }
   }
 
   def preference(): MediaType = preferenceOrdered.head
   def withParm(mt: MediaType, parmName: String): Seq[(MediaType, String)] = withParm(mt, parmName, identity)
   def withParm[P](matchType: MediaType, parmName: String, map: String => P): Seq[(MediaType, P)] =
-    contentTypes.iterator
+    acceptTypes.iterator
       .filter(_.matches(matchType))
       .flatMap { mt =>
         mt.parm(parmName).flatMap(p => Try(map(p)).toOption.map(mt -> _))
       }.toStream
   def preferenceOrdered(): Seq[MediaType] = {
-    if (contentTypes.size == 1) contentTypes else {
-      val weigthed = contentTypes.zipWithIndex.map {
+    if (acceptTypes.size == 1) acceptTypes else {
+      val weigthed = acceptTypes.zipWithIndex.map {
         case (mt, idx) => (mt.q, mt, idx)
       }
       weigthed.sorted(AcceptHeader.Ordering).map(_._2)
     }
   }
-  def matches(specific: String): Boolean = hasMatchAny || matches(MediaType(specific))
-  def matches(specific: MediaType): Boolean = hasMatchAny || matchesTypes(specific)
-  def matchesAny(specifics: Traversable[MediaType]): Boolean = hasMatchAny || specifics.exists(matchesTypes)
+  def accepts(specific: String): Boolean = hasMatchAny || accepts(MediaType(specific))
+  def accepts(specific: MediaType): Boolean = hasMatchAny || matchesTypes(specific)
+  def acceptsAny(specifics: Traversable[MediaType]): Boolean = hasMatchAny || specifics.exists(matchesTypes)
 }
 
 object AcceptHeader {
