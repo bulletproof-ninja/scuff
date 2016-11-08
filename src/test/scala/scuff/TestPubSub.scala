@@ -17,7 +17,7 @@ class TestPubSub {
     def onCompleted() = ()
   }
 
-  @Test
+  @Test @Ignore
   def exceptional {
     val countDown = new java.util.concurrent.CountDownLatch(6)
     val exceptions = collection.concurrent.TrieMap[Throwable, Unit]()
