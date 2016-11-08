@@ -1,30 +1,24 @@
 package scuff
 
 import javax.activation.MimeType
-import collection.JavaConverters._
 import scala.collection.AbstractIterator
 
 object MediaType {
   def apply(
     primaryType: String, subType: String,
-    parms: collection.Map[String, String]): MediaType = {
+    parms: (String, Any)*): MediaType = {
     val mt = parms.foldLeft(new MimeType(primaryType, subType)) {
       case (mt, parm) =>
-        mt.setParameter(parm._1, parm._2)
+        mt.setParameter(parm._1, parm._2.toString)
         mt
     }
     new MediaType(mt)
   }
   def apply(
     primaryType: String, subType: String,
-    parms: (String, String)*): MediaType = {
-    val mt = parms.foldLeft(new MimeType(primaryType, subType)) {
-      case (mt, parm) =>
-        mt.setParameter(parm._1, parm._2)
-        mt
-    }
-    new MediaType(mt)
-  }
+    parms: collection.Map[String, Any]): MediaType =
+    apply(primaryType, subType, parms.toSeq: _*)
+
   def apply(contentType: String): MediaType = new MediaType(new MimeType(contentType))
 }
 
