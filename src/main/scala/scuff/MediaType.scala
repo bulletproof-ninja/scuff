@@ -1,7 +1,9 @@
 package scuff
 
-import javax.activation.MimeType
 import scala.collection.AbstractIterator
+import scala.util.{ Failure, Try }
+
+import javax.activation.MimeType
 
 object MediaType {
   def apply(
@@ -66,8 +68,13 @@ class MediaType private (private val mimeType: MimeType) {
       def next = names.nextElement.toString
     }
   }
+
   def parm(name: String): Option[String] = Option(mimeType.getParameter(name))
 
+  def parm[T](name: String, map: String => T): Try[T] = mimeType.getParameter(name) match {
+    case null => Failure(new NoSuchElementException(s"""Parameter "$name" not found"""))
+    case str => Try(map(str))
+  }
   def addParm(name: String, value: Any): MediaType = {
     val newMT = new MimeType(mimeType.getPrimaryType, mimeType.getSubType)
     parmNames.foreach { name =>
