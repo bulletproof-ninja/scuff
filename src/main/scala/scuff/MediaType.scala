@@ -75,6 +75,11 @@ class MediaType private (private val mimeType: MimeType) {
     case null => Failure(new NoSuchElementException(s"""Parameter "$name" not found"""))
     case str => Try(map(str))
   }
+
+  lazy val parms: Map[String, String] = parmNames.foldLeft(Map.empty[String, String]) {
+    case (map, name) => map.updated(name, mimeType.getParameter(name))
+  }
+
   def addParm(name: String, value: Any): MediaType = {
     val newMT = new MimeType(mimeType.getPrimaryType, mimeType.getSubType)
     parmNames.foreach { name =>

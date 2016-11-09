@@ -12,10 +12,10 @@ class TestMediaType {
     assertEquals(None, mt2.parm("encoding"))
     val mt3 = mt.addParm("foo", 42)
     assertEquals("UTF-8", mt3.parm("encoding").get)
-    assertEquals(42, mt3.parm("foo").get.toInt)
+    assertEquals(42, mt3.parm("foo", _.toInt).get)
     val mt4 = mt3.removeParm("encoding")
     assertEquals(None, mt4.parm("encoding"))
-    assertEquals(42, mt4.parm("foo").get.toInt)
+    assertEquals(42, mt4.parm("foo", _.toInt).get)
   }
   @Test
   def `add parm` {
@@ -23,16 +23,16 @@ class TestMediaType {
     assertEquals(None, mt.parm("foo"))
     val mt2 = mt.addParm("foo", 42)
     assertEquals(None, mt.parm("foo"))
-    assertEquals(42, mt2.parm("foo").get.toInt)
+    assertEquals(42, mt2.parms("foo").toInt)
     val mt3 = mt2.addParm("foo", 43)
     assertEquals(None, mt.parm("foo"))
-    assertEquals(42, mt2.parm("foo").get.toInt)
-    assertEquals(43, mt3.parm("foo").get.toInt)
+    assertEquals(42, mt2.parms("foo").toInt)
+    assertEquals(43, mt3.parms("foo").toInt)
     val mt4 = mt3.addParm("bar", "Hello")
     assertEquals(None, mt.parm("bar"))
     assertEquals(None, mt2.parm("bar"))
     assertEquals(None, mt3.parm("bar"))
-    assertEquals("Hello", mt4.parm("bar").get)
+    assertEquals("Hello", mt4.parms("bar"))
   }
 
   @Test
