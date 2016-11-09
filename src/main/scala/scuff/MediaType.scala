@@ -84,11 +84,14 @@ class MediaType private (private val mimeType: MimeType) {
     new MediaType(newMT)
   }
   def removeParm(name: String): MediaType = {
-    val newMT = new MimeType(mimeType.getPrimaryType, mimeType.getSubType)
-    parmNames.filter(_ != name).foreach { name =>
-      newMT.setParameter(name, mimeType.getParameter(name))
+    if (mimeType.getParameters.isEmpty || mimeType.getParameter(name) == null) this
+    else {
+      val newMT = new MimeType(mimeType.getPrimaryType, mimeType.getSubType)
+      parmNames.filter(_ != name).foreach { name =>
+        newMT.setParameter(name, mimeType.getParameter(name))
+      }
+      new MediaType(newMT)
     }
-    new MediaType(newMT)
   }
 
   def q: Float = mimeType.getParameter("q") match {
