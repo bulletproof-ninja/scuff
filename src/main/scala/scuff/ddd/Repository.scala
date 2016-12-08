@@ -38,7 +38,7 @@ trait Repository[ID, T] {
     * @return New revision, or [[scuff.ddd.UnknownIdException]] if unknown id.
     */
   def update(
-    id: ID, revisionToUpdate: Option[Int], metadata: Map[String, String] = Map.empty)(
+    id: ID, revisionToUpdate: Option[Int] = None, metadata: Map[String, String] = Map.empty)(
       updateThunk: (T, Int) => Future[T]): Future[Int]
 
   /**
