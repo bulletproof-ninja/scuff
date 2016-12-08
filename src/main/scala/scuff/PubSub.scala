@@ -12,8 +12,7 @@ import scuff.concurrent.PartitionedExecutionContext
   * @param consumerCtx The execution context that consumers will
   * be notified on. Defaults to same thread as `publish` is called on.
   */
-class PubSub[F, MSG <% F](consumerCtx: ExecutionContext = Threads.PiggyBack)
-    extends Feed {
+class PubSub[F, MSG <% F](consumerCtx: ExecutionContext) extends Feed {
 
   type Selector = F
   type Consumer = StreamCallback[MSG]
@@ -61,7 +60,8 @@ class PubSub[F, MSG <% F](consumerCtx: ExecutionContext = Threads.PiggyBack)
   /**
     * Subscribe to events.
     */
-  def subscribe(filter: F => Boolean)(subscriber: Consumer): Subscription = {
+  def subscribe(
+      filter: F => Boolean)(subscriber: Consumer): Subscription = {
     val fs = new FilteringSubscriber(subscriber, filter, subscriber.hashCode)
     subscribers.add(fs)
     new Subscription {
