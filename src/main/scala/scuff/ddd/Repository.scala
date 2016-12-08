@@ -70,7 +70,7 @@ trait Repository[ID, T] {
     update(id, Some(revisionToUpdate))(updateThunk)
 
   /**
-    * Insert new entity. Must, by definition, be given revision `0`.
+    * Insert new entity. Will, by definition, be given revision `0`.
     * @param id The instance id
     * @param entity The instance to insert
     * @param metadata Optional metadata.
