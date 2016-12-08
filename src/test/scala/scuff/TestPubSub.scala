@@ -25,8 +25,8 @@ class TestPubSub {
         exceptions += t -> Unit
         countDown.countDown()
       }
-    val execCtx = PartitionedExecutionContext(numThreads = 2, failureReporter = errHandler)
-    val pubSub = new PubSub[Event, Event](execCtx)
+    val subCtx = PartitionedExecutionContext(numThreads = 2, failureReporter = errHandler)
+    val pubSub = new PubSub[Event, Event](subCtx)
     val s1 = pubSub.subscribe() { e: Event => throw new RuntimeException }
     val s2 = pubSub.subscribe()((e: Event) => countDown.countDown())
     val s3 = pubSub.subscribe() { e: Event => countDown.countDown() }
