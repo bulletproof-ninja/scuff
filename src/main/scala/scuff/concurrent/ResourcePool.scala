@@ -125,7 +125,7 @@ class ResourcePool[R](newResource: => R, minResources: Int = 0) {
         case poolList if minResources == 0 || poolList.size > minResources =>
           poolList.reverse match {
             case (lastUsed, pruned) :: remaining if lastUsed + timeoutMillis < now =>
-              if (pool.weakCompareAndSet(poolList, remaining.reverse)) {
+              if (pool.compareAndSet(poolList, remaining.reverse)) {
                 Some(pruned)
               } else {
                 pruneLast(now)
