@@ -6,7 +6,7 @@ case class ETag(tag: String)(weak: Boolean) {
   val headerValue = (if (weak) "W/\"" else "\"") concat tag concat "\""
   def addTo(res: HttpServletResponse) = res.addHeader(HttpHeaders.ETag, headerValue)
   def setTo(res: HttpServletResponse) = res.setHeader(HttpHeaders.ETag, headerValue)
-  override def toString = "%s: %s".format(HttpHeaders.ETag, headerValue)
+  override def toString = s"${HttpHeaders.ETag}: ${headerValue}"
 }
 
 object ETag {
