@@ -8,6 +8,9 @@ import scuff.concurrent.Threads
 import java.util.concurrent.Executor
 import language.implicitConversions
 import scala.concurrent.duration._
+import java.util.concurrent.ScheduledExecutorService
+import scala.util.control.NoStackTrace
+import scala.util.Failure
 
 package object concurrent {
   implicit def exeCtxToExecutor(ec: ExecutionContext): Executor = ec match {
@@ -56,6 +59,33 @@ package object concurrent {
         Await.result(f, maxWait)
       }
     def flatten[A](implicit mustBeFuture: Future[A] =:= T): Future[A] = f.asInstanceOf[Future[Future[A]]].flatMap(identity)(Threads.PiggyBack)
+    def withTimeout(timeout: FiniteDuration)(implicit scheduler: ScheduledExecutorService = Threads.DefaultScheduler): Future[T] = {
+        def fulfill(promise: Promise[T], value: Try[T]): Boolean = {
+          try {
+            promise.complete(value)
+            true
+          } catch {
+            case _: IllegalStateException => false
+          }
+        }
+      if (f.isCompleted) f
+      else {
+        val promise = Promise[T]
+        val cmd = new Runnable {
+          def run {
+            fulfill(promise, Failure(new TimeoutException(s"Timed out after $timeout") with NoStackTrace))
+          }
+        }
+        val timeoutFuture = scheduler.schedule(cmd, timeout.length, timeout.unit)
+        f.onComplete {
+          case result =>
+            if (fulfill(promise, result)) {
+              timeoutFuture.cancel(false)
+            }
+        }(Threads.PiggyBack)
+        promise.future
+      }
+    }
   }
 
   implicit class ScuffJavaFuture[T](private val f: java.util.concurrent.Future[T]) extends AnyVal {

@@ -1,15 +1,18 @@
 package scuff.concurrent
 
-import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, TimeUnit}
-
-import scala.concurrent.ExecutionContext
+import java.util.concurrent.{ CountDownLatch, LinkedBlockingQueue, TimeUnit }
+import concurrent.ExecutionContext
+import concurrent.duration._
 import scala.language.reflectiveCalls
-import scala.util.{Failure, Random, Success}
+import scala.util.{ Failure, Random, Success }
 
 import org.junit.Assert._
 import org.junit.Test
 
 import scuff.ScuffRandom
+import scala.concurrent.Future
+import java.util.concurrent.TimeoutException
+import scala.util.control.NonFatal
 
 class TestThreads extends Serializable {
   @Test
@@ -59,6 +62,21 @@ class TestThreads extends Serializable {
     }
     assertTrue(cdl.await(5, TimeUnit.SECONDS))
     assertEquals(futures.size, set.size)
+  }
+
+  @Test
+  def `future timeout` {
+    import ExecutionContext.Implicits.global
+
+    try {
+      val unit = Future(Thread sleep 111).withTimeout(100.millis).await
+      fail("Should not succeeed")
+      assertNotNull(unit)
+    } catch {
+      case NonFatal(th) => assertTrue(th.isInstanceOf[TimeoutException])
+    }
+    val v = Future { Thread sleep 99; 42 }.withTimeout(111.millis).await
+    assertEquals(42, v)
   }
 
 }
