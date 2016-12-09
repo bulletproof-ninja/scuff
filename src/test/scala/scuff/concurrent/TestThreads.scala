@@ -69,13 +69,13 @@ class TestThreads extends Serializable {
     import ExecutionContext.Implicits.global
 
     try {
-      val unit = Future(Thread sleep 111).withTimeout(100.millis).await
+      val unit = Future(Thread sleep 1111).withTimeout(55.millis).await
       fail("Should not succeeed")
       assertNotNull(unit)
     } catch {
       case NonFatal(th) => assertTrue(th.isInstanceOf[TimeoutException])
     }
-    val v = Future { Thread sleep 99; 42 }.withTimeout(111.millis).await
+    val v = Future { Thread sleep 55; 42 }.withTimeout(1111.millis).await
     assertEquals(42, v)
   }
 
