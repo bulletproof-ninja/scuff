@@ -77,6 +77,11 @@ bintray {
     }
 }
 
+tasks.withType(ScalaCompile) {
+    def args = System.properties.compilerArgs ?: "-feature -deprecation -explaintypes -unchecked -Xlint"
+    scalaCompileOptions.additionalParameters = args.split(" ").toList()
+}
+
 dependencies {
 
     compileOnly "org.scala-lang:scala-reflect:$vScala.+"
