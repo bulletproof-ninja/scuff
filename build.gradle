@@ -22,13 +22,13 @@ task wrapper(type: Wrapper) {
     gradleVersion = '3.2.1'
 }
 allprojects {
-	repositories {
-	    mavenCentral()
-	}
-	apply plugin: 'scala'
-	apply plugin: 'maven-publish'
+    repositories {
+        mavenCentral()
+    }
+    apply plugin: 'scala'
+    apply plugin: 'maven-publish'
     apply plugin: 'eclipse'
-	sourceCompatibility = 1.7
+    sourceCompatibility = 1.7
     if (vScala == '2.11') {
         targetCompatibility = 1.7
     } else {
