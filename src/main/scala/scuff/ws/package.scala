@@ -1,7 +1,5 @@
 package scuff
 
-import scuff.MediaType
-
 /**
   * Web service abstractions.
   */
