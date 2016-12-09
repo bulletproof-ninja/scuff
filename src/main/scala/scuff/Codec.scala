@@ -45,7 +45,7 @@ trait StreamingSerializer[T] extends Serializer[T] {
   }
 
   def decode(bytes: Array[Byte]) = decodeFrom(new io.ByteInputStream(bytes))
-  @inline protected final def asDataInput[T](in: InputStream)(handle: DataInput => T): T = in match {
+  @inline protected final def asDataInput[O](in: InputStream)(handle: DataInput => O): O = in match {
     case in: DataInput => handle(in)
     case _ => handle(new DataInputStream(in))
   }
@@ -58,7 +58,7 @@ trait StreamingSerializer[T] extends Serializer[T] {
         dout.flush()
     }
   }
-  @inline protected final def asObjectInput[T](in: InputStream)(handle: ObjectInput => T): T = in match {
+  @inline protected final def asObjectInput[O](in: InputStream)(handle: ObjectInput => O): O = in match {
     case in: ObjectInput => handle(in)
     case _ => handle(new ObjectInputStream(in))
   }
