@@ -38,8 +38,8 @@ object StreamPromise {
   }
 
   def apply[V](next: V => Unit): StreamPromise[V, Unit] = apply(())(next)
-  def apply[V, R](result: => R)(next: V => Unit) = new StreamPromise[V, R] {
+  def apply[V, R](lazyResult: => R)(next: V => Unit) = new StreamPromise[V, R] {
     def onNext(value: V) = next(value)
-    protected def result() = result
+    protected def result() = lazyResult
   }
 }
