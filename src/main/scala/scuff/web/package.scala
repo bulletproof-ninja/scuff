@@ -101,18 +101,8 @@ package object web {
         last != since
       }
     }
-    def IfMatch(etag: => ETag): Boolean = {
-      IfMatch match {
-        case None => false
-        case Some(reqETag) => reqETag == etag
-      }
-    }
-    def IfNoneMatch(etag: => ETag): Boolean = {
-      IfNoneMatch match {
-        case None => false
-        case Some(reqETag) => reqETag == etag
-      }
-    }
+    def IfMatch(matchTag: ETag): Boolean = IfMatch().exists(etag => etag.tag == "*" || etag == matchTag)
+    def IfNoneMatch(matchTag: ETag): Boolean = IfNoneMatch().exists(etag => etag.tag == "*" || etag == matchTag)
     def Referer(): Option[String] = req.getHeader(HttpHeaders.Referer).optional
     def userLocales: List[Locale] = req.getLocales().asScala.toList
     def userAgent: Option[String] = req.getHeader(HttpHeaders.UserAgent).optional

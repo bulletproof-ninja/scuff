@@ -1,6 +1,8 @@
 package scuff.web
 
+import scuff._
 import javax.servlet.http._
+import collection.JavaConverters._
 
 case class ETag(tag: String)(weak: Boolean) {
   val headerValue = (if (weak) "W/\"" else "\"") concat tag concat "\""
@@ -11,23 +13,24 @@ case class ETag(tag: String)(weak: Boolean) {
 
 object ETag {
 
-  private final val ETagExtractor = """^([wW]/)?(?:(\w+)|"(\w+)")$""".r.pattern
+  private final val ETagsExtractor = """([wW]\/)?"(\w+)"|(\*)""".r
 
-  def parse(fromHeader: String): ETag = {
-    val m = ETagExtractor.matcher(fromHeader)
-    require(m.matches(), s"Does not match expected ETag format: $fromHeader")
-    val weak = m.group(1) eq null
-    val value = m.group(3) match {
-      case null => m.group(2)
-      case g3 => g3
-    }
-    new ETag(value)(weak)
-  }
-  def getETag(header: String, req: HttpServletRequest): Option[ETag] = {
-    Option(req.getHeader(header)).map(parse)
+  def parse(fromHeader: String): List[ETag] = {
+    ETagsExtractor.findAllMatchIn(fromHeader).map { m =>
+      val weak = m.group(1) eq null
+      val value = m.group(3) match {
+        case null => m.group(2)
+        case all => all
+      }
+      new ETag(value)(weak)
+    }.toList
   }
 
-  def IfNoneMatch(req: HttpServletRequest): Option[ETag] = getETag(HttpHeaders.IfNoneMatch, req)
-  def IfMatch(req: HttpServletRequest): Option[ETag] = getETag(HttpHeaders.IfMatch, req)
+  private def getETags(header: String, req: HttpServletRequest): List[ETag] = {
+    req.getHeaders(header).asScala.toList.flatMap(parse)
+  }
+
+  def IfNoneMatch(req: HttpServletRequest): List[ETag] = getETags(HttpHeaders.IfNoneMatch, req)
+  def IfMatch(req: HttpServletRequest): List[ETag] = getETags(HttpHeaders.IfMatch, req)
 
 }
