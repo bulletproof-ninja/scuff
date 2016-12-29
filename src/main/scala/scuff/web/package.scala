@@ -8,6 +8,7 @@ import scala.language.implicitConversions
 
 import javax.servlet.{ ServletRequest, ServletResponse }
 import javax.servlet.http.{ HttpServletRequest, HttpServletResponse }
+import scala.util.{ Try, Success, Failure }
 
 package web {
   case class Resource(url: URL, lastModified: Long)
@@ -94,12 +95,10 @@ package object web {
       case Success(ims) => Some(ims)
     }
     def IfModifiedSince(lastModified: Long): Boolean = {
-      IfModifiedSince match {
-        case None => true
-        case Some(modSince) =>
-          val last = lastModified / 1000L
-          val since = modSince / 1000L
-          last != since
+      IfModifiedSince().forall { modSince =>
+        val last = lastModified / 1000L
+        val since = modSince / 1000L
+        last != since
       }
     }
     def IfMatch(etag: => ETag): Boolean = {
@@ -114,18 +113,9 @@ package object web {
         case Some(reqETag) => reqETag == etag
       }
     }
-    def Referer(): Option[String] = req.getHeader(HttpHeaders.Referer) match {
-      case "" => None
-      case r => Option(r)
-    }
-    def userLocales: List[Locale] = {
-      import collection.JavaConverters._
-      req.getLocales().asScala.toList
-    }
-    def userAgent: Option[String] = req.getHeader(HttpHeaders.UserAgent) match {
-      case "" => None
-      case ua => Option(ua)
-    }
+    def Referer(): Option[String] = req.getHeader(HttpHeaders.Referer).optional
+    def userLocales: List[Locale] = req.getLocales().asScala.toList
+    def userAgent: Option[String] = req.getHeader(HttpHeaders.UserAgent).optional
     def remoteAddr: InetAddress = InetAddress.getByName(req.getRemoteAddr)
     def servletPathInfo: String = {
       val pathInfo = req.getPathInfo match {
