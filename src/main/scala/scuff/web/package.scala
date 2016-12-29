@@ -89,9 +89,9 @@ package object web {
     def IfNoneMatch() = ETag.IfNoneMatch(req)
     def IfMatch() = ETag.IfMatch(req)
     def Accept() = AcceptHeader(req)
-    def IfModifiedSince() = req.getDateHeader(HttpHeaders.IfModifiedSince) match {
-      case -1 => None
-      case ims => Some(ims)
+    def IfModifiedSince() = Try(req.getDateHeader(HttpHeaders.IfModifiedSince)) match {
+      case Success(-1L) | Failure(_) => None
+      case Success(ims) => Some(ims)
     }
     def IfModifiedSince(lastModified: Long): Boolean = {
       IfModifiedSince match {
