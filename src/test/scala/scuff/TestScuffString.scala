@@ -12,6 +12,12 @@ class TestScuffString {
   }
 
   @Test
+  def `null string` {
+    val str: String = null
+    assertEquals(None, str.optional)
+  }
+
+  @Test
   def substringEq() {
     assertTrue("abcdefg".offsetStartsWith(0, "abc"))
     assertTrue("abcdefg".offsetStartsWith(1, "bcd"))
