@@ -23,7 +23,7 @@ class TestRepository {
 
   @Test
   def `insert success` {
-    withLatch(2) { latch =>
+    withLatch(5) { latch =>
       val repo = new MapRepository[Int, Customer]
       val hank = Customer("Hank", "12345")
       repo.insert(5, hank).foreach { rev =>
@@ -34,6 +34,18 @@ class TestRepository {
             assertEquals(0, rev)
             latch.countDown()
             Future successful customer
+        }.foreach { rev =>
+          assertEquals(1, rev)
+          latch.countDown()
+          repo.update(5, Map("hello"->"world")) {
+            case (customer, rev) =>
+              assertEquals(1, rev)
+              latch.countDown()
+              Future successful customer.copy(name = customer.name.toUpperCase)
+          }.foreach { rev =>
+            assertEquals(2, rev)
+            latch.countDown()
+          }
         }
       }
     }

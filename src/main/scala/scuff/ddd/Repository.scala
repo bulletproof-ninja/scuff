@@ -70,6 +70,19 @@ trait Repository[ID, T] {
     update(id, Some(revisionToUpdate))(updateThunk)
 
   /**
+    * Update entity.
+    * @param id The instance id
+    * @param metadata Metadata.
+    * @param updateThunk The code block responsible for updating.
+    * Will receive the instance and current revision.
+    * @return New revision, or [[scuff.ddd.UnknownIdException]] if unknown id.
+    */
+  final def update(
+    id: ID, metadata: Map[String, String])(
+      updateThunk: (T, Int) => Future[T]): Future[Int] =
+    update(id, None, metadata)(updateThunk)
+
+  /**
     * Insert new entity. Will, by definition, be given revision `0`.
     * @param id The instance id
     * @param entity The instance to insert
