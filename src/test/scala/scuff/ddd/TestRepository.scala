@@ -16,7 +16,7 @@ class TestRepository {
   private def withLatch(count: Int)(thunk: CountDownLatch => Unit) {
     val latch = new CountDownLatch(count)
     thunk(latch)
-    latch.await(5, TimeUnit.SECONDS)
+    assertTrue(latch.await(5, TimeUnit.SECONDS))
   }
 
   case class Customer(name: String, postCode: String)
