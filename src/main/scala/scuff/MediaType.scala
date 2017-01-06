@@ -4,6 +4,8 @@ import scala.collection.AbstractIterator
 import scala.util.{ Failure, Try }
 
 import javax.activation.MimeType
+import scala.reflect.{ ClassTag, classTag }
+import scala.util.control.NonFatal
 
 object MediaType {
   def apply(
@@ -71,9 +73,13 @@ class MediaType private (private val mimeType: MimeType) {
 
   def parm(name: String): Option[String] = Option(mimeType.getParameter(name))
 
-  def parm[T](name: String, map: String => T): Try[T] = mimeType.getParameter(name) match {
+  def parm[T: ClassTag](name: String, map: String => T): Try[T] = mimeType.getParameter(name) match {
     case null => Failure(new NoSuchElementException(s"""Parameter "$name" not found"""))
-    case str => Try(map(str))
+    case str => Try(map(str)).recover {
+      case NonFatal(th) =>
+        throw new IllegalArgumentException(
+            s"""Parameter "$name" not of type ${classTag[T].runtimeClass.getSimpleName}: $str""", th)
+    }
   }
 
   lazy val parms: Map[String, String] = parmNames.foldLeft(Map.empty[String, String]) {
