@@ -43,7 +43,7 @@ object MediaType {
 }
 
 /** Immutable media type. */
-class MediaType private (private val mimeType: MimeType) {
+class MediaType private (private val mimeType: MimeType) extends Serializable {
 
   case class TreeType private[MediaType] (prefix: Option[String], typeName: String, suffixType: String) {
     def pruned: MediaType = {
