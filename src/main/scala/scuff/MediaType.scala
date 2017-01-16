@@ -78,7 +78,7 @@ class MediaType private (private val mimeType: MimeType) extends Serializable {
     case str => Try(map(str)).recover {
       case NonFatal(th) =>
         throw new IllegalArgumentException(
-            s"""Parameter "$name" not of type ${classTag[T].runtimeClass.getSimpleName}: $str""", th)
+          s"""Parameter "$name" not of type ${classTag[T].runtimeClass.getSimpleName}: $str""", th)
     }
   }
 
