@@ -69,9 +69,9 @@ publishing {
 }
 
 bintray {
-    user = System.properties.bintrayUser ?: ""
-    key = System.properties.bintrayApiKey ?: ""
-    dryRun = (user == "" || key == "")
+    user = System.properties.bintrayUser ?: "dryrun"
+    key = System.properties.bintrayKey ?: "dryrun"
+    dryRun = (user == "dryrun" || key == "dryrun")
     publish = !dryRun
     publications = ['maven']
     pkg {
