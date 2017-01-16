@@ -44,10 +44,12 @@ jar {
 }
 
 task sourceJar(type: Jar) {
+    baseName = "scuff_$vScala"
     classifier "sources"
     from sourceSets.main.allScala
 }
 task docsJar(type: Jar, dependsOn: scaladoc) {
+    baseName = "scuff_$vScala"
     classifier "docs"
     from scaladoc.destinationDir
 }
