@@ -33,11 +33,11 @@ class Surgeon[T <: AnyRef](patient: T) {
     * @param name Field name
     * @return Field value
     */
-  def get[T](field: Symbol): T = fields(field).get(patient).asInstanceOf[T]
+  def get[F](field: Symbol): F = fields(field).get(patient).asInstanceOf[F]
 
-  def getAll[T: ClassTag]: Map[Symbol, T] = getAll[T](false)
-  def getAll[T: ClassTag](exactClass: Boolean): Map[Symbol, T] = {
-    val wantType = classTag[T].runtimeClass
+  def getAll[F: ClassTag]: Map[Symbol, F] = getAll[F](false)
+  def getAll[F: ClassTag](exactClass: Boolean): Map[Symbol, F] = {
+    val wantType = classTag[F].runtimeClass
     val filtered = fields.filter {
       case (name, field) =>
         if (exactClass) {
@@ -50,7 +50,7 @@ class Surgeon[T <: AnyRef](patient: T) {
     }
     filtered.map {
       case (name, field) =>
-        name -> field.get(patient).asInstanceOf[T]
+        name -> field.get(patient).asInstanceOf[F]
     }
   }
 }

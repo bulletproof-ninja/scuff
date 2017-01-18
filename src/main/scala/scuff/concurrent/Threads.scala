@@ -33,8 +33,8 @@ object Threads {
   def javaFutureConverter[T] = _javaFutureConverter.asInstanceOf[JavaFutureConverter[T]]
   class JavaFutureConverter[T](sleepMs: Long = 1, failureReporter: Throwable => Unit = printStackTrace)
       extends (java.util.concurrent.Future[T] => Future[T]) {
-    private type QueueItem[T] = (Promise[T], java.util.concurrent.Future[T])
-    private[this] val queue = new collection.mutable.Queue[QueueItem[T]]
+    private type QueueItem = (Promise[T], java.util.concurrent.Future[T])
+    private[this] val queue = new collection.mutable.Queue[QueueItem]
     private[Threads] val thread = new Thread("scuff.Threads.JavaFutureConverter") {
       this setUncaughtExceptionHandler new Thread.UncaughtExceptionHandler {
         def uncaughtException(t: Thread, e: Throwable) {
