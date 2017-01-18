@@ -126,9 +126,8 @@ object SlidingWindow {
       protected type M = java.util.TreeMap[EpochMillis, V]
       protected val map = new M
       def querySince(ts: EpochMillis)(callback: StreamCallback[(EpochMillis, V)]) {
-        import collection.JavaConversions._
         map.headMap(ts).clear()
-        map.entrySet().foreach(e => callback.onNext(e.getKey -> e.getValue))
+        map.entrySet.iterator.asScala.foreach(e => callback.onNext(e.getKey -> e.getValue))
         callback.onCompleted()
       }
     }
