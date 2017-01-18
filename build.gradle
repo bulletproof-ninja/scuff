@@ -65,6 +65,7 @@ allprojects {
         compile "javax.mail:mail:$vMailApi"
         compile "io.fastjson:boon:$vBoon"
 
+        testCompile "org.scala-lang:scala-reflect:$vScalaFull"
         testCompile "junit:junit:$vJUnit"
         testCompile "org.mockito:mockito-all:$vMockito"
         testCompile "javax.servlet:javax.servlet-api:$vServletApi"
