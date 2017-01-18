@@ -15,8 +15,9 @@ import scala.util.Failure
 package object concurrent {
   implicit def exeCtxToExecutor(ec: ExecutionContext): Executor = ec match {
     case exe: Executor => exe
-    case _ => new Executor {
+    case _ => new Executor with ExecutionContext {
       def execute(runnable: Runnable): Unit = ec.execute(runnable)
+      def reportFailure(th: Throwable): Unit = ec.reportFailure(th)
     }
   }
   implicit class ScuffExecutor(private val ec: Executor) extends AnyVal {
