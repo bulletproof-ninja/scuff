@@ -145,7 +145,7 @@ object SlidingWindow {
           if (ts > entry.getKey) {
             iter.remove()
           } else {
-            callback.onNext(entry.getKey, entry.getValue)
+            callback.onNext(entry.getKey -> entry.getValue)
           }
         }
         callback.onCompleted()
