@@ -1,18 +1,6 @@
 plugins {
-    id "com.jfrog.bintray" version '1.5'
+    id "com.jfrog.bintray" version '1.7.3'
 }
-
-version = "0.1.5-SNAPSHOT"
-
-def bintrayVersion = {
-    if (version.endsWith('-SNAPSHOT')) {
-        java.text.SimpleDateFormat format = new java.text.SimpleDateFormat('yyMMddHHmm')
-        format.setCalendar(Calendar.getInstance(TimeZone.getTimeZone('UTC')))
-        return version.replace('SNAPSHOT', "b" + format.format(new Date()))
-    } else {
-        return version
-    }
-}()
 
 ext {
     vScala = System.properties.scalaVersion ?: '2.11'
@@ -21,11 +9,37 @@ ext {
     vMailApi = '1.4.7'
     vMockito = '1.10.19'
     vJUnit = '4.12'
+    vScalaFull = [
+        '2.11': '2.11.8',
+        '2.12': '2.12.1'
+    ]
+}
+
+tasks.withType(ScalaCompile) {
+    def args = System.properties.compilerArgs ?: "-feature -deprecation -explaintypes -unchecked -Xlint"
+    scalaCompileOptions.additionalParameters = args.split(" ").toList()
+}
+tasks.withType(Jar) {
+    baseName = "${project.name}_$vScala"
+}
+
+if (version == '') {
+    version = 'SNAPSHOT'
+}
+if (version == 'SNAPSHOT') {
+    version = tsVersion(version)
+}
+
+def tsVersion(version) {
+    java.text.SimpleDateFormat tsFmt = new java.text.SimpleDateFormat('yyMMddHHmm')
+    tsFmt.setCalendar(Calendar.getInstance(TimeZone.getTimeZone('UTC')))
+    return "${version}-b${tsFmt.format(new Date())}"
 }
 
 task wrapper(type: Wrapper) {
     gradleVersion = '3.3'
 }
+
 allprojects {
     repositories {
         mavenCentral()
@@ -33,77 +47,65 @@ allprojects {
     apply plugin: 'scala'
     apply plugin: 'maven-publish'
     apply plugin: 'eclipse'
+
     sourceCompatibility = 1.7
     if (vScala == '2.11') {
         targetCompatibility = 1.7
     } else {
         targetCompatibility = 1.8
     }
-}
 
-jar {
-    baseName = "scuff_$vScala"
-    manifest {
-        attributes "Implementation-Title": "scuff", "Implementation-Version": version
+    dependencies {
+
+        compileOnly "org.scala-lang:scala-reflect:${vScalaFull[vScala]}"
+        compileOnly "javax.servlet:javax.servlet-api:$vServletApi"
+
+        compile "javax.mail:mail:$vMailApi"
+        compile "io.fastjson:boon:$vBoon"
+
+        testCompile "junit:junit:$vJUnit"
+        testCompile "org.mockito:mockito-all:$vMockito"
+        testCompile "javax.servlet:javax.servlet-api:$vServletApi"
     }
-}
 
-task sourceJar(type: Jar) {
-    baseName = "scuff_$vScala"
-    classifier "sources"
-    from sourceSets.main.allScala
-}
-task docsJar(type: Jar, dependsOn: scaladoc) {
-    baseName = "scuff_$vScala"
-    classifier "docs"
-    from scaladoc.destinationDir
-}
-
-publishing {
-    publications {
-        maven(MavenPublication) {
-            groupId 'nilskp'
-            artifactId jar.baseName
-            version bintrayVersion
-
-            from components.java
-            artifact sourceJar
-            artifact docsJar
+    jar {
+        manifest {
+            attributes "Implementation-Title": project.name, "Implementation-Version": version
         }
     }
-}
 
-bintray {
-    user = System.properties.bintrayUser ?: "dryrun"
-    key = System.properties.bintrayKey ?: "dryrun"
-    dryRun = (user == "dryrun" || key == "dryrun")
-    publish = !dryRun
-    publications = ['maven']
-    pkg {
-        repo = "maven"
-        name = "Scuff"
-        version {
-            name = bintrayVersion
+    task sourceJar(type: Jar) {
+        classifier "sources"
+        from project.sourceSets.main.allScala
+    }
+    task docsJar(type: Jar, dependsOn: scaladoc) {
+        classifier "docs"
+        from project.scaladoc.destinationDir
+    }
+
+    publishing {
+        publications {
+            maven(MavenPublication) {
+                groupId 'nilskp'
+                artifactId "${project.name}_$vScala"
+
+                from components.java
+                artifact sourceJar
+                artifact docsJar
+            }
         }
     }
+
+    bintray {
+        user = System.properties.bintrayUser ?: "dryrun"
+        key = System.properties.bintrayKey ?: "dryrun"
+        dryRun = (user == "dryrun" || key == "dryrun" || version.startsWith('SNAPSHOT'))
+        publish = !dryRun
+        publications = ['maven']
+        pkg {
+            repo = "maven"
+            name = "Scuff"
+        }
+    }
+
 }
-
-tasks.withType(ScalaCompile) {
-    def args = System.properties.compilerArgs ?: "-feature -deprecation -explaintypes -unchecked -Xlint"
-    scalaCompileOptions.additionalParameters = args.split(" ").toList()
-}
-
-dependencies {
-
-    compileOnly "org.scala-lang:scala-reflect:$vScala.+"
-    compileOnly "javax.servlet:javax.servlet-api:$vServletApi"
-
-    compile "javax.mail:mail:$vMailApi"
-    compile "io.fastjson:boon:$vBoon"
-
-    testCompile "junit:junit:$vJUnit"
-    testCompile "org.mockito:mockito-all:$vMockito"
-    testCompile "org.scala-lang:scala-reflect:$vScala.+"
-    testCompile "javax.servlet:javax.servlet-api:$vServletApi"
-}
-
