@@ -16,6 +16,11 @@ def bintrayVersion = {
 
 ext {
     vScala = System.properties.scalaVersion ?: '2.11'
+    vBoon = '0.34'
+    vServletApi = '3.0.1'
+    vMailApi = '1.4.7'
+    vMockito = '1.10.19'
+    vJUnit = '4.12'
 }
 
 task wrapper(type: Wrapper) {
