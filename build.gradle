@@ -3,16 +3,18 @@ plugins {
 }
 
 ext {
+    getScalaFull = [
+        '2.11': '2.11.8',
+        '2.12': '2.12.1'
+    ]
+
     vScala = System.properties.scalaVersion ?: '2.11'
+    vScalaFull = getScalaFull[vScala]
     vBoon = '0.34'
     vServletApi = '3.0.1'
     vMailApi = '1.4.7'
     vMockito = '1.10.19'
     vJUnit = '4.12'
-    vScalaFull = [
-        '2.11': '2.11.8',
-        '2.12': '2.12.1'
-    ]
 }
 
 tasks.withType(ScalaCompile) {
@@ -57,7 +59,7 @@ allprojects {
 
     dependencies {
 
-        compileOnly "org.scala-lang:scala-reflect:${vScalaFull[vScala]}"
+        compileOnly "org.scala-lang:scala-reflect:$vScalaFull"
         compileOnly "javax.servlet:javax.servlet-api:$vServletApi"
 
         compile "javax.mail:mail:$vMailApi"
