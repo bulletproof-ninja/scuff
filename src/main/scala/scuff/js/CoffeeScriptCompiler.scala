@@ -27,7 +27,7 @@ object CoffeeScriptCompiler {
     case object ASM extends Use("\"use asm\";\n")
   }
 
-  case class Config(version: Version = Version.Original, options: Map[Symbol, Any] = Map.empty, newEngine: () => ScriptEngine = newJavascriptEngine, useDirective: Use = null, compiler: () => Reader = () => null)
+  case class Config(version: Version = Version.Original, options: Map[Symbol, Any] = Map.empty, newEngine: () => ScriptEngine = newJavascriptEngine _, useDirective: Use = null, compiler: () => Reader = () => null)
   private val coffeeScriptCodeVarName = "coffeeScriptCode"
 
 }
@@ -73,4 +73,3 @@ class CoffeeScriptCompiler(config: CoffeeScriptCompiler.Config = new CoffeeScrip
   }
 
 }
-
