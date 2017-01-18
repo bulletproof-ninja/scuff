@@ -6,7 +6,6 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import SlidingWindow._
 import scala.concurrent.ExecutionContext
-import java.util.concurrent.atomic.AtomicReference
 import scala.util.control.NonFatal
 import scala.util._
 import collection.JavaConverters._

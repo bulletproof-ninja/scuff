@@ -1,6 +1,14 @@
 package scuff
 
-import java.util.{ Locale, ResourceBundle, PropertyResourceBundle, MissingResourceException, MissingFormatArgumentException, Currency, TimeZone }
+import java.util.{
+  Locale,
+  ResourceBundle,
+  PropertyResourceBundle,
+  MissingResourceException,
+  MissingFormatArgumentException,
+  Currency,
+  TimeZone
+}
 import java.text.MessageFormat
 import java.nio.charset.Charset
 import scala.util.Try

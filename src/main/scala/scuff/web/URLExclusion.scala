@@ -1,7 +1,6 @@
 package scuff.web
 
 import javax.servlet._
-import javax.servlet.http._
 import scala.util.matching._
 
 /**

@@ -1,16 +1,13 @@
 package scuff
 
-import scala.concurrent._
-import java.util.concurrent.Callable
-import scala.util.Try
-import scala.concurrent.duration.Duration
-import scuff.concurrent.Threads
-import java.util.concurrent.Executor
-import language.implicitConversions
-import scala.concurrent.duration._
-import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.{ Callable, Executor, ScheduledExecutorService }
+
+import scala.concurrent.{ Await, ExecutionContext, Future, Promise, TimeoutException }
+import scala.concurrent.duration.{ DurationInt, FiniteDuration }
+import scala.util.{ Failure, Try }
 import scala.util.control.NoStackTrace
-import scala.util.Failure
+
+import language.implicitConversions
 
 package object concurrent {
   implicit def exeCtxToExecutor(ec: ExecutionContext): Executor = ec match {

@@ -1,7 +1,6 @@
 package scuff.concurrent
 
 import scala.collection.immutable.Map
-import scala.language.{ existentials, implicitConversions }
 
 /**
   * Lock-free concurrent Map.

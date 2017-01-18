@@ -1,11 +1,10 @@
 package scuff.ddd.util
 
-import scala.collection.immutable.{ Seq => ISeq }
 import scala.collection.concurrent.{ Map => CMap, TrieMap }
 import scala.concurrent.{ ExecutionContext, Future }
-import scala.util.control.NonFatal
-import scuff.ddd._
-import scuff.concurrent._
+
+import scuff.concurrent.{ ScuffScalaFuture, Threads }
+import scuff.ddd.{ DuplicateIdException, Repository, UnknownIdException }
 
 class MapRepository[K, V <: AnyRef](
   map: CMap[K, (V, Int)] = new TrieMap[K, (V, Int)])(implicit ec: ExecutionContext = Threads.Blocking)

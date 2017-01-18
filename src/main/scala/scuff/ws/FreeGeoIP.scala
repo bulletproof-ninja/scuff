@@ -2,8 +2,6 @@ package scuff.ws
 
 import java.net.URL
 
-import scala.util.Try
-
 import scuff.geo
 
 class FreeGeoIP(urlPrefix: String, parser: FreeGeoIP.Parser) {
@@ -35,8 +33,7 @@ object FreeGeoIP {
 
     final val ReservedCountryCode = "RD"
 
-    import collection.JavaConverters._
-    import java.util.{ Map => jMap, List => jList }
+    import java.util.{ Map => jMap }
 
     def format = "json"
 

@@ -1,8 +1,8 @@
 package scuff.web
 
-import scuff._
-import javax.servlet.http._
-import collection.JavaConverters._
+import scala.collection.JavaConverters._
+
+import javax.servlet.http.{ HttpServletRequest, HttpServletResponse }
 
 case class ETag(tag: String)(weak: Boolean) {
   val headerValue = (if (weak) "W/\"" else "\"") concat tag concat "\""

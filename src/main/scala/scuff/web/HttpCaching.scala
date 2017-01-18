@@ -39,7 +39,6 @@ trait HttpCaching extends HttpServlet {
   private case object NotOkException extends RuntimeException with NoStackTrace
 
   private def fetchResource(res: HttpServletResponse, buildResponse: HttpServletResponse => Unit): Cached = {
-    import collection.JavaConverters._
     val proxy = new HttpServletResponseProxy(res)
     buildResponse(proxy)
     if (proxy.status != SC_OK) {

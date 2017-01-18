@@ -1,20 +1,12 @@
 package scuff.concurrent
 
+import java.util.concurrent.{ CancellationException, CountDownLatch, Delayed, Executor, ScheduledExecutorService, ScheduledFuture, TimeUnit, TimeoutException }
 import java.util.concurrent.atomic.AtomicReference
+
 import scala.annotation.tailrec
-import scala.util.Try
-import scala.concurrent.duration.Duration
-import java.util.concurrent.Executor
-import java.util.concurrent.ScheduledExecutorService
-import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.ExecutionContext
-import java.util.concurrent.ScheduledFuture
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.CancellationException
-import java.util.concurrent.TimeoutException
-import java.util.concurrent.Delayed
+import scala.concurrent.duration.FiniteDuration
+import scala.util.Try
 
 /**
   * Unbounded lock-free resource pool.

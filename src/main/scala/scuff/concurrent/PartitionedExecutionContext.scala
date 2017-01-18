@@ -1,11 +1,9 @@
 package scuff.concurrent
 
-import math.abs
-import java.util.concurrent.{ Executor, Executors }
-import scala.concurrent._
-import scala.concurrent.duration._
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{ Executor, ExecutorService, TimeUnit }
+
+import scala.concurrent.{ ExecutionContextExecutor, Future }
+import scala.math.abs
 import scala.util.control.NonFatal
 
 /**

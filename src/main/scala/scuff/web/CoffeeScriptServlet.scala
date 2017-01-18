@@ -5,7 +5,6 @@ import http._
 import HttpHeaders._
 import scuff.js._
 import java.net.URL
-import CoffeeScriptCompiler._
 import scuff.concurrent.ResourcePool
 import scala.util.Try
 import scala.concurrent.duration._
@@ -30,8 +29,6 @@ private object CoffeeScriptServlet {
   * Use with [[scuff.web.Ice]] for Iced CoffeeScript.
   */
 abstract class CoffeeScriptServlet extends HttpServlet {
-  import CoffeeScriptCompiler._
-  import CoffeeScriptServlet._
 
   private lazy val ScriptEngineMgr = new ScriptEngineManager
 

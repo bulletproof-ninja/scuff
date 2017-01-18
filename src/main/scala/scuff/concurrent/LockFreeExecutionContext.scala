@@ -1,17 +1,9 @@
 package scuff.concurrent
 
-import java.util.concurrent.{ TimeUnit, ExecutorService, Future => JFuture, Callable, FutureTask, ThreadFactory, ConcurrentLinkedQueue }
-import java.util.concurrent.atomic.AtomicReference
-import java.util.{ List => JList, Collection }
-import scala.concurrent.{ ExecutionContextExecutorService }
+import java.util.concurrent.{ ConcurrentLinkedQueue, CountDownLatch, RejectedExecutionException, ThreadFactory }
+
+import scala.concurrent.{ ExecutionContextExecutor, Future }
 import scala.util.control.NonFatal
-import java.util.concurrent.locks.ReentrantLock
-import java.util.concurrent.RejectedExecutionException
-import java.util.ArrayList
-import collection.JavaConverters._
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContextExecutor
-import java.util.concurrent.CountDownLatch
 
 object LockFreeExecutionContext {
   /**

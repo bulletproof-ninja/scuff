@@ -1,13 +1,11 @@
 package scuff
 
-import java.io._
+import java.io.{ BufferedReader, InputStream, InputStreamReader, Reader, StringReader }
 import java.nio.charset.Charset
-import language.implicitConversions
-import javax.script.ScriptContext
-import javax.script.ScriptEngineFactory
+
 import javax.script.ScriptEngineManager
-import javax.script.ScriptEngine
-import javax.script.Compilable
+
+import scala.language.implicitConversions
 
 package object js {
 

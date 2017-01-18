@@ -1,14 +1,15 @@
 package scuff.web
 
-import java.io._
-import javax.servlet._, http._
-import collection._
-import JavaConverters._
-import beans.BeanProperty
-import HttpServletResponse._
+import java.io.{ ByteArrayOutputStream, OutputStreamWriter, PrintWriter }
 import java.util.Locale
-import scala.util._
-import language.implicitConversions
+
+import scala.collection.{ Seq, mutable }
+import scala.collection.JavaConverters._
+import scala.util.Try
+
+import javax.servlet.ServletOutputStream
+import javax.servlet.http.{ Cookie, HttpServletResponse }
+import javax.servlet.http.HttpServletResponse.SC_OK
 
 class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServletResponse {
 

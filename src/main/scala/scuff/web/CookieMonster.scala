@@ -3,7 +3,6 @@ package scuff.web
 import javax.servlet._
 import scuff._
 import scala.concurrent.duration._
-import language.implicitConversions
 import scala.util.Try
 
 private object CookieMonster {

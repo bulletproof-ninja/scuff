@@ -1,16 +1,14 @@
 package scuff.reflect
 
-import scala.annotation._
-import java.lang.reflect._
-import scuff.concurrent.LockFreeConcurrentMap
-import scala.reflect.{ClassTag, classTag}
+import java.lang.reflect.Field
+
+import scala.reflect.{ ClassTag, classTag }
 
 /**
   * Helper class to operate on the internals
   * of an arbitrary object.
   * Useful for, among other things, setting
   * final fields on deserialization.
-  * @author Nils Kilden-Pedersen
   */
 class Surgeon[T <: AnyRef](patient: T) {
 

@@ -1,8 +1,6 @@
 package scuff.web
 
 import javax.servlet._, http._
-import java.io._
-import java.net._
 
 /**
  * Supports the following wildcard resource syntax:
@@ -15,7 +13,7 @@ abstract class ResourceConcatFilter extends Filter {
   private final val DefaultNameSplitter = """[\+\|\,\&]""".r
 
   /**
-   * Must match and capture two groups: 
+   * Must match and capture two groups:
    * 1) The resource names, which will be split by `NameSplitter`
    * 2) The common file extension
    */

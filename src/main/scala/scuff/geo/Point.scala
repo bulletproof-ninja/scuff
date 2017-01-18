@@ -1,8 +1,5 @@
 package scuff.geo
 
-import scala.math._
-import scala.util.Try
-
 /**
  * WGS-84 geographical point.
  * @param latitude The decimal latitude

@@ -1,6 +1,5 @@
 package scuff
 
-import scala.collection.immutable.Range.Partial
 import scala.collection.immutable.NumericRange
 import java.lang.{ Double => JD, Float => JF }
 

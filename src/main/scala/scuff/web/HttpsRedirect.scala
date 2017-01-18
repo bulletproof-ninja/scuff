@@ -1,8 +1,6 @@
 package scuff.web
 
 import javax.servlet.http._
-import scuff.web._
-import collection.JavaConversions._
 
 /**
  * Add to servlets to ensure they are
@@ -12,7 +10,7 @@ trait HttpsRedirect extends HttpServlet {
   /** Should return client protocol in lower case, no version information. */
   protected def getProtocol(req: HttpServletRequest): String = req.getClientScheme
 
-  /** Must be `true` to enable this trait. */
+  /** Return `true` to enable redirect for this request. */
   protected def isHttpsRedirectEnabled(req: HttpServletRequest): Boolean
 
   override def service(req: HttpServletRequest, res: HttpServletResponse) {

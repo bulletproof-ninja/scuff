@@ -1,12 +1,7 @@
 package scuff.ddd
 
-import scala.collection.immutable.{ Seq, Map }
-import scala.concurrent.{ ExecutionContext, Future }
-import scala.language.implicitConversions
-import scala.util.{ Failure, Success, Try }
-import scala.util.control.NonFatal
-import scuff.concurrent.Threads.PiggyBack
-import scuff.concurrent.Threads
+import scala.collection.immutable.Map
+import scala.concurrent.Future
 
 /**
   * Entity repository.

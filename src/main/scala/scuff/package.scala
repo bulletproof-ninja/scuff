@@ -1,15 +1,10 @@
-
-import scala.Range
 import scala.collection.immutable.NumericRange
+import util.{ Random }
+import scala.math._
 import scala.concurrent.Future
-import scala.language.implicitConversions
-import scala.math.{ BigDecimal, BigInt, Numeric, min }
-import scala.util.{ Failure, Random, Success, Try }
-
-import scuff.{ Cache, Codec, Expiry, Numbers }
+import scala.util.{ Failure, Success, Try }
 
 package object scuff {
-  import scala.math._
 
   private[this] val UTF8 = java.nio.charset.Charset.forName("UTF-8")
 
@@ -62,8 +57,6 @@ package object scuff {
 
   }
 
-  import scala.util.{ Try, Success, Failure }
-  import scala.concurrent.Future
   implicit class ScuffTry[T](private val t: Try[T]) extends AnyVal {
     def toFuture: Future[T] = t match {
       case Success(res) => Future.successful(res)

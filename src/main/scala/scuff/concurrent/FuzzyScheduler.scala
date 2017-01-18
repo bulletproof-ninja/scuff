@@ -2,7 +2,6 @@ package scuff.concurrent
 
 import java.util.concurrent._
 import scala.concurrent.duration._
-import javax.servlet._
 import scala.concurrent.ExecutionContext
 
 object FuzzyScheduler {

@@ -1,11 +1,10 @@
 package scuff
 
 import scala.concurrent.ExecutionContext
-import scala.util.control.NonFatal
-import scuff.concurrent.StreamCallback
-import scuff.concurrent.Threads
 import scala.util.Try
-import scuff.concurrent.PartitionedExecutionContext
+import scala.util.control.NonFatal
+
+import scuff.concurrent.StreamCallback
 
 /**
   * Simple publish/subscribe mechanism.
