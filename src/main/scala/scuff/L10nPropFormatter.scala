@@ -4,6 +4,7 @@ import java.util.{ Locale, ResourceBundle, PropertyResourceBundle, MissingResour
 import java.text.MessageFormat
 import java.nio.charset.Charset
 import scala.util.Try
+import collection.JavaConverters._
 
 /**
   * Class that combines a `.properties` file with a formatter.
@@ -74,7 +75,7 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
         }
       }
     val bundles = L10nPropFormatter.toResourceBundles(baseName, desiredLocales, control)
-    val allKeys = bundles.flatMap(e => collection.JavaConversions.enumerationAsScalaIterator(e.getKeys).toSeq).toSet
+    val allKeys = bundles.flatMap(e => e.getKeys.asScala).toSet
     allKeys.foldLeft(Map.empty[String, Message]) {
       case (map, key) => findText(key, bundles).map {
         case (fmt, lang) => map.updated(key, new Message(fmt, lang, key))
