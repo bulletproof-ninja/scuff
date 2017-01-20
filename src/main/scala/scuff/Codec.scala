@@ -6,7 +6,7 @@ import scala.reflect.ClassTag
 /**
   * Codec. Combined encoder/decoder interface.
   */
-trait Codec[A, B] {
+trait Codec[A, B] extends Serializable {
   def encode(a: A): B
   def decode(b: B): A
 }
