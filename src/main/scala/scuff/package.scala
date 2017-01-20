@@ -122,8 +122,8 @@ package object scuff {
     }
   }
 
-  implicit class ScuffTraversable[T <: Traversable[_]](private val t: T) extends AnyVal {
-    def optional: Option[T] = if (t.isEmpty) None else Some(t)
+  implicit class ScuffTraversable[Trav <: Traversable[_]](private val trav: Trav) extends AnyVal {
+    def optional: Option[Trav] = if (trav.isEmpty) None else Some(trav)
   }
 
   implicit class ScuffBooleanFunction[I](private val f: I => Boolean) extends AnyVal {
