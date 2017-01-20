@@ -7,7 +7,20 @@ class TestScuffTraversable {
   @Test
   def `optional list` {
     assertEquals(None, Nil.optional)
+    assertEquals(None, List.empty[Int].optional)
     assertEquals(Some(List(1)), List(1).optional)
-    assertEquals(Some(List(1,2,3)), List(1,2,3).optional)
+    assertEquals(Some(List(1, 2, 3)), List(1, 2, 3).optional)
   }
+
+  @Test
+  def `last element` {
+      def iter = (1 to 1000).iterator
+    assertEquals(1000, iter.last)
+    assertEquals(Some(1000), iter.lastOption)
+    assertEquals(None, Nil.iterator.lastOption)
+    try fail(s"Should fail: ${Nil.iterator.last}") catch {
+      case _: NoSuchElementException => // Expected
+    }
+  }
+
 }

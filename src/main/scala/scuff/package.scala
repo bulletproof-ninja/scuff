@@ -3,6 +3,7 @@ import util.{ Random }
 import scala.math._
 import scala.concurrent.Future
 import scala.util.{ Failure, Success, Try }
+import scala.collection.GenTraversableOnce
 
 package object scuff {
 
@@ -122,6 +123,12 @@ package object scuff {
     }
   }
 
+  implicit class ScuffTraversableOnce[E](private val trav: GenTraversableOnce[E]) extends AnyVal {
+    def last: E = try trav.reduce((_, e) => e) catch {
+      case _: UnsupportedOperationException => throw new NoSuchElementException(s"${trav.getClass.getSimpleName}.last")
+    }
+    def lastOption: Option[E] = trav.reduceOption((_, e) => e)
+  }
   implicit class ScuffTraversable[Trav <: Traversable[_]](private val trav: Trav) extends AnyVal {
     def optional: Option[Trav] = if (trav.isEmpty) None else Some(trav)
   }
