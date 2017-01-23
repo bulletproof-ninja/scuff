@@ -107,6 +107,7 @@ allprojects {
         publish = !dryRun
         publications = ['maven']
         pkg {
+            userOrg = System.properties.bintrayOrg ?: user
             repo = "maven"
             name = "Scuff"
         }
