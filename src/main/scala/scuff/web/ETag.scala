@@ -13,7 +13,7 @@ case class ETag(tag: String)(weak: Boolean) {
 
 object ETag {
 
-  private final val ETagsExtractor = """([wW]\/)?"(\w+)"|(\*)""".r
+  private final val ETagsExtractor = """([wW]\/)?"?(\w+)"?|(\*)""".r
 
   def parse(fromHeader: String): List[ETag] = {
     ETagsExtractor.findAllMatchIn(fromHeader).map { m =>
