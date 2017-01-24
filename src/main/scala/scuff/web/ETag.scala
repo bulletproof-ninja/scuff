@@ -26,6 +26,12 @@ object ETag {
     }.toList
   }
 
+  /**
+   *  Convenience method for any data type, EXCEPT String,
+   *  which is ambiguous at call site.
+   */
+  def apply(tag: Any, weak: Boolean = false): ETag = new ETag(tag.toString)(weak)
+
   private def getETags(header: String, req: HttpServletRequest): List[ETag] = {
     req.getHeaders(header).asScala.toList.flatMap(parse)
   }
