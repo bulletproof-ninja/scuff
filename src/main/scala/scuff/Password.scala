@@ -23,24 +23,29 @@ final class Password(passwordDigest: Array[Byte], val algorithm: String, saltByt
   require(algorithm != null, "Algorithm cannot be null")
   require(workFactor > 0, "Must have a work factor of at least one, not " + workFactor)
 
-  private val digested = passwordDigest.clone // Defensive copy on receipt
-  private val salty = saltBytes.clone
+  private val _digest = passwordDigest.clone // Defensive copy
+  private val _salt = saltBytes.clone // Defensive copy
 
   /**
-   * The password digest.
-   * @return Digest bytes.
-   */
-  def digest = digested.clone // Defensive copy on hand-out
-  def salt = salty.clone
+    * The password digest.
+    * @return Copy of digest.
+    */
+  def digest = _digest.clone // Defensive copy
+  /**
+    * The password salt.
+    * @return Copy of salt.
+    */
+  def salt = _salt.clone // Defensive copy
 
-  def length = digested.length
+  /** Digest length in bytes. */
+  def length = _digest.length
 
   override def equals(obj: Any) = obj match {
     case that: Password =>
       this.workFactor == that.workFactor &&
         this.algorithm.equalsIgnoreCase(that.algorithm) &&
-        Arrays.equals(this.salty, that.salty) &&
-        Arrays.equals(this.digested, that.digested)
+        Arrays.equals(this._salt, that._salt) &&
+        Arrays.equals(this._digest, that._digest)
     case _ => false
   }
 
@@ -52,8 +57,8 @@ final class Password(passwordDigest: Array[Byte], val algorithm: String, saltByt
    * @return `true` if it's a match
    */
   def matches(password: String) = {
-    val (compareDigest, _) = Password.digestion(password, salty, algorithm, Left(workFactor))
-    Arrays.equals(this.digested, compareDigest)
+    val (compareDigest, _) = Password.digestion(password, _salt, algorithm, Left(workFactor))
+    Arrays.equals(_digest, compareDigest)
   }
 
   override def toString = "Password(algorithm=\"%s\", length=%d, workFactor=%d)".format(algorithm, length, workFactor)
