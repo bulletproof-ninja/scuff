@@ -77,7 +77,7 @@ object Password {
 
   private val charset = Charset.forName("UTF-8")
 
-  private def digestion(password: String, salt: Array[Byte], algo: String, iterative: Either[Int, Duration]): (Array[Byte], Int) = {
+  private def digestion(password: String, salt: Array[Byte], algo: String, iterative: Either[Int, FiniteDuration]): (Array[Byte], Int) = {
     val md = MessageDigest.getInstance(algo)
     val passwordBytes = password.getBytes(charset)
     iterative match {
@@ -119,7 +119,7 @@ object Password {
    * or a minimum duration (don't go overboard here). Using a duration will be adaptive to the hardware
    * it's running on, and makes digestion time more predictable.
    */
-  case class Config(algorithm: String, saltLength: Int, work: Either[Int, Duration]) {
+  case class Config(algorithm: String, saltLength: Int, work: Either[Int, FiniteDuration]) {
     require(MessageDigest.getInstance(algorithm) != null)
     require(saltLength >= 0, "Negative salt length is nonsensical")
     work match {
@@ -137,7 +137,7 @@ object Password {
      * @param saltLength The length of the random salt generated. Can be 0 for no salt.
      * @param digestDuration Minimum amount of time spent on iterative digestion
      */
-    def this(algorithm: String, saltLength: Int, workDuration: Duration) = this(algorithm, saltLength, Right(workDuration))
+    def this(algorithm: String, saltLength: Int, workDuration: FiniteDuration) = this(algorithm, saltLength, Right(workDuration))
   }
 
 }
