@@ -130,7 +130,7 @@ package object scuff {
     def lastOption: Option[E] = trav.reduceOption((_, e) => e)
   }
   implicit class ScuffTraversable[Trav <: Traversable[_]](private val trav: Trav) extends AnyVal {
-    def optional: Option[Trav] = if (trav.isEmpty) None else Some(trav)
+    def optional: Option[Trav] = if (trav == null || trav.isEmpty) None else Some(trav)
   }
 
   implicit class ScuffBooleanFunction[I](private val f: I => Boolean) extends AnyVal {
