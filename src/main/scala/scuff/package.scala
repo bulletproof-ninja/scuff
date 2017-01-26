@@ -4,6 +4,7 @@ import scala.math._
 import scala.concurrent.Future
 import scala.util.{ Failure, Success, Try }
 import scala.collection.GenTraversableOnce
+import scala.util.control.NonFatal
 
 package object scuff {
 
@@ -121,6 +122,20 @@ package object scuff {
         case _ => throw new IllegalArgumentException(s"${num.zero.getClass.getName} is unsupported")
       }
     }
+  }
+
+  implicit class ScuffURI(private val uri: java.net.URI) extends AnyVal {
+    def openInBrowser(): Boolean = try {
+      if (java.awt.Desktop.isDesktopSupported) {
+        java.awt.Desktop.getDesktop.browse(uri)
+        true
+      } else false
+    } catch {
+      case NonFatal(_) => false
+    }
+  }
+  implicit class ScuffURL(private val url: java.net.URL) extends AnyVal {
+    def openInBrowser(): Boolean = url.toURI.openInBrowser()
   }
 
   implicit class ScuffTraversableOnce[E](private val trav: GenTraversableOnce[E]) extends AnyVal {
