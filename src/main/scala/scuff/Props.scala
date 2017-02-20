@@ -35,9 +35,9 @@ object EnvVars extends EnvVars(null)
 object Props {
   import java.io._
   def apply(file: File, fallback: Props = null) = {
-    require(file.exists, "File does not exist: " + file)
-    require(file.isFile, "Not a file: " + file)
-    require(file.canRead, "Cannot read: " + file)
+    require(file.exists, "Must exist: " + file)
+    require(file.isFile, "Must be a file: " + file)
+    require(file.canRead, "Must be readable: " + file)
     val props = new java.util.Properties
     props.load(new FileReader(file))
     new Props(s"${file.getName} property", props.getProperty, fallback)
