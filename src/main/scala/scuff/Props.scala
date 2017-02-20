@@ -1,5 +1,9 @@
 package scuff
 
+import java.util.jar.Attributes
+import java.util.jar.Manifest
+import java.util.jar.JarFile
+
 /**
   * Look up properties from generic source, with generic fallback.
   */
@@ -31,6 +35,23 @@ class SysProps(fallback: Props) extends Props("system property", System.getPrope
 object SysProps extends SysProps(null)
 class EnvVars(fallback: Props) extends Props("environment variable", System.getenv, fallback)
 object EnvVars extends EnvVars(null)
+class ManifestAttributes(attrs: Attributes, fallback: Props) extends Props("manifest attribute", attrs.getValue _, fallback) {
+  def this(manifest: Manifest, fallback: Props) = this(manifest.getMainAttributes, fallback)
+}
+object ManifestAttributes {
+  def apply(fallback: Props = null): Option[ManifestAttributes] = {
+    this.getClass.getResourceAsStream(JarFile.MANIFEST_NAME) match {
+      case null => None
+      case manifestStream =>
+        try {
+          val manifest = new Manifest(manifestStream)
+          Some(new ManifestAttributes(manifest, fallback))
+        } finally {
+          manifestStream.close()
+        }
+    }
+  }
+}
 
 object Props {
   import java.io._
