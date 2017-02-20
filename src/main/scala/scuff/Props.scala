@@ -39,7 +39,12 @@ object Props {
     require(file.isFile, "Must be a file: " + file)
     require(file.canRead, "Must be readable: " + file)
     val props = new java.util.Properties
-    props.load(new FileReader(file))
-    new Props(s"${file.getName} property", props.getProperty, fallback)
+    val fileReader = new FileReader(file)
+    try {
+      props.load(fileReader)
+      new Props(s"${file.getName} property", props.getProperty, fallback)
+    } finally {
+      fileReader.close()
+    }
   }
 }
