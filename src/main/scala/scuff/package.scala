@@ -152,4 +152,12 @@ package object scuff {
     def negate: I => Boolean = (inp: I) => !f(inp)
   }
 
+  implicit class ScuffJavaEnum[E <: Enum[E]](private val enum: E) extends AnyVal {
+    def >(thatEnum: E): Boolean = this.enum.ordinal() > thatEnum.ordinal()
+    def >=(thatEnum: E): Boolean = this.enum.ordinal() >= thatEnum.ordinal()
+    def <(thatEnum: E): Boolean = this.enum.ordinal() < thatEnum.ordinal()
+    def <=(thatEnum: E): Boolean = this.enum.ordinal() <= thatEnum.ordinal()
+    def min(thatEnum: E): E = if (this.enum <= thatEnum) this.enum else thatEnum
+    def max(thatEnum: E): E = if (this.enum >= thatEnum) this.enum else thatEnum
+  }
 }
