@@ -4,6 +4,7 @@ import java.util.concurrent.{ Executor, LinkedBlockingQueue, ScheduledExecutorSe
 import scala.concurrent.{ ExecutionContext, ExecutionContextExecutor, ExecutionContextExecutorService, Future, Promise }
 import scala.util.Try
 import scala.util.control.NonFatal
+import scala.concurrent.duration._
 
 /**
   * Thread helper class.
@@ -31,7 +32,7 @@ object Threads {
     jfg
   }
   def javaFutureConverter[T] = _javaFutureConverter.asInstanceOf[JavaFutureConverter[T]]
-  class JavaFutureConverter[T](sleepMs: Long = 1, failureReporter: Throwable => Unit = printStackTrace)
+  class JavaFutureConverter[T](sleep: FiniteDuration = 1.millisecond, failureReporter: Throwable => Unit = printStackTrace)
       extends (java.util.concurrent.Future[T] => Future[T]) {
     private type QueueItem = (Promise[T], java.util.concurrent.Future[T])
     private[this] val queue = new collection.mutable.Queue[QueueItem]
@@ -54,7 +55,7 @@ object Threads {
               case (promise, f) => promise complete Try(f.get)
             }
           } else {
-            Thread sleep sleepMs
+            sleep.unit.sleep(sleep.length)
           }
         }
       }
