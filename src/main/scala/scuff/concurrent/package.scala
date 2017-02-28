@@ -8,6 +8,7 @@ import scala.util.{ Failure, Try }
 import scala.util.control.NoStackTrace
 
 import language.implicitConversions
+import java.util.concurrent.ScheduledFuture
 
 package object concurrent {
   implicit def exeCtxToExecutor(ec: ExecutionContext): Executor = ec match {
@@ -43,6 +44,29 @@ package object concurrent {
         def run = promise complete Try(thunk)
       }
       promise.future
+    }
+  }
+
+  implicit class ScuffScheduledExecutor(private val scheduler: ScheduledExecutorService) extends AnyVal {
+    def schedule[T](delay: FiniteDuration)(thunk: => T): ScheduledFuture[T] = {
+      val c = new Callable[T] {
+        def call = thunk
+      }
+      scheduler.schedule(c, delay.length, delay.unit)
+    }
+    def scheduleAtFixedRate(initDelay: FiniteDuration, period: FiniteDuration)(thunk: => Unit): ScheduledFuture[Unit] = {
+      val r = new Runnable {
+        def run = thunk
+      }
+      val initialDelay = period.unit.convert(initDelay.length, initDelay.unit)
+      scheduler.scheduleAtFixedRate(r, initialDelay, period.length, period.unit).asInstanceOf[ScheduledFuture[Unit]]
+    }
+    def scheduleWithFixedDelay(initDelay: FiniteDuration, period: FiniteDuration)(thunk: => Unit): ScheduledFuture[Unit] = {
+      val r = new Runnable {
+        def run = thunk
+      }
+      val initialDelay = period.unit.convert(initDelay.length, initDelay.unit)
+      scheduler.scheduleWithFixedDelay(r, initialDelay, period.length, period.unit).asInstanceOf[ScheduledFuture[Unit]]
     }
   }
 

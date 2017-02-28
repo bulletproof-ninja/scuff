@@ -3,7 +3,6 @@ package scuff.concurrent
 import java.util.concurrent.{ CountDownLatch, LinkedBlockingQueue, TimeUnit }
 import concurrent.ExecutionContext
 import concurrent.duration._
-import scala.language.reflectiveCalls
 import scala.util.{ Failure, Random, Success }
 
 import org.junit.Assert._
@@ -79,4 +78,30 @@ class TestThreads extends Serializable {
     assertEquals(42, v)
   }
 
+  @Test
+  def scheduler_schedule {
+    val cdl = new CountDownLatch(1)
+    val scheduled = Threads.DefaultScheduler.schedule(200.milliseconds)(cdl.countDown)
+    assertFalse(scheduled.isDone)
+    assertTrue(cdl.await(222, TimeUnit.MILLISECONDS))
+    assertTrue(scheduled.isDone)
+  }
+  @Test
+  def scheduler_fixedRate {
+    val cdl = new CountDownLatch(5)
+    val scheduled = Threads.DefaultScheduler.scheduleAtFixedRate(200.milliseconds, 10000.microseconds)(cdl.countDown)
+    assertFalse(scheduled.isDone)
+    assertTrue(cdl.await(333, TimeUnit.MILLISECONDS))
+    scheduled.cancel(true)
+    assertTrue(scheduled.isDone)
+  }
+  @Test
+  def scheduler_fixedDelay {
+    val cdl = new CountDownLatch(5)
+    val scheduled = Threads.DefaultScheduler.scheduleWithFixedDelay(200.milliseconds, 10000.microseconds)(cdl.countDown)
+    assertFalse(scheduled.isDone)
+    assertTrue(cdl.await(333, TimeUnit.MILLISECONDS))
+    scheduled.cancel(true)
+    assertTrue(scheduled.isDone)
+  }
 }
