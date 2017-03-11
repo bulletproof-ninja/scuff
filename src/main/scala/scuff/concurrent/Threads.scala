@@ -124,7 +124,7 @@ object Threads {
   }
 
   def newCachedThreadPool(threadFactory: ThreadFactory, failureReporter: Throwable => Unit = printStackTrace): ExecutionContextExecutorService = {
-    val exec = new ThreadPoolExecutor(0, Integer.MAX_VALUE,
+    val exec = new ThreadPoolExecutor(1, Short.MaxValue,
       60L, TimeUnit.SECONDS,
       new SynchronousQueue[Runnable],
       threadFactory) with ExecutionContextExecutorService {
