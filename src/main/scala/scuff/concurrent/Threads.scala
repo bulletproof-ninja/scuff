@@ -96,6 +96,17 @@ object Threads {
     exec
   }
 
+  def newBlockingThread[T](name: String)(blocking: => T): Future[T] = {
+    val done = Promise[T]
+    val t = new Thread(name) {
+      override def run() = {
+        done complete Try(blocking)
+      }
+    }
+    t.start()
+    done.future
+  }
+
   lazy val DefaultScheduler = newScheduledThreadPool(Runtime.getRuntime.availableProcessors, Threads.factory("scuff.DefaultScheduler", ScuffThreadGroup))
 
   /** Executor encapsulating a single `Thread` for a single execution. Cannot be re-used. */
