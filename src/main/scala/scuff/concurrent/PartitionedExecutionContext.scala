@@ -85,14 +85,13 @@ object PartitionedExecutionContext {
     for (idx <- 0 until numThreads) {
       threads(idx) = Threads.newSingleThreadExecutor(threadFactory, failureReporter)
     }
-      def shutdownAll(exes: Seq[ExecutorService]): Future[Unit] = {
-        Future {
+      def shutdownAll(exes: Seq[ExecutorService]): Future[Unit] =
+        Threads.newBlockingThread(s"Awaiting ${classOf[PartitionedExecutionContext].getName} shutdown") {
           exes.foreach(_.shutdown)
           exes.foreach { exe =>
             exe.awaitTermination(Long.MaxValue, TimeUnit.MILLISECONDS)
           }
-        }(Threads.Blocking)
-      }
+        }
     new PartitionedExecutionContext(threads, shutdownAll(threads), getHash, failureReporter)
   }
 }
