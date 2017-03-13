@@ -41,8 +41,9 @@ class MapRepository[K, V <: AnyRef](
     }
   }
 
-  def update(id: K, expectedRevision: Option[Int], metadata: Map[String, String])(
-    updateThunk: (V, Int) => Future[V]): Future[Int] =
+  def update(
+    id: K, expectedRevision: Option[Int],
+    metadata: Map[String, String], updateThunk: (V, Int) => Future[V]): Future[Int] =
     Future(tryUpdate(id, expectedRevision, metadata, updateThunk)).flatten
 
 }

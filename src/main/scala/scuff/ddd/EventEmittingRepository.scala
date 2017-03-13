@@ -23,14 +23,16 @@ abstract class EventEmittingRepository[ID, T <: AnyRef, EVT](
   def load(id: ID): Future[(RepoType, Int)] = impl.load(id).map {
     case (entity, rev) => entity -> Nil -> rev
   }(Threads.PiggyBack)
-  def update(id: ID, expectedRevision: Option[Int], metadata: Map[String, String])(
-    updateThunk: (RepoType, Int) => Future[RepoType]): Future[Int] = {
+
+  protected def update(
+    id: ID, expectedRevision: Option[Int],
+    metadata: Map[String, String], updateThunk: (RepoType, Int) => Future[RepoType]): Future[Int] = {
     @volatile var updatedE: Future[RepoType] = null
-    val updatedRev = impl.update(id, expectedRevision, metadata) {
-      case (entity, rev) =>
-        updatedE = updateThunk(entity -> Nil, rev)
-        updatedE.map(_._1)(Threads.PiggyBack)
+    val proxy = (entity: T, rev: Int) => {
+      updatedE = updateThunk(entity -> Nil, rev)
+      updatedE.map(_._1)(Threads.PiggyBack)
     }
+    val updatedRev = impl.update(id, Revision(expectedRevision), metadata)(proxy)
       implicit def pubCtx = publishCtx
     for (rev <- updatedRev; (entity, events) <- updatedE) {
       publishEvents(id, rev, events, metadata)

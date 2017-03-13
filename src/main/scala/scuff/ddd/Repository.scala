@@ -6,7 +6,7 @@ import scala.concurrent.Future
 /**
   * Entity repository.
   */
-trait Repository[ID, T] {
+trait Repository[ID, E] {
 
   /**
     * Get current revision, if exists.
@@ -20,49 +20,31 @@ trait Repository[ID, T] {
     * @param id The instance ID
     * @return The latest revision of entity or [[scuff.ddd.UnknownIdException]]
     */
-  def load(id: ID): Future[(T, Int)]
+  def load(id: ID): Future[(E, Int)]
+
+  protected def update(
+    id: ID, expectedRevision: Option[Int],
+    metadata: Map[String, String],
+    updateThunk: (E, Int) => Future[E]): Future[Int]
+
   /**
     * Update entity.
     * @param id The instance id
-    * @param revisionToUpdate The revision that is expected to be updated.
-    * If this differs from actual current revision, the update can be rejected.
-    * Using `None` will ignore any concurrent updates, so last update always wins.
+    * @param expectedRevision The revision that is expected to be updated.
     * @param metadata Optional metadata.
     * @param updateThunk The code block responsible for updating.
     * Will receive the instance and revision.
     * @return New revision, or [[scuff.ddd.UnknownIdException]] if unknown id.
     */
-  def update(
-    id: ID, revisionToUpdate: Option[Int] = None, metadata: Map[String, String] = Map.empty)(
-      updateThunk: (T, Int) => Future[T]): Future[Int]
-
-  /**
-    * Update entity.
-    * @param id The instance id
-    * @param revisionToUpdate The revision that is expected to be updated.
-    * If this differs from actual current revision, the update can be rejected.
-    * @param metadata Metadata.
-    * @param updateThunk The code block responsible for updating.
-    * Will receive the instance and current revision.
-    * @return New revision, or [[scuff.ddd.UnknownIdException]] if unknown id.
-    */
   final def update(
-    id: ID, revisionToUpdate: Int, metadata: Map[String, String])(
-      updateThunk: (T, Int) => Future[T]): Future[Int] =
-    update(id, Some(revisionToUpdate), metadata)(updateThunk)
-  /**
-    * Update entity.
-    * @param id The instance id
-    * @param revisionToUpdate The revision that is expected to be updated.
-    * If this differs from actual current revision, the update can be rejected.
-    * @param updateThunk The code block responsible for updating.
-    * Will receive the instance and current revision.
-    * @return New revision, or [[scuff.ddd.UnknownIdException]] if unknown id.
-    */
-  final def update(
-    id: ID, revisionToUpdate: Int)(
-      updateThunk: (T, Int) => Future[T]): Future[Int] =
-    update(id, Some(revisionToUpdate))(updateThunk)
+    id: ID, expectedRevision: Revision = Revision.Latest, metadata: Map[String, String] = Map.empty)(
+      updateThunk: (E, Int) => Future[E]): Future[Int] = {
+    val proxy = (entity: E, revision: Int) => {
+      expectedRevision.validate(revision)
+      updateThunk(entity, revision)
+    }
+    update(id, expectedRevision.value, metadata, proxy)
+  }
 
   /**
     * Update entity.
@@ -74,8 +56,8 @@ trait Repository[ID, T] {
     */
   final def update(
     id: ID, metadata: Map[String, String])(
-      updateThunk: (T, Int) => Future[T]): Future[Int] =
-    update(id, None, metadata)(updateThunk)
+      updateThunk: (E, Int) => Future[E]): Future[Int] =
+    update(id, Revision.Latest, metadata)(updateThunk)
 
   /**
     * Insert new entity. Will, by definition, be given revision `0`.
@@ -85,7 +67,7 @@ trait Repository[ID, T] {
     * @return The revision (always `0`) if successful,
     * or [[scuff.ddd.DuplicateIdException]] if id already exists
     */
-  def insert(id: ID, entity: T, metadata: Map[String, String] = Map.empty): Future[Int]
+  def insert(id: ID, entity: E, metadata: Map[String, String] = Map.empty): Future[Int]
 }
 
 final case class UnknownIdException(id: Any) extends RuntimeException(s"Unknown id: $id")

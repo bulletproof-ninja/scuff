@@ -29,7 +29,7 @@ class TestRepository {
       repo.insert(5, hank).foreach { rev =>
         assertEquals(0, rev)
         latch.countDown()
-        repo.update(5, 0) {
+        repo.update(5, Revision(0)) {
           case (customer, rev) =>
             assertEquals(0, rev)
             latch.countDown()
@@ -72,7 +72,7 @@ class TestRepository {
     assertEquals(0, n1.revision)
     assertEquals(1, n1.events.size)
     assertEquals(CustomerCreated, n1.events.head)
-    repo.update(5, 0) {
+    repo.update(5, Revision(0)) {
       case ((hank, _), rev) =>
         Future successful hank.copy(name = "Hankster") -> List(CustomerUpdated)
     }
