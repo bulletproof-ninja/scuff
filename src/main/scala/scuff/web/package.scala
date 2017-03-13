@@ -87,9 +87,9 @@ package object web {
           }
       }
     }
-    def IfNoneMatch() = ETag.IfNoneMatch(req)
-    def IfMatch() = ETag.IfMatch(req)
-    def Accept() = AcceptHeader(req)
+    def IfNoneMatch = ETag.IfNoneMatch(req)
+    def IfMatch = ETag.IfMatch(req)
+    def Accept = AcceptHeader(req)
     def IfModifiedSince() = Try(req.getDateHeader(HttpHeaders.IfModifiedSince)) match {
       case Success(-1L) | Failure(_) => None
       case Success(ims) => Some(ims)
@@ -101,9 +101,9 @@ package object web {
         last != since
       }
     }
-    def IfMatch(matchTag: ETag): Boolean = IfMatch().exists(etag => etag.tag == "*" || etag == matchTag)
-    def IfNoneMatch(matchTag: ETag): Boolean = IfNoneMatch().exists(etag => etag.tag == "*" || etag == matchTag)
-    def Referer(): Option[String] = req.getHeader(HttpHeaders.Referer).optional
+    def IfMatch(matchTag: ETag): Boolean = IfMatch.exists(etag => etag.tag == "*" || etag == matchTag)
+    def IfNoneMatch(matchTag: ETag): Boolean = IfNoneMatch.exists(etag => etag.tag == "*" || etag == matchTag)
+    def Referer: Option[String] = req.getHeader(HttpHeaders.Referer).optional
     def userLocales: List[Locale] = req.getLocales().asScala.toList
     def userAgent: Option[String] = req.getHeader(HttpHeaders.UserAgent).optional
     def remoteAddr: InetAddress = InetAddress.getByName(req.getRemoteAddr)
