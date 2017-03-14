@@ -4,7 +4,7 @@ import scala.collection.JavaConverters._
 
 import javax.servlet.http.{ HttpServletRequest, HttpServletResponse }
 
-case class ETag(tag: String)(weak: Boolean) {
+case class ETag(tag: String)(val weak: Boolean) {
   val headerString = (if (weak) "W/\"" else "\"") concat tag concat "\""
   def addTo(res: HttpServletResponse) = res.addHeader(HttpHeaders.ETag, headerString)
   def setTo(res: HttpServletResponse) = res.setHeader(HttpHeaders.ETag, headerString)

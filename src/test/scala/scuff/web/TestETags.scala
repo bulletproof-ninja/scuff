@@ -18,14 +18,17 @@ class TestETags {
     val abcStrong = ETag.parse(""""abc"""").head
     assertEquals("abc", abcStrong.tag)
     assertFalse(abcStrong.headerString.startsWith("W/"))
+    assertFalse(abcStrong.weak)
 
     val abcStrongLenient = ETag.parse("abc").head
     assertEquals("abc", abcStrongLenient.tag)
     assertFalse(abcStrongLenient.headerString.startsWith("W/"))
+    assertFalse(abcStrongLenient.weak)
 
     val abcWeak = ETag.parse("""W/"abc"""").head
     assertEquals("abc", abcWeak.tag)
     assertTrue(abcWeak.headerString.startsWith("W/"))
+    assertTrue(abcWeak.weak)
   }
 
 }
