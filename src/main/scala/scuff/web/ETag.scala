@@ -17,7 +17,7 @@ object ETag {
 
   def parse(fromHeader: String): List[ETag] = {
     ETagsExtractor.findAllMatchIn(fromHeader).map { m =>
-      val weak = m.group(1) eq null
+      val weak = m.group(1) ne null
       val value = m.group(3) match {
         case null => m.group(2)
         case all => all
