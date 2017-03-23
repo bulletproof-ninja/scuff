@@ -7,18 +7,19 @@ sealed abstract class Revision {
 }
 object Revision {
 
-  def apply(expected: Int): Revision = apply(expected, true)
-  def apply(expected: Option[Int]): Revision = apply(expected, true)
-  def apply(expected: Int, allowMerge: Boolean): Revision =
-    if (allowMerge) new AllowMerge(expected)
-    else new Exactly(expected)
-  def apply(expected: Option[Int], allowMerge: Boolean): Revision =
+  def apply(expected: Option[Int]): Revision =
     expected match {
-      case Some(expected) => apply(expected, allowMerge)
+      case Some(expected) => apply(expected, false)
       case _ => Latest
     }
+  def apply(expected: Int, exact: Boolean = false): Revision =
+    if (exact) new Exactly(expected)
+    else new Minimum(expected)
 
-  /** Must be exact, i.e. do not allow merge, else fail. */
+  /**
+    * Exact revision.
+    * For updates, this means no merging allowed.
+    */
   case class Exactly(expected: Int) extends Revision {
     def value = Some(expected)
     private[ddd] def validate(actual: Int): Unit = {
@@ -27,8 +28,11 @@ object Revision {
       }
     }
   }
-  /** For updates, allow merging, if possible. */
-  case class AllowMerge(expected: Int) extends Revision {
+  /**
+    * Minimum revision.
+    * For updates, if possible, merge if higher.
+    */
+  case class Minimum(expected: Int) extends Revision {
     def value = Some(expected)
     private[ddd] def validate(actual: Int): Unit = {
       if (expected > actual) {
@@ -36,7 +40,10 @@ object Revision {
       }
     }
   }
-  /** Revision not known, or is irrelevant, use latest actual. */
+  /**
+    * Latest revsion.
+    * Revision not known, or is irrelevant, use latest.
+    */
   case object Latest extends Revision {
     def value = None
     private[ddd] def validate(actual: Int): Unit = ()
