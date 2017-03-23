@@ -39,7 +39,7 @@ def tsVersion(version) {
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '3.3'
+    gradleVersion = '3.4.1'
 }
 
 allprojects {
