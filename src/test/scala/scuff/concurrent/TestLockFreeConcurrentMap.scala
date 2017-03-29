@@ -33,7 +33,7 @@ class TestLockFreeConcurrentMap {
     map.put(1, "one")
     map.put(4, "four")
     assertEquals("1-2-3-4-5-6", map.keys.mkString("-"))
-    val snapshot = map.snapshot().asInstanceOf[SortedMap[Int, String]]
+    val snapshot = map.snapshot[SortedMap[Int, String]]()
     val `123` = snapshot.range(0, 4)
     assertTrue(`123`.contains(1))
     assertTrue(`123`.contains(2))

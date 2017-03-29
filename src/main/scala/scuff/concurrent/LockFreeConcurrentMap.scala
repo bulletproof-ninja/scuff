@@ -147,7 +147,7 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]())
 
   override def toString() = "LockFreeConcurrent" concat super.toString()
 
-  def snapshot[M <: Map[A, B]](): M = mapRef.get.asInstanceOf[M]
+  def snapshot[M <: Map[A, B]]: M = mapRef.get.asInstanceOf[M]
 
   def drain[M <: Map[A, B]](): M = mapRef.getAndSet(EmptyMap).asInstanceOf[M]
 
