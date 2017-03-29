@@ -6,7 +6,7 @@ import scala.collection.immutable.SortedMap
 
 class TestLockFreeConcurrentMap {
   @Test
-  def simple = {
+  def simple() = {
     val map = new LockFreeConcurrentMap[Int, String]
     assertEquals(0, map.size)
     map.put(1, "one")
@@ -24,7 +24,7 @@ class TestLockFreeConcurrentMap {
     assertTrue(map.isEmpty)
   }
   @Test
-  def sorted = {
+  def sorted() = {
     val map = new LockFreeConcurrentMap[Int, String](SortedMap.empty)
     map.put(5, "five")
     map.put(2, "two")
