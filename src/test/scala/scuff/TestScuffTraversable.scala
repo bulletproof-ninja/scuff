@@ -18,7 +18,7 @@ class TestScuffTraversable {
     assertEquals(1000, iter.last)
     assertEquals(Some(1000), iter.lastOption)
     assertEquals(None, Nil.iterator.lastOption)
-    try fail(s"Should fail: ${Nil.iterator.last}") catch {
+    try fail(s"Should fail: ${List[Int]().iterator.last}") catch {
       case _: NoSuchElementException => // Expected
     }
   }
