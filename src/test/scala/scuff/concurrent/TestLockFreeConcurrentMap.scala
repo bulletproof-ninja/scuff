@@ -43,4 +43,27 @@ class TestLockFreeConcurrentMap {
     assertFalse(`123`.contains(6))
     assertFalse(`123`.contains(0))
   }
+
+  @Test
+  def `in-place-updates`() {
+    val map = new LockFreeConcurrentMap[Int, String]
+    assertEquals(None, map.updateIfPresent(5)(_ => "updated"))
+    assertEquals(None, map.get(5))
+    assertEquals("init", map.upsert(5, "init")(_ => "updated"))
+    assertEquals("init", map(5))
+    assertEquals("updated", map.upsert(5, "init")(_ => "updated"))
+    assertEquals("updated", map(5))
+    assertEquals(Some("updated again"), map.updateIfPresent(5)(_ => "updated again"))
+    assertEquals("updated again", map(5))
+  }
+  @Test
+  def `concurrent-in-place-updates`() {
+    val key = "hello"
+    val map = new LockFreeConcurrentMap[String, Long]
+    val range = (1L to 5000000L)
+    range.par.foreach { value =>
+      map.upsert(key, value)(_ + value)
+    }
+    assertEquals(range.sum, map(key))
+  }
 }

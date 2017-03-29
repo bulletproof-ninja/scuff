@@ -149,4 +149,28 @@ package object concurrent {
     def signalAllIf(condition: Boolean): Unit = if (condition) cond.signalAll()
   }
 
+  implicit class ScuffConcurrentMap[K, V](private val cmap: collection.concurrent.Map[K, V]) extends AnyVal {
+    /** Update if present; return updated value. */
+    def updateIfPresent(k: K)(update: V => V): Option[V] = {
+      cmap.get(k) flatMap { oldvalue =>
+        val newvalue = update(oldvalue)
+        if (cmap.replace(k, oldvalue, newvalue)) Some(newvalue)
+        else updateIfPresent(k)(update)
+      }
+    }
+    /** Update or insert; return upserted value. */
+    def upsert(k: K, putIfAbsent: V)(updateIfPresent: V => V): V = {
+      cmap.putIfAbsent(k, putIfAbsent) match {
+        case None => putIfAbsent
+        case Some(present) =>
+          val update = updateIfPresent(present)
+          if (cmap.replace(k, present, update)) {
+            update
+          } else {
+            upsert(k, putIfAbsent)(updateIfPresent)
+          }
+      }
+    }
+  }
+
 }
