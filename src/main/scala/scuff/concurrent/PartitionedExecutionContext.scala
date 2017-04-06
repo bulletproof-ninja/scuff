@@ -5,6 +5,7 @@ import java.util.concurrent.{ Executor, ExecutorService, TimeUnit }
 import scala.concurrent.{ ExecutionContextExecutor, Future }
 import scala.math.abs
 import scala.util.control.NonFatal
+import scala.concurrent.ExecutionContext
 
 /**
   * `ExecutionContext`, which serializes execution of `Runnable`
@@ -31,7 +32,12 @@ final class PartitionedExecutionContext(
 
   require(singleThreadExecutors.size > 0, "Must have at least one thread")
 
-  private[this] val threads = singleThreadExecutors.toArray
+  private[this] val threads = singleThreadExecutors.toArray.map {
+    case ec: ExecutionContext => ec
+    case exe: Executor => ExecutionContext.fromExecutor(exe, failureReporter)
+  }
+
+  def singleThread(hash: Int): ExecutionContext = executorByHash(hash)
 
   /**
     * Runs a block of code on this execution context, using
