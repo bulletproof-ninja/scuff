@@ -5,5 +5,5 @@ trait Feed {
   type Consumer
 
   /** Start subscription. */
-  def subscribe(include: Selector => Boolean = _ => true)(s: Consumer): Subscription
+  def subscribe(include: Selector => Boolean = Function.const(true))(s: Consumer): Subscription
 }
