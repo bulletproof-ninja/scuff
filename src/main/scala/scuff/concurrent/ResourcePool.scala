@@ -7,6 +7,7 @@ import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
+import scala.util.control.NonFatal
 
 /**
   * Unbounded lock-free resource pool.
@@ -27,7 +28,7 @@ import scala.util.Try
   * resource does not escape the `use` scope, but
   * that almost goes without saying, amirite?
   */
-class ResourcePool[R](newResource: => R, minResources: Int = 0) {
+class ResourcePool[R <: AnyRef](newResource: => R, minResources: Int = 0) {
 
   require(minResources >= 0, s"Cannot have less resources than zero: $minResources")
 
@@ -36,57 +37,62 @@ class ResourcePool[R](newResource: => R, minResources: Int = 0) {
     new AtomicReference[List[(Long, R)]](initialResources)
   }
 
-  private def schedulePruning(exec: ScheduledExecutorService, pruner: Pruner) = {
-    exec.scheduleWithFixedDelay(pruner, pruner.delayMillis, pruner.intervalMillis, TimeUnit.MILLISECONDS).asInstanceOf[ScheduledFuture[Nothing]]
+  private def schedule(exec: ScheduledExecutorService, r: Runnable, delay: FiniteDuration, interval: FiniteDuration) = {
+    exec.scheduleWithFixedDelay(r, delay.toMillis, interval.toMillis, TimeUnit.MILLISECONDS)
+      .asInstanceOf[ScheduledFuture[Nothing]]
   }
 
-  private def startPruningThread(exec: Executor, pruner: Pruner): ScheduledFuture[Nothing] = {
-    assert(!exec.isInstanceOf[ScheduledExecutorService])
-    val cancelled = new CountDownLatch(1)
-    val thread = new AtomicReference[Thread]
-    object schedule extends ScheduledFuture[Nothing] {
-      def cancel(interrupt: Boolean): Boolean = {
-        val cancel = cancelled.getCount != 0
-        cancelled.countDown()
-        if (interrupt) {
-          thread.get match {
-            case null => // Ignore
-            case thr =>
-              thread.compareAndSet(thr, null)
-              thr.interrupt()
-          }
-        }
-        cancel
-      }
-      def isCancelled(): Boolean = cancelled.getCount == 0L
-      def isDone(): Boolean = isCancelled
-      def get(): Nothing = {
-        cancelled.await()
-        throw new CancellationException
-      }
-      def get(time: Long, unit: TimeUnit): Nothing = {
-        if (cancelled.await(time, unit)) {
-          throw new CancellationException
-        } else {
-          throw new TimeoutException
+  private class Schedule(
+      thread: AtomicReference[Thread],
+      cancelled: CountDownLatch) extends ScheduledFuture[Nothing] {
+    def cancel(interrupt: Boolean): Boolean = {
+      val cancel = cancelled.getCount != 0
+      cancelled.countDown()
+      if (interrupt) {
+        thread.get match {
+          case null => // Ignore
+          case thr =>
+            thread.weakCompareAndSet(thr, null)
+            thr.interrupt()
         }
       }
-      def getDelay(unit: TimeUnit): Long = ???
-      def compareTo(that: Delayed): Int = ???
+      cancel
     }
+    def isCancelled(): Boolean = cancelled.getCount == 0L
+    def isDone(): Boolean = isCancelled
+    def get(): Nothing = {
+      cancelled.await()
+      throw new CancellationException
+    }
+    def get(time: Long, unit: TimeUnit): Nothing = {
+      if (cancelled.await(time, unit)) {
+        throw new CancellationException
+      } else {
+        throw new TimeoutException
+      }
+    }
+    def getDelay(unit: TimeUnit): Long = ???
+    def compareTo(that: Delayed): Int = ???
+  }
+
+  private def startThread(exec: Executor, r: Runnable, delay: FiniteDuration, interval: FiniteDuration): Schedule = {
+    assert(!exec.isInstanceOf[ScheduledExecutorService])
+    val thread = new AtomicReference[Thread]
+    val cancelled = new CountDownLatch(1)
+    val schedule = new Schedule(thread, cancelled)
     exec execute new Runnable {
       def run {
-        Thread.sleep(pruner.delayMillis) // Initial sleep
+        Thread.sleep(delay.toMillis) // Initial sleep
         while (cancelled.getCount != 0L) {
           try {
-            pruner.run()
+            r.run()
           } catch {
             case e: Exception => exec match {
               case exeCtx: ExecutionContext => exeCtx.reportFailure(e)
               case _ => e.printStackTrace(System.err)
             }
           }
-          cancelled.await(pruner.intervalMillis, TimeUnit.MILLISECONDS)
+          cancelled.await(interval.toMillis, TimeUnit.MILLISECONDS)
         }
       }
     }
@@ -96,8 +102,8 @@ class ResourcePool[R](newResource: => R, minResources: Int = 0) {
   private final class Pruner(timeoutMillis: Long, cleanup: R => Unit) extends Runnable {
     require(timeoutMillis > 0, "Timeout must be > 0 milliseconds")
 
-    def delayMillis = timeoutMillis * 2
-    val intervalMillis = (timeoutMillis / 4).max(1)
+    def delay = new FiniteDuration(timeoutMillis * 2, TimeUnit.MILLISECONDS)
+    def interval = new FiniteDuration((timeoutMillis / 4) max 1, TimeUnit.MILLISECONDS)
 
     def run = pruneTail()
 
@@ -114,10 +120,10 @@ class ResourcePool[R](newResource: => R, minResources: Int = 0) {
     @tailrec
     def pruneLast(now: Long): Option[R] = {
       pool.get match {
-        case poolList if minResources == 0 || poolList.size > minResources =>
+        case poolList if minResources == 0 || poolList.drop(minResources).nonEmpty =>
           poolList.reverse match {
             case (lastUsed, pruned) :: remaining if lastUsed + timeoutMillis < now =>
-              if (pool.compareAndSet(poolList, remaining.reverse)) {
+              if (pool.weakCompareAndSet(poolList, remaining.reverse)) {
                 Some(pruned)
               } else {
                 pruneLast(now)
@@ -125,6 +131,21 @@ class ResourcePool[R](newResource: => R, minResources: Int = 0) {
             case _ => None
           }
         case _ => None
+      }
+    }
+  }
+
+  private final class Heater(heater: R => Unit) extends Runnable {
+
+    private def safeHeat(cool: R): Boolean = try { heater(cool); true } catch {
+      case NonFatal(e) => false
+    }
+
+    def run = {
+      val resources = drain().reverseIterator
+      while (resources.hasNext) {
+        val cool = resources.next
+        if (safeHeat(cool)) pushUntilSuccessful(cool)
       }
     }
   }
@@ -139,12 +160,23 @@ class ResourcePool[R](newResource: => R, minResources: Int = 0) {
     */
   def startPruning(
     minimumTimeout: FiniteDuration,
-    destructor: R => Unit = _ => Unit,
+    destructor: R => Unit = Function const (()),
     executor: Executor = Threads.DefaultScheduler): ScheduledFuture[Nothing] = {
     val pruner = new Pruner(minimumTimeout.toMillis, destructor)
     executor match {
-      case scheduler: ScheduledExecutorService => schedulePruning(scheduler, pruner)
-      case _ => startPruningThread(executor, pruner)
+      case scheduler: ScheduledExecutorService => schedule(scheduler, pruner, pruner.delay, pruner.interval)
+      case _ => startThread(executor, pruner, pruner.delay, pruner.interval)
+    }
+  }
+
+  /** Keep resources hot. */
+  def startHeater(
+    interval: FiniteDuration,
+    executor: Executor = Threads.DefaultScheduler)(heater: R => Unit): ScheduledFuture[Nothing] = {
+    val runHeater = new Heater(heater)
+    executor match {
+      case scheduler: ScheduledExecutorService => schedule(scheduler, runHeater, interval, interval)
+      case _ => startThread(executor, runHeater, interval, interval)
     }
   }
 
@@ -172,16 +204,18 @@ class ResourcePool[R](newResource: => R, minResources: Int = 0) {
         }
     }
   }
+
+  @tailrec
+  private def pushUntilSuccessful(r: R, time: Long = System.currentTimeMillis) {
+    val list = pool.get
+    if (!pool.weakCompareAndSet(list, (time, r) :: list)) {
+      pushUntilSuccessful(r, time)
+    }
+  }
+
   final def push(r: R) {
-      @tailrec
-      def pushUntilSuccessful(time: Long) {
-        val list = pool.get
-        if (!pool.weakCompareAndSet(list, (time, r) :: list)) {
-          pushUntilSuccessful(time)
-        }
-      }
     onReturn(r)
-    pushUntilSuccessful(System.currentTimeMillis)
+    pushUntilSuccessful(r)
   }
 
   /**
