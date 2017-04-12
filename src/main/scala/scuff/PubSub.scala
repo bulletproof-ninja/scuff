@@ -1,20 +1,19 @@
 package scuff
 
 import scala.concurrent.ExecutionContext
-import scala.util.Try
 import scala.util.control.NonFatal
-
-import scuff.concurrent.StreamCallback
 
 /**
   * Simple publish/subscribe mechanism.
   * @param consumerCtx The execution context that consumers will
-  * be notified on. Defaults to same thread as `publish` is called on.
+  * be notified on. Consider using a
+  * [[scuff.concurrent.PartitionedExecutionContext]] if
+  * same-thread notification is important.
   */
 class PubSub[F, MSG <% F](consumerCtx: ExecutionContext) extends Feed {
 
   type Selector = F
-  type Consumer = StreamCallback[MSG]
+  type Consumer = MSG => Unit
 
   private[this] val subscribers = new java.util.concurrent.CopyOnWriteArrayList[FilteringSubscriber]
 
@@ -38,7 +37,7 @@ class PubSub[F, MSG <% F](consumerCtx: ExecutionContext) extends Feed {
     def handle(msg: MSG) = try {
       if (include(msg)) {
         consumerCtx execute newRunnable(hash) {
-          try consumer.onNext(msg) catch {
+          try consumer.apply(msg) catch {
             case NonFatal(e) =>
               consumerCtx reportFailure e
               cancelSubscription()
@@ -52,7 +51,6 @@ class PubSub[F, MSG <% F](consumerCtx: ExecutionContext) extends Feed {
     }
     def cancelSubscription() {
       subscribers.remove(this)
-      consumerCtx execute newRunnable(hash)(Try(consumer.onCompleted))
     }
   }
 
@@ -60,7 +58,7 @@ class PubSub[F, MSG <% F](consumerCtx: ExecutionContext) extends Feed {
     * Subscribe to events.
     */
   def subscribe(
-      filter: F => Boolean)(subscriber: Consumer): Subscription = {
+    filter: F => Boolean)(subscriber: Consumer): Subscription = {
     val fs = new FilteringSubscriber(subscriber, filter, subscriber.hashCode)
     subscribers.add(fs)
     new Subscription {
