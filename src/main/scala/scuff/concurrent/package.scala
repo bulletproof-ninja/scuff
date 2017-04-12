@@ -9,6 +9,7 @@ import scala.util.control.NoStackTrace
 
 import language.implicitConversions
 import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeoutException
 
 package object concurrent {
   implicit def exeCtxToExecutor(ec: ExecutionContext): Executor = ec match {
@@ -74,11 +75,15 @@ package object concurrent {
 
   implicit class ScuffScalaFuture[T](private val f: Future[T]) extends AnyVal {
     def await: T = await(DefaultTimeout)
-    def await(maxWait: FiniteDuration): T =
+    def await(maxWait: FiniteDuration, reportFailureAfterTimeout: Throwable => Unit = null): T =
       if (f.isCompleted) {
         f.value.get.get
       } else {
-        Await.result(f, maxWait)
+        try Await.result(f, maxWait) catch {
+          case timeout: TimeoutException if reportFailureAfterTimeout != null =>
+            f.failed.foreach(reportFailureAfterTimeout)(Threads.PiggyBack)
+            throw timeout
+        }
       }
     def flatten[A](implicit mustBeFuture: Future[A] =:= T): Future[A] = f.asInstanceOf[Future[Future[A]]].flatMap(identity)(Threads.PiggyBack)
     def withTimeout(timeout: FiniteDuration)(implicit scheduler: ScheduledExecutorService = Threads.DefaultScheduler): Future[T] = {
