@@ -46,6 +46,7 @@ class TestResourcePool {
     pool.startHeater(5.millis, exe) { r =>
       r.touch = System.currentTimeMillis()
     }
+    Thread sleep 1
     pool.use { r1 =>
       pool.use { r2 =>
         pool.use { r3 =>
@@ -53,6 +54,7 @@ class TestResourcePool {
         }
       }
     }
+    Thread sleep 1
     assertEquals(3, created.get)
     assertEquals(0, closed.get)
     Thread sleep 20
