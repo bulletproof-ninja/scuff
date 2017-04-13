@@ -17,13 +17,36 @@ class TestResourcePool {
     closed.set(0)
   }
 
+  @Test
+  def `fail heating when too cold`() {
+    val pool = new SomeResourcePool
+    try {
+      pool.startHeater(7.millis)(5.millis) { r =>
+        r.touch = System.currentTimeMillis()
+      }
+      fail("Should fail, since heater can never run")
+    } catch {
+      case e: IllegalArgumentException => assertTrue(e.getMessage.contains("7"))
+    }
+    try {
+      pool.startHeater(5.millis)(5.millis) { r =>
+        r.touch = System.currentTimeMillis()
+      }
+      fail("Should fail, since heater can never run")
+    } catch {
+      case e: IllegalArgumentException => assertTrue(e.getMessage.contains("5"))
+    }
+  }
+
   class SomeResource {
     created.incrementAndGet()
     @volatile var touch = System.currentTimeMillis
     private val expired = new AtomicBoolean(false)
     def isExpired = expired.get
-    val testExpirationSchedule = Threads.DefaultScheduler.scheduleAtFixedRate(10.millis, 10.millis) {
-      if (System.currentTimeMillis - touch > 10) {
+    val testExpirationSchedule = Threads.DefaultScheduler.scheduleAtFixedRate(100.millis, 100.millis) {
+      val now = System.currentTimeMillis
+      if (now - touch > 100) {
+        println(s"Touched at $touch, now is $now, (diff ${now - touch} ms), so closing")
         close()
       }
     }
@@ -33,17 +56,18 @@ class TestResourcePool {
       expired.set(true)
     }
   }
+  class SomeResourcePool extends ResourcePool(new SomeResource) {
+    override def onCheckout(r: SomeResource) = {
+      r.touch = System.currentTimeMillis()
+    }
+    override def onReturn(r: SomeResource) {
+      r.touch = System.currentTimeMillis()
+    }
+  }
 
   private def keepAlive(exe: Executor) {
-    val pool = new ResourcePool(new SomeResource) {
-      override def onCheckout(r: SomeResource) = {
-        r.touch = System.currentTimeMillis()
-      }
-      override def onReturn(r: SomeResource) {
-        r.touch = System.currentTimeMillis()
-      }
-    }
-    pool.startHeater(5.millis, exe) { r =>
+    val pool = new SomeResourcePool
+    val schedule = pool.startHeater()(50.millis, exe) { r =>
       r.touch = System.currentTimeMillis()
     }
     Thread sleep 1
@@ -57,7 +81,7 @@ class TestResourcePool {
     Thread sleep 1
     assertEquals(3, created.get)
     assertEquals(0, closed.get)
-    Thread sleep 20
+    Thread sleep 200
     assertEquals(3, created.get)
     assertEquals(0, closed.get)
     pool.use { r1 =>
@@ -69,7 +93,7 @@ class TestResourcePool {
     }
     assertTrue(created.get >= 3)
     assertEquals(0, closed.get)
-    for (ms <- 5 to 50) {
+    for (ms <- 10 to 200 by 10) {
       Thread sleep ms
       val r = pool.pop()
       try assertFalse(r.isExpired) finally pool.push(r)
@@ -78,6 +102,7 @@ class TestResourcePool {
     }
     pool.drain().foreach(_.close())
     assertEquals(created.get, closed.get)
+    schedule.cancel(false)
   }
 
   @Test

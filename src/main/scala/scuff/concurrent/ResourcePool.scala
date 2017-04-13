@@ -8,6 +8,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 import scala.util.control.NonFatal
+import scala.concurrent.duration.Duration
 
 /**
   * Unbounded lock-free resource pool.
@@ -138,19 +139,34 @@ class ResourcePool[R <: AnyRef](newResource: => R, minResources: Int = 0) {
     }
   }
 
-  private final class Heater(heater: R => Unit) extends Runnable {
+  private final class Heater(heater: R => Unit, excludeHottestMillis: Long) extends Runnable {
 
     private def safeHeat(cool: R): Boolean = try { heater(cool); true } catch {
       case NonFatal(e) => false
     }
 
-    def run = {
-      val resources = drain().reverseIterator
-      while (resources.hasNext) {
-        val cool = resources.next
-        if (safeHeat(cool)) pushUntilSuccessful(cool)
+    @annotation.tailrec
+    private def heatPool() {
+      val now = currentMillis
+      val poolList = pool.get
+        def isHot(t: (Long, R)): Boolean = now - t._1 < excludeHottestMillis
+      val hot = poolList.takeWhile(isHot)
+      val cool = poolList.dropWhile(isHot)
+      if (cool.nonEmpty) {
+        if (!pool.weakCompareAndSet(poolList, hot)) {
+          heatPool()
+        } else {
+          val reheated = cool flatMap {
+            case (_, resource) =>
+              if (safeHeat(resource)) new Some(currentMillis -> resource)
+              else None
+          }
+          pushUntilSuccessful(reheated)
+        }
       }
     }
+
+    def run = heatPool()
   }
 
   /**
@@ -172,11 +188,25 @@ class ResourcePool[R <: AnyRef](newResource: => R, minResources: Int = 0) {
     }
   }
 
-  /** Keep resources hot. */
+  /**
+    *  Keep resources hot.
+    *  @param excludeHottest Exclude if resource has been used within the given duration.
+    *  Use zero to include all. Must be less than interval.
+    *  @param interval The interval the heater is invoked
+    *  @param executor The thread running the heater. If not a [[ScheduledExecutorService]], a
+    *  single thread will be monopolized entirely, until cancelled.
+    */
   def startHeater(
-    interval: FiniteDuration,
-    executor: Executor = Threads.DefaultScheduler)(heater: R => Unit): ScheduledFuture[Nothing] = {
-    val runHeater = new Heater(heater)
+    excludeHottest: FiniteDuration = Duration.Zero)(
+      interval: FiniteDuration,
+      executor: Executor = Threads.DefaultScheduler)(heater: R => Unit): ScheduledFuture[Nothing] = {
+
+    require(interval.length > 0, s"Must have interval: $interval")
+    require(
+      excludeHottest < interval,
+      s"Heater is running every $interval, thus excluding all used within $excludeHottest will effectively disable heater")
+
+    val runHeater = new Heater(heater, excludeHottest.toMillis)
     executor match {
       case scheduler: ScheduledExecutorService => schedule(scheduler, runHeater, interval, interval)
       case _ => startThread(executor, runHeater, interval, interval)
