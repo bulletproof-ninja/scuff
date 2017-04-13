@@ -32,6 +32,9 @@ class ResourcePool[R <: AnyRef](newResource: => R, minResources: Int = 0) {
 
   require(minResources >= 0, s"Cannot have less resources than zero: $minResources")
 
+  @inline
+  private def currentMillis = System.currentTimeMillis
+
   private val pool = {
     val initialResources = (0 until minResources).map(_ => 0L -> newResource).toList
     new AtomicReference[List[(Long, R)]](initialResources)
@@ -108,7 +111,7 @@ class ResourcePool[R <: AnyRef](newResource: => R, minResources: Int = 0) {
     def run = pruneTail()
 
     @tailrec
-    def pruneTail(now: Long = System.currentTimeMillis) {
+    def pruneTail(now: Long = currentMillis) {
       pruneLast(now) match {
         case Some(pruned) =>
           Try(cleanup(pruned)) // Best effort cleanup
@@ -205,17 +208,23 @@ class ResourcePool[R <: AnyRef](newResource: => R, minResources: Int = 0) {
     }
   }
 
+  private implicit val ordering = Ordering.by[(Long, R), Long](_._1).reverse
   @tailrec
-  private def pushUntilSuccessful(r: R, time: Long = System.currentTimeMillis) {
+  private def pushUntilSuccessful(append: List[(Long, R)]) {
     val list = pool.get
-    if (!pool.weakCompareAndSet(list, (time, r) :: list)) {
-      pushUntilSuccessful(r, time)
+    val sorted = (list ++ append).sorted
+    if (!pool.weakCompareAndSet(list, sorted)) {
+      pushUntilSuccessful(append)
     }
   }
 
   final def push(r: R) {
     onReturn(r)
-    pushUntilSuccessful(r)
+    val tuple = currentMillis -> r
+    val list = pool.get
+    if (!pool.weakCompareAndSet(list, tuple :: list)) {
+      pushUntilSuccessful(List(tuple))
+    }
   }
 
   /**
