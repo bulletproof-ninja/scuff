@@ -224,7 +224,7 @@ object Threads {
 
 private[scuff] class ScuffThreadFactory(name: String, threadGroup: ThreadGroup, exceptionHandler: Thread.UncaughtExceptionHandler, daemon: Boolean) extends ThreadFactory {
   private val counter = new java.util.concurrent.atomic.AtomicInteger
-  private def newName = s"$name[${counter.getAndIncrement}]"
+  private def newName = s"$name.${counter.getAndIncrement}"
   def newThread(runnable: Runnable) = {
     val t = new Thread(threadGroup, runnable, newName)
     t.setUncaughtExceptionHandler(exceptionHandler)

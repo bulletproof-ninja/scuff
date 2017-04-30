@@ -21,7 +21,7 @@ class TestThreads extends Serializable {
     val thread = tf newThread new Runnable {
       def run = latch.countDown()
     }
-    assertEquals("MyThread[0]", thread.getName)
+    assertEquals("MyThread.0", thread.getName)
     assertEquals("MyThread", thread.getThreadGroup.getName)
     thread.start()
     assertTrue(latch.await(2, TimeUnit.SECONDS))
