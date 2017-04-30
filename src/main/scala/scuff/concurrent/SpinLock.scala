@@ -19,7 +19,7 @@ final class SpinLock {
       } finally {
         lock.set(null)
       }
-    } else if (lock.get() == Thread.currentThread) {
+    } else if (lock.get() eq Thread.currentThread) {
       thunk
     } else {
       apply(thunk)
