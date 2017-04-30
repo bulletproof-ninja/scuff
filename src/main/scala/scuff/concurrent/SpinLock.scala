@@ -6,7 +6,7 @@ package scuff.concurrent
  * NOTICE: This should probably not be used on highly
  * (or even moderately) contended resources, nor if the code
  * under lock is not trivial (e.g. blocking operations),
- * unless you want to increase your power bill.
+ * unless you want to increase your electricity bill.
  */
 final class SpinLock {
   private[this] val lock = new java.util.concurrent.atomic.AtomicReference[Thread]
