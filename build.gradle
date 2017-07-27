@@ -65,6 +65,7 @@ allprojects {
 
         compile "javax.mail:mail:$vMailApi"
         compile "io.fastjson:boon:$vBoon"
+        compile "org.glassfish.main.external:jmxremote_optional-repackaged:4.1.2"
 
         testCompile "org.scala-lang:scala-reflect:$vScalaFull"
         testCompile "junit:junit:$vJUnit"
