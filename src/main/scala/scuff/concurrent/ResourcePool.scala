@@ -9,6 +9,8 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 import scala.util.control.NonFatal
 import scala.concurrent.duration.Duration
+import scala.reflect.{ ClassTag, classTag }
+import scuff.JMX
 
 /**
   * Unbounded lock-free resource pool.
@@ -29,9 +31,22 @@ import scala.concurrent.duration.Duration
   * resource does not escape the `use` scope, but
   * that almost goes without saying, amirite?
   */
-class ResourcePool[R <: AnyRef](newResource: => R, minResources: Int = 0) {
+class ResourcePool[R <: AnyRef: ClassTag](
+    newResource: => R,
+    minResources: Int = 0,
+    description: String = "") {
 
   require(minResources >= 0, s"Cannot have less resources than zero: $minResources")
+
+  private def instanceName = {
+    val className = classTag[R].runtimeClass.getName
+    description match {
+      case "" => className
+      case desc => s"$className($desc)"
+    }
+  }
+
+  override def toString() = s"${classOf[ResourcePool[_]].getSimpleName}($instanceName = $size)}"
 
   @inline
   private def currentMillis = System.currentTimeMillis
@@ -103,7 +118,8 @@ class ResourcePool[R <: AnyRef](newResource: => R, minResources: Int = 0) {
     schedule
   }
 
-  private final class Pruner(timeoutMillis: Long, cleanup: R => Unit) extends Runnable {
+  private final class Pruner(val timeout: FiniteDuration, cleanup: R => Unit) extends Runnable {
+    private[this] val timeoutMillis = timeout.toMillis
     require(timeoutMillis > 0, "Timeout must be > 0 milliseconds")
 
     def delay = new FiniteDuration(timeoutMillis * 2, TimeUnit.MILLISECONDS)
@@ -142,7 +158,7 @@ class ResourcePool[R <: AnyRef](newResource: => R, minResources: Int = 0) {
   private final class Heater(heater: R => Unit, excludeHottestMillis: Long) extends Runnable {
 
     private def safeHeat(cool: R): Boolean = try { heater(cool); true } catch {
-      case NonFatal(e) => false
+      case NonFatal(_) => false
     }
 
     @annotation.tailrec
@@ -181,12 +197,17 @@ class ResourcePool[R <: AnyRef](newResource: => R, minResources: Int = 0) {
     minimumTimeout: FiniteDuration,
     destructor: R => Unit = Function const (()),
     executor: Executor = Threads.DefaultScheduler): ScheduledFuture[Nothing] = {
-    val pruner = new Pruner(minimumTimeout.toMillis, destructor)
-    executor match {
-      case scheduler: ScheduledExecutorService => schedule(scheduler, pruner, pruner.delay, pruner.interval)
-      case _ => startThread(executor, pruner, pruner.delay, pruner.interval)
+    val newPruner = new Pruner(minimumTimeout, destructor)
+    if (pruner.compareAndSet(None, Some(newPruner))) {
+      executor match {
+        case scheduler: ScheduledExecutorService => schedule(scheduler, newPruner, newPruner.delay, newPruner.interval)
+        case _ => startThread(executor, newPruner, newPruner.delay, newPruner.interval)
+      }
+    } else {
+      throw new IllegalStateException("Pruning already started!")
     }
   }
+  private[this] val pruner: AtomicReference[Option[Pruner]] = new AtomicReference(None)
 
   /**
     *  Keep resources hot.
@@ -213,10 +234,10 @@ class ResourcePool[R <: AnyRef](newResource: => R, minResources: Int = 0) {
     }
   }
 
-  def size = pool.get.size
+  def size: Int = pool.get.size
 
   /** Drain pool of all resources. */
-  def drain() = pool.getAndSet(Nil).map(_._2)
+  def drain(): List[R] = pool.getAndSet(Nil).map(_._2)
 
   @tailrec
   final def pop(): R = {
@@ -261,12 +282,12 @@ class ResourcePool[R <: AnyRef](newResource: => R, minResources: Int = 0) {
     * Called before a resource is
     * borrowed from the pool.
     */
-  protected def onCheckout(r: R) {}
+  protected def onCheckout(r: R) = ()
   /**
     * Called before a resource is
     * returned to the pool.
     */
-  protected def onReturn(r: R) {}
+  protected def onReturn(r: R) = ()
 
   def use[A](thunk: R => A): A = {
     val r = pop()
@@ -275,4 +296,26 @@ class ResourcePool[R <: AnyRef](newResource: => R, minResources: Int = 0) {
     a
   }
 
+  private object mxBean extends ResourcePool.ResourcePoolMXBean {
+    def drain(): Unit = ResourcePool.this.drain().foreach {
+      case closeable: AutoCloseable => Try(closeable.close)
+      case _ => // Ignore
+    }
+    def getSize: Int = ResourcePool.this.size
+    def getResourceTimeout: String = pruner.get.map(_.timeout.toString) getOrElse "<no timeout>"
+    def startCleanup(resourceTimeout: Int, resourceTimeoutUnit: String): Unit = {
+      val minTimeout = FiniteDuration(resourceTimeout, resourceTimeoutUnit)
+      startPruning(minTimeout)
+    }
+  }
+  JMX.register(mxBean, instanceName)
+}
+
+private object ResourcePool {
+  trait ResourcePoolMXBean {
+    def drain(): Unit
+    def getSize: Int
+    def getResourceTimeout: String
+    def startCleanup(resourceTimeout: Int, resourceTimeoutUnit: String): Unit
+  }
 }
