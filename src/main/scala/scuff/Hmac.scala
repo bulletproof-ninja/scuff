@@ -4,6 +4,7 @@ import javax.crypto._
 import java.security.spec.AlgorithmParameterSpec
 import java.util.Arrays
 import java.security.SignatureException
+import scuff.concurrent.ResourcePool
 
 object Hmac {
 
@@ -68,21 +69,27 @@ object Hmac {
 
 }
 
+private object HmacFunction {
+  val macPools: Memoizer[(SecretKey, String, Option[AlgorithmParameterSpec]), ResourcePool[Mac]] = new Memoizer({
+    case (key, algo, spec) => new ResourcePool(newMac(key, algo, spec), 1, algo)
+  })
+  private[this] def newMac(secretKey: SecretKey, algo: String, spec: Option[AlgorithmParameterSpec]): Mac = {
+    val mac = Mac.getInstance(algo)
+    spec match {
+      case None => mac.init(secretKey)
+      case Some(spec) => mac.init(secretKey, spec)
+    }
+    mac
+  }
+}
+
 class HmacFunction(
   secretKey: SecretKey,
   macAlgo: String = Hmac.DefaultAlgorithm,
   macAlgoSpec: AlgorithmParameterSpec = null)
     extends (Array[Byte] => Array[Byte]) {
 
-  private[this] val macPool = new concurrent.ResourcePool(newMac)
-  private[this] def newMac: Mac = {
-    val mac = Mac.getInstance(macAlgo)
-    macAlgoSpec match {
-      case null => mac.init(secretKey)
-      case spec => mac.init(secretKey, spec)
-    }
-    mac
-  }
+  private[this] val macPool = HmacFunction.macPools((secretKey, macAlgo, Option(macAlgoSpec)))
   def apply(bytes: Array[Byte]): Array[Byte] = macPool.use(_.doFinal(bytes))
 
 }
