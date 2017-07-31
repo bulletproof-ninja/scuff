@@ -3,6 +3,7 @@ package scuff
 import java.lang.management.ManagementFactory
 
 import scala.reflect.{ ClassTag, classTag }
+import scala.collection.JavaConverters._
 
 import javax.management._
 import javax.management.remote.JMXServiceURL
@@ -13,12 +14,45 @@ import java.util.concurrent.atomic.AtomicInteger
 
 object JMX {
 
+  private[this] val unsafeChars = Array(' ', '*', '?', '=', ':', '"', '\n', '\\', '/', ',')
   private[this] val nameCounters = new Memoizer[String, AtomicInteger](_ => new AtomicInteger)
-  private def uniqueObjectName(name: String): String =
-    nameCounters(name).getAndIncrement match {
-      case 0 => ObjectName quote name
-      case n => ObjectName quote s"$name [$n]"
+  private def mkObjName(mxBean: AnyRef, attrs: Map[String, String]): ObjectName = {
+      def isQuoted(name: String) = name.startsWith("\"") && name.endsWith("\"")
+      def needsQuotes(name: String) = !isQuoted(name) && unsafeChars.exists(name.indexOf(_) != -1)
+      def safeName(name: String): String = {
+        nameCounters(name).getAndIncrement match {
+          case 0 =>
+            if (needsQuotes(name)) {
+              ObjectName quote name
+            } else name
+          case n =>
+            if (isQuoted(name)) {
+              s""""${name.substring(1, name.length - 1)}[$n]""""
+            } else if (needsQuotes(name)) {
+              ObjectName quote s"$name[$n]"
+            } else s"$name[$n]"
+        }
+      }
+    val MXBeanAnnotationClass = classOf[MXBean]
+    val mxBeanInterface = mxBean.getClass.getInterfaces.find { i =>
+      i.getName.endsWith(Suffix) ||
+        i.getAnnotations.map(_.annotationType).exists {
+          case MXBeanAnnotationClass => true
+          case _ => false
+        }
     }
+    val typeName = {
+      val name = (mxBeanInterface.map(_.getSimpleName) getOrElse mxBean.getClass.getSimpleName)
+      if (name.length > Suffix.length && name.endsWith(Suffix)) {
+        name.substring(0, name.length - Suffix.length)
+      } else name
+    }
+    val attributes = Map("type" -> typeName) ++ attrs.map {
+      case ("name", name) => "name" -> safeName(name)
+      case entry => entry
+    }
+    new ObjectName(mxBean.getClass.getPackage.getName, new java.util.Hashtable(attributes.asJava))
+  }
 
   /**
     *  MBean implementation classes can extend this
@@ -53,33 +87,23 @@ object JMX {
     jmxmpServer.getAddress
   }
 
-  private def mkObjName(mxBean: AnyRef, name: Option[String]): ObjectName = {
-    val MXBeanAnnotationClass = classOf[MXBean]
-    val nameAttr = name.map(name => s",name=${uniqueObjectName(name)}") getOrElse ""
-    val mxBeanInterface = mxBean.getClass.getInterfaces.find { i =>
-      i.getName.endsWith(Suffix) ||
-        i.getAnnotations.map(_.annotationType).exists {
-          case MXBeanAnnotationClass => true
-          case _ => false
-        }
+  def register(mxBean: AnyRef, instanceName: Option[String]): ObjectName =
+    register(mxBean, instanceName, Map.empty[String, String])
+  def register(mxBean: AnyRef, instanceName: Option[String], attributes: Map[String, String]): ObjectName = {
+    val attrs = instanceName.foldLeft(attributes) {
+      case (attrs, name) => attrs.updated("name", name)
     }
-    val typeName = (mxBeanInterface.map(_.getSimpleName) getOrElse mxBean.getClass.getSimpleName) match {
-      case name if name.length > Suffix.length && name.endsWith(Suffix) => name.substring(0, name.length - Suffix.length)
-      case name => name
-    }
-    new ObjectName(s"${mxBean.getClass.getPackage.getName}:type=$typeName$nameAttr")
+    register(mxBean, attrs)
   }
+  def register(mxBean: AnyRef, instanceName: String = null, attributes: Map[String, String] = Map.empty): ObjectName =
+    register(mxBean, instanceName.optional, attributes)
 
-  def register(mxBean: AnyRef, instanceName: Option[String]): ObjectName = {
-    val objName = mkObjName(mxBean, instanceName)
+  def register(mxBean: AnyRef, attributes: Map[String, String]): ObjectName = {
+    val objName = mkObjName(mxBean, attributes)
     register(mxBean, objName)
     objName
   }
-
-  def register(mxBean: AnyRef, instanceName: String = null): ObjectName = register(mxBean, Option(instanceName))
-
-  def register(mxBean: AnyRef, objectName: ObjectName): Unit = {
+  def register(mxBean: AnyRef, objectName: ObjectName): Unit =
     Server.registerMBean(mxBean, objectName)
-  }
 
 }
