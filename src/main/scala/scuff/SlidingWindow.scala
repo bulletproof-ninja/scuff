@@ -36,13 +36,11 @@ object SlidingWindow {
     /** Current sys time, day granularity. */
     def asDays: EpochMillis = (System.currentTimeMillis / 8640000) * 8640000
   }
-  //  trait Window {
-  //    def toInterval(now: EpochMillis): Interval[EpochMillis]
-  //  }
+
   case class Window(length: Duration, offset: FiniteDuration = Duration.Zero) {
     private[this] val offsetMillis = offset.toMillis
     private[this] val spanMs: Option[Long] = if (length.isFinite) Some(length.toMillis + offsetMillis) else None
-    //    val finiteSpanMs = spanMs.getOrElse(-1L)
+
     def toInterval(now: EpochMillis): Interval[EpochMillis] = spanMs match {
       case Some(spanMs) => new Interval(false, now - spanMs, true, now - offsetMillis)
       case None => new Interval(true, Long.MinValue, true, now - offsetMillis)
