@@ -15,6 +15,7 @@ import javax.management.remote.jmxmp.JMXMPConnectorServer
 import java.beans.Introspector
 import java.beans.PropertyDescriptor
 import java.lang.reflect.Method
+import java.util.concurrent.atomic.AtomicLong
 
 object JMX {
 
@@ -59,23 +60,6 @@ object JMX {
       case entry => entry
     }
     new ObjectName(mxBean.getClass.getPackage.getName, new java.util.Hashtable(attributes.asJava))
-  }
-
-  /**
-    *  MBean implementation classes can extend this
-    *  class for easy sending of notifications.
-    */
-  abstract class Notifications[N: ClassTag] extends NotificationBroadcasterSupport {
-    protected val notificationType: String = classTag[N].runtimeClass.getName
-    protected def stringify(notif: N): String
-    def sendNotification(notif: N, seqNum: Long, timestamp: Long = System.currentTimeMillis): Unit = {
-      this sendNotification new Notification(
-        notificationType,
-        this,
-        seqNum,
-        timestamp,
-        stringify(notif))
-    }
   }
 
   private[this] final val MXBeanSuffix = "MXBean"
@@ -200,6 +184,24 @@ object JMX {
         Array.empty[MBeanConstructorInfo],
         opsInfo,
         Array.empty[MBeanNotificationInfo])
+    }
+  }
+
+  /**
+    *  MBean implementations can extend this
+    *  for easy sending of notifications.
+    */
+  abstract class NotificationMBean[N: ClassTag] extends NotificationBroadcasterSupport {
+    private[this] val seqNums = new AtomicLong
+    protected val notificationType: String = classTag[N].runtimeClass.getName
+    protected def stringify(notif: N): String
+    def sendNotification(notif: N, timestamp: Long = System.currentTimeMillis): Unit = {
+      this sendNotification new Notification(
+        notificationType,
+        this,
+        seqNums.getAndIncrement,
+        timestamp,
+        stringify(notif))
     }
   }
 
