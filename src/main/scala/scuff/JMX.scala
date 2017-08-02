@@ -12,6 +12,9 @@ import java.util.concurrent.atomic.AtomicInteger
 import javax.management._
 import javax.management.remote.JMXServiceURL
 import javax.management.remote.jmxmp.JMXMPConnectorServer
+import java.beans.Introspector
+import java.beans.PropertyDescriptor
+import java.lang.reflect.Method
 
 object JMX {
 
@@ -109,5 +112,91 @@ object JMX {
   }
   def register(mxBean: AnyRef, objectName: ObjectName): Unit =
     Server.registerMBean(mxBean, objectName)
+
+  trait DynamicMBean extends javax.management.DynamicMBean {
+
+    /**
+      * The dynamic properties.
+      * NOTE: The keys must remain constant. Adding or removing keys
+      * after startup will not be reflected, only changing values.
+      */
+    protected def dynamicProps: collection.Map[String, Any]
+    protected def typeName = JMX.getTypeName(this, mxBeanType)
+
+    private[this] val mxBeanType: Option[Class[_]] = mxBeanInterfaceOf(this)
+    private[this] val (ops, props) = {
+      mxBeanType match {
+        case None =>
+          Array.empty[(MBeanOperationInfo, Method)] -> Map.empty[String, PropertyDescriptor]
+        case Some(interface) =>
+          val props = Introspector.getBeanInfo(interface)
+            .getPropertyDescriptors.map { prop =>
+              prop.getName -> prop
+            }.toMap
+          val propMethods =
+            props.values.map(_.getWriteMethod).filter(_ != null).toSet ++
+              props.values.map(_.getReadMethod).filter(_ != null).toSet
+          val ops = interface.getMethods.filterNot(propMethods).map { method =>
+            new MBeanOperationInfo(s"Operation ${method.getName}", method) -> method
+          }
+          ops -> props
+      }
+    }
+
+    def getAttribute(name: String) = getValue(name, dynamicProps)
+
+    private def getValue(name: String, snapshot: => collection.Map[String, Any]): AnyRef = {
+      props.get(name) match {
+        case Some(prop) => prop.getReadMethod.invoke(this)
+        case _ => snapshot(name).asInstanceOf[AnyRef]
+      }
+    }
+
+    def setAttribute(attr: Attribute) = props(attr.getName).getWriteMethod.invoke(this, attr.getValue)
+    def getAttributes(names: Array[String]) = {
+      lazy val snapshot = dynamicProps
+      val list = new AttributeList
+      names.foreach { name =>
+        val value = getValue(name, snapshot)
+        list.add(new Attribute(name, value))
+      }
+      list
+    }
+    def setAttributes(list: AttributeList) = {
+      list.asList.asScala.foreach(setAttribute)
+      list
+    }
+    def invoke(name: String, values: Array[Object], types: Array[String]): Object = {
+      val found = ops.find {
+        case (_, method) =>
+          method.getName == name && {
+            val sig = method.getParameterTypes
+            sig.length == values.length &&
+              sig.zip(values).forall {
+                case (argType, arg) => argType.isInstance(arg)
+              }
+          }
+      }
+      found.map(_._2.invoke(this, values: _*)).orNull
+    }
+    val getMBeanInfo = {
+      val mapInfo = dynamicProps.map {
+        case (name, value) =>
+          name -> new MBeanAttributeInfo(name, value.getClass.getName, "", true, false, false)
+      }.toMap
+      val propInfo = props.values.map { prop =>
+        val name = prop.getName
+        name -> new MBeanAttributeInfo(name, s"$name description", prop.getReadMethod, prop.getWriteMethod)
+      }.toMap
+      val attrInfo = (mapInfo ++ propInfo).values.toArray
+      val opsInfo = this.ops.map(_._1)
+      new MBeanInfo(
+        typeName, "",
+        attrInfo,
+        Array.empty[MBeanConstructorInfo],
+        opsInfo,
+        Array.empty[MBeanNotificationInfo])
+    }
+  }
 
 }

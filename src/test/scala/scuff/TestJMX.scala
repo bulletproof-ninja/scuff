@@ -22,6 +22,23 @@ object TestJMX {
 class TestJMX {
   import TestJMX._
 
+  @Test @Ignore
+  def dynamic() {
+    var map = Map("a.b.c" -> 0, "d.e.f" -> 0, "g.h.i" -> 0)
+    val bean = foo.bar.Baz.newBean(map)
+      def updateValues() {
+        map = map.keys.foldLeft(Map.empty[String, Int]) {
+          case (map, key) => map.updated(key, util.Random.nextInt(100))
+        }
+      }
+    updateValues()
+    JMX.register(bean, "random_values")
+    while (true) {
+      Thread sleep 5000
+      updateValues()
+    }
+  }
+
   private def uniqueNames(quoted: Boolean, beanName: String, typeName: String, i1: AnyRef, i2: AnyRef) {
     val objName1 = JMX.register(i1, beanName)
     if (quoted) assertEquals(ObjectName quote beanName, objName1.getKeyProperty("name"))
