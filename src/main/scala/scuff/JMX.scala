@@ -5,17 +5,34 @@ import java.lang.management.ManagementFactory
 import scala.reflect.{ ClassTag, classTag }
 import scala.collection.JavaConverters._
 
-import javax.management._
-import javax.management.remote.JMXServiceURL
-import javax.management.remote.jmxmp.JMXMPConnectorServer
 import java.net.InetSocketAddress
 import java.net.InetAddress
 import java.util.concurrent.atomic.AtomicInteger
+
+import javax.management._
+import javax.management.remote.JMXServiceURL
+import javax.management.remote.jmxmp.JMXMPConnectorServer
 
 object JMX {
 
   private[this] val unsafeChars = Array(' ', '*', '?', '=', ':', '"', '\n', '\\', '/', ',')
   private[this] val nameCounters = new Memoizer[String, AtomicInteger](_ => new AtomicInteger)
+  private def mxBeanInterfaceOf(mxBean: AnyRef): Option[Class[_]] = {
+    val MXBeanAnnotationClass = classOf[MXBean]
+    mxBean.getClass.getInterfaces.find { i =>
+      i.getName.endsWith(MXBeanSuffix) ||
+        i.getAnnotations.map(_.annotationType).exists {
+          case MXBeanAnnotationClass => true
+          case _ => false
+        }
+    }
+  }
+  private def getTypeName(mxBean: AnyRef, mxBeanType: Option[Class[_]]): String = {
+    val name = mxBeanType.map(_.getSimpleName) getOrElse mxBean.getClass.getSimpleName
+    if (name.length > MXBeanSuffix.length && name.endsWith(MXBeanSuffix)) {
+      name.substring(0, name.length - MXBeanSuffix.length)
+    } else name
+  }
   private def mkObjName(mxBean: AnyRef, attrs: Map[String, String]): ObjectName = {
       def isQuoted(name: String) = name.startsWith("\"") && name.endsWith("\"")
       def needsQuotes(name: String) = !isQuoted(name) && unsafeChars.exists(name.indexOf(_) != -1)
@@ -33,21 +50,8 @@ object JMX {
             } else s"$name[$n]"
         }
       }
-    val MXBeanAnnotationClass = classOf[MXBean]
-    val mxBeanInterface = mxBean.getClass.getInterfaces.find { i =>
-      i.getName.endsWith(Suffix) ||
-        i.getAnnotations.map(_.annotationType).exists {
-          case MXBeanAnnotationClass => true
-          case _ => false
-        }
-    }
-    val typeName = {
-      val name = (mxBeanInterface.map(_.getSimpleName) getOrElse mxBean.getClass.getSimpleName)
-      if (name.length > Suffix.length && name.endsWith(Suffix)) {
-        name.substring(0, name.length - Suffix.length)
-      } else name
-    }
-    val attributes = Map("type" -> typeName) ++ attrs.map {
+    val mxBeanInterface = mxBeanInterfaceOf(mxBean)
+    val attributes = Map("type" -> getTypeName(mxBean, mxBeanInterface)) ++ attrs.map {
       case ("name", name) => "name" -> safeName(name)
       case entry => entry
     }
@@ -71,7 +75,7 @@ object JMX {
     }
   }
 
-  private[this] final val Suffix = "MXBean"
+  private[this] final val MXBeanSuffix = "MXBean"
   private[this] final val Server: MBeanServer = ManagementFactory.getPlatformMBeanServer
 
   def startJMXMP(port: Int): JMXServiceURL = startJMXMP(new InetSocketAddress(InetAddress.getLocalHost, port))
