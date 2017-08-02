@@ -113,6 +113,10 @@ object JMX {
   def register(mxBean: AnyRef, objectName: ObjectName): Unit =
     Server.registerMBean(mxBean, objectName)
 
+  /**
+    * Implement this trait if your bean have properties
+    * that are unknown or variable at compile time.
+    */
   trait DynamicMBean extends javax.management.DynamicMBean {
 
     /**
