@@ -16,6 +16,7 @@ class TestSlidingWindows {
   def counting {
     counting(TreeMapProvider)
     counting(HashMapProvider)
+    counting(LongMapProvider)
       def counting(sp: StoreProvider[Int]) {
         object Count extends Sum[Int] {
           override val default = Some(0)
@@ -47,6 +48,7 @@ class TestSlidingWindows {
   def average {
     average(TreeMapProvider)
     average(HashMapProvider)
+    average(LongMapProvider)
       def average(sp: StoreProvider[(BigDecimal, Int)]) {
         val windows = Set(Duration.Inf, 10.milliseconds, 100.milliseconds, 1.second).map(Window(_))
         val averages = new SlidingWindow(Average[BigDecimal], windows, sp)
@@ -79,6 +81,7 @@ class TestSlidingWindows {
   def `with offset` {
     withOffset(TreeMapProvider)
     withOffset(HashMapProvider)
+    withOffset(LongMapProvider)
       def withOffset(sp: StoreProvider[Int]) {
         val last10ms = Window(10.milliseconds)
         val prev10ms = Window(10.milliseconds, 10.milliseconds)

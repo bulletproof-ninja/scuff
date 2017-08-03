@@ -146,6 +146,30 @@ object SlidingWindow {
       }
     }
   }
+  def LongMapProvider[V]: StoreProvider[V] = new SynchedMapProvider[V] {
+    protected val timeStore = new UnsynchedScalaLongMap with ForeverReduction
+    abstract class UnsynchedScalaLongMap extends TimeStore {
+      private[this] val map = new collection.mutable.LongMap[V](256)
+      def upsert(ts: EpochMillis, value: V)(update: (V, V) => V): Unit = {
+        map.getOrNull(ts) match {
+          case null => map.update(ts, value)
+          case existing => map.update(ts, update(existing, value))
+        }
+      }
+      def querySince(ts: EpochMillis)(callback: StreamCallback[(EpochMillis, V)]) {
+        map.retain {
+          case entry @ (key, _) =>
+            if (ts > key) false
+            else {
+              callback.onNext(entry)
+              true
+            }
+        }
+        callback.onCompleted()
+      }
+
+    }
+  }
 
   def apply[T, R, F](reducer: Reducer[T, R, F], window: Window, otherWindows: Window*): SlidingWindow[T, R, F] =
     new SlidingWindow[T, R, F](reducer, (window +: otherWindows).toSet)
