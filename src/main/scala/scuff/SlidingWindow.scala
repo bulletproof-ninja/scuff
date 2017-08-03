@@ -23,18 +23,13 @@ object SlidingWindow {
     def default: Option[F] = None
   }
 
-  /** System clock with various timestamp granularity. */
-  object SystemClock {
-    /** Current sys time, millisecond granularity. */
-    def asMilliseconds: EpochMillis = System.currentTimeMillis
-    /** Current sys time, second granularity. */
-    def asSeconds: EpochMillis = (System.currentTimeMillis / 1000) * 1000
-    /** Current sys time, minute granularity. */
-    def asMinutes: EpochMillis = (System.currentTimeMillis / 60000) * 60000
-    /** Current sys time, hour granularity. */
-    def asHours: EpochMillis = (System.currentTimeMillis / 360000) * 360000
-    /** Current sys time, day granularity. */
-    def asDays: EpochMillis = (System.currentTimeMillis / 8640000) * 8640000
+  /** Time precision helper functions. */
+  object TimePrecision {
+    def millis(ms: EpochMillis): EpochMillis = ms
+    def seconds(ms: EpochMillis): EpochMillis = (ms / 1000) * 1000
+    def minutes(ms: EpochMillis): EpochMillis = (ms / 60000) * 60000
+    def hours(ms: EpochMillis): EpochMillis = (ms / 360000) * 360000
+    def days(ms: EpochMillis): EpochMillis = (ms / 8640000) * 8640000
   }
 
   case class Window(length: Duration, offset: FiniteDuration = Duration.Zero) {
@@ -159,20 +154,23 @@ class SlidingWindow[T, R, F](
     reducer: Reducer[T, R, F],
     windows: Set[Window],
     storeProvider: StoreProvider[R] = TreeMapProvider[R],
-    clock: => SlidingWindow.EpochMillis = SystemClock.asMilliseconds) {
+    timePrecision: EpochMillis => EpochMillis = TimePrecision.millis,
+    clock: => SlidingWindow.EpochMillis = System.currentTimeMillis) {
 
   import SlidingWindow._
   require(windows.nonEmpty, "No windows provided")
 
   private[this] val (finiteWindows, foreverWindows) = windows.partition(_.length.isFinite)
 
-  def add(value: T, time: EpochMillis = clock): Unit = storeProvider(_.upsert(time, reducer.init(value))(reducer))
+  def add(value: T, time: EpochMillis = clock): Unit = storeProvider(_.upsert(timePrecision(time), reducer.init(value))(reducer))
   def addMany(values: Traversable[T], time: EpochMillis = clock) = if (values.nonEmpty) {
     val reduced = values.map(reducer.init).reduce(reducer)
-    storeProvider(_.upsert(time, reduced)(reducer))
+    storeProvider(_.upsert(timePrecision(time), reduced)(reducer))
   }
   def addBatch(valuesWithTime: Traversable[(T, EpochMillis)]) = if (valuesWithTime.nonEmpty) {
-    val reducedByTime = valuesWithTime.groupBy(_._2).mapValues(_.map(t => reducer.init(t._1)).reduce(reducer))
+    val reducedByTime = valuesWithTime
+      .groupBy(t => timePrecision(t._2))
+      .mapValues(_.map(t => reducer.init(t._1)).reduce(reducer))
     storeProvider { map =>
       reducedByTime.foreach {
         case (time, value) => map.upsert(time, value)(reducer)
@@ -195,7 +193,7 @@ class SlidingWindow[T, R, F](
       val finiteMap =
         if (finiteWindows.isEmpty) Future successful initMap
         else {
-          val cutoffs = finiteWindows.map(w => w -> w.toInterval(now))
+          val cutoffs = finiteWindows.map(w => w -> w.toInterval(timePrecision(now)))
           val querySinceCutoff = tsMap.querySince(cutoffs.map(_._2.from).min) _
           StreamPromise.fold(querySinceCutoff)(initMap) {
             case (map, (ts, value)) =>
