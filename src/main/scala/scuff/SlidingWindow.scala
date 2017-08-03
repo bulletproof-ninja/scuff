@@ -1,16 +1,16 @@
 package scuff
 
-import concurrent.{ Threads, StreamCallback, StreamPromise }
-import java.util.concurrent.ScheduledExecutorService
-import scala.concurrent.Future
-import scala.concurrent.duration._
-import SlidingWindow._
-import scala.concurrent.ExecutionContext
-import scala.util.control.NonFatal
-import scala.util._
-import collection.JavaConverters._
+import java.util.concurrent.{ ScheduledExecutorService, ScheduledFuture }
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.ScheduledFuture
+
+import scala.collection.JavaConverters._
+import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.duration._
+import scala.util.{ Failure, Success }
+import scala.util.control.NonFatal
+
+import SlidingWindow._
+import scuff.concurrent.{ StreamCallback, StreamPromise, Threads }
 
 object SlidingWindow {
 
@@ -96,25 +96,29 @@ object SlidingWindow {
     }
   }
   private abstract class SynchedMapProvider[V] extends StoreProvider[V] {
-    abstract class UnsynchedTimeStore extends TimeStore {
-      protected type M <: java.util.Map[EpochMillis, V]
-      protected def map: M
+    trait ForeverReduction extends TimeStore {
       private[this] var foreverValue: Option[V] = None
       def queryAll(reduce: (V, V) => V): Future[Option[V]] = Future successful foreverValue
+      abstract override def upsert(ts: EpochMillis, value: V)(update: (V, V) => V): Unit = {
+        super.upsert(ts, value)(update)
+        foreverValue = foreverValue.map(update(_, value)) orElse Some(value)
+      }
+    }
+    abstract class UnsynchedJavaUtilMap extends TimeStore {
+      protected type M <: java.util.Map[EpochMillis, V]
+      protected def map: M
       def upsert(ts: EpochMillis, value: V)(update: (V, V) => V) {
         map.put(ts, value) match {
           case null => // No update necessary
           case oldValue => map.put(ts, update(oldValue, value))
         }
-        foreverValue = foreverValue.map(update(_, value)) orElse Some(value)
       }
     }
-    protected val timeStore: UnsynchedTimeStore
+    protected val timeStore: TimeStore
     def apply[T](thunk: TimeStore => T): T = timeStore.synchronized(thunk(timeStore))
   }
-  def TreeMapProvider[V]: StoreProvider[V] = new TreeMapProvider
-  private class TreeMapProvider[V] extends SynchedMapProvider[V] {
-    protected val timeStore = new UnsynchedTimeStore {
+  def TreeMapProvider[V]: StoreProvider[V] = new SynchedMapProvider[V] {
+    protected val timeStore = new UnsynchedJavaUtilMap with ForeverReduction {
       protected type M = java.util.TreeMap[EpochMillis, V]
       protected val map = new M
       def querySince(ts: EpochMillis)(callback: StreamCallback[(EpochMillis, V)]) {
@@ -124,9 +128,8 @@ object SlidingWindow {
       }
     }
   }
-  def HashMapProvider[V]: StoreProvider[V] = new HashMapProvider
-  private class HashMapProvider[V] extends SynchedMapProvider[V] {
-    protected val timeStore = new UnsynchedTimeStore {
+  def HashMapProvider[V]: StoreProvider[V] = new SynchedMapProvider[V] {
+    protected val timeStore = new UnsynchedJavaUtilMap with ForeverReduction {
       protected type M = java.util.HashMap[EpochMillis, V]
       protected val map = new M(256)
       def querySince(ts: EpochMillis)(callback: StreamCallback[(EpochMillis, V)]) {
