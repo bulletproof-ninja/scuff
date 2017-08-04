@@ -19,8 +19,8 @@ object SlidingWindow {
   trait Reducer[@specialized(AnyRef, Int, Long, Float, Double) T, @specialized(AnyRef, Int, Long, Float, Double) R, @specialized(AnyRef, Int, Long, Float, Double) F]
       extends ((R, R) => R) {
     def init(t: T): R
-    def finalize(r: R): Option[F]
-    def default: Option[F] = None
+    def finalize(r: R): F
+    def default: F
   }
 
   /** Time precision helper functions. */
@@ -59,10 +59,11 @@ object SlidingWindow {
     private def num = implicitly[Numeric[N]]
     def init(n: N) = n
     def apply(x: N, y: N) = num.plus(x, y)
-    def finalize(sum: N) = Some(sum)
+    def finalize(sum: N) = sum
+    def default = num.zero
   }
 
-  case class Average[N: Numeric]() extends Reducer[N, (N, Int), N] {
+  case class Average[N: Numeric]() extends Reducer[N, (N, Int), Option[N]] {
     private def num = implicitly[Numeric[N]]
     private[this] val div = num match {
       case f: Fractional[N] => f.div _
@@ -76,6 +77,7 @@ object SlidingWindow {
       if (count == 0) None
       else Some(div(sum, num.fromInt(count)))
     }
+    def default = None
   }
 
   trait StoreProvider[@specialized(AnyRef, Int, Long, Float, Double) V] {
@@ -187,6 +189,7 @@ class SlidingWindow[T, R, F](
   import SlidingWindow._
   require(windows.nonEmpty, "No windows provided")
 
+  private[this] val baselineWindows: Map[Window, F] = windows.map(window => window -> reducer.default).toMap
   private[this] val (finiteWindows, foreverWindows) = windows.partition(_.length.isFinite)
 
   def add(value: T, time: EpochMillis = clock): Unit = storeProvider(_.upsert(timePrecision(time), reducer.init(value))(reducer))
@@ -213,7 +216,7 @@ class SlidingWindow[T, R, F](
     * If a timestamp is provided, it is expected to always be
     * increasing (or equal to previous).
     */
-  def snapshot(now: EpochMillis = clock): Future[Map[Window, F]] = {
+  def snapshot(now: EpochMillis = clock): Future[collection.Map[Window, F]] = {
     val (finitesFuture, foreverFuture) = storeProvider { tsMap =>
       val sinceForever = if (foreverWindows.isEmpty) NoFuture else tsMap.queryAll(reducer)
       val initMap = new java.util.HashMap[Window, R](windows.size * 2, 1f)
@@ -248,22 +251,16 @@ class SlidingWindow[T, R, F](
         foreverValue <- foreverOpt
         foreverKey <- foreverWindows
       } map.put(foreverKey, foreverValue)
-      val finalizedMap = map.asScala.flatMap {
-        case (w, r) => reducer.finalize(r).map(v => w -> v)
-      }.toMap
-      reducer.default match {
-        case Some(default) if windows.size > finalizedMap.size =>
-          windows.diff(finalizedMap.keySet).foldLeft(finalizedMap) {
-            case (map, missingWindow) => map.updated(missingWindow, default)
-          }
-        case _ => finalizedMap
-      }
+      val finalizedMap = map.asScala.mapValues(reducer.finalize)
+      if (windows.size > finalizedMap.size) {
+        baselineWindows ++ finalizedMap
+      } else finalizedMap
     }
   }
 
   def subscribe(
     callbackInterval: FiniteDuration,
-    scheduler: ScheduledExecutorService = Threads.DefaultScheduler)(listener: StreamCallback[Map[Window, F]]): Subscription = {
+    scheduler: ScheduledExecutorService = Threads.DefaultScheduler)(listener: StreamCallback[collection.Map[Window, F]]): Subscription = {
     object SubscriptionState extends Subscription {
       @volatile var schedule: Option[ScheduledFuture[_]] = None
       private val error = new AtomicBoolean(false)

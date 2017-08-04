@@ -18,9 +18,7 @@ class TestSlidingWindows {
     counting(HashMapProvider)
     counting(LongMapProvider)
       def counting(sp: StoreProvider[Int]) {
-        object Count extends Sum[Int] {
-          override val default = Some(0)
-        }
+        object Count extends Sum[Int]
         val windows = Set(Duration.Inf, 10.milliseconds, 100.milliseconds, 1.second).map(Window(_))
         val counts = new SlidingWindow(Count, windows, sp)
         (1 to 50).foreach(i => counts.add(1, i))
@@ -53,26 +51,26 @@ class TestSlidingWindows {
         val windows = Set(Duration.Inf, 10.milliseconds, 100.milliseconds, 1.second).map(Window(_))
         val averages = new SlidingWindow(Average[BigDecimal], windows, sp)
         (1 to 50).foreach(i => averages.add(i, i))
-        val avg50ms = averages.snapshot(50).await(10.seconds).map(e => e._1.length -> e._2)
+        val avg50ms = averages.snapshot(50).await(10.seconds).flatMap(e => e._2.map(v => e._1.length -> v))
         assertEquals(Dec(45.5), avg50ms(10.milliseconds))
         assertEquals(Dec(25.5), avg50ms(100.milliseconds))
         assertEquals(Dec(25.5), avg50ms(1.second))
         assertEquals(Dec(25.5), avg50ms(Duration.Inf))
         (51 to 1000).foreach(t => averages.add(t, t))
-        val avg1s = averages.snapshot(1000).await(10.seconds).map(e => e._1.length -> e._2)
+        val avg1s = averages.snapshot(1000).await(10.seconds).flatMap(e => e._2.map(v => e._1.length -> v))
         assertEquals(Dec(995.5), avg1s(10.milliseconds))
         assertEquals(Dec(950.5), avg1s(100.milliseconds))
         assertEquals(Dec(500.5), avg1s(1.second))
         assertEquals(Dec(500.5), avg1s(Duration.Inf))
         (1001 to 2000).foreach(t => averages.add(t, t))
-        val avg2100ms = averages.snapshot(2100).await(10.seconds).map(e => e._1.length -> e._2)
+        val avg2100ms = averages.snapshot(2100).await(10.seconds).flatMap(e => e._2.map(v => e._1.length -> v))
         assertEquals(None, avg2100ms.get(10.milliseconds))
         assertEquals(None, avg2100ms.get(100.milliseconds))
         assertEquals(Dec(1550.5), avg2100ms(1.second))
         assertEquals(Dec(1000.5), avg2100ms(Duration.Inf))
         val oneThirdHundredth = Dec(33.333333333) // Is that even a word?
         (5001 to 5003).foreach(t => averages.add(oneThirdHundredth, t))
-        val avg5005ms = averages.snapshot(5005).await(10.seconds).map(e => e._1.length -> e._2)
+        val avg5005ms = averages.snapshot(5005).await(10.seconds).flatMap(e => e._2.map(v => e._1.length -> v))
         assertEquals(oneThirdHundredth, avg5005ms(10.milliseconds))
       }
   }
@@ -93,7 +91,7 @@ class TestSlidingWindows {
         sums.add(1, 5)
         sums.add(2, 5)
         val at7ms = sums.snapshot(7).await(10.seconds)
-        assertEquals(None, at7ms.get(prev10ms))
+        assertEquals(0, at7ms(prev10ms))
         assertEquals(22, at7ms(last10ms))
         sums.add(9, 8)
         sums.add(3, 9)
