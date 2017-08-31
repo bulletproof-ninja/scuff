@@ -34,4 +34,14 @@ class TestScuffTraversable {
     }
   }
 
+  @Test
+  def `levenshtein`() {
+    val bytes1: Array[Byte] = Array(4, 3, 7, 8)
+    val bytes2: Vector[Byte] = Vector(4, 33, 7, 8)
+    assertEquals(1, bytes1 levenshtein bytes2)
+    assertEquals(1, bytes2 levenshtein bytes1)
+    assertEquals(0, bytes1 levenshtein bytes1)
+    assertEquals(0, bytes2 levenshtein bytes2)
+  }
+
 }

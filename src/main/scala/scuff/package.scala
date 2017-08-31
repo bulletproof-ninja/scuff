@@ -16,20 +16,8 @@ package object scuff {
   implicit class ScuffString(private val str: String) extends AnyVal {
     def optional: Option[String] = if (str == null || str.length == 0) None else Some(str)
 
-    /**
-      * Calculate Levenshtein distance.
-      * Taken, and modified, from:
-      * http://rosettacode.org/wiki/Levenshtein_distance#Scala
-      */
-    def levenshtein(s2: String): Int = {
-        def minimum(i1: Int, i2: Int, i3: Int) = min(min(i1, i2), i3)
-      val dist = Array.tabulate(s2.length + 1, str.length + 1) { (j, i) => if (j == 0) i else if (i == 0) j else 0 }
-      for (j <- 1 to s2.length; i <- 1 to str.length)
-        dist(j)(i) = if (s2(j - 1) == str(i - 1)) dist(j - 1)(i - 1)
-        else minimum(dist(j - 1)(i) + 1, dist(j)(i - 1) + 1, dist(j - 1)(i - 1) + 1)
-
-      dist(s2.length)(str.length)
-    }
+    /** Calculate Levenshtein distance. */
+    def levenshtein(s2: String): Int = new ScuffIdxSeq(str).levenshtein(s2)
 
     def unsafeInt(stopper: Numbers.Stopper = Numbers.NonStop, offset: Int = 0, length: Int = -1): Int = {
       Numbers.parseUnsafeInt(str, offset, end(offset, length))(stopper)
@@ -148,6 +136,25 @@ package object scuff {
   }
   implicit class ScuffTraversable[Trav <: Traversable[_]](private val trav: Trav) extends AnyVal {
     def optional: Option[Trav] = if (trav == null || trav.isEmpty) None else Some(trav)
+  }
+  implicit class ScuffArray[E](private val arr: Array[E]) extends AnyVal {
+    def levenshtein(s2: scala.collection.IndexedSeqLike[E, _]): Int = new ScuffIdxSeq(arr).levenshtein(s2)
+  }
+  implicit class ScuffIdxSeq[E](private val seq: scala.collection.IndexedSeqLike[E, _]) extends AnyVal {
+    /**
+      * Calculate Levenshtein distance.
+      * Taken, and modified, from:
+      * http://rosettacode.org/wiki/Levenshtein_distance#Scala
+      */
+    def levenshtein(s2: scala.collection.IndexedSeqLike[E, _]): Int = {
+        def minimum(i1: Int, i2: Int, i3: Int) = min(min(i1, i2), i3)
+      val dist = Array.tabulate(s2.length + 1, seq.length + 1) { (j, i) => if (j == 0) i else if (i == 0) j else 0 }
+      for (j <- 1 to s2.length; i <- 1 to seq.length)
+        dist(j)(i) = if (s2(j - 1) == seq(i - 1)) dist(j - 1)(i - 1)
+        else minimum(dist(j - 1)(i) + 1, dist(j)(i - 1) + 1, dist(j - 1)(i - 1) + 1)
+
+      dist(s2.length)(seq.length)
+    }
   }
 
   implicit class ScuffBooleanFunction[I](private val f: I => Boolean) extends AnyVal {

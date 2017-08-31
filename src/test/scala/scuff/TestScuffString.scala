@@ -6,6 +6,14 @@ import Assert._
 class TestScuffString {
 
   @Test
+  def `levenshtein distance`() {
+    assertEquals(3, "foo" levenshtein "bar")
+    assertEquals(1, "foo" levenshtein "fou")
+    assertEquals(1, "foo" levenshtein "foob")
+    assertEquals(2, "foo" levenshtein "oob")
+  }
+
+  @Test
   def `optional string` {
     assertEquals(None, "".optional)
     assertEquals(Some("Hello"), "Hello".optional)
