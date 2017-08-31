@@ -18,15 +18,19 @@ package object io {
       }
     }
     /**
-     * Copies to output stream, until input stream is exhausted (returns -1 on read).
-     * Output stream is neither flushed nor closed.
-     */
-    def copyTo(out: OutputStream, bufferSize: Int = DefaultBufferSize) {
-      val buffer = new Array[Byte](bufferSize)
+      * Copies to output stream, until input stream is exhausted (returns -1 on read).
+      * Output stream is neither flushed nor closed.
+      */
+    def copyTo(out: OutputStream, bufferSize: Int = DefaultBufferSize): Unit = copyTo(out, new Array[Byte](bufferSize))
+    /**
+      * Copies to output stream, until input stream is exhausted (returns -1 on read).
+      * Output stream is neither flushed nor closed.
+      */
+    def copyTo(out: OutputStream, buffer: Array[Byte]): Unit = {
       try {
         transfer(in, out, buffer)
       } catch {
-        case eof: EOFException => // Some faulty implementations throw EOF
+        case _: EOFException => // Some faulty implementations throw EOF
       }
     }
   }
@@ -43,16 +47,21 @@ package object io {
       }
     }
     /**
-     * Copies from reader to writer,
-     * until reader is exhausted (returns -1 on read).
-     * Writer is neither flushed nor closed.
-     */
-    def copyTo(out: Writer, bufferSize: Int = DefaultBufferSize) {
-      val buffer = new Array[Char](bufferSize)
+      * Copies from reader to writer,
+      * until reader is exhausted (returns -1 on read).
+      * Writer is neither flushed nor closed.
+      */
+    def copyTo(out: Writer, bufferSize: Int = DefaultBufferSize): Unit = copyTo(out, new Array[Char](bufferSize))
+    /**
+      * Copies from reader to writer,
+      * until reader is exhausted (returns -1 on read).
+      * Writer is neither flushed nor closed.
+      */
+    def copyTo(out: Writer, buffer: Array[Char]): Unit = {
       try {
         transfer(in, out, buffer)
       } catch {
-        case eof: EOFException => // Some faulty implementations throw EOF
+        case _: EOFException => // Some faulty implementations throw EOF
       }
     }
   }
