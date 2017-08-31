@@ -143,6 +143,8 @@ package object scuff {
       case _: UnsupportedOperationException => throw new NoSuchElementException(s"${trav.getClass.getSimpleName}.last")
     }
     def lastOption: Option[E] = trav.reduceOption((_, e) => e)
+    def head: E = headOption.getOrElse(throw new NoSuchElementException(s"${trav.getClass.getSimpleName}.head"))
+    def headOption: Option[E] = trav.find(_ => true)
   }
   implicit class ScuffTraversable[Trav <: Traversable[_]](private val trav: Trav) extends AnyVal {
     def optional: Option[Trav] = if (trav == null || trav.isEmpty) None else Some(trav)

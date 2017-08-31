@@ -23,4 +23,15 @@ class TestScuffTraversable {
     }
   }
 
+  @Test
+  def `head element` {
+      def iter = (1 to 1000).iterator
+    assertEquals(1, iter.head)
+    assertEquals(Some(1), iter.headOption)
+    assertEquals(None, Nil.iterator.headOption)
+    try fail(s"Should fail: ${List[Int]().iterator.last}") catch {
+      case _: NoSuchElementException => // Expected
+    }
+  }
+
 }
