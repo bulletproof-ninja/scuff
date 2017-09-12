@@ -38,17 +38,18 @@ object EnvVars extends EnvVars(null)
 class ManifestAttributes(attrs: Attributes, fallback: Props) extends Props("manifest attribute", attrs.getValue _, fallback) {
   def this(manifest: Manifest, fallback: Props) = this(manifest.getMainAttributes, fallback)
 }
+
 object ManifestAttributes {
-  def apply(fallback: Props = null): Option[ManifestAttributes] = {
-    this.getClass.getResourceAsStream(JarFile.MANIFEST_NAME) match {
-      case null => None
-      case manifestStream =>
+  import collection.JavaConverters._
+  def apply(cl: ClassLoader = getClass.getClassLoader, fallback: Props = null): Option[Props] = {
+    cl.getResources(JarFile.MANIFEST_NAME).asScala.foldLeft(None: Option[ManifestAttributes]) {
+      case (chain, url) => Some {
+        val stream = url.openStream()
         try {
-          val manifest = new Manifest(manifestStream)
-          Some(new ManifestAttributes(manifest, fallback))
-        } finally {
-          manifestStream.close()
-        }
+          val manifest = new Manifest(stream)
+          new ManifestAttributes(manifest, chain orElse Option(fallback) orNull)
+        } finally stream.close()
+      }
     }
   }
 }
