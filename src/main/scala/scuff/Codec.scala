@@ -8,6 +8,12 @@ import java.io._
 trait Codec[A, B] extends Serializable {
   def encode(a: A): B
   def decode(b: B): A
+
+  val reverse: Codec[B, A] = new Codec[B, A] {
+    def encode(b: B): A = Codec.this.decode(b)
+    def decode(a: A): B = Codec.this.encode(a)
+  }
+
 }
 
 object Codec {
