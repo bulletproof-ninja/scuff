@@ -1,7 +1,6 @@
 package scuff
 
 import java.io._
-import scala.reflect.ClassTag
 
 /**
   * Codec. Combined encoder/decoder interface.
@@ -12,6 +11,8 @@ trait Codec[A, B] extends Serializable {
 }
 
 object Codec {
+  import scala.reflect.ClassTag
+
   private[this] val passthrough = new Codec[Any, Any] {
     def encode(a: Any) = a
     def decode(b: Any) = b
