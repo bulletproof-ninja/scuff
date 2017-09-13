@@ -5,7 +5,7 @@ import java.util.regex.Pattern
 object Base64 {
 
   /** Wrap existing `Array[Byte]` codec in RFC 4648 URL/filename safe Base64 codec. */
-  def apply[A](codec: Codec[A, Array[Byte]]) = new Codec[A, CharSequence] {
+  def apply[A](codec: Codec[A, Array[Byte]]): Codec[A, CharSequence] = new Codec[A, CharSequence] {
     def encode(a: A): CharSequence = RFC_4648 encode (codec encode a)
     def decode(b: CharSequence): A = codec decode (RFC_4648 decode b)
   }
