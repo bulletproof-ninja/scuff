@@ -1,14 +1,15 @@
 package scuff
 
 import java.lang.reflect.Method
-import scala.util.control.NonFatal
 
 /**
   * Generic collector of metrics.
   */
-trait MetricsCollector[@specialized(Long, Int) N] {
+trait MetricsCollector[@specialized(Long, Int) V] {
+  /** Generate timestamp. */
+  def timestamp(): Long
   /** Report value. */
-  def report(name: String, value: N, method: Method = null)(implicit num: Numeric[N]): Unit
+  def report(name: String, method: Method = null)(value: V, time: Long = timestamp): Unit
 }
 
 private object TimeCollector {
@@ -22,8 +23,7 @@ private object TimeCollector {
   * Collector of timing metrics.
   */
 trait TimeCollector extends MetricsCollector[Long] {
-
-  protected def timestamp(): Long
+  import scala.util.control.NonFatal
 
   @inline
   final def reportTiming[R](identifier: String)(thunk: => R): R = {
@@ -35,8 +35,9 @@ trait TimeCollector extends MetricsCollector[Long] {
     }
     val start = timestamp()
     val result = thunk
-    val duration = timestamp() - start
-    try report(id, duration, method) catch {
+    val now = timestamp()
+    val duration = now - start
+    try report(id, method)(duration, now) catch {
       case NonFatal(_) => // Ignore
     }
     result
