@@ -5,8 +5,8 @@ import org.junit.Assert._
 
 class TestDoubleDispatch {
   @Test
-  def `with return type` {
-    trait `123` extends DoubleDispatch[Callback123[Int]]
+  def `with return type`() {
+    trait `123` extends DoubleDispatch { type Callback = Callback123[Int] }
     class One extends `123` {
       def dispatch(callback: Callback123[Int]) = callback(this)
     }
@@ -17,10 +17,10 @@ class TestDoubleDispatch {
       def dispatch(callback: Callback123[Int]) = callback(this)
     }
     trait Callback123[A] {
-      type RT = A
-      def apply(one: One): RT
-      def apply(two: Two): RT
-      def apply(three: Three): RT
+      type Return = A
+      def apply(one: One): Return
+      def apply(two: Two): Return
+      def apply(three: Three): Return
     }
     object Simple extends Callback123[Int] {
       def apply(one: One): Int = 1
@@ -33,8 +33,8 @@ class TestDoubleDispatch {
     assertEquals(3, new Three().dispatch(Simple))
   }
   @Test
-  def `no return type` {
-    trait `123` extends DoubleDispatch[Callback123]
+  def `no return type`() {
+    trait `123` extends DoubleDispatch { type Callback = Callback123 }
     class One extends `123` {
       def dispatch(callback: Callback123) = callback(this)
     }
@@ -45,7 +45,7 @@ class TestDoubleDispatch {
       def dispatch(callback: Callback123) = callback(this)
     }
     trait Callback123 {
-      type RT = Unit
+      type Return = Unit
       def apply(one: One)
       def apply(two: Two)
       def apply(three: Three)
@@ -69,8 +69,8 @@ class TestDoubleDispatch {
   }
 
   @Test
-  def `functional` {
-    trait `123` extends DoubleDispatch[Callback123[Long]]
+  def functional() {
+    trait `123` extends DoubleDispatch { type Callback = Callback123[Long] }
     class One extends `123` {
       def dispatch(callback: Callback123[Long]) = callback(this)
     }
@@ -81,10 +81,10 @@ class TestDoubleDispatch {
       def dispatch(callback: Callback123[Long]) = callback(this)
     }
     trait Callback123[A] {
-      type RT = A
-      def apply(one: One): RT
-      def apply(two: Two): RT
-      def apply(three: Three): RT
+      type Return = A
+      def apply(one: One): Return
+      def apply(two: Two): Return
+      def apply(three: Three): Return
     }
     class Multiplier(m: Int) extends Callback123[Long] {
       def apply(one: One): Long = 1L * m

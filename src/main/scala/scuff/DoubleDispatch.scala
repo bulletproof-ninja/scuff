@@ -1,10 +1,10 @@
 package scuff
 
 /**
- * Message interface for enabling dispatch to
- * callback interface.
- */
-trait DoubleDispatch[CB <: { type RT }] {
-  def dispatch(callback: CB): callback.RT
+  * Message interface for enabling dispatch to
+  * callback interface.
+  */
+trait DoubleDispatch {
+  type Callback <: { type Return }
+  def dispatch(callback: Callback): callback.Return
 }
-
