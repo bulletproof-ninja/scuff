@@ -37,7 +37,7 @@ final class PartitionedExecutionContext(
     case exe: Executor => ExecutionContext.fromExecutor(exe, failureReporter)
   }
 
-  def singleThread(hash: Int): ExecutionContext = executorByHash(hash)
+  def singleThread(hash: Int): ExecutionContext with Executor = executorByHash(hash)
 
   /**
     * Runs a block of code on this execution context, using
