@@ -50,14 +50,14 @@ final class Interval[@specialized(Short, Int, Long, Float, Double) T](
   override def toString = if (stringRep != null) stringRep else
     s"$openBracket${numStr(from)},${numStr(to)}$closeBracket"
 
-  override def equals(any: Any) = any match {
-    case that: Interval[_] =>
-      val that = any.asInstanceOf[Interval[T]]
+  override def equals(that: Any) = that match {
+    case that: Interval[T] => (this eq that) || {
       this.ord == that.ord &&
         this.fromIncl == that.fromIncl &&
         this.toIncl == that.toIncl &&
         this.ord.equiv(this.from, that.from) &&
         this.ord.equiv(this.to, that.to)
+    }
     case _ => false
   }
   override def hashCode = from.hashCode ^ to.hashCode

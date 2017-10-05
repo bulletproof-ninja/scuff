@@ -30,8 +30,8 @@ final case class EmailAddress @throws(classOf[IllegalArgumentException]) (user: 
 
   def compareTo(that: EmailAddress) = this.toLowerCase compareTo that.toLowerCase
 
-  override def equals(any: Any) = any match {
-    case that: EmailAddress => this.toLowerCase == that.toLowerCase
+  override def equals(that: Any) = that match {
+    case that: EmailAddress => (this eq that) || this.toLowerCase == that.toLowerCase
     case _ => false
   }
 

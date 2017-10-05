@@ -41,15 +41,15 @@ final class Password(passwordDigest: Array[Byte], val algorithm: String, saltByt
   /** Digest length in bytes. */
   def length = _digest.length
 
-  override def equals(obj: Any) = obj match {
-    case that: Password =>
+  override def equals(that: Any) = that match {
+    case that: Password => (this eq that) || {
       this.workFactor == that.workFactor &&
         this.algorithm.equalsIgnoreCase(that.algorithm) &&
         Arrays.equals(this._salt, that._salt) &&
         Arrays.equals(this._digest, that._digest)
+    }
     case _ => false
   }
-
   override val hashCode = Arrays.hashCode(passwordDigest)
 
   /**
