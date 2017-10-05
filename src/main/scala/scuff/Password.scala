@@ -19,7 +19,7 @@ import scala.concurrent.duration._
   * @see java.security.MessageDigest
   */
 final class Password(passwordDigest: Array[Byte], val algorithm: String, saltBytes: Array[Byte], val workFactor: Int)
-    extends Serializable {
+  extends Serializable {
   require(passwordDigest != null, "Digest cannot be null")
   require(algorithm != null, "Algorithm cannot be null")
   require(workFactor > 0, s"Must have a work factor of at least one, not $workFactor")
