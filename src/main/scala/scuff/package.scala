@@ -59,13 +59,16 @@ package object scuff {
   }
 
   implicit class ScuffMap[A, B](private val map: Map[A, B]) extends AnyVal {
-    def merge(other: Map[A, B])(collisionHandler: (B, B) => B): Map[A, B] = {
-      val merged = map.keySet.intersect(other.keySet).toSeq.map { key =>
-        val merged = collisionHandler(map(key), other(key))
-        key -> merged
-      }.toMap
-      map ++ other ++ merged
-    }
+    def merge(other: Map[A, B])(collisionHandler: (B, B) => B): Map[A, B] =
+      if (other.isEmpty) this.map
+      else if (this.map.isEmpty) other
+      else {
+        val merged = map.keySet.intersect(other.keySet).toSeq.map { key =>
+          val merged = collisionHandler(map(key), other(key))
+          key -> merged
+        }.toMap
+        map ++ other ++ merged
+      }
     def intersectEquals(other: Map[A, B]): Boolean = {
       val intersection = map.keySet.intersect(other.keySet)
       intersection.nonEmpty && intersection.forall { key => map(key) == other(key) }
