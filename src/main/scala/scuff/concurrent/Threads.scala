@@ -5,6 +5,7 @@ import scala.concurrent.{ ExecutionContext, ExecutionContextExecutor, ExecutionC
 import scala.util.Try
 import scala.util.control.NonFatal
 import scala.concurrent.duration._
+import java.util.concurrent.BlockingQueue
 
 /**
   * Thread helper class.
@@ -156,11 +157,15 @@ object Threads {
     exec
   }
 
-  def newSingleThreadExecutor(threadFactory: ThreadFactory, failureReporter: Throwable => Unit = printStackTrace): ExecutionContextExecutorService = {
+  def newSingleThreadExecutor(threadFactory: ThreadFactory, failureReporter: Throwable => Unit = printStackTrace, blockingQueue: BlockingQueue[Runnable] = new LinkedBlockingQueue[Runnable], preventRecursionDeadlock: Boolean = false): ExecutionContextExecutorService = {
+    val queue = blockingQueue match {
+      case queue: SingleConsumerThreadPoolQueue => queue
+      case queue if preventRecursionDeadlock => new SingleConsumerThreadPoolQueue(queue)
+      case queue => queue
+    }
     val exec = new ThreadPoolExecutor(1, 1,
       0L, TimeUnit.MILLISECONDS,
-      new LinkedBlockingQueue[Runnable],
-      threadFactory) with ExecutionContextExecutorService {
+      queue, threadFactory) with ExecutionContextExecutorService {
 
       override def afterExecute(r: Runnable, t: Throwable) {
         super.afterExecute(r, t)
