@@ -166,8 +166,7 @@ class ResourcePool[R <: AnyRef: ClassTag](
       val now = currentMillis
       val poolList = pool.get
         def isHot(t: (Long, R)): Boolean = now - t._1 < excludeHottestMillis
-      val hot = poolList.takeWhile(isHot)
-      val cool = poolList.dropWhile(isHot)
+      val (hot, cool) = poolList.partition(isHot)
       if (cool.nonEmpty) {
         if (!pool.weakCompareAndSet(poolList, hot)) {
           heatPool()
