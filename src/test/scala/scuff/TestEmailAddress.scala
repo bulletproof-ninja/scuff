@@ -75,7 +75,7 @@ class TestEmailAddress {
     assertEquals((str split "@")(1), ema.domain)
   }
 
-  @Test def companion {
+  @Test def companion() {
     val ema = EmailAddress("foo", "bar.com")
     ema match {
       case EmailAddress(user, _) if user == "bar" => fail("Not a bar")

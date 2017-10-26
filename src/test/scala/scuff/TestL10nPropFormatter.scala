@@ -3,7 +3,6 @@ package scuff
 import org.junit._
 import org.junit.Assert._
 import java.util.Locale
-import java.nio.charset.Charset
 import java.util.MissingFormatArgumentException
 
 class TestL10nPropFormatter {
@@ -19,7 +18,7 @@ class TestL10nPropFormatter {
   import PropNameEnum._
 
   @Test
-  def `timestamp` {
+  def `timestamp`() {
     val foo = SomeText()
     val now = new Timestamp
     val text = foo("iso", now)
@@ -27,7 +26,7 @@ class TestL10nPropFormatter {
   }
 
   @Test
-  def root {
+  def root() {
     val props = L10nPropFormatter.root("FooBar")
     assertEquals("Hello", props("say"))
   }
@@ -92,7 +91,7 @@ class TestL10nPropFormatter {
   }
 
   @Test
-  def apostrophes {
+  def apostrophes() {
     val en = SomeText(Locale.ENGLISH)
     val greet1 = en("welcome")
     assertEquals("You're welcome!", greet1)
@@ -101,14 +100,14 @@ class TestL10nPropFormatter {
   }
 
   @Test
-  def escaping {
+  def escaping() {
     val foo = SomeText()
     val text = foo("escape_confusion", "John Mapplethorpe", "a jewel thief", "that one movie")
     assertEquals("You're John Mapplethorpe, right? Didn't you play a jewel thief in that one movie?", text)
   }
 
   @Test
-  def `local lang` {
+  def `local lang`() {
     val en = SomeText()
     val eng = en("do_you_speak", Locale.FRENCH)
     assertEquals("Do you speak French?", eng)
@@ -118,7 +117,7 @@ class TestL10nPropFormatter {
   }
 
   @Test
-  def `function parm` {
+  def `function parm`() {
       def twoLanguages(lang1: Locale, lang2: Locale)(fmtLang: Locale) = SomeText(fmtLang)("two_languages", lang1, lang2)
     val foo = SomeText()
     val text = foo("do_you_speak", twoLanguages(Locale.ENGLISH, Locale.FRENCH) _)
@@ -126,14 +125,14 @@ class TestL10nPropFormatter {
   }
 
   @Test
-  def `nested` {
+  def `nested`() {
     val foo = SomeText()
     val text = foo("do_you_speak", foo("two_languages", Locale.ENGLISH, java.util.Locale.FRENCH))
     assertEquals("Do you speak both English AND French?", text)
   }
 
   @Test
-  def `conditional formatting` {
+  def `conditional formatting`() {
     val foo = SomeText()
 
     assertEquals("There are no messages, Hank", foo("message.counter.name", 0, "Hank"))

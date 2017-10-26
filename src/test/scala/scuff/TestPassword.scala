@@ -4,7 +4,7 @@ import org.junit._
 import org.junit.Assert._
 
 class TestPassword {
-
+  import language.implicitConversions
   implicit def config(algo: String) = new Password.Config(algo, 0, 1)
   implicit def config(salt: Int) = new Password.Config("SHA-256", salt, 1)
   implicit val config: Password.Config = config("SHA-256")
@@ -25,7 +25,7 @@ class TestPassword {
     assertEquals(java.security.MessageDigest.getInstance("SHA").getDigestLength, pwd.digest.length)
   }
 
-  @Test def digestLength {
+  @Test def digestLength() {
     val str = "pAssWord9"
     val sha = Password(str)("sha")
     assertEquals(java.security.MessageDigest.getInstance("SHA").getDigestLength, sha.digest.length)
@@ -33,19 +33,19 @@ class TestPassword {
     assertEquals(java.security.MessageDigest.getInstance(sha512.algorithm).getDigestLength, sha512.digest.length)
   }
 
-  @Test def defaultAlgo {
+  @Test def defaultAlgo() {
     val str = "spazword"
     val pwd = Password(str)
     assertEquals(java.security.MessageDigest.getInstance(pwd.algorithm).getDigestLength, pwd.digest.length)
   }
 
-  @Test def salty {
+  @Test def salty() {
     val str = "パスワードは"
     val pwd = Password(str)(7)
     assertTrue(pwd.matches(str))
   }
 
-  @Test def slowButSafe {
+  @Test def slowButSafe() {
     import scala.concurrent.duration._
     val config = new Password.Config("SHA-256", 7, 133.milliseconds)
     val str = "Foo and Bar went for a walk with パスワードは"
