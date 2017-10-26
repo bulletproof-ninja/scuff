@@ -134,7 +134,7 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
 
   def get(key: String, parms: Any*): Option[String] = {
     val keys = parms match {
-      case Seq(first, _*) => Seq(s"$key.$first", key)
+      case Seq(first, _*) => Seq(s"$key?$first", key)
       case _ => Seq(key)
     }
     val msg = keys.iterator.map(map.get).collectFirst {
