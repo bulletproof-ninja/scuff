@@ -36,7 +36,7 @@ class TestHmac {
   val Base64HmacUser = Base64(HmacUserCodec)
 
   @Test
-  def `two way` {
+  def `two way`() {
     val user = new User(System.currentTimeMillis + 60000, UUID.randomUUID)
     val encoded = Base64HmacUser.encode(user)
     val decoded = Base64HmacUser.decode(encoded)
@@ -44,7 +44,7 @@ class TestHmac {
   }
 
   @Test
-  def `two way, modified` {
+  def `two way, modified`() {
     val exp = System.currentTimeMillis + 60000
     val user = new User(exp, UUID.randomUUID)
     val encoded = HmacUserCodec.encode(user)

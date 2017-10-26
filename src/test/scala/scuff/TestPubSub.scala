@@ -2,12 +2,12 @@ package scuff
 
 import org.junit._
 import org.junit.Assert._
-import scala.concurrent.ExecutionContext
 import scuff.concurrent.PartitionedExecutionContext
 import scuff.concurrent.StreamCallback
 import java.util.concurrent.TimeUnit
 
 class TestPubSub {
+  import language.implicitConversions
 
   class Event
 
@@ -17,8 +17,8 @@ class TestPubSub {
     def onCompleted() = ()
   }
 
-  @Test @Ignore
-  def exceptional {
+  @Test
+  def exceptional() {
     val countDown = new java.util.concurrent.CountDownLatch(6)
     val exceptions = collection.concurrent.TrieMap[Throwable, Unit]()
       def errHandler(t: Throwable) {

@@ -13,7 +13,7 @@ class TestSlidingWindows {
   implicit def toBD(i: Int) = BigDecimal(i)
 
   @Test
-  def counting {
+  def counting() {
     counting(TreeMapProvider)
     counting(HashMapProvider)
     counting(LongMapProvider)
@@ -43,7 +43,7 @@ class TestSlidingWindows {
   }
 
   @Test
-  def average {
+  def average() {
     average(TreeMapProvider)
     average(HashMapProvider)
     average(LongMapProvider)
@@ -76,7 +76,7 @@ class TestSlidingWindows {
   }
 
   @Test
-  def `with offset` {
+  def `with offset`() {
     withOffset(TreeMapProvider)
     withOffset(HashMapProvider)
     withOffset(LongMapProvider)

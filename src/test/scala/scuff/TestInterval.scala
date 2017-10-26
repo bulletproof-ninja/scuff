@@ -6,7 +6,7 @@ import org.junit.Assert._
 class TestInterval {
 
   @Test
-  def parse {
+  def parse() {
       def assertSome(i: Interval[BigDecimal]) {
         assertFalse(i contains 44)
         assertTrue(i contains 45)
@@ -26,7 +26,7 @@ class TestInterval {
   }
 
   @Test
-  def range {
+  def range() {
       def assertSome(i: Interval[Int]) {
         assertFalse(i contains 44)
         assertTrue(i contains 45)
@@ -39,7 +39,7 @@ class TestInterval {
   }
 
   @Test
-  def numrange {
+  def numrange() {
       def assertSome(i: Interval[Long]) {
         assertFalse(i contains 44)
         assertTrue(i contains 45)
@@ -52,7 +52,7 @@ class TestInterval {
   }
 
   @Test
-  def tuple {
+  def tuple() {
       def assertSome(i: Interval[Long]) {
         assertFalse(i contains 44)
         assertTrue(i contains 45)
@@ -65,7 +65,7 @@ class TestInterval {
   }
 
   @Test
-  def `to string` {
+  def `to string`() {
     val iStr = "[45,99;59,25["
     val i = Interval.parse(iStr).get
     assertEquals(iStr, i.toString)
@@ -81,7 +81,7 @@ class TestInterval {
   }
 
   @Test
-  def invalid {
+  def invalid() {
     assertEquals(None, Interval.parse("[45,99;59.25["))
     assertEquals(None, Interval.parse("[45.99;59,25["))
     assertEquals(None, Interval.parse("[45.99,59,25["))
@@ -113,7 +113,7 @@ class TestInterval {
   }
 
   @Test
-  def serialization {
+  def serialization() {
     val i = Interval(1d to Double.PositiveInfinity)
     val ba = new java.io.ByteArrayOutputStream
     val out = new java.io.ObjectOutputStream(ba)
@@ -125,7 +125,7 @@ class TestInterval {
   }
 
   @Test
-  def overlaps {
+  def overlaps() {
     val i1 = Interval(1 until 2)
     val i2 = Interval(2 to 3)
     val i3 = Interval(3 to 10)

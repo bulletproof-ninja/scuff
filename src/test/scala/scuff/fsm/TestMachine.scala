@@ -7,7 +7,7 @@ import scala.util.Try
 
 class TestFSM {
   @Test
-  def connection {
+  def connection() {
     import ConnectionEvents._
     val conn = new Connection
     import conn.{ Active, Disabled, Forgotten }
@@ -33,7 +33,7 @@ class TestFSM {
     assertTrue(conn is Forgotten)
   }
   @Test
-  def dateParser {
+  def dateParser() {
     val parser = new ISODateParser
     import parser.{ dash, digit, done }
     assertEquals(None, parser.current)
@@ -131,7 +131,7 @@ class TestFSM {
       ParseDay -> done -> Completed)
   }
   @Test
-  def `phone, invalid number` {
+  def `phone, invalid number`() {
     import OldSchoolPhoneEvents._
     val phone = new OldSchoolPhone
     import phone._
@@ -150,7 +150,7 @@ class TestFSM {
     assertTrue(phone is Active.InvalidNumber)
   }
   @Test
-  def `phone, busy, try again, talk` {
+  def `phone, busy, try again, talk`() {
     val number = "234-235-5678".filterNot(_ == '-')
     import OldSchoolPhoneEvents._
     val phone = new OldSchoolPhone
@@ -189,7 +189,7 @@ class TestFSM {
   }
 
   @Test
-  def `miss grant's controller combo 1` {
+  def `miss grant's controller combo 1`() {
     val ctrl = MissGrantsController()
     import ctrl._, DoorClosed._
     assertFalse(ctrl is DoorClosed)
@@ -204,7 +204,7 @@ class TestFSM {
     assertFalse(ctrl is UnlockedPanel)
   }
   @Test
-  def `miss grant's controller combo 2` {
+  def `miss grant's controller combo 2`() {
     val ctrl = MissGrantsController()
     import ctrl._, DoorClosed._
     assertFalse(ctrl is DoorClosed)
@@ -219,7 +219,7 @@ class TestFSM {
     assertFalse(ctrl is UnlockedPanel)
   }
   @Test
-  def `miss grant's controller combo 3` {
+  def `miss grant's controller combo 3`() {
     val ctrl = MissGrantsController()
     import ctrl._, DoorClosed._
     assertFalse(ctrl is DoorClosed)

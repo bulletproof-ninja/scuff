@@ -9,9 +9,10 @@ class TestImplicits {
   def futureInt: Future[Int] = Future successful 42
 
   @Test
-  def flatten {
+  def flatten() {
     val f: Future[Future[Int]] = Future successful futureInt
     val flat: Future[Int] = f.flatten
+    assertEquals(42, flat.await)
   }
 
 }

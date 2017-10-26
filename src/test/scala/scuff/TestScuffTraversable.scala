@@ -5,7 +5,7 @@ import Assert._
 
 class TestScuffTraversable {
   @Test
-  def `optional list` {
+  def `optional list`() {
     assertEquals(None, Nil.optional)
     assertEquals(None, List.empty[Int].optional)
     assertEquals(Some(List(1)), List(1).optional)
@@ -13,7 +13,7 @@ class TestScuffTraversable {
   }
 
   @Test
-  def `last element` {
+  def `last element`() {
       def iter = (1 to 1000).iterator
     assertEquals(1000, iter.last)
     assertEquals(Some(1000), iter.lastOption)
@@ -24,7 +24,7 @@ class TestScuffTraversable {
   }
 
   @Test
-  def `head element` {
+  def `head element`() {
       def iter = (1 to 1000).iterator
     assertEquals(1, iter.head)
     assertEquals(Some(1), iter.headOption)

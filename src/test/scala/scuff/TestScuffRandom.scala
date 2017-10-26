@@ -3,7 +3,6 @@ package scuff
 import org.junit._
 import Assert._
 import scala.util.Random
-import scala.collection.immutable.NumericRange
 
 class TestScuffRandom {
   //  import scuff.ScuffRandom

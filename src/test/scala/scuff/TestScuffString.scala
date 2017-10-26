@@ -14,13 +14,13 @@ class TestScuffString {
   }
 
   @Test
-  def `optional string` {
+  def `optional string`() {
     assertEquals(None, "".optional)
     assertEquals(Some("Hello"), "Hello".optional)
   }
 
   @Test
-  def `null string` {
+  def `null string`() {
     val str: String = null
     assertEquals(None, str.optional)
   }
@@ -40,7 +40,7 @@ class TestScuffString {
   }
 
   @Test
-  def parseInt {
+  def parseInt() {
     assertEquals(45678, "45678".unsafeInt(offset = 0))
     assertEquals(45678, "45678".unsafeInt(offset = 0, length = 5))
     assertEquals(45678, "abc45678".unsafeInt(offset = 3))
@@ -48,7 +48,7 @@ class TestScuffString {
   }
 
   @Test
-  def parseLong {
+  def parseLong() {
     assertEquals(45678L, "45678".unsafeLong(offset = 0))
     assertEquals(45678L, "45678".unsafeLong(offset = 0, length = 5))
     assertEquals(45678L, "abc45678".unsafeLong(offset = 3))

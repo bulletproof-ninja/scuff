@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicLong
 class TestDynamicConstructor {
 
   @Test
-  def constructColor {
+  def constructColor() {
     import java.awt._
     DynamicConstructor[Color](-65536) match {
       case None => fail("Should coerce to RED")
@@ -25,7 +25,7 @@ class TestDynamicConstructor {
   }
 
   @Test
-  def constructAtomic {
+  def constructAtomic() {
     import java.util.concurrent.atomic._
     DynamicConstructor[AtomicLong](5L) match {
       case None => fail("Should coerce")

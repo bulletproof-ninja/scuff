@@ -2,12 +2,9 @@ package scuff.concurrent
 
 import org.junit._
 import org.junit.Assert._
-import java.util.concurrent.CountDownLatch
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.concurrent.Future
 import scala.util.Random
-import java.util.concurrent.ConcurrentLinkedQueue
 
 class TestPartitionedExecutionContext {
 
@@ -26,13 +23,12 @@ class TestPartitionedExecutionContext {
   }
 
   @Test
-  def verify {
+  def verify() {
     val numThreads = 16
     val ec = PartitionedExecutionContext(numThreads)
     val jobsPerHash = 100
     val hashRange = -5000 to 5000
     val threadsByHash = new LockFreeConcurrentMap[Int, Set[Thread]]
-    val starting = System.currentTimeMillis
     val futures =  for (_ <- 1 to jobsPerHash; hash <- hashRange) yield {
       val a = Random.nextInt
       val b = Random.nextInt
@@ -44,7 +40,7 @@ class TestPartitionedExecutionContext {
     futures.foreach {
       case (result, future) =>
         val futureResult = Await.result(future, 5.seconds)
-        assertEquals(result, result)
+        assertEquals(result, futureResult)
     }
     var allThreads = Set.empty[Thread]
     threadsByHash.map(_._2).foreach { threadSet =>

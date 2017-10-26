@@ -3,15 +3,13 @@ package scuff
 import org.junit._
 import Assert._
 import java.nio.ByteBuffer
-import java.io.ByteArrayOutputStream
-import java.io.ObjectOutputStream
 import java.util.Arrays
 
 class TestNumbers {
   val r = new scala.util.Random
 
   @Test
-  def `back and forth` {
+  def `back and forth`() {
     for (_ <- 1 to 1000) {
       val arrL1 = new Array[Byte](8)
       val arrI1 = new Array[Byte](4)
@@ -27,7 +25,7 @@ class TestNumbers {
   }
 
   @Test
-  def `forth and back` {
+  def `forth and back`() {
     for (_ <- 1 to 1000) {
       val l1 = r.nextLong
       val i1 = r.nextInt
@@ -41,7 +39,7 @@ class TestNumbers {
   }
 
   @Test
-  def long2bytes {
+  def long2bytes() {
     for (_ <- 1 to 1000) {
       val arrL = new Array[Byte](8)
       val arrI = new Array[Byte](4)
@@ -58,7 +56,7 @@ class TestNumbers {
     }
   }
   @Test
-  def bytes2long {
+  def bytes2long() {
     for (_ <- 1 to 1000) {
       val arrL = new Array[Byte](8)
       val arrI = new Array[Byte](4)
@@ -74,7 +72,7 @@ class TestNumbers {
   }
 
   @Test
-  def parsing {
+  def parsing() {
     assertEquals(987065L, "987065".unsafeLong())
     assertEquals(987065, "987065".unsafeInt())
     assertEquals(987065L, "x987065".unsafeLong(offset = 1))

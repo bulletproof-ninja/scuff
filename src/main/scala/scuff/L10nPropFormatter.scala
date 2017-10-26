@@ -203,7 +203,7 @@ object L10nPropFormatter {
             list
           }
         } catch {
-          case e: MissingResourceException => list
+          case _: MissingResourceException => list
         }
     }
   }

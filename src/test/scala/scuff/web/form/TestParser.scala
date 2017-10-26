@@ -26,7 +26,7 @@ class TestParser {
   import TestParser._
 
   @Test
-  def primitive {
+  def primitive() {
     val form = Map("maybe" -> Seq("42"))
     trait Foo {
       def maybe: Option[Int]
@@ -46,7 +46,7 @@ class TestParser {
   }
 
   @Test
-  def simple1 {
+  def simple1() {
     object Parser extends Parser[Beano]
     val form = Map("age" -> Seq("36"), "perhaps" -> Seq("false"), "name" -> Seq("FooBar"))
     Parser.onePass(form) match {
@@ -59,7 +59,7 @@ class TestParser {
   }
 
   @Test
-  def simple2 {
+  def simple2() {
     object Parser extends Parser[Beano2]
     val form = Map("latLng" -> Seq("181:-45.1234"))
     Parser.onePass(form) match {
@@ -73,7 +73,7 @@ class TestParser {
   }
 
   @Test
-  def `must have either name or year` {
+  def `must have either name or year`() {
     object Parser extends Parser[Beano]
     val form = Map("age" -> Seq("36"), "perhaps" -> Seq("false"))
     Parser.twoPass(form) { b =>
@@ -91,7 +91,7 @@ class TestParser {
   }
 
   @Test
-  def `string constructor` {
+  def `string constructor`() {
     trait Foo {
       def email: scuff.EmailAddress
     }
@@ -102,7 +102,7 @@ class TestParser {
   }
 
   @Test
-  def `factory method` {
+  def `factory method`() {
     trait Foo {
       def addr: java.net.InetAddress
     }
@@ -113,7 +113,7 @@ class TestParser {
   }
 
   @Test
-  def more {
+  def more() {
     trait Foo {
       def name: Seq[String]
       def nope: Seq[String]

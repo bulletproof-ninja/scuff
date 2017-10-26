@@ -9,7 +9,7 @@ class TestSequencer {
   var consumer: (Long, java.lang.Long) => Unit = _
 
   @Before
-  def setup {
+  def setup() {
     seen = Nil
     consumer = (s: Long, t: java.lang.Long) => {
       seen = (s, t) :: seen
@@ -17,7 +17,7 @@ class TestSequencer {
   }
 
   @Test
-  def `Normal sequence must work` {
+  def `Normal sequence must work`() {
     val seq = 1001L
     val sequencer = new MonotonicSequencer[Long, java.lang.Long](consumer, seq)
     for (i <- 0 until 10) {
@@ -31,7 +31,7 @@ class TestSequencer {
   }
 
   @Test
-  def `Out-of-sequence must work` {
+  def `Out-of-sequence must work`() {
     val sequencer = new MonotonicSequencer[Long, java.lang.Long](consumer, 0)
     sequencer.apply(5L, 5L)
     assertTrue(seen.isEmpty)
@@ -50,13 +50,13 @@ class TestSequencer {
   }
 
   @Test(expected = classOf[MonotonicSequencer.DuplicateSequenceNumberException])
-  def `Duplicates must be detected and an exception thrown` {
+  def `Duplicates must be detected and an exception thrown`() {
     val sequencer = new MonotonicSequencer[Long, java.lang.Long](consumer, 5)
     sequencer.apply(4L, 4L)
   }
 
   @Test
-  def `Duplicates can be intercepted instead of throwing exception` {
+  def `Duplicates can be intercepted instead of throwing exception`() {
     var ignored = 0L
     val dupeHandler = (s: Long, t: java.lang.Long) => ignored = s
     val sequencer = new MonotonicSequencer[Long, java.lang.Long](consumer, 5, 0, dupeHandler)
@@ -65,7 +65,7 @@ class TestSequencer {
   }
 
   @Test
-  def `Exception must be thrown when buffer capacity is exceeded` {
+  def `Exception must be thrown when buffer capacity is exceeded`() {
     val capacity = 10
     val sequencer = new MonotonicSequencer[Long, java.lang.Long](consumer, 0L, capacity)
     try {
@@ -82,7 +82,7 @@ class TestSequencer {
   }
 
   @Test
-  def `Buffer capacity must expand` {
+  def `Buffer capacity must expand`() {
     val sequencer = new MonotonicSequencer[Long, java.lang.Long](consumer, 0L, 0)
     for (s <- 1L until 1024L) {
       sequencer.apply(s, java.lang.Long.valueOf(s))
@@ -95,7 +95,7 @@ class TestSequencer {
   }
 
   @Test
-  def `Gap increasing` {
+  def `Gap increasing`() {
     val sequencer = new MonotonicSequencer[Long, java.lang.Long](consumer, 0, 0)
     sequencer(3, 3)
     assertTrue(seen.isEmpty)
