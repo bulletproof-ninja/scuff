@@ -9,10 +9,23 @@ private[concurrent] class SingleConsumerThreadPoolQueue(
 
   private[this] var consumerThread: Thread = _
 
-  def add(r: Runnable): Boolean = {
-    if (Thread.currentThread eq consumerThread) { r.run(); true }
-    else underlying add r
+  @inline
+  private def supply(r: Runnable, supplier: Runnable => Boolean): Boolean = {
+    if (Thread.currentThread eq consumerThread) {
+      underlying.poll() match {
+        case null =>
+          r.run()
+          true
+        case older =>
+          val result = supplier(r)
+          older.run()
+          result
+      }
+    } else supplier(r)
   }
+
+  private[this] val Add: (Runnable => Boolean) = underlying add _
+  def add(r: Runnable): Boolean = supply(r, Add)
   def contains(obj: Object): Boolean = underlying contains obj
   def drainTo(coll: java.util.Collection[_ >: Runnable]): Int = {
     consumerThread = Thread.currentThread
@@ -22,22 +35,16 @@ private[concurrent] class SingleConsumerThreadPoolQueue(
     consumerThread = Thread.currentThread
     underlying.drainTo(coll, maxElements)
   }
-  def offer(r: Runnable): Boolean = {
-    if (Thread.currentThread eq consumerThread) { r.run(); true }
-    else underlying offer r
-  }
-  def offer(r: Runnable, timeout: Long, unit: TimeUnit): Boolean = {
-    if (Thread.currentThread eq consumerThread) { r.run(); true }
-    else underlying.offer(r, timeout, unit)
-  }
+  private[this] val Offer: (Runnable => Boolean) = underlying offer _
+  def offer(r: Runnable): Boolean = supply(r, Offer)
+  private[this] def OfferWTO(timeout: Long, unit: TimeUnit): (Runnable => Boolean) = underlying.offer(_, timeout, unit)
+  def offer(r: Runnable, timeout: Long, unit: TimeUnit): Boolean = supply(r, OfferWTO(timeout, unit))
   def poll(timeout: Long, unit: TimeUnit): Runnable = {
     consumerThread = Thread.currentThread
     underlying.poll(timeout, unit)
   }
-  def put(r: Runnable): Unit = {
-    if (Thread.currentThread eq consumerThread) r.run()
-    else underlying put r
-  }
+  private[this] val Put: (Runnable => Boolean) = r => { underlying.put(r); true }
+  def put(r: Runnable): Unit = supply(r, Put)
   def remainingCapacity(): Int = underlying.remainingCapacity()
   def remove(obj: Object): Boolean = {
     consumerThread = Thread.currentThread
@@ -67,8 +74,11 @@ private[concurrent] class SingleConsumerThreadPoolQueue(
 
   def addAll(coll: java.util.Collection[_ <: Runnable]) = {
     import collection.JavaConverters._
-    if (Thread.currentThread eq consumerThread) { coll.iterator.asScala.foreach(_.run); true }
-    else underlying addAll coll
+    if (Thread.currentThread eq consumerThread) {
+      coll.iterator.asScala.foldLeft(false) {
+        case (changed, r) => changed | add(r)
+      }
+    } else underlying addAll coll
   }
   def clear() = underlying.clear()
   def containsAll(coll: java.util.Collection[_]) = underlying containsAll coll
