@@ -32,7 +32,7 @@ class TestPubSub {
     val s3 = pubSub.subscribe() { e: Event => countDown.countDown() }
     pubSub.publish(new Event)
     pubSub.publish(new Event)
-    assertTrue(countDown.await(5, TimeUnit.SECONDS))
+    assertTrue(countDown.await(10, TimeUnit.SECONDS))
     assertEquals(2, exceptions.size)
     s1.cancel(); s2.cancel(); s3.cancel()
   }
