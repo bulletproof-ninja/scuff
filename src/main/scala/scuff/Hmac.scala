@@ -1,9 +1,12 @@
 package scuff
 
-import javax.crypto._
+import java.security.SignatureException
 import java.security.spec.AlgorithmParameterSpec
 import java.util.Arrays
-import java.security.SignatureException
+
+import scala.util.control.NonFatal
+
+import javax.crypto.{ Mac, SecretKey }
 import scuff.concurrent.ResourcePool
 
 object Hmac {
@@ -95,10 +98,11 @@ class HmacFunction(
 }
 
 sealed abstract class Hmac[A, Z] extends Codec[A, Z] {
+  protected final def newException(cause: Throwable = null) =
+    new SignatureException(s"Input data has been modified, or key has changed.", cause)
+
   protected final def verifyHash(h1: Array[Byte], h2: Array[Byte]): Unit = {
-    if (!Arrays.equals(h1, h2)) {
-      throw new SignatureException(s"Input data has been modified, or key has changed.")
-    }
+    if (!Arrays.equals(h1, h2)) throw newException()
   }
 }
 
@@ -110,11 +114,13 @@ private class BinaryHmac[A](
     val hash = hmac(bytes)
     ByteArraySplitterCombiner.encode(bytes -> hash)
   }
-  def decode(arr: Array[Byte]): A = {
+  def decode(arr: Array[Byte]): A = try {
     val (bytes, hash1) = ByteArraySplitterCombiner.decode(arr)
     val hash2 = hmac(bytes)
     verifyHash(hash1, hash2)
     serializer.decode(bytes)
+  } catch {
+    case NonFatal(th) => throw newException(th)
   }
 }
 private class CustomHmac[A, B, H, Z](
@@ -131,12 +137,14 @@ private class CustomHmac[A, B, H, Z](
     val h = hashCodec.encode(hash)
     splitterCombiner.encode(b -> h)
   }
-  def decode(z: Z): A = {
+  def decode(z: Z): A = try {
     val (b, h) = splitterCombiner.decode(z)
     val hash1 = hashCodec.decode(h)
     val hash2 = hmac(toBytes(b))
     verifyHash(hash1, hash2)
     abCodec.decode(b)
+  } catch {
+    case NonFatal(th) => throw newException(th)
   }
 }
 
