@@ -174,13 +174,23 @@ private object JsonSplitterCombiner
     val b64Hash = b64.encode(hash)
     s"""{"data":$data,"hash":"$b64Hash"}"""
   }
-  private def jsonDataPrefix = "{\"data\":"
-  private def jsonHashPrefix = ",\"hash\":"
+  private def jsonData1Prefix = "{\"data\":"
+  private def jsonHash2Prefix = ",\"hash\":"
+  private def jsonHash1Prefix = "{\"hash\":"
+  private def jsonData2Prefix = ",\"data\":"
   def decode(json: String): (String, Array[Byte]) = {
-    val commaPos = json.lastIndexOf(jsonHashPrefix)
-    val data = json.substring(jsonDataPrefix.length, commaPos)
-    val b64Hash = json.subSequence(commaPos + jsonHashPrefix.length + 1, json.length - 2)
-    val hash = b64.decode(b64Hash)
-    data -> hash
+    json.lastIndexOf(jsonHash2Prefix) match {
+      case -1 => // hash first
+        val commaPos = json.lastIndexOf(jsonData2Prefix)
+        val b64Hash = json.subSequence(jsonHash1Prefix.length + 1, commaPos - 1)
+        val data = json.substring(commaPos + jsonData2Prefix.length, json.length - 1)
+        val hash = b64.decode(b64Hash)
+        data -> hash
+      case commaPos =>
+        val data = json.substring(jsonData1Prefix.length, commaPos)
+        val b64Hash = json.subSequence(commaPos + jsonHash2Prefix.length + 1, json.length - 2)
+        val hash = b64.decode(b64Hash)
+        data -> hash
+    }
   }
 }
