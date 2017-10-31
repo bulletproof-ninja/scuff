@@ -11,42 +11,42 @@ object Hmac {
   final val DefaultAlgorithm = "HmacSHA1"
 
   def apply[A](
-    serializer: Serializer[A],
-    hmac: HmacFunction): Hmac[A, Array[Byte]] =
+      serializer: Serializer[A],
+      hmac: HmacFunction): Hmac[A, Array[Byte]] =
     new BinaryHmac(serializer, hmac)
 
   def apply[A](
-    serializer: Serializer[A],
-    key: SecretKey): Hmac[A, Array[Byte]] =
+      serializer: Serializer[A],
+      key: SecretKey): Hmac[A, Array[Byte]] =
     apply(serializer, new HmacFunction(key))
 
   def apply[A, Z](
-    toBytes: A => Array[Byte],
-    combinerSplitter: Codec[(A, Array[Byte]), Z],
-    hmacHasher: HmacFunction): Hmac[A, Z] =
+      toBytes: A => Array[Byte],
+      combinerSplitter: Codec[(A, Array[Byte]), Z],
+      hmacHasher: HmacFunction): Hmac[A, Z] =
     new CustomHmac(
       Codec.noop, toBytes, hmacHasher,
       Codec.noop, combinerSplitter)
 
   def apply[A, Z](
-    toBytes: A => Array[Byte],
-    combinerSplitter: Codec[(A, Array[Byte]), Z],
-    key: SecretKey): Hmac[A, Z] =
+      toBytes: A => Array[Byte],
+      combinerSplitter: Codec[(A, Array[Byte]), Z],
+      key: SecretKey): Hmac[A, Z] =
     apply(toBytes, combinerSplitter, new HmacFunction(key))
 
   def json(hmac: HmacFunction): Hmac[String, String] =
     json[String](Codec.noop, hmac)
   def json[A](
-    jsonCodec: Codec[A, String],
-    hmac: HmacFunction): Hmac[A, String] = {
+      jsonCodec: Codec[A, String],
+      hmac: HmacFunction): Hmac[A, String] = {
     new CustomHmac(
       jsonCodec, Codec.UTF8.encode, hmac,
       Codec.noop, JsonSplitterCombiner)
   }
   def base64[A](
-    codec: Codec[A, Array[Byte]],
-    hmac: HmacFunction,
-    b64: Base64.Base64 = Base64.RFC_4648): Hmac[A, String] = {
+      codec: Codec[A, Array[Byte]],
+      hmac: HmacFunction,
+      b64: Base64.Base64 = Base64.RFC_4648): Hmac[A, String] = {
     val splitterCombiner = new Codec[(Array[Byte], Array[Byte]), String] {
       def encode(arrays: (Array[Byte], Array[Byte])): String = {
         val single = ByteArraySplitterCombiner encode arrays
@@ -84,10 +84,10 @@ private object HmacFunction {
 }
 
 class HmacFunction(
-  secretKey: SecretKey,
-  macAlgo: String = Hmac.DefaultAlgorithm,
-  macAlgoSpec: AlgorithmParameterSpec = null)
-    extends (Array[Byte] => Array[Byte]) {
+    secretKey: SecretKey,
+    macAlgo: String = Hmac.DefaultAlgorithm,
+    macAlgoSpec: AlgorithmParameterSpec = null)
+  extends (Array[Byte] => Array[Byte]) {
 
   private[this] val macPool = HmacFunction.macPools((secretKey, macAlgo, Option(macAlgoSpec)))
   def apply(bytes: Array[Byte]): Array[Byte] = macPool.use(_.doFinal(bytes))
@@ -103,8 +103,8 @@ sealed abstract class Hmac[A, Z] extends Codec[A, Z] {
 }
 
 private class BinaryHmac[A](
-  serializer: Serializer[A], hmac: Array[Byte] => Array[Byte])
-    extends Hmac[A, Array[Byte]] {
+    serializer: Serializer[A], hmac: Array[Byte] => Array[Byte])
+  extends Hmac[A, Array[Byte]] {
   def encode(a: A): Array[Byte] = {
     val bytes = serializer.encode(a)
     val hash = hmac(bytes)
@@ -118,12 +118,12 @@ private class BinaryHmac[A](
   }
 }
 private class CustomHmac[A, B, H, Z](
-  abCodec: Codec[A, B],
-  toBytes: B => Array[Byte],
-  hmac: HmacFunction,
-  hashCodec: Codec[Array[Byte], H],
-  splitterCombiner: Codec[(B, H), Z])
-    extends Hmac[A, Z] {
+    abCodec: Codec[A, B],
+    toBytes: B => Array[Byte],
+    hmac: HmacFunction,
+    hashCodec: Codec[Array[Byte], H],
+    splitterCombiner: Codec[(B, H), Z])
+  extends Hmac[A, Z] {
   def encode(a: A): Z = {
     val b = abCodec encode a
     val bytes = toBytes(b)
@@ -141,7 +141,7 @@ private class CustomHmac[A, B, H, Z](
 }
 
 private object ByteArraySplitterCombiner
-    extends Codec[(Array[Byte], Array[Byte]), Array[Byte]] {
+  extends Codec[(Array[Byte], Array[Byte]), Array[Byte]] {
   def encode(input: (Array[Byte], Array[Byte])): Array[Byte] = {
     val (a1, a2) = input
     val combined = new Array[Byte](4 + a1.length + a2.length)
@@ -159,7 +159,7 @@ private object ByteArraySplitterCombiner
 }
 
 private object JsonSplitterCombiner
-    extends Codec[(String, Array[Byte]), String] {
+  extends Codec[(String, Array[Byte]), String] {
   @inline private def b64 = Base64.RFC_4648
   def encode(tuple: (String, Array[Byte])): String = {
     val (data, hash) = tuple

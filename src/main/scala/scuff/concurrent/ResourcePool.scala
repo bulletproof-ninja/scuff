@@ -155,7 +155,8 @@ class ResourcePool[R <: AnyRef: ClassTag](
     }
   }
 
-  private final class Heater(heater: R => Unit, excludeHottestMillis: Long) extends Runnable {
+  private final class Heater(heater: R => Unit, excludeHottestMillis: Long)
+    extends Runnable {
 
     private def safeHeat(cool: R): Boolean = try { heater(cool); true } catch {
       case NonFatal(_) => false
@@ -193,9 +194,9 @@ class ResourcePool[R <: AnyRef: ClassTag](
     * @param executor Scheduler or thread on which to run pruning.
     */
   def startPruning(
-    minimumTimeout: FiniteDuration,
-    destructor: R => Unit = Function const (()),
-    executor: Executor = Threads.DefaultScheduler): ScheduledFuture[Nothing] = {
+      minimumTimeout: FiniteDuration,
+      destructor: R => Unit = Function const (()),
+      executor: Executor = Threads.DefaultScheduler): ScheduledFuture[Nothing] = {
     val newPruner = new Pruner(minimumTimeout, destructor)
     if (pruner.compareAndSet(None, Some(newPruner))) {
       executor match {
@@ -217,15 +218,15 @@ class ResourcePool[R <: AnyRef: ClassTag](
     *  single thread will be monopolized entirely, until cancelled.
     */
   def startHeater(
-    excludeHottest: FiniteDuration = Duration.Zero)(
+      excludeHottest: FiniteDuration = Duration.Zero)(
       interval: FiniteDuration,
-      executor: Executor = Threads.DefaultScheduler)(heater: R => Unit): ScheduledFuture[Nothing] = {
+      executor: Executor = Threads.DefaultScheduler)(
+      heater: R => Unit): ScheduledFuture[Nothing] = {
 
     require(interval.length > 0, s"Must have interval: $interval")
     require(
       excludeHottest < interval,
       s"Heater is running every $interval, thus excluding all used within $excludeHottest will effectively disable heater")
-
     val runHeater = new Heater(heater, excludeHottest.toMillis)
     executor match {
       case scheduler: ScheduledExecutorService => schedule(scheduler, runHeater, interval, interval)
