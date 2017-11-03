@@ -3,7 +3,6 @@ package scuff.ws
 import java.io.{ BufferedReader, StringReader }
 import org.junit._
 import Assert._
-import scala.util._
 
 class TestFreeGeoIP {
   final val ITResponse = """

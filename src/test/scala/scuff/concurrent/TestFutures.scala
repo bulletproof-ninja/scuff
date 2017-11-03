@@ -23,7 +23,7 @@ class TestFutures {
       future1.await(2.millis, caught)
       fail("Should have timed out")
     } catch {
-      case timeout: TimeoutException => assertTrue(exception.isEmpty)
+      case _: TimeoutException => assertTrue(exception.isEmpty)
     }
     val yes = future2.await(20.millis, caught)
     assertEquals("Oh yeah", yes)
