@@ -3,18 +3,19 @@ package scuff
 import org.junit._
 import org.junit.Assert._
 import scuff.concurrent.PartitionedExecutionContext
-import scuff.concurrent.StreamCallback
+import scuff.concurrent.StreamConsumer
 import java.util.concurrent.TimeUnit
+import scala.concurrent.Future
 
 class TestPubSub {
   import language.implicitConversions
 
   class Event
 
-  implicit def f2sb[T](f: T => Unit) = new StreamCallback[T] {
+  implicit def f2sb[T](f: T => Unit) = new StreamConsumer[T, Unit] {
     def onNext(t: T) = f(t)
     def onError(e: Throwable) = e.printStackTrace()
-    def onCompleted() = ()
+    def onDone() = Future successful Unit
   }
 
   @Test

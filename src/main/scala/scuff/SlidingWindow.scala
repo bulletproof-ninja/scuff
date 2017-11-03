@@ -10,7 +10,8 @@ import scala.util.{ Failure, Success }
 import scala.util.control.NonFatal
 
 import SlidingWindow._
-import scuff.concurrent.{ StreamCallback, StreamPromise, Threads }
+import scuff.concurrent.{ StreamPromise, Threads }
+import scuff.concurrent.StreamConsumer
 
 object SlidingWindow {
 
@@ -85,7 +86,7 @@ object SlidingWindow {
     def apply[T](thunk: TimeStore => T): T
     trait TimeStore {
       def upsert(ts: EpochMillis, insert: V)(update: (V, V) => V)
-      def querySince(ts: EpochMillis)(callback: StreamCallback[(EpochMillis, V)])
+      def querySince[R](ts: EpochMillis)(callback: StreamConsumer[(EpochMillis, V), R]): Future[R]
       /**
         * Optional method. Can return Future(None) if unsupported, but
         * will then not be able to supply value for Infinite windows.
@@ -123,10 +124,10 @@ object SlidingWindow {
     protected val timeStore = new UnsynchedJavaUtilMap with ForeverReduction {
       protected type M = java.util.TreeMap[EpochMillis, V]
       protected val map = new M
-      def querySince(ts: EpochMillis)(callback: StreamCallback[(EpochMillis, V)]) {
+      def querySince[R](ts: EpochMillis)(callback: StreamConsumer[(EpochMillis, V), R]): Future[R] = {
         map.headMap(ts).clear()
         map.entrySet.iterator.asScala.foreach(e => callback.onNext(e.getKey -> e.getValue))
-        callback.onCompleted()
+        callback.onDone()
       }
     }
   }
@@ -134,7 +135,7 @@ object SlidingWindow {
     protected val timeStore = new UnsynchedJavaUtilMap with ForeverReduction {
       protected type M = java.util.HashMap[EpochMillis, V]
       protected val map = new M(256)
-      def querySince(ts: EpochMillis)(callback: StreamCallback[(EpochMillis, V)]) {
+      def querySince[R](ts: EpochMillis)(callback: StreamConsumer[(EpochMillis, V), R]): Future[R] = {
         val iter = map.entrySet.iterator
         while (iter.hasNext) {
           val entry = iter.next
@@ -144,7 +145,7 @@ object SlidingWindow {
             callback.onNext(entry.getKey -> entry.getValue)
           }
         }
-        callback.onCompleted()
+        callback.onDone()
       }
     }
   }
@@ -158,7 +159,7 @@ object SlidingWindow {
           case existing => map.update(ts, update(existing, value))
         }
       }
-      def querySince(ts: EpochMillis)(callback: StreamCallback[(EpochMillis, V)]) {
+      def querySince[R](ts: EpochMillis)(callback: StreamConsumer[(EpochMillis, V), R]): Future[R] = {
         map.retain {
           case entry @ (key, _) =>
             if (ts > key) false
@@ -167,7 +168,7 @@ object SlidingWindow {
               true
             }
         }
-        callback.onCompleted()
+        callback.onDone()
       }
 
     }
@@ -219,13 +220,14 @@ class SlidingWindow[T, R, F](
   def snapshot(now: EpochMillis = clock): Future[collection.Map[Window, F]] = {
     val (finitesFuture, foreverFuture) = storeProvider { tsMap =>
       val sinceForever = if (foreverWindows.isEmpty) NoFuture else tsMap.queryAll(reducer)
-      val initMap = new java.util.HashMap[Window, R](windows.size * 2, 1f)
+      type WinMap = java.util.HashMap[Window, R]
+      val initMap = new WinMap(windows.size * 2, 1f)
       val finiteMap =
         if (finiteWindows.isEmpty) Future successful initMap
         else {
           val cutoffs = finiteWindows.map(w => w -> w.toInterval(timePrecision(now)))
-          val querySinceCutoff = tsMap.querySince(cutoffs.map(_._2.from).min) _
-          StreamPromise.fold(querySinceCutoff)(initMap) {
+          val querySinceCutoff = tsMap.querySince[WinMap](cutoffs.map(_._2.from).min) _
+          StreamPromise.fold(initMap, querySinceCutoff) {
             case (map, (ts, value)) =>
               cutoffs.foldLeft(map) {
                 case (map, (finiteWindow, period)) =>
@@ -260,14 +262,14 @@ class SlidingWindow[T, R, F](
 
   def subscribe(
     callbackInterval: FiniteDuration,
-    scheduler: ScheduledExecutorService = Threads.DefaultScheduler)(listener: StreamCallback[collection.Map[Window, F]]): Subscription = {
+    scheduler: ScheduledExecutorService = Threads.DefaultScheduler)(listener: StreamConsumer[collection.Map[Window, F], _]): Subscription = {
     object SubscriptionState extends Subscription {
       @volatile var schedule: Option[ScheduledFuture[_]] = None
       private val error = new AtomicBoolean(false)
       def cancel() {
         schedule = schedule.flatMap { s =>
           s.cancel(false)
-          if (!error.get) listener.onCompleted()
+          if (!error.get) listener.onDone()
           None
         }
       }
