@@ -20,7 +20,7 @@ class TestFutures {
       def caught(th: Throwable) = exception = Some(th)
 
     try {
-      future1.await(20.millis, caught)
+      future1.await(2.millis, caught)
       fail("Should have timed out")
     } catch {
       case timeout: TimeoutException => assertTrue(exception.isEmpty)
