@@ -7,6 +7,8 @@ private[concurrent] class SingleConsumerThreadPoolQueue(
     underlying: BlockingQueue[Runnable])
   extends BlockingQueue[Runnable] {
 
+  override def toString() = underlying.toString()
+
   private[this] var consumerThread: Thread = _
 
   @inline
