@@ -1,11 +1,11 @@
 package scuff.concurrent
 
-import java.util.concurrent.{ Executor, LinkedBlockingQueue, ScheduledExecutorService, ScheduledThreadPoolExecutor, SynchronousQueue, ThreadFactory, ThreadPoolExecutor, TimeUnit }
-import scala.concurrent.{ ExecutionContext, ExecutionContextExecutor, ExecutionContextExecutorService, Future, Promise }
+import java.util.concurrent.{ Future => _, _}
+
+import scala.concurrent._
+import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NonFatal
-import scala.concurrent.duration._
-import java.util.concurrent.BlockingQueue
 
 /**
   * Thread helper class.
@@ -34,7 +34,7 @@ object Threads {
   }
   def javaFutureConverter[T] = _javaFutureConverter.asInstanceOf[JavaFutureConverter[T]]
   class JavaFutureConverter[T](sleep: FiniteDuration = 1.millisecond, failureReporter: Throwable => Unit = printStackTrace)
-      extends (java.util.concurrent.Future[T] => Future[T]) {
+    extends (java.util.concurrent.Future[T] => Future[T]) {
     private type QueueItem = (Promise[T], java.util.concurrent.Future[T])
     private[this] val queue = new collection.mutable.Queue[QueueItem]
     private[Threads] val thread = new Thread("scuff.Threads.JavaFutureConverter") {
@@ -77,8 +77,8 @@ object Threads {
   }
 
   def newScheduledThreadPool(
-    corePoolSize: Int, threadFactory: ThreadFactory,
-    failureReporter: Throwable => Unit = printStackTrace): ScheduledExecutorService with ExecutionContext = {
+      corePoolSize: Int, threadFactory: ThreadFactory,
+      failureReporter: Throwable => Unit = printStackTrace): ScheduledExecutorService with ExecutionContext = {
 
     val exec = new ScheduledThreadPoolExecutor(corePoolSize, threadFactory) with ExecutionContext {
       override def afterExecute(r: Runnable, t: Throwable) {
@@ -189,9 +189,9 @@ object Threads {
     else rootThreadGroup(group.getParent)
   }
   def newThreadGroup(
-    name: String,
-    daemon: Boolean,
-    failureReporter: Throwable => Unit = printStackTrace) = {
+      name: String,
+      daemon: Boolean,
+      failureReporter: Throwable => Unit = printStackTrace) = {
     val tg = new ThreadGroup(Threads.SystemThreadGroup, name) {
       override def uncaughtException(t: Thread, e: Throwable) {
         failureReporter(e)
