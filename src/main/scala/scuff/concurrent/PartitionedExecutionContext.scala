@@ -50,13 +50,7 @@ final class PartitionedExecutionContext(
     * Runs a block of code on this execution context, using
     * the provided hash.
     */
-  def execute(runnable: Runnable, hash: Int): Unit = executorByHash(hash) execute new Runnable {
-    def run = try {
-      runnable.run()
-    } catch {
-      case NonFatal(th) => reportFailure(th)
-    }
-  }
+  def execute(runnable: Runnable, hash: Int): Unit = executorByHash(hash) execute runnable
 
   @inline
   private def executorByHash(hash: Int) = threads(abs(hash % threads.length))
