@@ -66,9 +66,12 @@ final class PartitionedExecutionContext(
 }
 
 object PartitionedExecutionContext {
+
+  final val Name = classOf[PartitionedExecutionContext].getName
+
   lazy val global = PartitionedExecutionContext(
     Runtime.getRuntime.availableProcessors,
-    Threads.factory(classOf[PartitionedExecutionContext].getName + ".global"))
+    Threads.factory(Name + ".global"))
 
   /**
     * @param numThreads Number of threads used for parallelism
@@ -85,7 +88,9 @@ object PartitionedExecutionContext {
       threads(idx) = Threads.newSingleThreadExecutor(threadFactory, failureReporter, preventRecursionDeadlock = true)
     }
       def shutdownAll(exes: Seq[ExecutorService]): Future[Unit] =
-        Threads.newBlockingThread(s"Awaiting ${classOf[PartitionedExecutionContext].getName} shutdown") {
+        Threads.newBlockingThread(
+            s"Awaiting $Name shutdown",
+            tg = Threads.newThreadGroup(Name, false, failureReporter)) {
           exes.foreach(_.shutdown)
           exes.foreach { exe =>
             exe.awaitTermination(Long.MaxValue, TimeUnit.MILLISECONDS)
