@@ -97,9 +97,10 @@ object Threads {
     exec
   }
 
-  def newBlockingThread[T](name: String)(blocking: => T): Future[T] = {
-    val done = Promise[T]
-    val t = new Thread(name) {
+  def newBlockingThread[T](
+      name: String, done: Promise[T] = Promise[T], tg: ThreadGroup = SystemThreadGroup)(
+      blocking: => T): Future[T] = {
+    val t = new Thread(tg, name) {
       override def run() = {
         done complete Try(blocking)
       }
