@@ -4,7 +4,6 @@ import java.util.concurrent.{ Executor, ExecutorService, TimeUnit }
 
 import scala.concurrent.{ ExecutionContextExecutor, Future }
 import scala.math.abs
-import scala.util.control.NonFatal
 import scala.concurrent.ExecutionContext
 
 /**
@@ -24,11 +23,11 @@ import scala.concurrent.ExecutionContext
   * @param failureReporter The failure reporter function
   */
 final class PartitionedExecutionContext(
-  singleThreadExecutors: Seq[Executor],
-  shutdownExecutors: => Future[Unit],
-  getHash: Runnable => Int = _.hashCode,
-  failureReporter: Throwable => Unit = _.printStackTrace(System.err))
-    extends ExecutionContextExecutor {
+    singleThreadExecutors: Seq[Executor],
+    shutdownExecutors: => Future[Unit],
+    getHash: Runnable => Int = _.hashCode,
+    failureReporter: Throwable => Unit = _.printStackTrace(System.err))
+  extends ExecutionContextExecutor {
 
   require(singleThreadExecutors.size > 0, "Must have at least one thread")
 
@@ -83,10 +82,10 @@ object PartitionedExecutionContext {
     * @param failureReporter Sink for exceptions
     */
   def apply(
-    numThreads: Int,
-    threadFactory: java.util.concurrent.ThreadFactory = Threads.factory(classOf[PartitionedExecutionContext].getName),
-    getHash: Runnable => Int = _.hashCode,
-    failureReporter: Throwable => Unit = _.printStackTrace(System.err)) = {
+      numThreads: Int,
+      threadFactory: java.util.concurrent.ThreadFactory = Threads.factory(Name),
+      getHash: Runnable => Int = _.hashCode,
+      failureReporter: Throwable => Unit = _.printStackTrace(System.err)) = {
     val threads = new Array[ExecutorService](numThreads)
     for (idx <- 0 until numThreads) {
       threads(idx) = Threads.newSingleThreadExecutor(threadFactory, failureReporter, preventRecursionDeadlock = true)
