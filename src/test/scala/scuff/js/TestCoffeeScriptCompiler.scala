@@ -103,22 +103,31 @@ boo = sqr(15);
   @Test
   def cs2() {
     val coffee = """
+# Comment
 arr = [3,5,23,67,34]
 [foo, bar] = arr
-#sqr = (a) -> a*3
+sqr1 = (a) -> a*3
+sqr2 = (a) => a*3
 boo = sqr 15
 """
     val compiler = new CoffeeScriptCompiler(new Config(options = Map('bare -> true), version = Version.Coffeescript2))
     val js = compiler.compile(coffee).replaceAll("\\s", "")
     val expected =
       """
-var arr, bar, boo, foo;
+// Comment
+var arr, bar, boo, foo, sqr1, sqr2;
 
 arr = [3, 5, 23, 67, 34];
 
 [foo, bar] = arr;
 
-//sqr = (a) -> a*3
+sqr1 = function(a) {
+  return a*3;
+};
+
+sqr2 = (a) => {
+  return a*3;
+};
 
 boo = sqr(15);
 """.replaceAll("\\s", "")
