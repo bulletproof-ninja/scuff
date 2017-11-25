@@ -57,20 +57,20 @@ alert bar
       arr = [3,5,23,67,34];
       foo = arr[0], bar=arr[1];
       sqr = function(a) {
-    	return a*2;
+      return a*2;
       };
       boo = sqr(15);
       (function(__iced_k){
-    	__iced_deferrals = newiced.Deferrals(__iced_k,{});
+      __iced_deferrals = newiced.Deferrals(__iced_k,{});
       foo(__iced_deferrals.defer({
         assign_fn:(function(){
-    		return function(){
-      			return bar = arguments[0];
-      		};
-      	})(),lineno:6}));
+        return function(){
+            return bar = arguments[0];
+          };
+        })(),lineno:6}));
       __iced_deferrals._fulfill();
      })(function(){
-      	return alert(bar);
+        return alert(bar);
      });
 }).call(this);
 """.replaceAll("\\s", "")
@@ -100,15 +100,15 @@ boo = sqr(15);
     assertEquals(expected, js)
   }
 
-  @Test @Ignore
-  def redux() {
+  @Test
+  def cs2() {
     val coffee = """
 arr = [3,5,23,67,34]
 [foo, bar] = arr
 #sqr = (a) -> a*3
 boo = sqr 15
 """
-    val compiler = new CoffeeScriptCompiler(new Config(options = Map('bare -> true), compiler = Version.Redux.compiler))
+    val compiler = new CoffeeScriptCompiler(new Config(options = Map('bare -> true), version = Version.Coffeescript2))
     val js = compiler.compile(coffee).replaceAll("\\s", "")
     val expected =
       """
@@ -116,7 +116,9 @@ var arr, bar, boo, foo;
 
 arr = [3, 5, 23, 67, 34];
 
-foo = arr[0], bar = arr[1];
+[foo, bar] = arr;
+
+//sqr = (a) -> a*3
 
 boo = sqr(15);
 """.replaceAll("\\s", "")
