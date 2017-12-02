@@ -259,11 +259,10 @@ class ResourcePool[R <: AnyRef: ClassTag](
     }
   }
 
-  private implicit val ordering = Ordering.by[(Long, R), Long](_._1).reverse
   @tailrec
   private def pushUntilSuccessful(append: List[(Long, R)]) {
     val list = pool.get
-    val sorted = (list ++ append).sorted
+    val sorted = (list ++ append).sorted(ResourcePool.ordering)
     if (!pool.weakCompareAndSet(list, sorted)) {
       pushUntilSuccessful(append)
     }
@@ -312,6 +311,8 @@ class ResourcePool[R <: AnyRef: ClassTag](
 }
 
 private object ResourcePool {
+  val ordering = Ordering.by[(Long, _), Long](_._1).reverse
+
   trait ResourcePoolMXBean {
     def drain(): Unit
     def getSize: Int
