@@ -49,7 +49,7 @@ package object web {
   }
   implicit class ScuffRequest(private val req: HttpServletRequest) extends AnyVal {
     def isLocalhost: Boolean = req.getRemoteHost match {
-      case "localhost" | "127.0.0.1" => true
+      case "localhost" | "127.0.0.1" | "0:0:0:0:0:0:0:1" | "::1" => true
       case _ => false
     }
     def getClientScheme: String = {
