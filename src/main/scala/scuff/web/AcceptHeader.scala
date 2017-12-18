@@ -33,6 +33,8 @@ final class AcceptHeader(acceptTypes: Seq[MediaType]) {
   def accepts(specific: String): Boolean = hasMatchAny || accepts(MediaType(specific))
   def accepts(specific: MediaType): Boolean = hasMatchAny || matchesTypes(specific)
   def acceptsAny(specifics: Traversable[MediaType]): Boolean = hasMatchAny || specifics.exists(matchesTypes)
+
+  override def toString(): String = acceptTypes.mkString(", ")
 }
 
 object AcceptHeader {
