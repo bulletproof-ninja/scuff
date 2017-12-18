@@ -1,8 +1,9 @@
 package scuff.js
 
 import java.io.{ InputStreamReader, Reader }
+import javax.script.{ ScriptEngine, Invocable, ScriptContext }
 
-import javax.script.{ Compilable, ScriptEngine }
+import scuff._
 
 object CoffeeScriptCompiler {
 
@@ -35,7 +36,7 @@ object CoffeeScriptCompiler {
   }
 
   case class Config(version: Version = Version.Original, options: Map[Symbol, Any] = Map.empty, newEngine: () => ScriptEngine = newJavascriptEngine _, useDirective: Use = null, compiler: () => Reader = () => null)
-  private val coffeeScriptCodeVarName = "coffeeScriptCode"
+  private val compileFunction = "cs2js"
 
   object Polyfills {
     /** @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/assign#Polyfill */
@@ -82,22 +83,23 @@ class CoffeeScriptCompiler(config: CoffeeScriptCompiler.Config = new CoffeeScrip
 
   private[this] val useDirective = Option(config.useDirective).map(_.directive).getOrElse("")
 
-  private def jsCompile() = {
+  private def compileFunc: String = {
     val options = config.version.defaultOptions ++ config.options
-    s"CoffeeScript.compile($coffeeScriptCodeVarName, ${toJavascript(options.toSeq)});"
+    s"function $compileFunction(cs) { return CoffeeScript.compile(cs, ${toJavascript(options.toSeq)});};"
   }
 
-  private val coffeeCompiler = {
+  private val engine = {
     val compilerSource = config.compiler() match {
       case null => config.version.compiler()
       case source => source
     }
     try {
       config.newEngine() match {
-        case engine: Compilable =>
-          val compSrc: String = compilerSource
-          val polyfills = config.version.polyfills.mkString("\n")
-          engine.compile(s"$polyfills\n$compSrc;\n${jsCompile()}")
+        case engine: Invocable =>
+          config.version.polyfills.foreach(engine.eval)
+          engine.eval(compilerSource: String)
+          engine.eval(compileFunc)
+          engine
         case _ => sys.error(s"Cannot find Javascript engine!")
       }
     } finally {
@@ -105,14 +107,20 @@ class CoffeeScriptCompiler(config: CoffeeScriptCompiler.Config = new CoffeeScrip
     }
   }
 
-  override def toString(): String = s"CoffeeScriptCompiler(${coffeeCompiler.getEngine.getClass.getName})"
+  override def toString(): String = s"CoffeeScriptCompiler(${engine.getClass.getName})"
 
+  /**
+   * Compile coffeescript to javascript.
+   * NOTE: This method (and class) is not thread-safe.
+   */
   def compile(coffeeScriptCode: String, filename: String = ""): String = {
     val coffeeCode = useDirective concat coffeeScriptCode
-    val bindings = coffeeCompiler.getEngine.createBindings()
-    bindings.put(ScriptEngine.FILENAME, filename)
-    bindings.put(coffeeScriptCodeVarName, coffeeCode)
-    String.valueOf(coffeeCompiler.eval(bindings))
+    filename.optional.foreach { filename =>
+      engine.getBindings(ScriptContext.ENGINE_SCOPE)
+        .put(ScriptEngine.FILENAME, filename)
+    }
+    val js = engine.invokeFunction(compileFunction, coffeeCode)
+    String valueOf js
   }
 
 }
