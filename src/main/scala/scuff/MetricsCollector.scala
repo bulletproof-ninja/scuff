@@ -5,11 +5,19 @@ import java.lang.reflect.Method
 /**
   * Generic collector of metrics.
   */
-trait MetricsCollector[@specialized(Long, Int) V] {
+trait MetricsCollector[@specialized(Long, Int, AnyRef) V] {
   /** Generate timestamp. */
   def timestamp(): Long
-  /** Report value. */
-  def report(name: String, method: Method = null)(value: V, time: Long = timestamp): Unit
+  /**
+    *  Report value and optional timestamp.
+    *  @param name Some name, either unique or qualifier for method
+    *  @param method Optional method, can be used to construct fully qualified name, defaults to `null`.
+    *  @param value The value being reported
+    *  @param time The timestamp, defaults to calling [[MetricsCollector.timestamp]]
+    */
+  def report(
+      name: String, method: Method = null)(
+      value: V, time: Long = timestamp): Unit
 }
 
 private object TimeCollector {
@@ -20,17 +28,22 @@ private object TimeCollector {
 }
 
 /**
-  * Collector of timing metrics.
+  * Convenience trait for collection of timing metrics.
   */
 trait TimeCollector extends MetricsCollector[Long] {
+  import TimeCollector._
   import scala.util.control.NonFatal
 
+  /**
+    * Times and reports the thunk, using identifier
+    * as reporting name, with the method defining the thunk.
+    */
   @inline
   final def reportTiming[R](identifier: String)(thunk: => R): R = {
     val thunkClass = (thunk _).getClass
-    val (name, method) = TimeCollector.NameAndMethod(thunkClass)
+    val (name, method) = NameAndMethod(thunkClass)
     val id = identifier match {
-      case null => name
+      case null | "" => name
       case identifier => identifier
     }
     val start = timestamp()
@@ -42,6 +55,11 @@ trait TimeCollector extends MetricsCollector[Long] {
     }
     result
   }
+  /**
+    * Convenience method, that times and reports the thunk,
+    * and uses the containing class name as reporting name,
+    * with the method defining the thunk.
+    */
   @inline
   final def reportTiming[R](thunk: => R): R = reportTiming(null)(thunk)
 }
