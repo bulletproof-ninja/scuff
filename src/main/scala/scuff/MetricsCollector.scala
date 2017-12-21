@@ -20,11 +20,22 @@ trait MetricsCollector[@specialized(Long, Int, AnyRef) V] {
       value: V, time: Long = timestamp): Unit
 }
 
-private object TimeCollector {
+object TimeCollector {
   private[this] val NamesAndMethods = new ClassValue[(String, Method)] {
     def computeValue(cls: Class[_]) = cls.getSimpleName -> cls.getEnclosingMethod
   }
-  @inline final def NameAndMethod(cls: Class[_]) = NamesAndMethods.get(cls)
+  @inline
+  private final def NameAndMethod(cls: Class[_]) = NamesAndMethods.get(cls)
+
+  def apply(delegate: MetricsCollector[Long]): TimeCollector = delegate match {
+    case tc: TimeCollector => tc
+    case _ => new TimeCollector {
+      def timestamp(): Long =
+        delegate.timestamp()
+      def report(name: String, method: Method)(value: Long, time: Long): Unit =
+        delegate.report(name, method)(value, time)
+    }
+  }
 }
 
 /**
