@@ -3,15 +3,30 @@ package scuff
 import scala.collection.AbstractIterator
 import scala.util.{ Failure, Try }
 
-import javax.activation.MimeType
+import javax.activation._
 import scala.reflect.{ ClassTag, classTag }
 import scala.util.control.NonFatal
 
 object MediaType {
+
+  @inline
+  private def invalidMimeType(mt: String, cause: MimeTypeParseException) =
+    new IllegalArgumentException(s"Invalid media type: $mt", cause)
+
+  @inline
+  private def newMimeType(mt: String): MimeType =
+    try new MimeType(mt) catch {
+      case e: MimeTypeParseException => throw invalidMimeType(mt, e)
+    }
+  @inline
+  private def newMimeType(p: String, s: String): MimeType =
+    try new MimeType(p, s) catch {
+      case e: MimeTypeParseException => throw invalidMimeType(s"$p/$s", e)
+    }
   def apply(
-    primaryType: String, subType: String,
-    parms: (String, Any)*): MediaType = {
-    val mt = parms.foldLeft(new MimeType(primaryType, subType)) {
+      primaryType: String, subType: String,
+      parms: (String, Any)*): MediaType = {
+    val mt = parms.foldLeft(newMimeType(primaryType, subType)) {
       case (mt, parm) =>
         mt.setParameter(parm._1, parm._2.toString)
         mt
@@ -19,11 +34,11 @@ object MediaType {
     new MediaType(mt)
   }
   def apply(
-    primaryType: String, subType: String,
-    parms: collection.Map[String, Any]): MediaType =
+      primaryType: String, subType: String,
+      parms: collection.Map[String, Any]): MediaType =
     apply(primaryType, subType, parms.toSeq: _*)
 
-  def apply(contentType: String): MediaType = new MediaType(new MimeType(contentType))
+  def apply(contentType: String): MediaType = new MediaType(newMimeType(contentType))
 
   private val FindTreeSuffix = """\+(.+)$""".r
   private def asTreeType(mediaType: MediaType): Option[mediaType.TreeType] = {
@@ -47,7 +62,7 @@ class MediaType private (private val mimeType: MimeType) extends Serializable {
 
   case class TreeType private[MediaType] (prefix: Option[String], typeName: String, suffixType: String) {
     def pruned: MediaType = {
-      val mt = new MimeType(primaryType, suffixType)
+      val mt = MediaType.newMimeType(primaryType, suffixType)
       parmNames.foreach { name =>
         mt.setParameter(name, mimeType.getParameter(name))
       }
@@ -87,7 +102,7 @@ class MediaType private (private val mimeType: MimeType) extends Serializable {
   }
 
   def addParm(name: String, value: Any): MediaType = {
-    val newMT = new MimeType(mimeType.getPrimaryType, mimeType.getSubType)
+    val newMT = MediaType.newMimeType(mimeType.getPrimaryType, mimeType.getSubType)
     parmNames.foreach { name =>
       newMT.setParameter(name, mimeType.getParameter(name))
     }
@@ -97,7 +112,7 @@ class MediaType private (private val mimeType: MimeType) extends Serializable {
   def removeParm(name: String): MediaType = {
     if (mimeType.getParameters.isEmpty || mimeType.getParameter(name) == null) this
     else {
-      val newMT = new MimeType(mimeType.getPrimaryType, mimeType.getSubType)
+      val newMT = MediaType.newMimeType(mimeType.getPrimaryType, mimeType.getSubType)
       parmNames.filter(_ != name).foreach { name =>
         newMT.setParameter(name, mimeType.getParameter(name))
       }
@@ -108,7 +123,7 @@ class MediaType private (private val mimeType: MimeType) extends Serializable {
   def q: Float = mimeType.getParameter("q") match {
     case null => 1f
     case q => try q.toFloat catch {
-      case nfe: NumberFormatException => 0f
+      case _: NumberFormatException => 0f
     }
   }
 
