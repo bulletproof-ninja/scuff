@@ -75,8 +75,9 @@ package object web {
         }
     }
 
-    def getResource: Option[Resource] = {
-      req.getServletContext.getResource(servletPathInfo) match {
+    def getResource: Option[Resource] = getResource("")
+    def getResource(prefixPath: String): Option[Resource] = {
+      req.getServletContext.getResource(s"$prefixPath$servletPathInfo") match {
         case null => None
         case url =>
           val file = new java.io.File(url.toURI)
