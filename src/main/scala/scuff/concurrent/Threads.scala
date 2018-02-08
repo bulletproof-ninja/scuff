@@ -158,12 +158,7 @@ object Threads {
     exec
   }
 
-  def newSingleThreadExecutor(threadFactory: ThreadFactory, failureReporter: Throwable => Unit = printStackTrace, blockingQueue: BlockingQueue[Runnable] = new LinkedBlockingQueue[Runnable], preventRecursionDeadlock: Boolean = false): ExecutionContextExecutorService = {
-    val queue = blockingQueue match {
-      case queue: SingleConsumerThreadPoolQueue => queue
-      case queue if preventRecursionDeadlock => new SingleConsumerThreadPoolQueue(queue)
-      case queue => queue
-    }
+  def newSingleThreadExecutor(threadFactory: ThreadFactory, failureReporter: Throwable => Unit = printStackTrace, queue: BlockingQueue[Runnable] = new LinkedBlockingQueue[Runnable]): ExecutionContextExecutorService = {
     val exec = new ThreadPoolExecutor(1, 1,
       0L, TimeUnit.MILLISECONDS,
       queue, threadFactory) with ExecutionContextExecutorService {

@@ -85,7 +85,7 @@ object PartitionedExecutionContext {
       failureReporter: Throwable => Unit = _.printStackTrace(System.err)) = {
     val threads = new Array[ExecutorService](numThreads)
     for (idx <- 0 until numThreads) {
-      threads(idx) = Threads.newSingleThreadExecutor(threadFactory, failureReporter, preventRecursionDeadlock = true)
+      threads(idx) = Threads.newSingleThreadExecutor(threadFactory, failureReporter)
     }
       def shutdownAll(exes: Seq[ExecutorService]): Future[Unit] =
         Threads.newBlockingThread(
