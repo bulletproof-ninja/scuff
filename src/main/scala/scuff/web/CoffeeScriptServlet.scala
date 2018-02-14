@@ -17,6 +17,10 @@ private object CoffeeScriptServlet {
     version = Version.Original,
     options = Map('bare -> false), newEngine = engineCtor,
     useDirective = Use.Strict)
+  def Coffeescript2Config(engineCtor: () => ScriptEngine) = new Config(
+    version = Version.Coffeescript2,
+    options = Map('bare -> false), newEngine = engineCtor,
+    useDirective = Use.Strict, compiler = Version.Coffeescript2.compiler _)
   def IcedConfig(engineCtor: () => ScriptEngine) = new Config(
     version = Version.Iced,
     options = Map('bare -> false, 'runtime -> "window"), newEngine = engineCtor,
@@ -122,8 +126,3 @@ abstract class CoffeeScriptServlet extends HttpServlet {
 trait Ice { self: CoffeeScriptServlet =>
   final override def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.IcedConfig(newJavascriptEngine _))
 }
-
-//trait Redux { self: CoffeeScriptServlet =>
-//  import CoffeeScriptCompiler.Use
-//  final override def newCoffeeCompiler() = new CoffeeScriptCompiler()
-//}
