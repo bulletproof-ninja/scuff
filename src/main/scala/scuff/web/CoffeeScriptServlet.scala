@@ -20,7 +20,7 @@ private object CoffeeScriptServlet {
   def IcedConfig(engineCtor: () => ScriptEngine) = new Config(
     version = Version.Iced,
     options = Map('bare -> false, 'runtime -> "window"), newEngine = engineCtor,
-    useDirective = Use.Strict, compiler = Version.Iced.compiler)
+    useDirective = Use.Strict, compiler = Version.Iced.compiler _)
 }
 
 /**
@@ -34,7 +34,7 @@ abstract class CoffeeScriptServlet extends HttpServlet {
 
   protected def engineName = "javascript"
   protected def newJavascriptEngine() = ScriptEngineMgr.getEngineByName(engineName)
-  protected def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.DefaultConfig(newJavascriptEngine))
+  protected def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.DefaultConfig(newJavascriptEngine _))
   private[this] val compilerPool = new ResourcePool[CoffeeScriptCompiler](createCompiler) {
     // Don't discard compiler on exception, it still works :-)
     override def use[A](thunk: CoffeeScriptCompiler => A): A = {
@@ -120,7 +120,7 @@ abstract class CoffeeScriptServlet extends HttpServlet {
 }
 
 trait Ice { self: CoffeeScriptServlet =>
-  final override def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.IcedConfig(newJavascriptEngine))
+  final override def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.IcedConfig(newJavascriptEngine _))
 }
 
 //trait Redux { self: CoffeeScriptServlet =>

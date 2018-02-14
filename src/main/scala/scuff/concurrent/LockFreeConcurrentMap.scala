@@ -8,7 +8,7 @@ import scala.collection.immutable.Map
   * lock-free concurrent map.
   */
 final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]())
-    extends collection.concurrent.Map[A, B] {
+  extends collection.concurrent.Map[A, B] {
 
   require(initialMap != null, "Initial map cannot be null")
 
@@ -76,26 +76,30 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]())
     }
   }
 
-  @annotation.tailrec
   def -=(k: A): this.type = {
-    val map = mapRef.get
-    val updated = map - k
-    if (mapRef.compareAndSet(map, updated)) {
-      this
-    } else {
-      this.-=(k)
-    }
+      @annotation.tailrec
+      def tryRemove(): Unit = {
+        val map = mapRef.get
+        val updated = map - k
+        if (!mapRef.compareAndSet(map, updated)) {
+          tryRemove()
+        }
+      }
+    tryRemove()
+    this
   }
 
-  @annotation.tailrec
   def +=(kv: (A, B)): this.type = {
-    val map = mapRef.get
-    val updated = map + kv
-    if (mapRef.compareAndSet(map, updated)) {
-      this
-    } else {
-      this.+=(kv)
-    }
+      @annotation.tailrec
+      def tryAdd(): Unit = {
+        val map = mapRef.get
+        val updated = map + kv
+        if (!mapRef.compareAndSet(map, updated)) {
+          tryAdd()
+        }
+      }
+    tryAdd()
+    this
   }
 
   def iterator = mapRef.get.iterator
@@ -103,38 +107,30 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]())
 
   override def size = mapRef.get.size
 
-  @annotation.tailrec
   def removeAll(keys: A*): this.type = {
-    if (keys.isEmpty) {
-      this
-    } else {
-      val map = mapRef.get
-      val updated = keys.foldLeft(map) {
-        case (map, key) => map - key
+      @annotation.tailrec
+      def tryRemoveAll(): Unit = {
+        val map = mapRef.get
+        val updated = map -- keys
+        if (!mapRef.compareAndSet(map, updated)) {
+          tryRemoveAll()
+        }
       }
-      if (mapRef.compareAndSet(map, updated)) {
-        this
-      } else {
-        removeAll(keys: _*)
-      }
-    }
+    if (keys.nonEmpty) tryRemoveAll()
+    this
   }
 
-  @annotation.tailrec
   def putAll(copyMap: collection.Map[A, B]): this.type = {
-    if (copyMap.isEmpty) {
-      this
-    } else {
-      val map = mapRef.get
-      val updated = copyMap.foldLeft(map) {
-        case (map, entry) => map + entry
+      @annotation.tailrec
+      def tryPutAll(): Unit = {
+        val map = mapRef.get
+        val updated = map ++ copyMap
+        if (!mapRef.compareAndSet(map, updated)) {
+          tryPutAll()
+        }
       }
-      if (mapRef.compareAndSet(map, updated)) {
-        this
-      } else {
-        putAll(copyMap)
-      }
-    }
+    if (copyMap.nonEmpty) tryPutAll()
+    this
   }
 
   override def clear() {

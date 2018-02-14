@@ -3,6 +3,8 @@ package scuff.concurrent
 import org.junit._
 import org.junit.Assert._
 import scala.collection.immutable.SortedMap
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 
 class TestLockFreeConcurrentMap {
   @Test
@@ -58,12 +60,16 @@ class TestLockFreeConcurrentMap {
   }
   @Test
   def `concurrent-in-place-updates`() {
+    implicit def ec = ExecutionContext.global
     val key = "hello"
     val map = new LockFreeConcurrentMap[String, Long]
     val range = (1L to 5000000L)
-    range.par.foreach { value =>
-      map.upsert(key, value)(_ + value)
+    val futures = range.map { value =>
+      ec.submit {
+        map.upsert(key, value)(_ + value)
+      }
     }
+    (Future sequence futures).await
     assertEquals(range.sum, map(key))
   }
 }
