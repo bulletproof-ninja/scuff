@@ -39,6 +39,11 @@ object Codec {
     def encode(a: A) = codec.encode(a).utf8
     def decode(b: String) = codec.decode(b.utf8)
   }
+
+  def concat[A, B, C](c1: Codec[A, B], c2: Codec[B, C]): Codec[A, C] = new Codec[A, C] {
+    def encode(a: A): C = c2.encode(c1 encode a)
+    def decode(c: C): A = c1.decode(c2 decode c)
+  }
 }
 
 trait StreamingSerializer[T] extends Serializer[T] {
