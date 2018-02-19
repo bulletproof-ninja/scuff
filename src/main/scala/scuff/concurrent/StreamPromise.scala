@@ -2,7 +2,7 @@ package scuff.concurrent
 
 import scala.concurrent._
 
-trait StreamPromise[-V, +R] extends StreamConsumer[V, R] {
+sealed trait StreamPromise[-V, +R] extends StreamConsumer[V, R] {
 
   protected def delegate: StreamConsumer[V, R] = null
   private[this] val promise = Promise[R]
