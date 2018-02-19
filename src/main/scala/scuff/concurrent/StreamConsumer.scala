@@ -8,11 +8,6 @@ trait StreamConsumer[@specialized(AnyRef, Int, Long, Float, Double) -T, +R] {
   def onDone(): Future[R]
 }
 
-trait StreamCallback[-T] extends StreamConsumer[T, Unit] {
-  def onDone() = Future(onCompleted)(Threads.PiggyBack)
-  def onCompleted(): Unit
-}
-
 trait AsyncStreamConsumer[-T, +R]
   extends StreamConsumer[T, R] {
   self: (T => Future[R]) =>
