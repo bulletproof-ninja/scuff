@@ -38,7 +38,6 @@ object StreamPromise {
     callback.future
   }
 
-  def apply[V](next: V => _): StreamPromise[V, Unit] = apply(())(next)
   def apply[V, R](lazyResult: => R)(next: V => _) = new StreamPromise[V, R] {
     def onNext(value: V) = next(value)
     override def result = Future(lazyResult)(Threads.PiggyBack)
