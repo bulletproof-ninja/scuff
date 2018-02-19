@@ -25,8 +25,8 @@ import scala.concurrent.ExecutionContext
 final class PartitionedExecutionContext(
     singleThreadExecutors: Seq[Executor],
     shutdownExecutors: => Future[Unit],
-    getHash: Runnable => Int = _.hashCode,
-    failureReporter: Throwable => Unit = _.printStackTrace(System.err))
+    failureReporter: Throwable => Unit,
+    getHash: Runnable => Int = _.hashCode)
   extends ExecutionContextExecutor {
 
   require(singleThreadExecutors.size > 0, "Must have at least one thread")
@@ -71,6 +71,7 @@ object PartitionedExecutionContext {
 
   lazy val global = PartitionedExecutionContext(
     Runtime.getRuntime.availableProcessors,
+    th => th.printStackTrace(System.err),
     Threads.factory(Name + ".global"))
 
   /**
@@ -80,9 +81,9 @@ object PartitionedExecutionContext {
     */
   def apply(
       numThreads: Int,
+      failureReporter: Throwable => Unit,
       threadFactory: java.util.concurrent.ThreadFactory = Threads.factory(Name),
-      getHash: Runnable => Int = _.hashCode,
-      failureReporter: Throwable => Unit = _.printStackTrace(System.err)) = {
+      getHash: Runnable => Int = _.hashCode) = {
     val threads = new Array[ExecutorService](numThreads)
     for (idx <- 0 until numThreads) {
       threads(idx) = Threads.newSingleThreadExecutor(threadFactory, failureReporter)
@@ -96,6 +97,6 @@ object PartitionedExecutionContext {
             exe.awaitTermination(Long.MaxValue, TimeUnit.MILLISECONDS)
           }
         }
-    new PartitionedExecutionContext(threads, shutdownAll(threads), getHash, failureReporter)
+    new PartitionedExecutionContext(threads, shutdownAll(threads), failureReporter, getHash)
   }
 }

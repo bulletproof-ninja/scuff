@@ -25,7 +25,7 @@ class TestPartitionedExecutionContext {
   @Test
   def verify() {
     val numThreads = 16
-    val ec = PartitionedExecutionContext(numThreads)
+    val ec = PartitionedExecutionContext(numThreads, th => th.printStackTrace())
     val jobsPerHash = 100
     val hashRange = -5000 to 5000
     val threadsByHash = new LockFreeConcurrentMap[Int, Set[Thread]]
