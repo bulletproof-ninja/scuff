@@ -16,8 +16,8 @@ trait AsyncStreamConsumer[-T, +R]
   import scala.concurrent.duration.Duration
   import java.util.concurrent.TimeoutException
 
-  /** Timeout on `onDone()` Future. */
-  protected def timeout: Duration
+  /** Max. allowed processing time to completion after `onDone()`. */
+  protected def completionTimeout: FiniteDuration
 
   private[this] val semaphore = new java.util.concurrent.Semaphore(Int.MaxValue)
   private[this] val promise = Promise[Unit]
