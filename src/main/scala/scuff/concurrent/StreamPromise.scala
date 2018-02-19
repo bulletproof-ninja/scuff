@@ -1,6 +1,7 @@
 package scuff.concurrent
 
 import scala.concurrent._
+import scala.util.Try
 
 sealed trait StreamPromise[-V, +R] extends StreamConsumer[V, R] {
 
@@ -11,7 +12,7 @@ sealed trait StreamPromise[-V, +R] extends StreamConsumer[V, R] {
     if (delegate != null) delegate.onError(th)
     promise failure th
   }
-  final def onDone() = {
+  final def onDone(): Future[R] = {
     val result = if (delegate != null) delegate.onDone() else this.result
     promise completeWith result
     result
@@ -33,14 +34,14 @@ object StreamPromise {
     callback.future
   }
   def foreach[V](subscribe: StreamConsumer[V, _] => _)(next: V => _): Future[Unit] = {
-    val callback = StreamPromise(next)
+    val callback = StreamPromise(())(next)
     subscribe(callback)
     callback.future
   }
 
   def apply[V, R](lazyResult: => R)(next: V => _) = new StreamPromise[V, R] {
     def onNext(value: V) = next(value)
-    override def result = Future(lazyResult)(Threads.PiggyBack)
+    override def result = Future fromTry Try(lazyResult)
   }
   def apply[V, R](consumer: StreamConsumer[V, R]): StreamPromise[V, R] = consumer match {
     case promise: StreamPromise[V, R] => promise
