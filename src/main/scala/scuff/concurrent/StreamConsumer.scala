@@ -10,7 +10,7 @@ trait StreamConsumer[@specialized(AnyRef, Int, Long, Float, Double) -T, +R] {
 
 trait AsyncStreamConsumer[-T, +R]
   extends StreamConsumer[T, R] {
-  self: (T => Future[R]) =>
+  self: (T => Future[Unit]) =>
 
   import scala.concurrent.Promise
   import scala.concurrent.duration.Duration
