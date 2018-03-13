@@ -1,34 +1,32 @@
 package scuff.concurrent
 
-import scala.concurrent._
+import scala.concurrent.{ Future, Promise }
 import scala.util.Try
+import scala.util.control.NonFatal
+import scuff.StreamConsumer
 
-sealed trait StreamPromise[-V, +R] extends StreamConsumer[V, R] {
-
-  protected def delegate: StreamConsumer[V, R] = null
-  private[this] val promise = Promise[R]
-  final def future = promise.future
-  final def onError(th: Throwable): Unit = {
-    if (delegate != null) delegate.onError(th)
-    promise failure th
-  }
-  final def onDone(): Future[R] = {
-    val result = if (delegate != null) delegate.onDone() else this.result
-    promise completeWith result
-    result
-  }
-
-  protected def result: Future[R] = sys.error("Must override either `result` or `delegate`")
-
+trait StreamPromise[-V, +R] extends StreamConsumer[V, Future[R]] {
+  def future: Future[R] = promise.future
+  def onError(th: Throwable) = promise tryFailure th
+  protected[this] val promise = Promise[R]
 }
 
 object StreamPromise {
 
-  def fold[V, R](init: R, subscribe: StreamConsumer[V, R] => _)(f: (R, V) => R): Future[R] = {
+  def fold[V, R](init: R, subscribe: StreamConsumer[V, Future[R]] => _)(f: (R, V) => R): Future[R] = {
     val callback = new StreamPromise[V, R] {
-      private[this] var acc = init
-      def onNext(value: V): Unit = acc = f(acc, value)
-      override def result = Future successful acc
+      private[this] var acc: R = init
+      def onNext(value: V): Unit = try {
+        acc = f(acc, value)
+      } catch {
+        case NonFatal(th) =>
+          promise tryFailure th
+      }
+      def onDone(): Future[R] = {
+        promise trySuccess acc
+        promise.future
+      }
+
     }
     subscribe(callback)
     callback.future
@@ -39,15 +37,27 @@ object StreamPromise {
     callback.future
   }
 
-  def apply[V, R](lazyResult: => R)(next: V => _) = new StreamPromise[V, R] {
-    def onNext(value: V) = next(value)
-    override def result = Future fromTry Try(lazyResult)
+  def apply[V, R](lazyResult: => R)(next: V => _): StreamPromise[V, R] = new StreamPromise[V, R] {
+    def onNext(value: V): Unit = try {
+      next(value)
+    } catch {
+      case NonFatal(th) =>
+        promise.tryFailure(th)
+    }
+    def onDone(): Future[R] = {
+      if (!promise.isCompleted) promise.tryComplete(Try(lazyResult))
+      promise.future
+    }
   }
-  def apply[V, R](consumer: StreamConsumer[V, R]): StreamPromise[V, R] = consumer match {
+  def apply[V, R](delegate: StreamConsumer[V, Future[R]]): StreamPromise[V, R] = delegate match {
     case promise: StreamPromise[V, R] => promise
     case _ => new StreamPromise[V, R] {
-      override def delegate = consumer
-      def onNext(v: V) = consumer.onNext(v)
+      def onNext(v: V) = delegate onNext v
+      override def onError(th: Throwable) = {
+        super.onError(th)
+        delegate onError th
+      }
+      def onDone(): Future[R] = promise.tryCompleteWith(delegate.onDone).future
     }
   }
 }

@@ -3,7 +3,6 @@ package scuff
 import org.junit._
 import org.junit.Assert._
 import scuff.concurrent.PartitionedExecutionContext
-import scuff.concurrent.StreamConsumer
 import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
 

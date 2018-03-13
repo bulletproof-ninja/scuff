@@ -1,20 +1,14 @@
 package scuff.concurrent
 
-import java.util.concurrent.TimeoutException
-import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.Future
-import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
-
-trait StreamConsumer[@specialized(AnyRef, Int, Long, Float, Double) -T, +R] {
-  def onNext(t: T): Unit
-  def onError(th: Throwable): Unit
-  def onDone(): Future[R]
-}
+import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.TimeoutException
+import scuff.StreamConsumer
 
 trait AsyncStreamConsumer[-T, +R]
-  extends StreamConsumer[T, R] {
-  self: (T => Future[Unit]) =>
+  extends StreamConsumer[T, Future[R]] {
+  self: (T => Future[_]) =>
 
   /** Max. allowed processing time to completion after `onDone()`. */
   protected def completionTimeout: FiniteDuration
@@ -25,7 +19,7 @@ trait AsyncStreamConsumer[-T, +R]
   private[this] val error = new AtomicReference[Throwable]
 
   def onNext(t: T): Unit = {
-    val future: Future[Unit] = apply(t)
+    val future: Future[_] = apply(t)
     if (!future.isCompleted) {
       semaphore.tryAcquire()
       future.onComplete(_ => semaphore.release)(Threads.PiggyBack)
