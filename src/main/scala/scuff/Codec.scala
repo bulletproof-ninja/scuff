@@ -91,4 +91,6 @@ class JavaSerializer[T] extends StreamingSerializer[T] {
   def decodeFrom(in: InputStream): T = asObjectInput(in)(_.readObject().asInstanceOf[T])
 }
 
-object JavaSerializer extends JavaSerializer[AnyRef]
+object JavaSerializer extends JavaSerializer[AnyRef] {
+  def apply[T] = this.asInstanceOf[JavaSerializer[T]]
+}
