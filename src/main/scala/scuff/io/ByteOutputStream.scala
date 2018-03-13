@@ -4,7 +4,7 @@ import java.io.OutputStream
 import java.util.Arrays
 
 /**
- * Unsynchronized [[OutputStream]].
+ * Unsynchronized [[java.io.OutputStream]].
  */
 final class ByteOutputStream(initSize: Int = 512) extends OutputStream {
   private[this] var bytes = new Array[Byte](initSize)
