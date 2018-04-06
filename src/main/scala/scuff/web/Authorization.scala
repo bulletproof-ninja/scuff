@@ -22,7 +22,7 @@ trait Authorization extends HttpServlet {
   override def service(req: HttpServletRequest, res: HttpServletResponse) {
     req.getUserPrincipal match {
       case null => res.setStatus(SC_UNAUTHORIZED)
-      case user =>
+      case _ =>
         val allowed = rolesAllowed
         if (allowed.isEmpty || allowed.exists(req.isUserInRole)) {
           super.service(req, res)
@@ -43,9 +43,9 @@ abstract class ApplicationSecurityFilter extends Filter {
    * @return Authenticated user, or None if not authenticated
    */
   protected def getAuthenticatedUser(req: HttpServletRequest): Option[UserPrincipal]
-  protected def logoutUser(req: HttpServletRequest, res: HttpServletResponse)
+  protected def logoutUser(req: HttpServletRequest, res: HttpServletResponse): Unit
 
-  def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = httpFilter(req, res, chain)
+  def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain): Unit = httpFilter(req, res, chain)
 
   private def getRequest(req: HttpServletRequest, res: HttpServletResponse): HttpServletRequest = {
     getAuthenticatedUser(req) match {
