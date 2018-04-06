@@ -4,6 +4,7 @@ object HttpHeaders {
   final val LastModified = "Last-Modified"
   final val ContentLength = "Content-Length"
   final val ContentType = "Content-Type"
+  final val ContentRange = "Content-Range"
   final val ETag = "ETag"
   final val Expect = "Expect"
   final val Age = "Age"
