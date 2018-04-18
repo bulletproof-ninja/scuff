@@ -44,6 +44,15 @@ object Codec {
     def encode(a: A): C = c2.encode(c1 encode a)
     def decode(c: C): A = c1.decode(c2 decode c)
   }
+
+  def apply[A, B](encoder: A => B, decoder: B => A): Codec[A, B] =
+    new Codec[A, B] {
+     def encode(a: A): B = encoder(a)
+     def decode(b: B): A = decoder(b)
+  }
+
+  def asString[T](decoder: String => T): Codec[T, String] = apply(_.toString, decoder)
+
 }
 
 trait StreamingSerializer[T] extends Serializer[T] {
