@@ -40,7 +40,7 @@ object Codec {
     def decode(b: String) = codec.decode(b.utf8)
   }
 
-  def concat[A, B, C](c1: Codec[A, B], c2: Codec[B, C]): Codec[A, C] = new Codec[A, C] {
+  def pipe[A, B, C](c1: Codec[A, B], c2: Codec[B, C]): Codec[A, C] = new Codec[A, C] {
     def encode(a: A): C = c2.encode(c1 encode a)
     def decode(c: C): A = c1.decode(c2 decode c)
   }
@@ -51,7 +51,10 @@ object Codec {
      def decode(b: B): A = decoder(b)
   }
 
-  def asString[T](decoder: String => T): Codec[T, String] = apply(_.toString, decoder)
+  /**
+   * Convenience factory that uses the object's `toString()` method.
+   */
+  def fromString[T](decoder: String => T): Codec[T, String] = apply(_.toString, decoder)
 
 }
 

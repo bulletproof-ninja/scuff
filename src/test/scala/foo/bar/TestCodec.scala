@@ -6,7 +6,7 @@ import scuff.Codec
 class TestCodec {
   @Test
   def `long/string codec`() {
-    val longCodec = Codec.asString(_.toLong)
+    val longCodec = Codec.fromString(_.toLong)
     assertEquals(42L, longCodec decode "42")
     assertEquals("42", longCodec encode 42)
   }
@@ -18,7 +18,7 @@ class TestCodec {
       val Bar, Baz = Value
     }
 
-    val enumCodec = Codec.asString(Foo.withName)
+    val enumCodec = Codec.fromString(Foo.withName)
     assertEquals(Foo.Baz, enumCodec decode "Baz")
     assertEquals("Bar", enumCodec encode Foo.Bar)
   }
