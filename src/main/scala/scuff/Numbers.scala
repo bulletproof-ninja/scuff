@@ -77,36 +77,44 @@ object Numbers {
   }
 
   @annotation.tailrec
-  private def parseUnsafeLong(str: String, idx: Int, end: Int, acc: Long)(implicit stop: Stopper): Long = {
+  private def parseUnsafeLong(string: CharSequence, idx: Int, end: Int, acc: Long)(implicit stop: Stopper): Long = {
     if (idx == end) {
       acc
     } else {
-      val c = str.charAt(idx)
+      val c = string.charAt(idx)
       if (stop(c)) {
         acc
       } else {
-        parseUnsafeLong(str, idx + 1, end, acc * 10 + (c - '0'))
+        parseUnsafeLong(string, idx + 1, end, acc * 10 + (c - '0'))
       }
     }
   }
-  def parseUnsafeLong(str: String, start: Int = 0, end: Int = -1)(implicit stop: Stopper = NonStop): Long = {
-    val finish = if (end == -1) str.length else end
+  def parseUnsafeLong(string: CharSequence, start: Int = 0, end: Int = -1)(implicit stop: Stopper = NonStop): Long = {
+    val finish = if (end == -1) string.length else end
 
-    if (start > finish) throw new IllegalArgumentException(s"Start index of $start is after end index of $finish")
+    if (start >= finish) throw new IllegalArgumentException(s"End index of $finish must be greater than start index of $start")
 
-    parseUnsafeLong(str, start, finish, 0L)
+    if ((string charAt start) == '-') {
+      -1 * parseUnsafeLong(string, start + 1, finish, 0L)
+    } else {
+      parseUnsafeLong(string, start, finish, 0L)
+    }
   }
 
-  def parseUnsafeInt(str: String, start: Int = 0, end: Int = -1)(implicit stop: Stopper = NonStop): Int = {
-    val finish = if (end == -1) str.length else end
+  def parseUnsafeInt(string: CharSequence, start: Int = 0, end: Int = -1)(implicit stop: Stopper = NonStop): Int = {
+    val finish = if (end == -1) string.length else end
 
-    if (start > finish) throw new IllegalArgumentException(s"Start index of $start is after end index of $finish")
+    if (start >= finish) throw new IllegalArgumentException(s"End index of $finish must be greater than start index of $start")
 
-    parseUnsafeInt(str, start, finish, 0)
+    if ((string charAt start) == '-') {
+      -1 * parseUnsafeInt(string, start + 1, finish, 0)
+    } else {
+      parseUnsafeInt(string, start, finish, 0)
+    }
   }
 
   @annotation.tailrec
-  private def parseUnsafeInt(str: String, idx: Int, end: Int, acc: Int)(implicit stop: Stopper): Int = {
+  private def parseUnsafeInt(str: CharSequence, idx: Int, end: Int, acc: Int)(implicit stop: Stopper): Int = {
     if (idx == end) {
       acc
     } else {

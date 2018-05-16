@@ -71,15 +71,39 @@ class TestNumbers {
     }
   }
 
+  @Test(expected=classOf[IllegalArgumentException])
+  def empty() {
+    val foo = "".unsafeInt()
+  }
+  @Test
+  def small() {
+    assertEquals(0, "-".unsafeInt())
+    assertEquals(0L, "-".unsafeLong())
+    assertEquals(0, "0".unsafeInt())
+    assertEquals(0L, "0".unsafeLong())
+    assertEquals(0, "-0".unsafeInt())
+    assertEquals(0L, "-0".unsafeLong())
+    assertEquals(-3, "-3".unsafeInt())
+    assertEquals(-3L, "-3".unsafeLong())
+    assertEquals(3, "03".unsafeInt())
+    assertEquals(3L, "03".unsafeLong())
+    assertEquals(3, "3".unsafeInt())
+    assertEquals(3L, "3".unsafeLong())
+    assertEquals(-3, "-03".unsafeInt())
+    assertEquals(-3L, "-03".unsafeLong())
+  }
+
   @Test
   def parsing() {
+    assertEquals(-987065L, "-987065".unsafeLong())
+    assertEquals(-987065L, "abc-987065".unsafeLong(offset = 3))
     assertEquals(987065L, "987065".unsafeLong())
     assertEquals(987065, "987065".unsafeInt())
     assertEquals(987065L, "x987065".unsafeLong(offset = 1))
     assertEquals(987065, "5987065".unsafeInt(offset = 1))
     assertEquals(987065L, "987065x".unsafeLong(Numbers.NonDigit))
     assertEquals(987065, "987065/".unsafeInt(Numbers.NonDigit))
-
+    assertEquals(-3987065, "abc-3987065/".unsafeInt(Numbers.NonDigit, offset = 3))
   }
 
 }
