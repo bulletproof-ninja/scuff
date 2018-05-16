@@ -58,11 +58,11 @@ object AskGeo {
         val msg = Option(root.get("message").asInstanceOf[String]).getOrElse(s"Error code: $code")
         throw new IllegalStateException(msg)
       }
-      val data = root.get("data").asInstanceOf[jList[jMap[String, jMap[String, String]]]].asScala
+      val data = root.get("data").asInstanceOf[jList[jMap[String, jMap[String, String]]]].iterator.asScala
       data.map { jsObj =>
         val tz = jsObj.get("TimeZone").get("TimeZoneId")
         java.util.TimeZone.getTimeZone(tz)
-      }
+      }.toSeq
     }
   }
 
