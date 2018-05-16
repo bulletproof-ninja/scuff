@@ -1,6 +1,7 @@
 package scuff.unsafe
 
 import scuff.Numbers.unsigned
+import java.util.Arrays
 
 /**
  * Unsafe `CharSequence` implementation, taking an
@@ -15,6 +16,7 @@ final class AsciiCharSeq(ascii: Array[Byte], offset: Int = 0, len: Int = -1) ext
   def length() = if (len == -1) ascii.length - offset else len
   def subSequence(strIdx: Int, endIdx: Int) = new AsciiCharSeq(ascii, offset + strIdx, endIdx - strIdx)
   override def toString() = new String(ascii, offset, length, AsciiCharSeq.ASCII)
+  def getBytes(): Array[Byte] = if (length == ascii.length) ascii else Arrays.copyOfRange(ascii, offset, length + offset)
 }
 
 private object AsciiCharSeq {
