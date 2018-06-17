@@ -19,7 +19,8 @@ package object concurrent {
       def reportFailure(th: Throwable): Unit = ec.reportFailure(th)
     }
   }
-  implicit class ScuffExecutor(private val ec: Executor) extends AnyVal {
+  implicit class ScuffExecutor(private val ec: { def execute(run: Runnable): Unit }) extends AnyVal {
+    import language.reflectiveCalls
     def execute(thunk: => Unit): Unit = ec execute new Runnable {
       def run = thunk
     }
