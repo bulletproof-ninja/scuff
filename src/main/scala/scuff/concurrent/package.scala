@@ -71,7 +71,7 @@ package object concurrent {
     }
   }
 
-  val DefaultTimeout = 30.seconds
+  private val DefaultTimeout = 30.seconds
 
   implicit class ScuffScalaFuture[T](private val f: Future[T]) extends AnyVal {
     def await: T = await(DefaultTimeout)
