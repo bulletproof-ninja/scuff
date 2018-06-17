@@ -1,6 +1,7 @@
 package scuff.web
 
 import scuff._
+import collection.immutable.Seq
 
 final case class RangeHeader(
     unit: String,
@@ -34,7 +35,7 @@ object RangeHeader {
   private val RangePicker = """(-\d+)|(\d+)-(\d*)""".r
 
   private def split(unit: String, rangesStr: String): Seq[Range] = {
-    CommaSplitter.split(rangesStr.trim)
+    CommaSplitter.split(rangesStr.trim).iterator
       .map(_.trim).filter(_.length > 0)
       .flatMap { range =>
         RangePicker.findFirstMatchIn(range).map { m =>
@@ -47,7 +48,7 @@ object RangeHeader {
                 m.group(3).optional.map(_.toLong))(unit)
           }
         }
-      }
+      }.toList
   }
   def apply(header: String): Option[RangeHeader] = Option(header).flatMap { header =>
     UnitSplitter.findFirstMatchIn(header.trim).flatMap { unitMatcher =>

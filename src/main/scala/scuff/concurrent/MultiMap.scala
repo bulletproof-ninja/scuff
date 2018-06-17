@@ -28,8 +28,8 @@ class MultiMap[K, V] extends Iterable[(K, Set[V])] {
     def contains(value: V) = getValues(key).contains(value)
     def +=(value: V): Boolean = add(key, value)
     def -=(value: V): Boolean = remove(key, value)
-    def ++=(values: Traversable[V]): Unit = add(key, values)
-    def --=(values: Traversable[V]): Unit = remove(key, values)
+    def ++=(values: Iterable[V]): Unit = add(key, values)
+    def --=(values: Iterable[V]): Unit = remove(key, values)
   }
 
   def apply(key: K): Values = new Values(key)
@@ -55,7 +55,7 @@ class MultiMap[K, V] extends Iterable[(K, Set[V])] {
     *  @param values The new values
     *  @return  The replaced values, if any
     */
-  def update(key: K, values: Traversable[V]): Set[V] = {
+  def update(key: K, values: Iterable[V]): Set[V] = {
     map.put(key, HashSet.empty ++ values) match {
       case null => Set.empty
       case set => set
@@ -80,7 +80,7 @@ class MultiMap[K, V] extends Iterable[(K, Set[V])] {
   }
 
   /** Add values for key. */
-  def add(key: K, values: Traversable[V]): Unit = {
+  def add(key: K, values: Iterable[V]): Unit = {
       @tailrec def tryAdd(): Unit = {
         val existing = getValues(key)
         val updated = existing ++ values
@@ -120,11 +120,13 @@ class MultiMap[K, V] extends Iterable[(K, Set[V])] {
   }
 
   /** Remove values for key. */
-  def remove(key: K, values: Traversable[V]): Unit = {
+  def remove(key: K, values: Iterable[V]): Unit = {
       @tailrec def tryRemove(): Unit = {
         val existing = getValues(key)
         if (existing.nonEmpty) {
-          val updated = existing -- values
+          val updated = values.foldLeft(existing) {
+            case (set, value) => set - value
+          }
           if (updated.isEmpty) {
             if (!map.remove(key, existing)) tryRemove()
           } else {

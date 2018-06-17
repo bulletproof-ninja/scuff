@@ -76,7 +76,7 @@ class AcceptHeaderTest {
     val expected = MediaType("application/vnd.scuff+json")
     assertTrue(request.accepts(expected))
     assertFalse(request.accepts("application/json"))
-    request.withParm(expected, "v", _.toInt).sortBy(_._2).reverse.headOption match {
+    request.withParm(expected, "v", _.toInt).toList.sortBy(_._2).reverse.headOption match {
       case None => fail("Should match")
       case Some((mt, version)) =>
         assertEquals(42, version)

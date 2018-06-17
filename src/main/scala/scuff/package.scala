@@ -3,7 +3,6 @@ import util.{ Random }
 import scala.math._
 import scala.concurrent.Future
 import scala.util.{ Failure, Success, Try }
-import scala.collection.GenTraversableOnce
 import scala.util.control.NonFatal
 
 package object scuff {
@@ -129,27 +128,34 @@ package object scuff {
     def openInBrowser(): Boolean = url.toURI.openInBrowser()
   }
 
-  implicit class ScuffTraversableOnce[E](private val trav: GenTraversableOnce[E]) extends AnyVal {
-    def last: E = try trav.reduce((_, e) => e) catch {
-      case _: UnsupportedOperationException => throw new NoSuchElementException(s"${trav.getClass.getSimpleName}.last")
+  implicit class ScuffIterable[E](private val iter: TraversableOnce[E]) extends AnyVal {
+    def last: E = lastOption getOrElse {
+      throw new NoSuchElementException(s"${iter.getClass.getSimpleName}.last")
     }
-    def lastOption: Option[E] = trav.reduceOption((_, e) => e)
-    def head: E = headOption.getOrElse(throw new NoSuchElementException(s"${trav.getClass.getSimpleName}.head"))
-    def headOption: Option[E] = trav.find(_ => true)
-  }
-  implicit class ScuffTraversable[Trav <: Traversable[_]](private val trav: Trav) extends AnyVal {
-    def optional: Option[Trav] = if (trav == null || trav.isEmpty) None else Some(trav)
+    def lastOption: Option[E] = if (iter.isEmpty) None else iter match {
+      case idxSeq: collection.IndexedSeq[E] => Some(idxSeq(idxSeq.length - 1))
+      case _ =>
+        var hasValue = false
+        var value: E = null.asInstanceOf[E]
+        iter.foreach { e =>
+          value = e
+          hasValue = true
+        }
+        if (hasValue) Some(value) else None
+    }
+    def head: E = headOption.getOrElse(throw new NoSuchElementException(s"${iter.getClass.getSimpleName}.head"))
+    def headOption: Option[E] = iter.find(_ => true)
   }
   implicit class ScuffArray[E](private val arr: Array[E]) extends AnyVal {
-    def levenshtein(s2: scala.collection.IndexedSeqLike[E, _]): Int = new ScuffIdxSeq(arr).levenshtein(s2)
+    def levenshtein(s2: scala.collection.IndexedSeq[E]): Int = new ScuffIdxSeq(arr).levenshtein(s2)
   }
-  implicit class ScuffIdxSeq[E](private val seq: scala.collection.IndexedSeqLike[E, _]) extends AnyVal {
+  implicit class ScuffIdxSeq[E](private val seq: scala.collection.IndexedSeq[E]) extends AnyVal {
     /**
       * Calculate Levenshtein distance.
       * Taken, and modified, from:
       * http://rosettacode.org/wiki/Levenshtein_distance#Scala
       */
-    def levenshtein(s2: scala.collection.IndexedSeqLike[E, _]): Int = {
+    def levenshtein(s2: scala.collection.IndexedSeq[E]): Int = {
         def minimum(i1: Int, i2: Int, i3: Int) = min(min(i1, i2), i3)
       val dist = Array.tabulate(s2.length + 1, seq.length + 1) { (j, i) => if (j == 0) i else if (i == 0) j else 0 }
       for (j <- 1 to s2.length; i <- 1 to seq.length)

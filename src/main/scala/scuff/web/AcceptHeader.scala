@@ -2,6 +2,7 @@ package scuff.web
 
 import scala.util.Try
 import scuff.MediaType
+import collection.immutable.Seq
 
 final class AcceptHeader(acceptTypes: Seq[MediaType]) {
   require(acceptTypes.nonEmpty, "Cannot have an empty Accept header")
@@ -15,13 +16,13 @@ final class AcceptHeader(acceptTypes: Seq[MediaType]) {
   }
 
   def preference(): MediaType = preferenceOrdered.head
-  def withParm(mt: MediaType, parmName: String): Seq[(MediaType, String)] = withParm(mt, parmName, identity)
-  def withParm[P](matchType: MediaType, parmName: String, map: String => P): Seq[(MediaType, P)] =
+  def withParm(mt: MediaType, parmName: String): Iterable[(MediaType, String)] = withParm(mt, parmName, identity)
+  def withParm[P](matchType: MediaType, parmName: String, map: String => P): Iterable[(MediaType, P)] =
     acceptTypes.iterator
       .filter(_.matches(matchType))
       .flatMap { mt =>
         mt.parm(parmName).flatMap(p => Try(map(p)).toOption.map(mt -> _))
-      }.toStream
+      }.toIterable
   def preferenceOrdered(): Seq[MediaType] = {
     if (acceptTypes.size == 1) acceptTypes else {
       val weigthed = acceptTypes.zipWithIndex.map {
@@ -32,7 +33,7 @@ final class AcceptHeader(acceptTypes: Seq[MediaType]) {
   }
   def accepts(specific: String): Boolean = hasMatchAny || accepts(MediaType(specific))
   def accepts(specific: MediaType): Boolean = hasMatchAny || matchesTypes(specific)
-  def acceptsAny(specifics: Traversable[MediaType]): Boolean = hasMatchAny || specifics.exists(matchesTypes)
+  def acceptsAny(specifics: Iterable[MediaType]): Boolean = hasMatchAny || specifics.exists(matchesTypes)
 
   override def toString(): String = acceptTypes.mkString(", ")
 }
@@ -64,7 +65,7 @@ object AcceptHeader {
   private val Splitter = """\s*,\s*""".r.pattern
   private def split(str: String): Seq[MediaType] = {
     val types = Splitter.split(str.trim).map(_.trim).filter(_.length > 0)
-    types.map(MediaType(_))
+    types.map(MediaType(_)).toList
   }
   def apply(header: String): Option[AcceptHeader] = Option(header).flatMap { header =>
     val types = split(header)
@@ -73,7 +74,7 @@ object AcceptHeader {
 
   def apply(req: javax.servlet.http.HttpServletRequest): Option[AcceptHeader] = {
     import collection.JavaConverters._
-    val types = req.getHeaders("Accept").asScala.flatMap(split(_)).toSeq
+    val types = req.getHeaders("Accept").asScala.flatMap(split(_)).toList
     if (types.isEmpty) None else Some(new AcceptHeader(types))
   }
 }

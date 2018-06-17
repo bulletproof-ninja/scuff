@@ -44,7 +44,7 @@ import collection.JavaConverters._
   * @see java.util.PropertyResourceBundle
   * For locale specific `.properties` file name syntax
   */
-class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[Locale], charset: Charset)
+class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Iterable[Locale], charset: Charset)
     extends ((String, Any*) => String) {
 
   /**
@@ -75,7 +75,7 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
   }
 
   private val map: Map[String, Message] = {
-      def findText(key: String, bundles: Seq[ResourceBundle]): Option[(String, Locale)] = {
+      def findText(key: String, bundles: Iterable[ResourceBundle]): Option[(String, Locale)] = {
         bundles.iterator.map { bundle =>
           Try(bundle.getString(key) -> bundle.getLocale).toOption
         }.collectFirst {
@@ -120,8 +120,9 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
               a(i) = curr.getDisplayName(lang)
             case f: Function0[_] =>
               a(i) = f()
-            case f: Function1[Locale, _] =>
-              a(i) = f(lang)
+            case f: Function1[_, _] =>
+              val lf = f.asInstanceOf[Function1[Locale, _]]
+              a(i) = lf(lang)
             case _ => // Ignore
           }
           formatAll(lang, a, i + 1)
@@ -160,7 +161,7 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Seq[
 
   def keySet() = map.keySet
 
-  lazy val unformatted: Map[String, String] = map.mapValues(_.unformatted)
+  lazy val unformatted: Map[String, String] = map.mapValues(_.unformatted).toMap
 
   def unformatted(key: String): Option[String] = map.get(key).map(_.unformatted)
 
@@ -180,7 +181,7 @@ object L10nPropFormatter {
     }
     highest + 1
   }
-  private def toResourceBundles(baseName: String, locales: Seq[Locale], control: CharsetControl): Seq[ResourceBundle] = {
+  private def toResourceBundles(baseName: String, locales: Iterable[Locale], control: CharsetControl): Iterable[ResourceBundle] = {
     val expandedLocales =
       locales.flatMap { locale =>
         val buffer = new collection.mutable.ArrayBuffer[Locale](3)
@@ -192,7 +193,7 @@ object L10nPropFormatter {
           buffer += new Locale(locale.getLanguage)
         }
         buffer
-      } :+ Locale.ROOT
+      }.toList ::: Locale.ROOT :: Nil
     expandedLocales.distinct.foldLeft(collection.mutable.Buffer[ResourceBundle]()) {
       case (list, locale) =>
         try {

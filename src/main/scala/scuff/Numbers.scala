@@ -1,7 +1,5 @@
 package scuff
 
-import collection.generic.Growable
-
 object Numbers {
   @inline
   def unsigned(n: Int) = n & 0xFFFFFFFFL
@@ -19,7 +17,7 @@ object Numbers {
   }
 
   @annotation.tailrec
-  def hexEncode[T <: Growable[Char] with CharSequence](bytes: Array[Byte], g: T = new StringBuilder, offset: Int = 0): T = {
+  def hexEncode(bytes: Array[Byte], g: StringBuilder = new StringBuilder, offset: Int = 0): StringBuilder = {
     if (offset < bytes.length) {
       val uint32 = unsigned(bytes(offset))
       if (uint32 < 16) g += '0'

@@ -214,7 +214,7 @@ class SlidingWindow[T, R, F](
     * If a timestamp is provided, it is expected to always be
     * increasing (or equal to previous).
     */
-  def snapshot(now: EpochMillis = clock): Future[collection.Map[Window, F]] = {
+  def snapshot(now: EpochMillis = clock): Future[Map[Window, F]] = {
     val (finitesFuture, foreverFuture) = storeProvider { tsMap =>
       val sinceForever = if (foreverWindows.isEmpty) NoFuture else tsMap.queryAll(reducer)
       type WinMap = java.util.HashMap[Window, R]
@@ -253,7 +253,7 @@ class SlidingWindow[T, R, F](
       val finalizedMap = map.asScala.mapValues(reducer.finalize)
       if (windows.size > finalizedMap.size) {
         baselineWindows ++ finalizedMap
-      } else finalizedMap
+      } else finalizedMap.toMap
     }
   }
 

@@ -10,7 +10,7 @@ import scala.util.control.NonFatal
   * [[scuff.concurrent.PartitionedExecutionContext]] if
   * same-thread notification is important.
   */
-class PubSub[F, MSG <% F](consumerCtx: ExecutionContext) extends Feed {
+class PubSub[F, MSG](consumerCtx: ExecutionContext)(implicit conv: MSG => F) extends Feed {
 
   type Selector = F
   type Consumer = MSG => _
