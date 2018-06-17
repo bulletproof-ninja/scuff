@@ -109,7 +109,9 @@ allprojects {
 
                 from components.java
                 artifact sourceJar
-                artifact docsJar
+                if (vScala != '2.13') { // Bug in 2.13.0-M4
+                    artifact docsJar
+                }
             }
         }
     }
@@ -119,6 +121,7 @@ allprojects {
         key = System.properties.bintrayKey ?: "dryrun"
         dryRun = (user == "dryrun" || key == "dryrun" || version.startsWith('SNAPSHOT'))
         publish = !dryRun
+        override = true
         publications = ['maven']
         pkg {
             userOrg = System.properties.bintrayOrg ?: user
