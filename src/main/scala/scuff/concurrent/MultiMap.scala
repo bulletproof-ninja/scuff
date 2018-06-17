@@ -2,6 +2,7 @@ package scuff.concurrent
 
 import scala.collection.immutable.{ Set, HashSet }
 import annotation.tailrec
+import scala.collection.JavaConverters._
 
 /**
   * Concurrent multi-map implementation.
@@ -15,6 +16,9 @@ class MultiMap[K, V] extends Iterable[(K, Set[V])] {
       case null => HashSet.empty
       case set => set
     }
+
+  def keys: Iterator[K] = map.keySet.iterator.asScala
+  def keySet: collection.Set[K] = java.util.Collections.unmodifiableSet(map.keySet).asScala
 
   /**
     * Abstraction over key values.
