@@ -1,5 +1,5 @@
 plugins {
-    id "com.jfrog.bintray" version '1.8.0'
+    id "com.jfrog.bintray" version '1.8.1'
 }
 
 ext {
@@ -40,7 +40,7 @@ def tsVersion(version) {
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '4.5.1'
+    gradleVersion = '4.8'
 }
 
 allprojects {
