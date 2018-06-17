@@ -15,7 +15,10 @@ class TestLockFreeConcurrentMap {
     assertEquals(1, map.size)
     assertEquals("one", map.iterator.next._2)
     map += 5 -> "five"
-    assertEquals("LockFreeConcurrentMap(1 -> one, 5 -> five)", map.toString)
+    assertTrue {
+      "LockFreeConcurrentMap(1 -> one, 5 -> five)" == map.toString ||
+      "LockFreeConcurrentMap(5 -> five, 1 -> one)" == map.toString
+    }
     assertEquals(2, map.size)
     assertFalse(map.remove(1, "fifty"))
     assertEquals(2, map.size)

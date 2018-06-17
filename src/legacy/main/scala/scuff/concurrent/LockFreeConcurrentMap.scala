@@ -17,7 +17,7 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]())
   private[this] val mapRef = new java.util.concurrent.atomic.AtomicReference(initialMap)
 
   @annotation.tailrec
-  def putIfAbsent(k: A, v: B): Option[B] = {
+  final def putIfAbsent(k: A, v: B): Option[B] = {
     val map = mapRef.get
     map.get(k) match {
       case existing: Some[_] => existing
@@ -32,7 +32,7 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]())
   }
 
   @annotation.tailrec
-  def remove(k: A, expected: B): Boolean = {
+  final def remove(k: A, expected: B): Boolean = {
     val map = mapRef.get
     map.get(k) match {
       case Some(value) if value == expected =>
@@ -47,7 +47,7 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]())
   }
 
   @annotation.tailrec
-  def replace(k: A, expected: B, newvalue: B): Boolean = {
+  final def replace(k: A, expected: B, newvalue: B): Boolean = {
     val map = mapRef.get
     map.get(k) match {
       case Some(value) if value == expected =>
@@ -62,7 +62,7 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]())
   }
 
   @annotation.tailrec
-  def replace(k: A, v: B): Option[B] = {
+  final def replace(k: A, v: B): Option[B] = {
     val map = mapRef.get
     map.get(k) match {
       case replaced: Some[_] =>
@@ -133,13 +133,12 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]())
     this
   }
 
-  override def clear() {
+  override def clear(): Unit = {
     mapRef.set(EmptyMap)
   }
 
   override def contains(key: A) = mapRef.get.contains(key)
   override def isEmpty = mapRef.get.isEmpty
-  override def nonEmpty = mapRef.get.nonEmpty
 
   override def toString() = "LockFreeConcurrent" concat super.toString()
 
@@ -148,7 +147,7 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]())
   def drain[M <: Map[A, B]](): M = mapRef.getAndSet(EmptyMap).asInstanceOf[M]
 
   @annotation.tailrec
-  override def remove(key: A): Option[B] = {
+  final override def remove(key: A): Option[B] = {
     val map = mapRef.get
     map.get(key) match {
       case value: Some[_] =>
