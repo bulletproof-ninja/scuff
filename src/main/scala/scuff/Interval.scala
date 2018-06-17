@@ -62,7 +62,7 @@ final class Interval[@specialized(Short, Int, Long, Float, Double) T](
   }
   override def hashCode = from.hashCode ^ to.hashCode
 
-  private def writeObject(out: java.io.ObjectOutputStream) {
+  private def writeObject(out: java.io.ObjectOutputStream): Unit = {
     out.writeBoolean(fromIncl)
     out.writeBoolean(toIncl)
     out.writeObject(from)
@@ -70,7 +70,7 @@ final class Interval[@specialized(Short, Int, Long, Float, Double) T](
     out.writeObject(ord)
     out.writeObject(stringRep)
   }
-  private def readObject(in: java.io.ObjectInputStream) {
+  private def readObject(in: java.io.ObjectInputStream): Unit = {
     val surgeon = new reflect.Surgeon(this)
     surgeon.set('fromIncl, in.readBoolean)
     surgeon.set('toIncl, in.readBoolean)

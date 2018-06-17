@@ -60,7 +60,7 @@ object Codec {
 
 trait StreamingSerializer[T] extends Serializer[T] {
 
-  def encodeInto(out: OutputStream)(t: T)
+  def encodeInto(out: OutputStream)(t: T): Unit
   def decodeFrom(in: InputStream): T
 
   def encode(t: T): Array[Byte] = {

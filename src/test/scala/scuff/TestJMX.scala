@@ -23,10 +23,10 @@ class TestJMX {
   import TestJMX._
 
   @Test @Ignore
-  def dynamic() {
+  def dynamic(): Unit = {
     var map = Map("a.b.c" -> 0, "d.e.f" -> 0, "g.h.i" -> 0)
     val bean = foo.bar.Baz.newBean(map)
-      def updateValues() {
+      def updateValues(): Unit = {
         map = map.keys.foldLeft(Map.empty[String, Int]) {
           case (map, key) => map.updated(key, util.Random.nextInt(100))
         }
@@ -39,7 +39,7 @@ class TestJMX {
     }
   }
 
-  private def uniqueNames(quoted: Boolean, beanName: String, typeName: String, i1: AnyRef, i2: AnyRef) {
+  private def uniqueNames(quoted: Boolean, beanName: String, typeName: String, i1: AnyRef, i2: AnyRef): Unit = {
     val objName1 = JMX.register(i1, beanName)
     if (quoted) assertEquals(ObjectName quote beanName, objName1.getKeyProperty("name"))
     else assertEquals(beanName, objName1.getKeyProperty("name"))
@@ -63,7 +63,7 @@ class TestJMX {
   }
 
   @Test
-  def quoteUnquoted() {
+  def quoteUnquoted(): Unit = {
     val myBean = FooBeanCaseClassImpl(99)
     val objName = JMX.register(myBean, "My Bean")
     assertEquals("\"My Bean\"", objName.getKeyProperty("name"))

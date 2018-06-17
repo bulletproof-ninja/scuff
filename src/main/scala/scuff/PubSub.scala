@@ -25,7 +25,7 @@ class PubSub[F, MSG <% F](consumerCtx: ExecutionContext) extends Feed {
   /**
     * Publish message.
     */
-  def publish(msg: MSG) {
+  def publish(msg: MSG): Unit = {
     val i = subscribers.iterator
     while (i.hasNext) {
       i.next.handle(msg)
@@ -49,7 +49,7 @@ class PubSub[F, MSG <% F](consumerCtx: ExecutionContext) extends Feed {
         consumerCtx reportFailure e
         cancelSubscription()
     }
-    def cancelSubscription() {
+    def cancelSubscription(): Unit = {
       subscribers.remove(this)
     }
   }

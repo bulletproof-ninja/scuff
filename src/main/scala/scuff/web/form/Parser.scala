@@ -90,7 +90,7 @@ class Parser[T](implicit tag: ClassTag[T]) {
     var errors: Set[Problem] = Set.empty
     getters.foreach {
       case (name, rt) =>
-        def convertOrFail(conv: => Any) {
+        def convertOrFail(conv: => Any): Unit = {
             try {
               values += name -> conv
             } catch {

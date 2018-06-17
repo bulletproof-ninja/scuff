@@ -10,7 +10,7 @@ import scala.concurrent.duration._
 
 class TestCookieMonster {
   @Test
-  def `max age`() {
+  def `max age`(): Unit = {
     val expires = 9999
     object CM extends CookieMonster[String] {
       def name = "Testing"
@@ -27,7 +27,7 @@ class TestCookieMonster {
   val hmacFunc = new HmacFunction(Hmac.generateKey())
 
   @Test
-  def `hmac`() {
+  def `hmac`(): Unit = {
     case class User(id: Int, name: String)
     object UserCodec extends Codec[User, String] {
       def encode(u: User) = s""""${u.id}|${u.name}""""
@@ -67,7 +67,7 @@ class TestCookieMonster {
   }
 
   @Test(expected = classOf[RuntimeException])
-  def `invalid name`() {
+  def `invalid name`(): Unit = {
     object InvalidName extends CookieMonster[Int] {
       def name = "foo:bar"
       def codec = new Codec[Int, String] {

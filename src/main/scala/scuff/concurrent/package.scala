@@ -99,7 +99,7 @@ package object concurrent {
       else {
         val promise = Promise[T]
         val cmd = new Runnable {
-          def run {
+          def run(): Unit = {
             fulfill(promise, Failure(new TimeoutException(s"Timed out after $timeout") with NoStackTrace))
           }
         }

@@ -38,12 +38,12 @@ package object web {
       res.setDateHeader(HttpHeaders.LastModified, date)
       res
     }
-    def sendPermanentRedirect(url: CharSequence) {
+    def sendPermanentRedirect(url: CharSequence): Unit = {
       res.setStatus(HttpServletResponse.SC_MOVED_PERMANENTLY)
       res.setHeader(HttpHeaders.Location, url.toString)
       res.flushBuffer()
     }
-    def setCookie[T](value: T)(implicit req: HttpServletRequest, cm: CookieMonster[T]) {
+    def setCookie[T](value: T)(implicit req: HttpServletRequest, cm: CookieMonster[T]): Unit = {
       cm.set(res, value)
     }
   }

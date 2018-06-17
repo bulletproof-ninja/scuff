@@ -39,11 +39,11 @@ object Threads {
     private[this] val queue = new collection.mutable.Queue[QueueItem]
     private[Threads] val thread = new Thread("scuff.Threads.JavaFutureConverter") {
       this setUncaughtExceptionHandler new Thread.UncaughtExceptionHandler {
-        def uncaughtException(t: Thread, e: Throwable) {
+        def uncaughtException(t: Thread, e: Throwable): Unit = {
           failureReporter(e)
         }
       }
-      override def run {
+      override def run(): Unit = {
         while (!Thread.currentThread.isInterrupted) {
           val completed = queue.synchronized {
             while (queue.isEmpty) {
@@ -81,7 +81,7 @@ object Threads {
       failureReporter: Throwable => Unit = printStackTrace): ScheduledExecutorService with ExecutionContext = {
 
     val exec = new ScheduledThreadPoolExecutor(corePoolSize, threadFactory) with ExecutionContext {
-      override def afterExecute(r: Runnable, t: Throwable) {
+      override def afterExecute(r: Runnable, t: Throwable): Unit = {
         super.afterExecute(r, t)
         if (t != null) {
           reportFailure(t)
@@ -90,7 +90,7 @@ object Threads {
       def reportFailure(t: Throwable) = failureReporter(t)
     }
     Runtime.getRuntime addShutdownHook new Thread {
-      override def run {
+      override def run(): Unit = {
         exec.shutdownNow()
       }
     }
@@ -113,7 +113,7 @@ object Threads {
 
   /** Executor encapsulating a single `Thread` for a single execution. Cannot be re-used. */
   def newSingleRunExecutor(tf: ThreadFactory, failureReporter: Throwable => Unit = printStackTrace): ExecutionContextExecutor = new ExecutionContextExecutor {
-    def execute(r: Runnable) {
+    def execute(r: Runnable): Unit = {
       val thread = tf newThread new Runnable {
         def run = try {
           r.run()
@@ -142,7 +142,7 @@ object Threads {
       new SynchronousQueue[Runnable],
       threadFactory) with ExecutionContextExecutorService {
 
-      override def afterExecute(r: Runnable, t: Throwable) {
+      override def afterExecute(r: Runnable, t: Throwable): Unit = {
         super.afterExecute(r, t)
         if (t != null) {
           reportFailure(t)
@@ -151,7 +151,7 @@ object Threads {
       def reportFailure(t: Throwable) = failureReporter(t)
     }
     Runtime.getRuntime addShutdownHook new Thread {
-      override def run {
+      override def run(): Unit = {
         exec.shutdownNow()
       }
     }
@@ -163,7 +163,7 @@ object Threads {
       0L, TimeUnit.MILLISECONDS,
       queue, threadFactory) with ExecutionContextExecutorService {
 
-      override def afterExecute(r: Runnable, t: Throwable) {
+      override def afterExecute(r: Runnable, t: Throwable): Unit = {
         super.afterExecute(r, t)
         if (t != null) {
           reportFailure(t)
@@ -172,7 +172,7 @@ object Threads {
       def reportFailure(t: Throwable) = failureReporter(t)
     }
     Runtime.getRuntime addShutdownHook new Thread {
-      override def run {
+      override def run(): Unit = {
         exec.shutdownNow()
       }
     }
@@ -188,7 +188,7 @@ object Threads {
       daemon: Boolean,
       failureReporter: Throwable => Unit = printStackTrace) = {
     val tg = new ThreadGroup(Threads.SystemThreadGroup, name) {
-      override def uncaughtException(t: Thread, e: Throwable) {
+      override def uncaughtException(t: Thread, e: Throwable): Unit = {
         failureReporter(e)
       }
     }
@@ -210,7 +210,7 @@ object Threads {
 
   final class ExecutorProxy[E <: Executor](real: E, reporter: Throwable => Unit) extends Executor {
     implicit def executor = real
-    def execute(cmd: Runnable) {
+    def execute(cmd: Runnable): Unit = {
       real execute new Runnable {
         def run = try {
           cmd.run()

@@ -21,13 +21,13 @@ dWVkIGFuZCBpbmRlZmF0aWdhYmxlIGdlbmVyYXRpb24gb2Yga25vd2xlZGdlLCBleGNlZWRzIHRo
 ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=
 """.trim.replaceAll("""[\r\n]+""", "")
   @Test
-  def `full text encoding, with padding`() {
+  def `full text encoding, with padding`(): Unit = {
     val codec = Base64.RFC_4648(withPadding = true)
     val encoded = codec.encode(LeviathanQuote.getBytes).toString
     assertEquals(LeviathanQuoteEncodedWithPadding, encoded)
   }
   @Test
-  def `full text decoding`() {
+  def `full text decoding`(): Unit = {
     val codecP = Base64.RFC_4648(withPadding = true)
     val codecNP = Base64.RFC_4648(withPadding = false)
     val decodedPP = codecP.decode(LeviathanQuoteEncodedWithPadding)
@@ -41,62 +41,62 @@ ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=
   }
 
   @Test
-  def `20 byte encoding, with padding`() {
+  def `20 byte encoding, with padding`(): Unit = {
     val codec = Base64.RFC_4648(withPadding = true)
     val encoded = codec.encode(LeviathanQuote.substring(LeviathanQuote.length - 20).getBytes).toString
     val expected = LeviathanQuoteEncodedWithPadding.substring(LeviathanQuoteEncodedWithPadding.length - 28)
     assertEquals(expected, encoded)
   }
   @Test
-  def `empty bytes`() {
+  def `empty bytes`(): Unit = {
     val codec = Base64.RFC_4648
     val encoded = codec.encode(Array.empty[Byte])
     assertEquals("", encoded)
   }
   @Test
-  def `single byte encoding, no padding`() {
+  def `single byte encoding, no padding`(): Unit = {
     val codec = Base64.RFC_4648
     val encoded = codec.encode(LeviathanQuote.getBytes take 1).toString
     assertEquals("TQ", encoded)
   }
   @Test
-  def `two byte encoding, no padding`() {
+  def `two byte encoding, no padding`(): Unit = {
     val codec = Base64.RFC_4648
     val encoded = codec.encode(LeviathanQuote.getBytes take 2).toString
     assertEquals("TWE", encoded)
   }
   @Test
-  def `three byte encoding, no padding`() {
+  def `three byte encoding, no padding`(): Unit = {
     val codec = Base64.RFC_4648
     val encoded = codec.encode(LeviathanQuote.getBytes take 3).toString
     assertEquals("TWFu", encoded)
   }
   @Test
-  def `four byte encoding, no padding`() {
+  def `four byte encoding, no padding`(): Unit = {
     val codec = Base64.RFC_4648
     val encoded = codec.encode(LeviathanQuote.getBytes take 4).toString
     assertEquals("TWFuIA", encoded)
   }
   @Test
-  def `single byte encoding, with padding`() {
+  def `single byte encoding, with padding`(): Unit = {
     val codec = Base64.RFC_4648(withPadding = true)
     val encoded = codec.encode(LeviathanQuote.getBytes take 1).toString
     assertEquals("TQ==", encoded)
   }
   @Test
-  def `two byte encoding, with padding`() {
+  def `two byte encoding, with padding`(): Unit = {
     val codec = Base64.RFC_4648(withPadding = true)
     val encoded = codec.encode(LeviathanQuote.getBytes take 2).toString
     assertEquals("TWE=", encoded)
   }
   @Test
-  def `three byte encoding, with padding`() {
+  def `three byte encoding, with padding`(): Unit = {
     val codec = Base64.RFC_4648(withPadding = true)
     val encoded = codec.encode(LeviathanQuote.getBytes take 3).toString
     assertEquals("TWFu", encoded)
   }
   @Test
-  def `four byte encoding, with padding`() {
+  def `four byte encoding, with padding`(): Unit = {
     val bytes = LeviathanQuote.getBytes take 4
     val encoded = Base64.RFC_4648(withPadding = true).encode(bytes).toString
     assertEquals("TWFuIA==", encoded)
@@ -104,7 +104,7 @@ ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=
     assertArrayEquals(bytes, decoded)
   }
   @Test
-  def `custom`() {
+  def `custom`(): Unit = {
     val codec = Base64.Custom('%', '$', withPadding = true, paddingChar = '_')
     val encoded = codec.encode(LeviathanQuote.getBytes)
     assertEquals('_', encoded.charAt(encoded.length - 1))
@@ -112,7 +112,7 @@ ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=
     assertEquals(LeviathanQuote, decoded)
   }
   @Test
-  def `randomized`() {
+  def `randomized`(): Unit = {
     import language.reflectiveCalls
     val sunEncoder = Try {
       val encoder = Class.forName("sun.misc.BASE64Encoder").newInstance
@@ -136,122 +136,122 @@ ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=
   }
 
   @Test
-  def `remove line feeds 0a`() {
+  def `remove line feeds 0a`(): Unit = {
     val str = "TWFu\nIGlz\nIGRp\nc3Rp\nbmd1\naXNo\nZWQs\nIG5v\ndCBv\nbmx5\nIGJ5\nIG\n"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\n", ""), removed)
   }
   @Test
-  def `remove line feeds 0b`() {
+  def `remove line feeds 0b`(): Unit = {
     val str = "TWFu\nIGlz\nIGRp\nc3Rp\nbmd1\naXNo\nZWQs\nIG5v\ndCBv\nbmx5\nIGJ5\nIG"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\n", ""), removed)
   }
   @Test
-  def `remove line feeds 0c`() {
+  def `remove line feeds 0c`(): Unit = {
     val str = "TWFu\nIGlz\nIGRp\nc3Rp\nbmd1\naXNo\nZWQs\nIG5v\ndCBv\nbmx5\nIGJ5\nI"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\n", ""), removed)
   }
   @Test
-  def `remove line feeds 0d`() {
+  def `remove line feeds 0d`(): Unit = {
     val str = "TWFu\nI"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\n", ""), removed)
   }
   @Test
-  def `remove line feeds 0e`() {
+  def `remove line feeds 0e`(): Unit = {
     val str = "TWFu\n"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\n", ""), removed)
   }
   @Test
-  def `remove line feeds 0f`() {
+  def `remove line feeds 0f`(): Unit = {
     val str = "TWFu"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\n", ""), removed)
   }
 
   @Test
-  def `remove line feeds 1`() {
+  def `remove line feeds 1`(): Unit = {
     val str = "TWFu\r\nIGlz\r\nIGRp\r\nc3Rp\r\nbmd1\r\naXNo\r\nZWQs\r\nIG5v\r\ndCBv\r\nbmx5\r\nIGJ5\r\nIG\r\n"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\r\n", ""), removed)
   }
   @Test
-  def `remove line feeds 2`() {
+  def `remove line feeds 2`(): Unit = {
     val str = "TWFu\r\nIGlz\r\nIGRp\r\nc3Rp\r\nbmd1\r\naXNo\r\nZWQs\r\nIG5v\r\ndCBv\r\nbmx5\r\nIGJ5\r\nIG"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\r\n", ""), removed)
   }
   @Test
-  def `remove line feeds 3`() {
+  def `remove line feeds 3`(): Unit = {
     val str = "TWFu\r\nIGlz\r\nIGRp\r\nc3Rp\r\nbmd1\r\naXNo\r\nZWQs\r\nIG5v\r\ndCBv\r\nbmx5\r\nIGJ5\r\n"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\r\n", ""), removed)
   }
   @Test
-  def `remove line feeds 4`() {
+  def `remove line feeds 4`(): Unit = {
     val str = "TWFu\r\nIGlz\r\nIGRp\r\nc3Rp\r\nbmd1\r\naXNo\r\nZWQs\r\nIG5v\r\ndCBv\r\nbmx5\r\nIGJ5"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\r\n", ""), removed)
   }
   @Test
-  def `remove line feeds 5`() {
+  def `remove line feeds 5`(): Unit = {
     val str = "TWFu\r\n"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\r\n", ""), removed)
   }
   @Test
-  def `remove line feeds 6`() {
+  def `remove line feeds 6`(): Unit = {
     val str = "TWFu"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\r\n", ""), removed)
   }
   @Test
-  def `remove line feeds 7`() {
+  def `remove line feeds 7`(): Unit = {
     val str = "TW\r\n"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\r\n", ""), removed)
   }
   @Test
-  def `remove line feeds 8`() {
+  def `remove line feeds 8`(): Unit = {
     val str = "TW"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\r\n", ""), removed)
   }
   @Test
-  def `remove line feeds 9`() {
+  def `remove line feeds 9`(): Unit = {
     val str = "TWFu\r\nIGlz\r\n"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\r\n", ""), removed)
   }
   @Test
-  def `remove line feeds 10`() {
+  def `remove line feeds 10`(): Unit = {
     val str = "TWFu\r\nIGlz"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\r\n", ""), removed)
   }
   @Test
-  def `remove line feeds 11`() {
+  def `remove line feeds 11`(): Unit = {
     val str = "TWFu\r\nIG\r\n"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\r\n", ""), removed)
   }
   @Test
-  def `remove line feeds 12`() {
+  def `remove line feeds 12`(): Unit = {
     val str = "TWFu\r\nIG"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\r\n", ""), removed)
   }
   @Test
-  def `remove line feeds 13`() {
+  def `remove line feeds 13`(): Unit = {
     val str = "TWFu\r\nIG\r\n\r\n"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\r\n", ""), removed)
   }
   @Test
-  def `remove line feeds 14`() {
+  def `remove line feeds 14`(): Unit = {
     val str = "TWFu\r\nIGlz\r\n\r\n"
     val removed = Base64.removeEOLs(str, 4).toString
     assertEquals(str.replace("\r\n", ""), removed)

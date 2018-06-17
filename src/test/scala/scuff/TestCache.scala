@@ -11,7 +11,7 @@ case class Foo(id: Int, name: String)
 class TestCache extends Serializable {
   import TestCache._
   @Test
-  def foo() {
+  def foo(): Unit = {
     val cache = new LRUOffHeapCache[String, Foo](10, JavaSerializer[Foo], 1.second)
     assertEquals(None, cache.lookup("foo"))
     val foo = cache.lookupOrStore("foo")(new Foo(123, "foo"))

@@ -4,7 +4,7 @@ import org.junit._, Assert._
 
 class TestMultiMap {
   @Test
-  def `add and remove`() {
+  def `add and remove`(): Unit = {
     val mmap = new MultiMap[Int, String]
     assertFalse(mmap(5) contains "foo")
     assertTrue(mmap(5) += "foo")

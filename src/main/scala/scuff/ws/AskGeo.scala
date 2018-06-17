@@ -18,7 +18,7 @@ class AskGeo(urlPrefix: String, parser: AskGeo.Parser) {
       Seq.empty
     } else {
       val query = new StringBuilder("?databases=TimeZone&points=")
-        def appendPoint(p: geo.Point) {
+        def appendPoint(p: geo.Point): Unit = {
           query append p.latitude append ',' append p.longitude
         }
       appendPoint(points.head)

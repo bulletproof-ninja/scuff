@@ -87,7 +87,7 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
 
   def getStatus = status
   def setStatus(code: Int) = status = code
-  def setStatus(code: Int, message: String) {
+  def setStatus(code: Int, message: String): Unit = {
     status = code
     this.message = Option(message)
   }
@@ -102,12 +102,12 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
 
   var inError = false
 
-  def sendError(code: Int) {
+  def sendError(code: Int): Unit = {
     status = code
     inError = true
   }
 
-  def sendError(code: Int, message: String) {
+  def sendError(code: Int, message: String): Unit = {
     status = code
     this.message = Option(message)
     inError = true
@@ -127,7 +127,7 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
   private var contentLength: Option[Int] = None
   def setContentLength(len: Int) = Some(len)
 
-  def reset() {
+  def reset(): Unit = {
     headers.clear()
     cookies = Nil
     inError = false
@@ -139,7 +139,7 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
     contentLength = None
     resetBuffer()
   }
-  def resetBuffer() {
+  def resetBuffer(): Unit = {
     writer = None
     out = None
   }
@@ -147,7 +147,7 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
   /**
    * Propagate from proxy to delegate.
    */
-  def propagate(stat: Int = status) {
+  def propagate(stat: Int = status): Unit = {
     for (cookie <- cookies) delegate.addCookie(cookie)
     if (inError) message match {
       case None => delegate.sendError(status)

@@ -119,7 +119,7 @@ object Base64 {
 
   private class Impl(baseChars: Array[Char], paddingChar: Char, withPadding: Boolean, charIdx: Array[Byte], lineSplitter: Option[(Pattern, Int)]) extends Base64 {
 
-    private def encodeBytes(b1: Byte, b2: Byte, b3: Byte, chars: Array[Char], charOffset: Int, padding: Int) {
+    private def encodeBytes(b1: Byte, b2: Byte, b3: Byte, chars: Array[Char], charOffset: Int, padding: Int): Unit = {
       import Numbers.unsigned
       val bits = unsigned(b1) << 16 | unsigned(b2) << 8 | unsigned(b3)
       padding match {
@@ -137,7 +137,7 @@ object Base64 {
       chars(charOffset) = baseChars(bits >> 18 & LastSixBits)
     }
     @annotation.tailrec
-    private def encodeChunk(bytes: Array[Byte], chars: Array[Char], byteOffset: Int = 0, charOffset: Int = 0) {
+    private def encodeChunk(bytes: Array[Byte], chars: Array[Char], byteOffset: Int = 0, charOffset: Int = 0): Unit = {
       (bytes.length - byteOffset) match {
         case 0 => // Done
         case 1 =>
@@ -150,7 +150,7 @@ object Base64 {
       }
     }
 
-    private def decodeChars(c1: Char, c2: Char, c3: Char, c4: Char, bytes: Array[Byte], byteOffset: Int, padding: Int) {
+    private def decodeChars(c1: Char, c2: Char, c3: Char, c4: Char, bytes: Array[Byte], byteOffset: Int, padding: Int): Unit = {
       padding match {
         case 0 =>
           val bits = charIdx(c1) << 18 | charIdx(c2) << 12 | charIdx(c3) << 6 | charIdx(c4)
@@ -167,7 +167,7 @@ object Base64 {
       }
     }
     @annotation.tailrec
-    private def decodeChunk(s: CharSequence, len: Int, bytes: Array[Byte], strOffset: Int = 0, byteOffset: Int = 0) {
+    private def decodeChunk(s: CharSequence, len: Int, bytes: Array[Byte], strOffset: Int = 0, byteOffset: Int = 0): Unit = {
       (len - strOffset) match {
         case 0 => // Done
         case 2 =>

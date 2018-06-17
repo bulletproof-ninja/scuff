@@ -5,7 +5,7 @@ import org.junit._, Assert._
 class RangeHeaderTests {
 
   @Test
-  def simple() {
+  def simple(): Unit = {
     val Some(header) = RangeHeader("bytes=0-99")
     val Seq(r1) = header.ranges
     assertEquals("bytes", header.unit)
@@ -15,7 +15,7 @@ class RangeHeaderTests {
   }
 
   @Test
-  def `assuming a representation of length 10000, the final 500 bytes (byte offsets 9500-9999, inclusive)`() {
+  def `assuming a representation of length 10000, the final 500 bytes (byte offsets 9500-9999, inclusive)`(): Unit = {
 
     val Some(h1) = RangeHeader("bytes=-500")
     val Seq(r1) = h1.ranges
@@ -54,7 +54,7 @@ class RangeHeaderTests {
   }
 
   @Test
-  def `The first and last bytes only (bytes 0 and 9999)`() {
+  def `The first and last bytes only (bytes 0 and 9999)`(): Unit = {
     val Some(header) = RangeHeader("bytes=0-0,-1")
     val Seq(r1, r2) = header.ranges
     assertEquals(Some(1L), r1.length)

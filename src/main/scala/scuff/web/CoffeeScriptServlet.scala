@@ -56,18 +56,18 @@ abstract class CoffeeScriptServlet extends HttpServlet {
     log(s"Initialized $comp in $dur ms.")
     comp
   }
-  private def onCompilerTimeout(comp: CoffeeScriptCompiler) {
+  private def onCompilerTimeout(comp: CoffeeScriptCompiler): Unit = {
     log(s"$comp instance removed from pool. ${compilerPool.size} remaining.")
   }
 
   @volatile private var pruner: Option[ScheduledFuture[_]] = None
 
-  override def init() {
+  override def init(): Unit = {
     super.init()
     this.pruner = Some(compilerPool.startPruning(120.minutes, onCompilerTimeout))
   }
 
-  override def destroy {
+  override def destroy(): Unit = {
     pruner.foreach(_.cancel(true))
   }
 
@@ -93,7 +93,7 @@ abstract class CoffeeScriptServlet extends HttpServlet {
     */
   protected def maxAge(req: HttpServletRequest): Int
 
-  private def respond(req: HttpServletRequest, res: HttpServletResponse) {
+  private def respond(req: HttpServletRequest, res: HttpServletResponse): Unit = {
     req.getResource match {
       case None => res.setStatus(HttpServletResponse.SC_NOT_FOUND)
       case Some(Resource(url, lastModified)) =>
@@ -111,7 +111,7 @@ abstract class CoffeeScriptServlet extends HttpServlet {
     }
   }
 
-  override def doGet(req: HttpServletRequest, res: HttpServletResponse) {
+  override def doGet(req: HttpServletRequest, res: HttpServletResponse): Unit = {
     try {
       respond(req, res)
     } catch {

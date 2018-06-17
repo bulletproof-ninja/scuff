@@ -7,21 +7,21 @@ import scala.util.Random
 class TestScuffRandom {
   //  import scuff.ScuffRandom
   @Test
-  def bigint() {
+  def bigint(): Unit = {
     val random = new Random
     val range = BigInt(-66) to BigInt(66)
     (1 to 10000).map(_ => random.nextInRange(range)).foreach { rand =>
       assertTrue(range contains rand)
     }
   }
-  def int() {
+  def int(): Unit = {
     val random = new Random
     val range = -1000 to 1000
     (1 to 10000).map(_ => random.nextInRange(range)).foreach { rand =>
       assertTrue(range contains rand)
     }
   }
-  def float() {
+  def float(): Unit = {
     val random = new Random
     val range = -123.456f to 789.456f
     val set = range.by(0.0001f)

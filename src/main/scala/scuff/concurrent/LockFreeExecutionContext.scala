@@ -69,7 +69,7 @@ final class LockFreeExecutionContext private (
 
       def run = try pollQueue() finally activeThreads.countDown()
 
-      private def pollQueue() {
+      private def pollQueue(): Unit = {
         while (!Thread.currentThread.isInterrupted) {
           queue.poll() match {
             case null =>

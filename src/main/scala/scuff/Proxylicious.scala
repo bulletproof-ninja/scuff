@@ -73,7 +73,7 @@ class Proxylicious[T](implicit tag: ClassTag[T]) {
     /**
      * Called before invoking method.
      */
-    def before(proxy: T, method: Method, args: Array[Any])
+    def before(proxy: T, method: Method, args: Array[Any]): Unit
     /**
      * Called after invoking method.
      */
@@ -84,7 +84,7 @@ class Proxylicious[T](implicit tag: ClassTag[T]) {
 
   private def newToStringOverrideSandwich(className: String): Sandwich = new Sandwich {
     def include(method: Method) = method.getParameterTypes.length == 0 && method.getName == "toString" && method.getReturnType == classOf[String]
-    def before(proxy: T, method: Method, args: Array[Any]) {}
+    def before(proxy: T, method: Method, args: Array[Any]) = ()
     def after(proxy: T, method: Method, args: Array[Any], result: Try[Any]): Any = {
       val sb = new java.lang.StringBuilder(getters.size * 16)
       sb append className append '('
@@ -104,7 +104,7 @@ class Proxylicious[T](implicit tag: ClassTag[T]) {
     def include(method: Method) =
       (isSingleObjectArg(method.getParameterTypes) && method.getName == "equals" && method.getReturnType == classOf[Boolean]) ||
         (method.getParameterTypes.length == 0 && method.getName == "hashCode" && method.getReturnType == classOf[Int])
-    def before(proxy: T, method: Method, args: Array[Any]) {}
+    def before(proxy: T, method: Method, args: Array[Any]) = ()
     def after(proxy: T, method: Method, args: Array[Any], result: Try[Any]): Any = {
       method.getName match {
         case "equals" =>

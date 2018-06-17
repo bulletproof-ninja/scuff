@@ -100,7 +100,7 @@ class ResourcePool[R <: AnyRef: ClassTag](
     val cancelled = new CountDownLatch(1)
     val schedule = new Schedule(thread, cancelled)
     exec execute new Runnable {
-      def run {
+      def run(): Unit = {
         Thread.sleep(delay.toMillis) // Initial sleep
         while (cancelled.getCount != 0L) {
           try {
@@ -128,7 +128,7 @@ class ResourcePool[R <: AnyRef: ClassTag](
     def run = pruneTail()
 
     @tailrec
-    def pruneTail(now: Long = currentMillis) {
+    def pruneTail(now: Long = currentMillis): Unit = {
       pruneLast(now) match {
         case Some(pruned) =>
           Try(cleanup(pruned)) // Best effort cleanup
@@ -163,7 +163,7 @@ class ResourcePool[R <: AnyRef: ClassTag](
     }
 
     @annotation.tailrec
-    private def heatPool() {
+    private def heatPool(): Unit = {
       val now = currentMillis
       val poolList = pool.get
         def isHot(t: (Long, R)): Boolean = now - t._1 < excludeHottestMillis
@@ -260,7 +260,7 @@ class ResourcePool[R <: AnyRef: ClassTag](
   }
 
   @tailrec
-  private def pushUntilSuccessful(append: List[(Long, R)]) {
+  private def pushUntilSuccessful(append: List[(Long, R)]): Unit = {
     val list = pool.get
     val sorted = (list ++ append).sorted(ResourcePool.ordering)
     if (!pool.weakCompareAndSet(list, sorted)) {
@@ -268,7 +268,7 @@ class ResourcePool[R <: AnyRef: ClassTag](
     }
   }
 
-  final def push(r: R) {
+  final def push(r: R): Unit = {
     onReturn(r)
     val tuple = currentMillis -> r
     val list = pool.get

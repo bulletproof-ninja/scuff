@@ -1,6 +1,7 @@
 package scuff
 
 import scala.reflect.ClassTag
+import scala.collection.mutable.Buffer
 
 /**
  * Monotonic sequencer.
@@ -53,7 +54,7 @@ final class MonotonicSequencer[@specialized(Int, Long) S: Numeric, T >: Null: Cl
     consumer(s, t)
   }
 
-  def apply(s: S, t: T) {
+  def apply(s: S, t: T): Unit = {
     if (array.isEmpty) {
       if (s == expectedSeqNum) {
         incrementSeqNum()
@@ -71,27 +72,27 @@ final class MonotonicSequencer[@specialized(Int, Long) S: Numeric, T >: Null: Cl
     }
   }
 
-  private def gapClosed() {
+  private def gapClosed(): Unit = {
     array.purge(purgeHandler)
     gapHandler.gapClosed()
   }
 
-  private def update(seq: S, t: T) {
+  private def update(seq: S, t: T): Unit = {
     val idx = subtract(seq, offset)
     if (idx >= array.capacity) {
       if (bufferLimit == 0) {
         val newSize = math.max(array.capacity * 1.5f, idx * 1.5f).asInstanceOf[Int]
         array = array.expand(new Array[T](newSize))
       } else {
-        val buffer = array.toSeq((idx: Int) => add(offset, idx)) :+ seq -> t
+        val list = array.toList((idx: Int) => add(offset, idx)) :+ seq -> t
         array.clear()
-        throw new BufferCapacityExceeded(buffer.toList)
+        throw new BufferCapacityExceeded(list)
       }
     }
     array(idx) = t
   }
 
-  private def gapDetected(expectedSeqNum: S, actualSeqNum: S, t: T) {
+  private def gapDetected(expectedSeqNum: S, actualSeqNum: S, t: T): Unit = {
     if (!array.isEmpty) array.clear()
     offset = expectedSeqNum
     update(actualSeqNum, t)
@@ -107,9 +108,9 @@ final class MonotonicSequencer[@specialized(Int, Long) S: Numeric, T >: Null: Cl
       new NotNullArray(newArray, size, maxIdx)
     }
 
-    def toSeq(toSeqNum: (Int) => S): Seq[(S, T)] = {
+    def toList(toSeqNum: (Int) => S): List[(S, T)] = {
       var i = 0
-      val buffer = collection.mutable.Buffer[(S, T)]()
+      val buffer = Buffer[(S, T)]()
       while (i < array.length) {
         val t = array(i)
         if (t != null) {
@@ -118,20 +119,20 @@ final class MonotonicSequencer[@specialized(Int, Long) S: Numeric, T >: Null: Cl
         }
         i += 1
       }
-      buffer
+      buffer.toList
     }
 
     @annotation.tailrec
-    def clear(i: Int = 0) {
+    def clear(i: Int = 0): Unit = {
       if (i < array.length) {
         array(i) = null
         clear(i + 1)
       }
     }
 
-    def purge(callback: (Int, T) => Unit) {
+    def purge(callback: (Int, T) => Unit): Unit = {
         @annotation.tailrec
-        def purge(i: Int = 0) {
+        def purge(i: Int = 0): Unit = {
           if (i < size) {
             callback(i, array(i))
             array(i) = null

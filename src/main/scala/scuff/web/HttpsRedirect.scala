@@ -13,7 +13,7 @@ trait HttpsRedirect extends HttpServlet {
   /** Return `true` to enable redirect for this request. */
   protected def isHttpsRedirectEnabled(req: HttpServletRequest): Boolean
 
-  override def service(req: HttpServletRequest, res: HttpServletResponse) {
+  override def service(req: HttpServletRequest, res: HttpServletResponse): Unit = {
     if (isHttpsRedirectEnabled(req) && req.getMethod == "GET" && getProtocol(req) == "http") {
       val url = req.getRequestURL()
       url.replace(0, 4, "https")

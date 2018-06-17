@@ -50,7 +50,7 @@ class TestLockFreeConcurrentMap {
   }
 
   @Test
-  def `in-place-updates`() {
+  def `in-place-updates`(): Unit = {
     val map = new LockFreeConcurrentMap[Int, String]
     assertEquals(None, map.updateIfPresent(5)(_ => "updated"))
     assertEquals(None, map.get(5))
@@ -62,11 +62,11 @@ class TestLockFreeConcurrentMap {
     assertEquals("updated again", map(5))
   }
   @Test
-  def `concurrent-in-place-updates`() {
+  def `concurrent-in-place-updates`(): Unit = {
     implicit def ec = ExecutionContext.global
     val key = "hello"
     val map = new LockFreeConcurrentMap[String, Long]
-    val range = (1L to 5000000L)
+    val range = (1L to 500000L)
     val futures = range.map { value =>
       ec.submit {
         map.upsert(key, value)(_ + value)

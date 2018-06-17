@@ -62,7 +62,7 @@ abstract class ResourceConcatFilter extends Filter {
   def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = httpFilter(req, res, chain)
 
   @inline
-  private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
+  private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain): Unit = {
     extractResources(req) match {
       case Nil =>
         res sendError HttpServletResponse.SC_NOT_FOUND
@@ -104,20 +104,20 @@ abstract class ResourceConcatFilter extends Filter {
             var resStatus = 0
             var resMsg: Option[String] = None
             val proxyRes = new HttpServletResponseWrapper(res) {
-              override def sendError(sc: Int) {
+              override def sendError(sc: Int): Unit = {
                 super.sendError(sc)
                 resStatus = sc
               }
-              override def sendError(sc: Int, msg: String) {
+              override def sendError(sc: Int, msg: String): Unit = {
                 super.sendError(sc, msg)
                 resStatus = sc
                 resMsg = Option(msg)
               }
-              override def setStatus(sc: Int) {
+              override def setStatus(sc: Int): Unit = {
                 super.setStatus(sc)
                 resStatus = sc
               }
-              override def setStatus(sc: Int, msg: String) {
+              override def setStatus(sc: Int, msg: String): Unit = {
                 super.setStatus(sc, msg)
                 resStatus = sc
                 resMsg = Option(msg)
@@ -138,7 +138,7 @@ abstract class ResourceConcatFilter extends Filter {
     }
   }
 
-  protected def checkDispatchStatus(resource: String, sc: Int, msg: Option[String]) {
+  protected def checkDispatchStatus(resource: String, sc: Int, msg: Option[String]): Unit = {
     if (sc >= 400) {
       val withMsg = msg.map(": " + _).getOrElse("")
       throw new IllegalStateException(s"Failed to dispatch to $resource$withMsg")

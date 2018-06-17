@@ -13,26 +13,26 @@ class TestSerialVersionUID {
   case class Baz(beep: Int)
 
   @Test
-  def `verify`() {
+  def `verify`(): Unit = {
     for (_ <- 1 to 10) yield {
       assertEquals(5, version[Foo])
     }
   }
   @Test
-  def `verify uid`() {
+  def `verify uid`(): Unit = {
     for (_ <- 1 to 10) yield {
       assertEquals(6, version[Bar])
     }
   }
 
   @Test(expected=classOf[RuntimeException])
-  def `failing`() {
+  def `failing`(): Unit = {
     version[Baz]
     fail("Should have failed due to lack of annotation")
   }
 
   @Test
-  def `instance`() {
+  def `instance`(): Unit = {
     val anyRef: AnyRef = new Foo("Hello")
     assertEquals(5, version(anyRef.getClass))
   }

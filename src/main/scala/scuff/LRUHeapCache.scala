@@ -141,7 +141,7 @@ final class LRUHeapCache[K, V](
         this.interrupt()
     }
 
-    override def run {
+    override def run(): Unit = {
       while (!isInterrupted) {
         val staleKeys = readLock {
           val now = clock.now

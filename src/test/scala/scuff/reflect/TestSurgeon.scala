@@ -6,7 +6,7 @@ import org.junit.Assert._
 class TestSurgeon {
 
   @Test
-  def foo() {
+  def foo(): Unit = {
     class Foo(ctor: String) {
       private[this] val foo: String = ctor
     }

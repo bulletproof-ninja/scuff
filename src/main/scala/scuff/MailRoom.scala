@@ -22,7 +22,7 @@ trait MailRoom {
    * @throws MessagingException If email could not be sent
    */
   @throws(classOf[MessagingException])
-  def send(from: InternetAddress, subject: String, body: Document, toAll: Iterable[InternetAddress], attachments: Attachment*)
+  def send(from: InternetAddress, subject: String, body: Document, toAll: Iterable[InternetAddress], attachments: Attachment*): Unit
 
   /**
    * Send email.
@@ -34,7 +34,7 @@ trait MailRoom {
    * @throws MessagingException If email could not be sent
    */
   @throws(classOf[MessagingException])
-  final def send(from: InternetAddress, subject: String, body: Document, to: InternetAddress, toMore: InternetAddress*) {
+  final def send(from: InternetAddress, subject: String, body: Document, to: InternetAddress, toMore: InternetAddress*): Unit = {
     send(from, subject, body, Seq(to) ++ toMore)
   }
 
@@ -64,7 +64,7 @@ private class JavaxMailRoom(session: Session, headers: (String, String)*) extend
     new DataHandler(new ByteArrayDataSource(out.toByteArray, contentType.toString))
   }
 
-  def send(from: InternetAddress, subject: String, body: Document, toAll: Iterable[InternetAddress], attachments: Attachment*) {
+  def send(from: InternetAddress, subject: String, body: Document, toAll: Iterable[InternetAddress], attachments: Attachment*): Unit = {
     val msg = new MimeMessage(session)
     msg.setFrom(from)
     msg.setRecipients(Message.RecipientType.TO, toAll.toArray[Address])
@@ -124,7 +124,7 @@ object MailRoom {
 
   trait Attachment {
     def name: String
-    def dump(out: OutputStream)
+    def dump(out: OutputStream): Unit
     def mimeType: String
   }
   object Attachment {
@@ -133,7 +133,7 @@ object MailRoom {
   }
   private class DocAttachment(doc: Document, val name: String) extends Attachment {
     require(name != null, "Must have document name")
-    def dump(out: OutputStream) {
+    def dump(out: OutputStream): Unit = {
       val writer = new OutputStreamWriter(out)
       doc.dump(writer)
       writer.close()
@@ -142,7 +142,7 @@ object MailRoom {
   }
   private class FileAttachment(file: File, val mimeType: String, altName: Option[String]) extends Attachment {
     val name = altName.getOrElse(file.getName)
-    def dump(out: OutputStream) {
+    def dump(out: OutputStream): Unit = {
       val is = new FileInputStream(file)
       try {
         import io.ScuffInputStream

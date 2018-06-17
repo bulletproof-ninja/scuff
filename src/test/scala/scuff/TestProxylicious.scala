@@ -9,7 +9,7 @@ import scala.util._
 
 class TestProxylicious {
 
-  @Test def `general test`() {
+  @Test def `general test`(): Unit = {
     val multiply = new Arithmetic {
       def apply(a: Int, b: Int) = a * b
     }
@@ -21,7 +21,7 @@ class TestProxylicious {
           case _ => false
         }
       }
-      def before(proxy: Arithmetic, method: Method, args: Array[Any]) {}
+      def before(proxy: Arithmetic, method: Method, args: Array[Any]) = ()
       def after(proxy: Arithmetic, method: Method, args: Array[Any], result: Try[Any]): Any = {
         result match {
           case Failure(t) => throw t
@@ -36,7 +36,7 @@ class TestProxylicious {
     assertEquals(121, multiply(11, 11))
     assertEquals(121 * 2, withDoubling(11, 11))
   }
-  @Test def `interface`() {
+  @Test def `interface`(): Unit = {
     trait Pure {
       def foo: Int
     }
@@ -68,7 +68,7 @@ class TestProxylicious {
   }
 
   @Test
-  def `value class`() {
+  def `value class`(): Unit = {
     trait Values {
       def a: String
       def b: Int
@@ -92,7 +92,7 @@ class TestProxylicious {
   }
 
   @Test
-  def `ToStringOverride`() {
+  def `ToStringOverride`(): Unit = {
     trait Values {
       def a: String
       def b: Int

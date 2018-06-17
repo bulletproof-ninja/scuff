@@ -20,7 +20,7 @@ sealed trait PrintHeaders {
 }
 
 trait HttpHeaderPrinting extends HttpServlet with PrintHeaders {
-  override def service(req: HttpServletRequest, res: HttpServletResponse) {
+  override def service(req: HttpServletRequest, res: HttpServletResponse): Unit = {
     printHeaders(req)
     super.service(req, res)
   }
@@ -30,7 +30,7 @@ abstract class HttpHeaderPrintingFilter extends Filter with PrintHeaders {
   protected def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = httpFilter(req, res, chain)
 
   @inline
-  private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
+  private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain): Unit = {
     printHeaders(req)
     chain.doFilter(req, res)
   }

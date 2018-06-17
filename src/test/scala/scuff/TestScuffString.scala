@@ -6,7 +6,7 @@ import Assert._
 class TestScuffString {
 
   @Test
-  def `levenshtein distance`() {
+  def `levenshtein distance`(): Unit = {
     assertEquals(3, "foo" levenshtein "bar")
     assertEquals(1, "foo" levenshtein "fou")
     assertEquals(1, "foo" levenshtein "foob")
@@ -14,19 +14,19 @@ class TestScuffString {
   }
 
   @Test
-  def `optional string`() {
+  def `optional string`(): Unit = {
     assertEquals(None, "".optional)
     assertEquals(Some("Hello"), "Hello".optional)
   }
 
   @Test
-  def `null string`() {
+  def `null string`(): Unit = {
     val str: String = null
     assertEquals(None, str.optional)
   }
 
   @Test
-  def substringEq() {
+  def substringEq(): Unit = {
     assertTrue("abcdefg".offsetStartsWith(0, "abc"))
     assertTrue("abcdefg".offsetStartsWith(1, "bcd"))
     assertTrue("abcdefg".offsetStartsWith(4, "efg"))
@@ -40,7 +40,7 @@ class TestScuffString {
   }
 
   @Test
-  def parseInt() {
+  def parseInt(): Unit = {
     assertEquals(45678, "45678".unsafeInt(offset = 0))
     assertEquals(45678, "45678".unsafeInt(offset = 0, length = 5))
     assertEquals(45678, "abc45678".unsafeInt(offset = 3))
@@ -48,7 +48,7 @@ class TestScuffString {
   }
 
   @Test
-  def parseLong() {
+  def parseLong(): Unit = {
     assertEquals(45678L, "45678".unsafeLong(offset = 0))
     assertEquals(45678L, "45678".unsafeLong(offset = 0, length = 5))
     assertEquals(45678L, "abc45678".unsafeLong(offset = 3))

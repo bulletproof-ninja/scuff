@@ -9,7 +9,7 @@ class TestNumbers {
   val r = new scala.util.Random
 
   @Test
-  def `back and forth`() {
+  def `back and forth`(): Unit = {
     for (_ <- 1 to 1000) {
       val arrL1 = new Array[Byte](8)
       val arrI1 = new Array[Byte](4)
@@ -25,7 +25,7 @@ class TestNumbers {
   }
 
   @Test
-  def `forth and back`() {
+  def `forth and back`(): Unit = {
     for (_ <- 1 to 1000) {
       val l1 = r.nextLong
       val i1 = r.nextInt
@@ -39,7 +39,7 @@ class TestNumbers {
   }
 
   @Test
-  def long2bytes() {
+  def long2bytes(): Unit = {
     for (_ <- 1 to 1000) {
       val arrL = new Array[Byte](8)
       val arrI = new Array[Byte](4)
@@ -56,7 +56,7 @@ class TestNumbers {
     }
   }
   @Test
-  def bytes2long() {
+  def bytes2long(): Unit = {
     for (_ <- 1 to 1000) {
       val arrL = new Array[Byte](8)
       val arrI = new Array[Byte](4)
@@ -72,11 +72,11 @@ class TestNumbers {
   }
 
   @Test(expected=classOf[IllegalArgumentException])
-  def empty() {
-    val foo = "".unsafeInt()
+  def empty(): Unit = {
+    "".unsafeInt()
   }
   @Test
-  def small() {
+  def small(): Unit = {
     assertEquals(0, "-".unsafeInt())
     assertEquals(0L, "-".unsafeLong())
     assertEquals(0, "0".unsafeInt())
@@ -94,7 +94,7 @@ class TestNumbers {
   }
 
   @Test
-  def parsing() {
+  def parsing(): Unit = {
     assertEquals(-987065L, "-987065".unsafeLong())
     assertEquals(-987065L, "abc-987065".unsafeLong(offset = 3))
     assertEquals(987065L, "987065".unsafeLong())

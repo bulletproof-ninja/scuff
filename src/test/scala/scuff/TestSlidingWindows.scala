@@ -13,11 +13,11 @@ class TestSlidingWindows {
   implicit def toBD(i: Int) = BigDecimal(i)
 
   @Test
-  def counting() {
+  def counting(): Unit = {
     counting(TreeMapProvider)
     counting(HashMapProvider)
     counting(LongMapProvider)
-      def counting(sp: StoreProvider[Int]) {
+      def counting(sp: StoreProvider[Int]): Unit = {
         object Count extends Sum[Int]
         val windows = Set(Duration.Inf, 10.milliseconds, 100.milliseconds, 1.second).map(Window(_))
         val counts = new SlidingWindow(Count, windows, sp)
@@ -43,7 +43,7 @@ class TestSlidingWindows {
   }
 
   @Test
-  def average() {
+  def average(): Unit = {
     average(TreeMapProvider)
     average(HashMapProvider)
     average(LongMapProvider)
@@ -76,11 +76,11 @@ class TestSlidingWindows {
   }
 
   @Test
-  def `with offset`() {
+  def `with offset`(): Unit = {
     withOffset(TreeMapProvider)
     withOffset(HashMapProvider)
     withOffset(LongMapProvider)
-      def withOffset(sp: StoreProvider[Int]) {
+      def withOffset(sp: StoreProvider[Int]): Unit = {
         val last10ms = Window(10.milliseconds)
         val prev10ms = Window(10.milliseconds, 10.milliseconds)
         val sums = SlidingWindow(Sum[Int], sp, last10ms, prev10ms)

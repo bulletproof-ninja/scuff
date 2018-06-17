@@ -9,7 +9,7 @@ import scala.util.Random
 class TestPartitionedExecutionContext {
 
   @annotation.tailrec
-  private def updateMap(hash: Int, thread: Thread, map: collection.concurrent.Map[Int, Set[Thread]]) {
+  private def updateMap(hash: Int, thread: Thread, map: collection.concurrent.Map[Int, Set[Thread]]): Unit = {
     map.get(hash) match {
       case Some(threadSet) =>
         if (!map.replace(hash, threadSet, threadSet + thread)) {
@@ -23,7 +23,7 @@ class TestPartitionedExecutionContext {
   }
 
   @Test
-  def verify() {
+  def verify(): Unit = {
     val numThreads = 16
     val ec = PartitionedExecutionContext(numThreads, th => th.printStackTrace())
     val jobsPerHash = 100

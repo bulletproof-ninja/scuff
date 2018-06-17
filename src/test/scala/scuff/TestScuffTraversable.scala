@@ -13,7 +13,7 @@ class TestScuffTraversable {
   }
 
   @Test
-  def `last element`() {
+  def `last element`(): Unit = {
       def iter = (1 to 1000).iterator
     assertEquals(1000, iter.last)
     assertEquals(Some(1000), iter.lastOption)
@@ -24,7 +24,7 @@ class TestScuffTraversable {
   }
 
   @Test
-  def `head element`() {
+  def `head element`(): Unit = {
       def iter = (1 to 1000).iterator
     assertEquals(1, iter.head)
     assertEquals(Some(1), iter.headOption)
@@ -35,7 +35,7 @@ class TestScuffTraversable {
   }
 
   @Test
-  def `levenshtein`() {
+  def `levenshtein`(): Unit = {
     val bytes1: Array[Byte] = Array(4, 3, 7, 8)
     val bytes2: Vector[Byte] = Vector(4, 33, 7, 8)
     assertEquals(1, bytes1 levenshtein bytes2)

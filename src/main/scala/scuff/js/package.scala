@@ -13,7 +13,7 @@ package object js {
 
   def toJavascript(options: Seq[(Symbol, Any)]): String = {
     val sb = new java.lang.StringBuilder
-      def appendValue(value: Any) {
+      def appendValue(value: Any): Unit = {
         value match {
           case nb @ (_: java.lang.Number | _: Boolean | null) => sb append nb
           case s: Seq[_] =>

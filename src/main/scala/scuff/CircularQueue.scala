@@ -13,7 +13,7 @@ final class CircularQueue[T](capacity: Int) {
   private[this] val deque = new ArrayDeque[T](capacity)
 
   /** Append to tail of queue. */
-  def append(t: T) {
+  def append(t: T): Unit = {
     if (deque.size == capacity) {
       deque.pollFirst()
     }

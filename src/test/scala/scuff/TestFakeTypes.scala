@@ -4,7 +4,7 @@ import org.junit._, Assert._
 
 class TestFakeTypes {
   @Test
-  def foo() {
+  def foo(): Unit = {
     sealed abstract class LongWrapper extends FakeType[Long]
 
     val FooID: LongWrapper = new LongWrapper {

@@ -14,7 +14,7 @@ trait HttpCaching extends HttpServlet {
       val tag = scuff.Numbers.hexEncode(digest).toString
       new ETag(tag)(false)
     }
-    def flushTo(res: HttpServletResponse) {
+    def flushTo(res: HttpServletResponse): Unit = {
       for ((name, values) <- headers; value <- values) res.addHeader(name, value)
       if (lastModified.isEmpty) {
         eTag.addTo(res)
@@ -79,12 +79,12 @@ trait HttpCaching extends HttpServlet {
       case NotOkException => // Response already populated
     }
 
-  override def destroy {
+  override def destroy(): Unit = {
     cache.shutdown()
     super.destroy()
   }
 
-  override def service(req: HttpServletRequest, res: HttpServletResponse) {
+  override def service(req: HttpServletRequest, res: HttpServletResponse): Unit = {
     if (req.getMethod == "GET") makeCacheKey(req) match {
       case Some(cacheKey) => respond(cacheKey, req, res) { res => super.service(req, res) }
       case _ => super.service(req, res)

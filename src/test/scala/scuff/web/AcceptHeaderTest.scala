@@ -6,7 +6,7 @@ import scuff.MediaType
 
 class AcceptHeaderTest {
   @Test
-  def basic() {
+  def basic(): Unit = {
     val acceptTypes = Set(MediaType("text/html"))
     assertTrue(AcceptHeader("text/html").get.accepts("text/html"))
     assertTrue(AcceptHeader("*/*").get.accepts("text/html"))
@@ -21,7 +21,7 @@ class AcceptHeaderTest {
   }
 
   @Test
-  def complex() {
+  def complex(): Unit = {
     val ah = AcceptHeader("text/html; q=1.0, text/*; q=0.8, image/gif; q=0.6, image/jpeg; q=0.6, image/*; q=0.5").get
     assertTrue(ah.accepts("image/png"))
     assertTrue(ah.accepts("text/plain"))
@@ -29,14 +29,14 @@ class AcceptHeaderTest {
   }
 
   @Test
-  def preference() {
+  def preference(): Unit = {
     val ah = AcceptHeader("text/html; q=1.0, text/*; q=0.8, image/gif; q=0.6, image/jpeg; q=0.6, image/*; q=0.5, */*; q=0.1").get
     assertTrue(ah.preference.matches("text/html"))
     val ah2 = AcceptHeader("audio/*; q=0.2, audio/basic").get
     assertEquals("audio/basic", ah2.preference.baseType)
   }
   @Test
-  def rfc2616_1() {
+  def rfc2616_1(): Unit = {
     val byPreference = AcceptHeader("text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c").get.preferenceOrdered
     assertEquals(4, byPreference.size)
     assertTrue(byPreference(0).matches("text/html"))
@@ -45,7 +45,7 @@ class AcceptHeaderTest {
     assertTrue(byPreference(3).matches("text/plain"))
   }
   @Test
-  def rfc2616_2() {
+  def rfc2616_2(): Unit = {
     val byPreference = AcceptHeader("text/*, text/html, text/html;level=1, */*").get.preferenceOrdered
     assertEquals(4, byPreference.size)
     assertEquals("text/html; level=1", byPreference(0).toString)
@@ -54,12 +54,12 @@ class AcceptHeaderTest {
     assertEquals("*/*", byPreference(3).toString)
   }
   @Test
-  def rfc2616_3() {
+  def rfc2616_3(): Unit = {
     val ah = AcceptHeader("audio/*; q=0.2, audio/basic").get
     assertEquals("audio/basic", ah.preference.toString)
   }
   @Test
-  def rfc2616_4() {
+  def rfc2616_4(): Unit = {
     val ah = AcceptHeader("text/*;q=0.3, text/html;q=0.7, text/html;level=1, text/html;level=2;q=0.4, */*;q=0.5").get
     val byPreference = ah.preferenceOrdered
     assertEquals(5, byPreference.size)
@@ -71,7 +71,7 @@ class AcceptHeaderTest {
     assertEquals(MediaType("text/html; level=2; q=0.4").toString, byPreference(3).toString)
   }
   @Test
-  def versioned() {
+  def versioned(): Unit = {
     val request = AcceptHeader("application/vnd.scuff+json;v=41, application/vnd.scuff+json;v=42").get
     val expected = MediaType("application/vnd.scuff+json")
     assertTrue(request.accepts(expected))
@@ -83,7 +83,7 @@ class AcceptHeaderTest {
     }
   }
   @Test
-  def `vendor match`() {
+  def `vendor match`(): Unit = {
     val plainJson = AcceptHeader("application/json").get
     val responseType = MediaType("application/vnd.scuff+json")
     assertTrue(plainJson.accepts(responseType))

@@ -7,7 +7,7 @@ import scala.util.Try
 
 class TestFSM {
   @Test
-  def connection() {
+  def connection(): Unit = {
     import ConnectionEvents._
     val conn = new Connection
     import conn.{ Active, Disabled, Forgotten }
@@ -33,7 +33,7 @@ class TestFSM {
     assertTrue(conn is Forgotten)
   }
   @Test
-  def dateParser() {
+  def dateParser(): Unit = {
     val parser = new ISODateParser
     import parser.{ dash, digit, done }
     assertEquals(None, parser.current)
@@ -45,7 +45,7 @@ class TestFSM {
     }
     parser(done)
     parser.current match {
-      case Some(comp @ parser.Completed) => comp.date match {
+      case Some(parser.Completed) => parser.Completed.date match {
         case Some(date) => assertEquals(isoDate, date.toString)
         case _ => fail("Should have some date")
       }
@@ -94,7 +94,7 @@ class TestFSM {
 
   class ISODateParser extends typed.FSM[Char] {
 
-    def start() {
+    def start(): Unit = {
       super.init(ParseYear)
     }
 
@@ -131,7 +131,7 @@ class TestFSM {
       ParseDay -> done -> Completed)
   }
   @Test
-  def `phone, invalid number`() {
+  def `phone, invalid number`(): Unit = {
     import OldSchoolPhoneEvents._
     val phone = new OldSchoolPhone
     import phone._
@@ -150,7 +150,7 @@ class TestFSM {
     assertTrue(phone is Active.InvalidNumber)
   }
   @Test
-  def `phone, busy, try again, talk`() {
+  def `phone, busy, try again, talk`(): Unit = {
     val number = "234-235-5678".filterNot(_ == '-')
     import OldSchoolPhoneEvents._
     val phone = new OldSchoolPhone
@@ -189,7 +189,7 @@ class TestFSM {
   }
 
   @Test
-  def `miss grant's controller combo 1`() {
+  def `miss grant's controller combo 1`(): Unit = {
     val ctrl = MissGrantsController()
     import ctrl._, DoorClosed._
     assertFalse(ctrl is DoorClosed)
@@ -204,7 +204,7 @@ class TestFSM {
     assertFalse(ctrl is UnlockedPanel)
   }
   @Test
-  def `miss grant's controller combo 2`() {
+  def `miss grant's controller combo 2`(): Unit = {
     val ctrl = MissGrantsController()
     import ctrl._, DoorClosed._
     assertFalse(ctrl is DoorClosed)
@@ -219,7 +219,7 @@ class TestFSM {
     assertFalse(ctrl is UnlockedPanel)
   }
   @Test
-  def `miss grant's controller combo 3`() {
+  def `miss grant's controller combo 3`(): Unit = {
     val ctrl = MissGrantsController()
     import ctrl._, DoorClosed._
     assertFalse(ctrl is DoorClosed)
@@ -313,11 +313,11 @@ class MissGrantsController private () extends FSM {
   def openDoor() = apply(doorOpened)
   def turnOnLight() = apply(lightOn)
   def openDrawer() = apply(drawerOpened)
-  
-  private def init() {
+
+  private def init(): Unit = {
     init(Idle)
   }
-  
+
   private def unlockDoor() = println("Unlocking door")
   private def lockPanel() = println("Locking panel")
   private def lockDoor() = println("Locking door")
@@ -361,4 +361,3 @@ class MissGrantsController private () extends FSM {
   }
 
 }
-

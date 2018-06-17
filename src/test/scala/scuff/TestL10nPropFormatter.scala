@@ -18,7 +18,7 @@ class TestL10nPropFormatter {
   import PropNameEnum._
 
   @Test
-  def `timestamp`() {
+  def `timestamp`(): Unit = {
     val foo = SomeText()
     val now = new Timestamp
     val text = foo("iso", now)
@@ -26,54 +26,54 @@ class TestL10nPropFormatter {
   }
 
   @Test
-  def root() {
+  def root(): Unit = {
     val props = L10nPropFormatter.root("FooBar")
     assertEquals("Hello", props("say"))
   }
 
   @Test
-  def german() {
+  def german(): Unit = {
     val german = SomeText(Locale.GERMAN, Locale.CANADA_FRENCH)
     val text = german(BeerRequest.name, "Zwei")
     assertEquals("Zwei Bier, bitte", text)
   }
 
   @Test
-  def english() {
+  def english(): Unit = {
     val english = SomeText(Locale.US)
     val text = english(BeerRequest.name, "Two")
     assertEquals("Two beers, please. I said Two beers please.", text)
   }
 
   @Test
-  def danish() {
+  def danish(): Unit = {
     val danish = SomeText(new Locale("da"))
     val text = danish(BeerRequest.name, "To")
     assertEquals("To øl, tak", text)
   }
 
   @Test
-  def spanish() {
+  def spanish(): Unit = {
     val spanish = SomeText(new Locale("es"))
     val text = spanish(BeerRequest.name, "Dos")
     assertEquals("Dos cerveza, por favor", text)
   }
 
   @Test
-  def multiple() {
+  def multiple(): Unit = {
     val anglais = SomeText(Locale.ENGLISH)
     val text = anglais("two.parms", "One", "Two")
     assertEquals("And I call them. Thing One and Thing Two", text)
   }
 
   @Test
-  def missing() {
+  def missing(): Unit = {
     val portuguese = SomeText(new Locale("pt"))
     assertEquals("42,00", portuguese("number", 42))
   }
 
   @Test
-  def australian() {
+  def australian(): Unit = {
     val oz = SomeText(new Locale("en", "AU"))
     val t1t2 = oz("two.parms", "One", "Two")
     assertEquals("And I call them. Thing One and Thing Two", t1t2)
@@ -82,7 +82,7 @@ class TestL10nPropFormatter {
   }
 
   @Test
-  def number() {
+  def number(): Unit = {
     val de = SomeText(Locale.GERMAN)
     val en = SomeText(Locale.ENGLISH)
     val number = 5432.1f
@@ -91,7 +91,7 @@ class TestL10nPropFormatter {
   }
 
   @Test
-  def apostrophes() {
+  def apostrophes(): Unit = {
     val en = SomeText(Locale.ENGLISH)
     val greet1 = en("welcome")
     assertEquals("You're welcome!", greet1)
@@ -100,14 +100,14 @@ class TestL10nPropFormatter {
   }
 
   @Test
-  def escaping() {
+  def escaping(): Unit = {
     val foo = SomeText()
     val text = foo("escape_confusion", "John Mapplethorpe", "a jewel thief", "that one movie")
     assertEquals("You're John Mapplethorpe, right? Didn't you play a jewel thief in that one movie?", text)
   }
 
   @Test
-  def `local lang`() {
+  def `local lang`(): Unit = {
     val en = SomeText()
     val eng = en("do_you_speak", Locale.FRENCH)
     assertEquals("Do you speak French?", eng)
@@ -117,7 +117,7 @@ class TestL10nPropFormatter {
   }
 
   @Test
-  def `function parm`() {
+  def `function parm`(): Unit = {
       def twoLanguages(lang1: Locale, lang2: Locale)(fmtLang: Locale) = SomeText(fmtLang)("two_languages", lang1, lang2)
     val foo = SomeText()
     val text = foo("do_you_speak", twoLanguages(Locale.ENGLISH, Locale.FRENCH) _)
@@ -125,14 +125,14 @@ class TestL10nPropFormatter {
   }
 
   @Test
-  def `nested`() {
+  def `nested`(): Unit = {
     val foo = SomeText()
     val text = foo("do_you_speak", foo("two_languages", Locale.ENGLISH, java.util.Locale.FRENCH))
     assertEquals("Do you speak both English AND French?", text)
   }
 
   @Test
-  def `conditional formatting`() {
+  def `conditional formatting`(): Unit = {
     val foo = SomeText()
 
     assertEquals("There are no messages, Hank", foo("message.counter.name", 0, "Hank"))

@@ -10,7 +10,7 @@ class TestAskGeo {
   final val ErrResponse = """{"code":1,"message":"bad request"}"""
 
   @Test
-  def timezones() {
+  def timezones(): Unit = {
     val reader = new BufferedReader(new StringReader(TZResponse))
     AskGeo.DefaultJsonParser.parseTimeZone(reader) match {
       case Seq(tz) => assertEquals("America/New_York", tz.getID)
@@ -19,7 +19,7 @@ class TestAskGeo {
   }
 
   @Test
-  def badreq() {
+  def badreq(): Unit = {
     val reader = new BufferedReader(new StringReader(ErrResponse))
     Try(AskGeo.DefaultJsonParser.parseTimeZone(reader)) match {
       case Failure(e) => assertEquals("bad request", e.getMessage)

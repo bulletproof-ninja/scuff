@@ -15,7 +15,7 @@ import scala.util.control.NonFatal
 
 class TestThreads extends Serializable {
   @Test
-  def foo() {
+  def foo(): Unit = {
     val tf = Threads.factory("MyThread")
     val latch = new CountDownLatch(1)
     val thread = tf newThread new Runnable {
@@ -28,7 +28,7 @@ class TestThreads extends Serializable {
   }
 
   @Test
-  def javaFutures() {
+  def javaFutures(): Unit = {
     implicit val ec = ExecutionContext.global
     val rand = new Random
     val futures = (1 to 1500).map { i =>
@@ -64,7 +64,7 @@ class TestThreads extends Serializable {
   }
 
   @Test
-  def `future timeout`() {
+  def `future timeout`(): Unit = {
     import ExecutionContext.Implicits.global
 
     try {
@@ -79,7 +79,7 @@ class TestThreads extends Serializable {
   }
 
   @Test
-  def scheduler_schedule() {
+  def scheduler_schedule(): Unit = {
     val cdl = new CountDownLatch(1)
     val scheduled = Threads.DefaultScheduler.schedule(200.milliseconds)(cdl.countDown)
     assertFalse(scheduled.isDone)
@@ -87,7 +87,7 @@ class TestThreads extends Serializable {
     assertTrue(scheduled.isDone)
   }
   @Test
-  def scheduler_fixedRate() {
+  def scheduler_fixedRate(): Unit = {
     val cdl = new CountDownLatch(5)
     val scheduled = Threads.DefaultScheduler.scheduleAtFixedRate(200.milliseconds, 10000.microseconds)(cdl.countDown)
     assertFalse(scheduled.isDone)
@@ -96,7 +96,7 @@ class TestThreads extends Serializable {
     assertTrue(scheduled.isDone)
   }
   @Test
-  def scheduler_fixedDelay() {
+  def scheduler_fixedDelay(): Unit = {
     val cdl = new CountDownLatch(5)
     val scheduled = Threads.DefaultScheduler.scheduleWithFixedDelay(200.milliseconds, 10000.microseconds)(cdl.countDown)
     assertFalse(scheduled.isDone)

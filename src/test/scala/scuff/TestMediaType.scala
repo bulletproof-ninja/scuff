@@ -4,7 +4,7 @@ import org.junit._, Assert._
 
 class TestMediaType {
   @Test
-  def `remove parm`() {
+  def `remove parm`(): Unit = {
     val mt = MediaType("application/json;encoding=UTF-8")
     assertEquals("UTF-8", mt.parm("encoding").get)
     val mt2 = mt.removeParm("encoding")
@@ -18,7 +18,7 @@ class TestMediaType {
     assertEquals(42, mt4.parm("foo", _.toInt).get)
   }
   @Test
-  def `add parm`() {
+  def `add parm`(): Unit = {
     val mt = MediaType("text/html")
     assertEquals(None, mt.parm("foo"))
     val mt2 = mt.addParm("foo", 42)
@@ -36,7 +36,7 @@ class TestMediaType {
   }
 
   @Test
-  def tree() {
+  def tree(): Unit = {
     val html = MediaType("text/html")
     assertEquals(None, html.treeType)
     val xhtml = MediaType("text/xhtml+xml;charset=utf8")

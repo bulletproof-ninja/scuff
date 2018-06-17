@@ -61,7 +61,7 @@ trait CookieMonster[T] {
   /**
     * Set value as cookie on response.
     */
-  def set(res: http.HttpServletResponse, value: T, maxAge: FiniteDuration = this.maxAge, path: String = this.path)(implicit req: http.HttpServletRequest) {
+  def set(res: http.HttpServletResponse, value: T, maxAge: FiniteDuration = this.maxAge, path: String = this.path)(implicit req: http.HttpServletRequest): Unit = {
     val cookie = new http.Cookie(validName, codec.encode(value))
     cookie.setHttpOnly(isHttpOnly)
     cookie.setMaxAge(maxAge.toSeconds.toFloat.round)
@@ -84,7 +84,7 @@ trait CookieMonster[T] {
   /**
     * Remove cookie.
     */
-  def remove(res: http.HttpServletResponse) {
+  def remove(res: http.HttpServletResponse): Unit = {
     val cookie = new http.Cookie(name, "")
     cookie.setMaxAge(0) // Remove cookie
     res.addCookie(cookie)

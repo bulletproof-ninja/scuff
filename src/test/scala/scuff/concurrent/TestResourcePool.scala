@@ -12,13 +12,13 @@ class TestResourcePool {
   val closed = new AtomicInteger
 
   @Before
-  def reset() {
+  def reset(): Unit = {
     created.set(0)
     closed.set(0)
   }
 
   @Test
-  def `fail heating when too cold`() {
+  def `fail heating when too cold`(): Unit = {
     val pool = new SomeResourcePool
     try {
       pool.startHeater(7.millis)(5.millis) { r =>
@@ -50,7 +50,7 @@ class TestResourcePool {
         close()
       }
     }
-    def close() {
+    def close(): Unit = {
       closed.incrementAndGet()
       testExpirationSchedule.cancel(false)
       expired.set(true)
@@ -60,12 +60,12 @@ class TestResourcePool {
     override def onCheckout(r: SomeResource) = {
       r.touch = System.currentTimeMillis()
     }
-    override def onReturn(r: SomeResource) {
+    override def onReturn(r: SomeResource): Unit = {
       r.touch = System.currentTimeMillis()
     }
   }
 
-  private def keepAlive(exe: Executor) {
+  private def keepAlive(exe: Executor): Unit = {
     val pool = new SomeResourcePool
     val schedule = pool.startHeater()(50.millis, exe) { r =>
       r.touch = System.currentTimeMillis()
@@ -106,11 +106,11 @@ class TestResourcePool {
   }
 
   @Test
-  def `keep alive w/scheduler`() {
+  def `keep alive w/scheduler`(): Unit = {
     keepAlive(Threads.DefaultScheduler)
   }
   @Test
-  def `keep alive w/single thread`() {
+  def `keep alive w/single thread`(): Unit = {
     keepAlive(Threads.newSingleRunExecutor(Threads.factory("Heater")))
   }
 }

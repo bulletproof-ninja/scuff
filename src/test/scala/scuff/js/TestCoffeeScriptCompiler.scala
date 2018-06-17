@@ -7,7 +7,7 @@ import CoffeeScriptCompiler._
 
 class TestCoffeeScriptCompiler {
   @Test
-  def regularStrict() {
+  def regularStrict(): Unit = {
     val compiler = new CoffeeScriptCompiler(Config(useDirective = Use.Strict))
     val coffee = """
 arr = [3,5,23,67,34]
@@ -37,7 +37,7 @@ boo = sqr(15)
   }
 
   @Test //@Ignore // Problem with current Iced compiler
-  def icedStrict() {
+  def icedStrict(): Unit = {
     val compiler = new CoffeeScriptCompiler(Config(useDirective = Use.Strict, version = Version.Iced))
     val coffee = """
 arr = [3,5,23,67,34]
@@ -78,7 +78,7 @@ alert bar
   }
 
   @Test
-  def other() {
+  def other(): Unit = {
     val coffee = """
 arr = [3,5,23,67,34]
 [foo, bar] = arr
@@ -101,7 +101,7 @@ boo = sqr(15);
   }
 
   @Test
-  def cs2() {
+  def cs2(): Unit = {
     val coffee = """
 # Comment
 arr = [3,5,23,67,34]

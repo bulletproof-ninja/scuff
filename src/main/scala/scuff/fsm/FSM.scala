@@ -88,7 +88,7 @@ sealed class BaseState[-T] {
   private[fsm] final val parent: Option[typed.SuperState[Any]] = None
   private[this] val assignedName: String = getClass.getSimpleName
   override def toString: String = parent.map(_.toString concat ".").getOrElse("") concat assignedName
-  protected[fsm] def onEvent(evt: Event) {}
+  protected[fsm] def onEvent(evt: Event) = ()
   protected[fsm] def onEvent(evt: Event, payload: T): Event = { onEvent(evt); evt }
 }
 

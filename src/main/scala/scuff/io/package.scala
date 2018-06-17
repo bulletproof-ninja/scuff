@@ -8,7 +8,7 @@ package object io {
 
   implicit class ScuffInputStream(private val in: InputStream) extends AnyVal {
     @annotation.tailrec
-    private def transfer(in: InputStream, out: OutputStream, buffer: Array[Byte]) {
+    private def transfer(in: InputStream, out: OutputStream, buffer: Array[Byte]): Unit = {
       in.read(buffer) match {
         case -1 => // Stop
         case 0 => transfer(in, out, buffer)
@@ -37,7 +37,7 @@ package object io {
 
   implicit class ScuffReader(private val in: Reader) extends AnyVal {
     @annotation.tailrec
-    private def transfer(in: Reader, out: Writer, buffer: Array[Char]) {
+    private def transfer(in: Reader, out: Writer, buffer: Array[Char]): Unit = {
       in.read(buffer) match {
         case -1 => // Stop
         case 0 => transfer(in, out, buffer)

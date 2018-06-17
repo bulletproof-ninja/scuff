@@ -1,5 +1,5 @@
 package scuff
 
 trait Subscription {
-  def cancel()
+  def cancel(): Unit
 }

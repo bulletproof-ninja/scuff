@@ -17,7 +17,7 @@ object FuzzyScheduler {
      * handling. It could be done inside `run` method,
      * but it's often forgotten.
      */
-    def onException(th: Throwable)
+    def onException(th: Throwable): Unit
     /**
      * Interval between executions. On initial invocation,
      * this is the delay after scheduling, on subsequent
@@ -49,7 +49,7 @@ class FuzzyScheduler(scheduler: ScheduledExecutorService) {
 
   val executionContext = ExecutionContext.fromExecutorService(scheduler)
 
-  def schedule(pr: FuzzyRunnable) {
+  def schedule(pr: FuzzyRunnable): Unit = {
     import math._
     val intervalMs = pr.runInterval.toMillis
     val absJitter = intervalMs * pr.intervalJitter

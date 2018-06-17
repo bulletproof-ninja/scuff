@@ -17,7 +17,7 @@ class TestStreamConsumer {
   }
 
   @Test
-  def toPromise() {
+  def toPromise(): Unit = {
     val callMe100000 = callMe(1000000) _
     val futureSum = StreamPromise.fold(BigInt(0), callMe100000) {
       case (sum, int) => sum + int
@@ -26,7 +26,7 @@ class TestStreamConsumer {
   }
 
   @Test
-  def promiseAdapter1() {
+  def promiseAdapter1(): Unit = {
     var sum = BigInt(0)
     val sumAsPromise = StreamPromise(sum) { i: Int =>
       sum += i
@@ -37,7 +37,7 @@ class TestStreamConsumer {
   }
 
   @Test
-  def promiseAdapter2() {
+  def promiseAdapter2(): Unit = {
     class Sum extends StreamConsumer[Int, Future[BigInt]] {
       var th: Throwable = _
       var sum = BigInt(0)
@@ -54,7 +54,7 @@ class TestStreamConsumer {
   }
 
   @Test
-  def adapter1() {
+  def adapter1(): Unit = {
     var sum = BigInt(0)
     val Sum: StreamConsumer[Int, Unit] = StreamConsumer(th => throw th)(sum += _)
     callMe(1000000)(Sum).await
@@ -62,7 +62,7 @@ class TestStreamConsumer {
   }
 
   @Test
-  def `no adapter`() {
+  def `no adapter`(): Unit = {
     object Sum extends StreamConsumer[Int, Unit] {
       var sum = BigInt(0)
       def onNext(i: Int) = sum += i

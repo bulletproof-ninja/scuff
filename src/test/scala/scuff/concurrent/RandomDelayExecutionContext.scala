@@ -7,7 +7,7 @@ import scala.util.Random
 class RandomDelayExecutionContext(exeCtx: ExecutionContext) extends ExecutionContext {
 
   def execute(runnable: Runnable) = exeCtx execute new Runnable {
-    def run {
+    def run(): Unit = {
       if (Random.nextBoolean) {
         val delay = Random.nextInRange(1 to 50)
         Thread sleep delay

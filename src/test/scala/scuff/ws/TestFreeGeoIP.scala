@@ -13,7 +13,7 @@ class TestFreeGeoIP {
 """
 
   @Test
-  def latlon() {
+  def latlon(): Unit = {
     val reader = new BufferedReader(new StringReader(ITResponse))
     FreeGeoIP.DefaultJsonParser.parseGeoPoint(reader) match {
       case None => fail("Should return a geopoint")
@@ -24,7 +24,7 @@ class TestFreeGeoIP {
   }
 
   @Test
-  def reserved() {
+  def reserved(): Unit = {
     val reader = new BufferedReader(new StringReader(ReservedResponse))
     val res = FreeGeoIP.DefaultJsonParser.parseGeoPoint(reader)
     assertEquals(None, res)

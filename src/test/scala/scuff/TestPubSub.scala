@@ -18,10 +18,10 @@ class TestPubSub {
   }
 
   @Test
-  def exceptional() {
+  def exceptional(): Unit = {
     val countDown = new java.util.concurrent.CountDownLatch(6)
     val exceptions = collection.concurrent.TrieMap[Throwable, Unit]()
-      def errHandler(t: Throwable) {
+      def errHandler(t: Throwable): Unit = {
         exceptions += t -> Unit
         countDown.countDown()
       }

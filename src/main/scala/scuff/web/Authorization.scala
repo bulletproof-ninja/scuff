@@ -19,7 +19,7 @@ trait Authorization extends HttpServlet {
    */
   protected def rolesAllowed: Set[String] = Set.empty
 
-  override def service(req: HttpServletRequest, res: HttpServletResponse) {
+  override def service(req: HttpServletRequest, res: HttpServletResponse): Unit = {
     req.getUserPrincipal match {
       case null => res.setStatus(SC_UNAUTHORIZED)
       case _ =>
@@ -54,7 +54,7 @@ abstract class ApplicationSecurityFilter extends Filter {
           @volatile var user: Option[UserPrincipal] = Some(authUser)
           override def isUserInRole(role: String) = user.exists(_.roles.contains(role))
           override def getUserPrincipal = user.orNull
-          override def logout {
+          override def logout(): Unit = {
             logoutUser(req, res)
             super.logout()
             user = None
@@ -67,7 +67,7 @@ abstract class ApplicationSecurityFilter extends Filter {
   }
 
   @inline
-  private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
+  private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain): Unit = {
     req.getUserPrincipal match {
       case null => chain.doFilter(getRequest(req, res), res)
       case _: UserPrincipal =>
@@ -93,13 +93,13 @@ trait LoginPageForwarder extends Filter {
   /** Accept types this filter applies to. Default is only "text/html". */
   protected def acceptTypes: Set[MediaType] = defaultAcceptTypes
 
-  abstract override def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) {
+  abstract override def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain): Unit = {
     super.doFilter(req, res, chain)
     httpFilter(req, res, chain)
   }
 
   @inline
-  private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain) {
+  private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain): Unit = {
     if (!res.isCommitted) res.getStatus match {
       case SC_UNAUTHORIZED =>
         if (req.getMethod().equalsIgnoreCase("GET") && AcceptHeader(req).forall(_.acceptsAny(acceptTypes))) {

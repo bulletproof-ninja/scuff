@@ -5,7 +5,7 @@ import org.junit.Assert._
 
 class TestDoubleDispatch {
   @Test
-  def `with return type`() {
+  def `with return type`(): Unit = {
     trait `123` extends DoubleDispatch { type Callback = Callback123[Int] }
     class One extends `123` {
       def dispatch(callback: Callback123[Int]) = callback(this)
@@ -33,7 +33,7 @@ class TestDoubleDispatch {
     assertEquals(3, new Three().dispatch(Simple))
   }
   @Test
-  def `no return type`() {
+  def `no return type`(): Unit = {
     trait `123` extends DoubleDispatch { type Callback = Callback123 }
     class One extends `123` {
       def dispatch(callback: Callback123) = callback(this)
@@ -46,9 +46,9 @@ class TestDoubleDispatch {
     }
     trait Callback123 {
       type Return = Unit
-      def apply(one: One)
-      def apply(two: Two)
-      def apply(three: Three)
+      def apply(one: One): Unit
+      def apply(two: Two): Unit
+      def apply(three: Three): Unit
     }
     var last: Int = 0
     object Simple extends Callback123 {
@@ -69,7 +69,7 @@ class TestDoubleDispatch {
   }
 
   @Test
-  def functional() {
+  def functional(): Unit = {
     trait `123` extends DoubleDispatch { type Callback = Callback123[Long] }
     class One extends `123` {
       def dispatch(callback: Callback123[Long]) = callback(this)

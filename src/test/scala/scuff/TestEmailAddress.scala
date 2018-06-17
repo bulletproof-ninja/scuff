@@ -5,7 +5,7 @@ import org.junit.Assert._
 
 class TestEmailAddress {
 
-  @Test def multipleAts() {
+  @Test def multipleAts(): Unit = {
     try {
       new EmailAddress("hello@world@foo.bar")
       fail("Cannot have multiple @s")
@@ -14,7 +14,7 @@ class TestEmailAddress {
     }
   }
 
-  @Test def startsWithDot() {
+  @Test def startsWithDot(): Unit = {
     try {
       new EmailAddress(".hello@foo.bar")
       fail("Cannot start with dot")
@@ -23,7 +23,7 @@ class TestEmailAddress {
     }
   }
 
-  @Test def multipleSuccessiveDots() {
+  @Test def multipleSuccessiveDots(): Unit = {
     try {
       new EmailAddress("hello..world@foo.bar")
       fail("Cannot have multiple successive dot")
@@ -32,7 +32,7 @@ class TestEmailAddress {
     }
   }
 
-  @Test def endsWithDot() {
+  @Test def endsWithDot(): Unit = {
     try {
       new EmailAddress("hello.@foo.bar")
       fail("Cannot end with dot")
@@ -41,7 +41,7 @@ class TestEmailAddress {
     }
   }
 
-  @Test def tooLongUser() {
+  @Test def tooLongUser(): Unit = {
     try {
       new EmailAddress("abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcde@foo.bar")
       fail("User part cannot exceed 64 chars")
@@ -50,7 +50,7 @@ class TestEmailAddress {
     }
   }
 
-  @Test def tooShortUser() {
+  @Test def tooShortUser(): Unit = {
     try {
       new EmailAddress("@foo.bar")
       fail("User part missing")
@@ -59,15 +59,15 @@ class TestEmailAddress {
     }
   }
 
-  @Test def justRightUser() {
+  @Test def justRightUser(): Unit = {
     new EmailAddress("abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcd@foo.bar")
   }
 
-  @Test def weirdButValid() {
+  @Test def weirdButValid(): Unit = {
     new EmailAddress("&#!~.^|||||@foo.bar.baz.buzz")
   }
 
-  @Test def toStr() {
+  @Test def toStr(): Unit = {
     val str = "Alien5!@mars.org"
     val ema = new EmailAddress(str)
     assertEquals(str, ema.toString)
@@ -75,7 +75,7 @@ class TestEmailAddress {
     assertEquals((str split "@")(1), ema.domain)
   }
 
-  @Test def companion() {
+  @Test def companion(): Unit = {
     val ema = EmailAddress("foo", "bar.com")
     ema match {
       case EmailAddress(user, _) if user == "bar" => fail("Not a bar")

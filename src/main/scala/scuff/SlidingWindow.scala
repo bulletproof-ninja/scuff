@@ -82,7 +82,7 @@ object SlidingWindow {
     /** Store accessor. */
     def apply[T](thunk: TimeStore => T): T
     trait TimeStore {
-      def upsert(ts: EpochMillis, insert: V)(update: (V, V) => V)
+      def upsert(ts: EpochMillis, insert: V)(update: (V, V) => V): Unit
       def querySince[R](ts: EpochMillis)(callback: StreamConsumer[(EpochMillis, V), Future[R]]): Future[R]
       /**
         * Optional method. Can return Future(None) if unsupported, but
@@ -107,7 +107,7 @@ object SlidingWindow {
     abstract class UnsynchedJavaUtilMap extends TimeStore {
       protected type M <: java.util.Map[EpochMillis, V]
       protected def map: M
-      def upsert(ts: EpochMillis, value: V)(update: (V, V) => V) {
+      def upsert(ts: EpochMillis, value: V)(update: (V, V) => V): Unit = {
         map.put(ts, value) match {
           case null => // No update necessary
           case oldValue => map.put(ts, update(oldValue, value))
@@ -263,14 +263,14 @@ class SlidingWindow[T, R, F](
     object SubscriptionState extends Subscription {
       @volatile var schedule: Option[ScheduledFuture[_]] = None
       private val error = new AtomicBoolean(false)
-      def cancel() {
+      def cancel(): Unit = {
         schedule = schedule.flatMap { s =>
           s.cancel(false)
           if (!error.get) listener.onDone()
           None
         }
       }
-      def onError(t: Throwable) {
+      def onError(t: Throwable): Unit = {
         if (error.compareAndSet(false, true)) {
           listener.onError(t)
           cancel()

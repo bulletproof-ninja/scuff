@@ -25,7 +25,7 @@ trait URLExclusion extends Filter {
   abstract override def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = httpFilter(req, res, chain)
 
   @inline
-  private def httpFilter(req: http.HttpServletRequest, res: http.HttpServletResponse, chain: FilterChain) {
+  private def httpFilter(req: http.HttpServletRequest, res: http.HttpServletResponse, chain: FilterChain): Unit = {
     val path = req.servletPathInfo
     if (exclusionPatterns.exists(_.pattern.matcher(path).matches)) {
       chain.doFilter(req, res)

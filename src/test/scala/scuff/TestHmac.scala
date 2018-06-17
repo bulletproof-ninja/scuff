@@ -32,12 +32,12 @@ class TestHmac {
   val Base64HmacUser = Base64(HmacUserCodec)
   val JsonHmac = Hmac.json(UserJsonCodec, new HmacFunction(secretKey))
 
-  private def twoWay[T](user: User, hmac: Codec[User, T]) {
+  private def twoWay[T](user: User, hmac: Codec[User, T]): Unit = {
     val encoded = hmac.encode(user)
     val decoded = hmac.decode(encoded)
     assertEquals(user, decoded)
   }
-  private def twoWayModified[T](shouldFail: Boolean)(user: User, hmac: Codec[User, T])(modifier: T => T) {
+  private def twoWayModified[T](shouldFail: Boolean)(user: User, hmac: Codec[User, T])(modifier: T => T): Unit = {
     val encoded = hmac.encode(user)
     val modified = modifier(encoded)
     try {
@@ -49,14 +49,14 @@ class TestHmac {
   }
 
   @Test
-  def `two way`() {
+  def `two way`(): Unit = {
     val user = new User(System.currentTimeMillis + 60000, UUID.randomUUID)
     twoWay(user, Base64HmacUser)
     twoWay(user, JsonHmac)
   }
 
   @Test
-  def `two way, modified`() {
+  def `two way, modified`(): Unit = {
     val exp = System.currentTimeMillis + 60000
     val user = new User(exp, UUID.randomUUID)
     twoWayModified(shouldFail = true)(user, HmacUserCodec) { encoded =>

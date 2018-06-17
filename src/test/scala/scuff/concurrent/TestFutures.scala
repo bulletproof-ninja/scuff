@@ -5,7 +5,7 @@ import scala.concurrent._, duration._
 
 class TestFutures {
   @Test
-  def futureTimeoutReporting() {
+  def futureTimeoutReporting(): Unit = {
     import concurrent.ExecutionContext.Implicits.global
 
     val future1: Future[String] = Future {

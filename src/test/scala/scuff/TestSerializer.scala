@@ -6,7 +6,7 @@ import org.junit.Test
 
 class TestSerializer {
 
-  @Test def typed() {
+  @Test def typed(): Unit = {
     val ser = new JavaSerializer[List[Int]]
     val orgList = 4 :: 5 :: 6 :: Nil
     val bytes = ser.encode(orgList)
@@ -14,7 +14,7 @@ class TestSerializer {
     assertEquals(orgList, newList)
   }
 
-  @Test def untyped() {
+  @Test def untyped(): Unit = {
     val ser = JavaSerializer
     val orgObj = java.util.UUID.randomUUID()
     val bytes = ser.encode(orgObj)
