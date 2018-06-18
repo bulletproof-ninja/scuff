@@ -32,4 +32,19 @@ class TestDynamicConstructor {
       case Some(al) => assertEquals(5L, al.get)
     }
   }
+
+  @Test
+  def primitive_long(): Unit = {
+    DynamicConstructor[Long]("42") match {
+      case Some(fortyTwo) => assertEquals(42L, fortyTwo)
+      case None => fail("Should coerce")
+    }
+  }
+  @Test
+  def primitive_boolean(): Unit = {
+    DynamicConstructor[Boolean]("true") match {
+      case Some(t) => assertEquals(true, t)
+      case None => fail("Should coerce")
+    }
+  }
 }

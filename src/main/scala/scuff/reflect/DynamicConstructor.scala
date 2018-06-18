@@ -60,15 +60,18 @@ object DynamicConstructor {
       t -> toT
     }
     else {
-      val ctors = toType.getConstructors.filter(ctor => isParmTypeMatch(ctor.getParameterTypes))
+      val toRefType = if (toType.isPrimitive) primitiveToWrapper(toType) else toType
+      val ctors = toRefType.getConstructors.filter(ctor => isParmTypeMatch(ctor.getParameterTypes))
       val ctorSuccess = ctors.iterator.map(ctor => Try(invokeFactory[T](ctor)(from) -> ctor)).collectFirst {
         case Success((t, ctor)) => t.asInstanceOf[T] -> invokeFactory[T](ctor) _
       }
       ctorSuccess.orElse {
-        val factoryMethods = toType.getMethods().filter { method =>
+        val factoryMethods = toRefType.getMethods().filter { method =>
           Modifier.isStatic(method.getModifiers) &&
-            toType.isAssignableFrom(method.getReturnType) &&
-            isParmTypeMatch(method.getParameterTypes)
+            isParmTypeMatch(method.getParameterTypes) && {
+              toType.isAssignableFrom(method.getReturnType) ||
+                toRefType.isAssignableFrom(method.getReturnType)
+            }
         }
         val lazyInvoke = factoryMethods.iterator.map { m =>
           Try {
