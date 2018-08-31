@@ -39,8 +39,8 @@ def tsVersion(version) {
     return "${version}-b${tsFmt.format(new Date())}"
 }
 
-task wrapper(type: Wrapper) {
-    gradleVersion = '4.8'
+wrapper {
+    gradleVersion = '4.10'
 }
 
 allprojects {
