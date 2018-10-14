@@ -39,5 +39,4 @@ package scuff
 abstract class FakeType[@specialized T] {
   type Type
   def apply(t: T): Type
-  def unwrap(t: Type): T
 }
