@@ -133,5 +133,15 @@ class MediaType private (private val mimeType: MimeType) extends Serializable {
   def matches(that: MediaType): Boolean =
     (this eq that) || this.mimeType.`match`(that.mimeType)
 
+  override lazy val hashCode = java.util.Arrays hashCode Array(primaryType.##, subType.##, parms.##)
+  override def equals(any: Any): Boolean = any match {
+    case that: MediaType => (this eq that) || {
+      this.primaryType == that.primaryType &&
+      this.subType == that.subType &&
+      this.parms == that.parms
+    }
+    case _ => false
+  }
+
   override def toString = mimeType.toString
 }

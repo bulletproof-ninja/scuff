@@ -2,6 +2,8 @@ package scuff
 
 import org.junit._, Assert._
 
+import java.io._
+
 class TestMediaType {
   @Test
   def `remove parm`(): Unit = {
@@ -50,5 +52,25 @@ class TestMediaType {
     assertTrue(MediaType("application/*").matches(vendor))
     assertFalse(MediaType("application/json").matches(vendor))
     assertTrue(MediaType("application/json").matches(vendor.pruned))
+  }
+
+  @Test
+  def serialization() = {
+    val mt1 = MediaType("application", "json", "encoding" -> "UTF-8")
+    val baOut = new ByteArrayOutputStream
+    val out = new ObjectOutputStream(baOut)
+    out.writeObject(mt1)
+    val arr = baOut.toByteArray()
+    val baInp = new ByteArrayInputStream(arr)
+    val inp = new ObjectInputStream(baInp)
+    val mt2 = inp.readObject().asInstanceOf[MediaType]
+    assertFalse(mt1 eq mt2)
+    assertTrue(mt1 matches mt2)
+    assertTrue(mt2 matches mt1)
+    assertEquals(mt1.##, mt2.##)
+    assertEquals(mt1, mt2)
+    val mt3 = mt1.removeParm("encoding")
+    assertNotEquals(mt1, mt3)
+    assertTrue(mt1 matches mt3)
   }
 }
