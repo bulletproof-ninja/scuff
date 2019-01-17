@@ -15,6 +15,7 @@ trait Codec[A, B] extends Serializable {
     override def reverse: Codec[A, B] = Codec.this
   }
 
+  final def pipe[C](that: Codec[B, C]): Codec[A, C] = Codec.pipe(this, that)
 }
 
 object Codec {
