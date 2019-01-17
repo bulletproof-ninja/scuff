@@ -1,7 +1,11 @@
 package scuff
 
 import java.util.regex.Pattern
+import java.nio.charset.Charset
 
+/**
+ * `java.lang.CharSequence`-based Base64 codec.
+ */
 object Base64 {
 
   /** Wrap existing `Array[Byte]` codec in RFC 4648 URL/filename safe Base64 codec. */
@@ -10,21 +14,23 @@ object Base64 {
     def decode(b: CharSequence): A = codec decode (RFC_4648 decode b)
   }
 
+  private[this] val charset = Charset.forName("ISO-8859-1")
+
   /**
-   * If the base64 encoding contains end-of-line
-   * chars, use this to remove prior to decoding.
+   * If the base64 encoding is multi-line and contains interspersed.
+   * end-of-line chars (CR/LF), use this to remove prior to decoding.
    */
   def removeEOLs(base64: CharSequence, lineLength: Int = 0): CharSequence = {
       @inline
-      def isCRLF(c: Char): Boolean = c == '\r' || c == '\n'
-      def trailingCRLF(chars: Array[Char], until: Int = 0): Int = {
+      def isCRLF(c: Byte): Boolean = c == '\r' || c == '\n'
+      def trailingCRLF(chars: Array[Byte], until: Int = 0): Int = {
         val stopCount = chars.length - until
         var count = 1
         while (count <= stopCount && isCRLF(chars(chars.length - count))) count += 1
         count - 1
       }
       @annotation.tailrec
-      def removeLineFeed(chars: Array[Char], lineCount: Int, newLineLen: Int, line: Int = 1): Int = {
+      def removeLineFeed(chars: Array[Byte], lineCount: Int, newLineLen: Int, line: Int = 1): Int = {
         val toIdx = lineLength * line
         val fromIdx = (lineLength + newLineLen) * line
         if (line + 1 == lineCount) {
@@ -38,30 +44,30 @@ object Base64 {
         }
       }
       @annotation.tailrec
-      def toCharArray(cs: CharSequence, chars: Array[Char], offset: Int = 0): Array[Char] = {
+      def toByteArray(cs: CharSequence, chars: Array[Byte], offset: Int = 0): Array[Byte] = {
         if (offset == chars.length) {
           chars
         } else {
-          chars(offset) = cs.charAt(offset)
-          toCharArray(cs, chars, offset + 1)
+          chars(offset) = cs.charAt(offset).asInstanceOf[Byte]
+          toByteArray(cs, chars, offset + 1)
         }
       }
     if (lineLength > 0) {
       val chars = base64 match {
-        case str: String => str.toCharArray()
-        case cs: unsafe.CharSeq => cs.toCharArray()
-        case _ => toCharArray(base64, new Array[Char](base64.length))
+        case str: String => str.getBytes(charset)
+        case cs: unsafe.AsciiCharSeq => cs.getBytes()
+        case _ => toByteArray(base64, new Array[Byte](base64.length))
       }
       val newLineLen =
-        if (chars.length >= lineLength+2) {
-          if (isCRLF(chars(lineLength+1))) 2 else 1
+        if (chars.length >= lineLength + 2) {
+          if (isCRLF(chars(lineLength + 1))) 2 else 1
         } else {
           1
         }
 
       val lineCount = chars.length / (lineLength + newLineLen) + math.signum(chars.length % (lineLength + newLineLen))
       val removed = if (lineCount == 1) trailingCRLF(chars) else removeLineFeed(chars, lineCount, newLineLen)
-      new unsafe.CharSeq(chars, 0, chars.length - removed)
+      new unsafe.AsciiCharSeq(chars, 0, chars.length - removed)
     } else {
       EOLRemover.matcher(base64).replaceAll("")
     }
