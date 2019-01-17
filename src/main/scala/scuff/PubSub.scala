@@ -13,7 +13,7 @@ import scala.util.control.NonFatal
 class PubSub[F, MSG](consumerCtx: ExecutionContext)(implicit conv: MSG => F) extends Feed {
 
   type Selector = F
-  type Consumer = MSG => _
+  type Consumer = MSG => Any
 
   private[this] val subscribers = new java.util.concurrent.CopyOnWriteArrayList[FilteringSubscriber]
 
