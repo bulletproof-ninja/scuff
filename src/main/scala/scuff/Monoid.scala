@@ -1,9 +1,10 @@
 package scuff
 
 /** Basic monoid. */
-trait Monoid[T] {
+trait Monoid[@specialized(Float, Double, Int, Long) T] extends ((T, T) => T) {
   def identity: T
   def op(a: T, b: T): T
+  @inline final def apply(a: T, b: T): T = op(a, b)
 }
 
 final object Monoid {
@@ -17,16 +18,26 @@ final object Monoid {
     def op(a: T, b: T) = impl(a, b)
   }
 
-  implicit val UnitMonoid: Monoid[Unit] = new Monoid[Unit] {
+  private[this] val list = new Monoid[List[Any]] {
+    def identity = Nil
+    def op(a: List[Any], b: List[Any]) = a ++ b
+  }
+  implicit def List[T] = list.asInstanceOf[Monoid[List[T]]]
+
+  implicit val Unit: Monoid[Unit] = new Monoid[Unit] {
     def identity = ()
     def op(a: Unit, b: Unit) = ()
   }
+  val Void: Monoid[Void] = new Monoid[Void] {
+    def identity = null
+    def op(a: Void, b: Void) = null
+  }
 
-  private[this] val hashSetMonoid = new Monoid[collection.immutable.HashSet[Any]] {
+  private[this] val hashSet = new Monoid[collection.immutable.HashSet[Any]] {
     def identity = collection.immutable.HashSet.empty[Any]
     def op(a: collection.immutable.HashSet[Any], b: collection.immutable.HashSet[Any]) = a ++ b
   }
-  implicit def HashSetMonoid[T] = hashSetMonoid.asInstanceOf[Monoid[collection.immutable.HashSet[T]]]
+  implicit def HashSet[T] = hashSet.asInstanceOf[Monoid[collection.immutable.HashSet[T]]]
 
   def IntMap[V](combine: (V, V) => V): Monoid[collection.immutable.IntMap[V]] = new Monoid[collection.immutable.IntMap[V]] {
     def identity = collection.immutable.IntMap.empty[V]
