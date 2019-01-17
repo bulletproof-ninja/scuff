@@ -65,25 +65,49 @@ final class PartitionedExecutionContext(
   def shutdown(): Future[Unit] = shutdownFuture
 }
 
-object PartitionedExecutionContext {
+final object PartitionedExecutionContext {
 
   final val Name = classOf[PartitionedExecutionContext].getName
 
   lazy val global = PartitionedExecutionContext(
     Runtime.getRuntime.availableProcessors,
-    th => th.printStackTrace(System.err),
+    (th: Throwable) => th.printStackTrace(System.err),
     Threads.factory(Name + ".global"))
 
   /**
     * @param numThreads Number of threads used for parallelism
     * @param threadFactory The thread factory used to create the threads
     * @param failureReporter Sink for exceptions
+    * @param getHash Function for deriving hash from `Runnable`
     */
   def apply(
       numThreads: Int,
       failureReporter: Throwable => Unit,
-      threadFactory: java.util.concurrent.ThreadFactory = Threads.factory(Name),
-      getHash: Runnable => Int = _.hashCode) = {
+      threadFactory: java.util.concurrent.ThreadFactory): PartitionedExecutionContext =
+        this(numThreads, failureReporter, threadFactory, _.hashCode)
+
+  /**
+    * @param numThreads Number of threads used for parallelism
+    * @param failureReporter Sink for exceptions
+    * @param getHash Function for deriving hash from `Runnable`
+    */
+  def apply(
+      numThreads: Int,
+      failureReporter: Throwable => Unit,
+      getHash: Runnable => Int = _.hashCode): PartitionedExecutionContext =
+        this(numThreads, failureReporter, Threads.factory(Name), getHash)
+
+  /**
+    * @param numThreads Number of threads used for parallelism
+    * @param threadFactory The thread factory used to create the threads
+    * @param failureReporter Sink for exceptions
+    * @param getHash Function for deriving hash from `Runnable`
+    */
+  def apply(
+      numThreads: Int,
+      failureReporter: Throwable => Unit,
+      threadFactory: java.util.concurrent.ThreadFactory,
+      getHash: Runnable => Int): PartitionedExecutionContext = {
     val threads = new Array[ExecutorService](numThreads)
     for (idx <- 0 until numThreads) {
       threads(idx) = Threads.newSingleThreadExecutor(threadFactory, failureReporter)
