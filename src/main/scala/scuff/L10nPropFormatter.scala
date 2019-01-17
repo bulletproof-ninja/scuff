@@ -36,7 +36,7 @@ import collection.JavaConverters._
   *
   * Synchronization: This class is thread-safe and can be used concurrently.
   *
-  * NOTICE: Unlike [[java.text.MessageFormat]] this class expects tick,
+  * NOTICE: Unlike [[java.text.MessageFormat]] this class expects a backtick (`````),
   * not apostrophe, for escaping text inside the curly brackets formatting.
   *
   * @see java.text.MessageFormat
