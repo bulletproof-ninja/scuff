@@ -13,6 +13,12 @@ import scala.util.control.NonFatal
 object Threads {
 
   val SystemThreadGroup = rootThreadGroup(Thread.currentThread.getThreadGroup)
+  private val MainThreadGroup = {
+    val tgs = new Array[ThreadGroup](128)
+    val count = SystemThreadGroup.enumerate(tgs, /* recurse = */ false)
+    val main = tgs.take(count).find(_.getName == "main")
+    main getOrElse SystemThreadGroup
+  }
 
   val PiggyBack = new SameThreadExecutor {
     def reportFailure(t: Throwable) = throw t
@@ -98,7 +104,7 @@ object Threads {
   }
 
   def newBlockingThread[T](
-      name: String, done: Promise[T] = Promise[T], tg: ThreadGroup = SystemThreadGroup)(
+      name: String, done: Promise[T] = Promise[T], tg: ThreadGroup = MainThreadGroup)(
       blocking: => T): Future[T] = {
     val t = new Thread(tg, name) {
       override def run() = {
@@ -187,7 +193,7 @@ object Threads {
       name: String,
       daemon: Boolean,
       failureReporter: Throwable => Unit = printStackTrace) = {
-    val tg = new ThreadGroup(Threads.SystemThreadGroup, name) {
+    val tg = new ThreadGroup(Threads.MainThreadGroup, name) {
       override def uncaughtException(t: Thread, e: Throwable): Unit = {
         failureReporter(e)
       }
