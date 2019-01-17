@@ -58,7 +58,7 @@ final class LockFreeExecutionContext private (
 
   require(consumerThreads > 0, s"Must have at least 1 consumer thread. Received $consumerThreads")
 
-  @volatile private var isShutdown = false
+  @volatile private[this] var isShutdown = false
 
   private[this] val activeThreads = new CountDownLatch(consumerThreads)
 
