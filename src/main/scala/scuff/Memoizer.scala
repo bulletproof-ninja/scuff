@@ -2,7 +2,6 @@ package scuff
 
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
-import scuff.concurrent.LockFreeConcurrentMap
 
 /**
   * Class that guarantees exactly one instance created per
@@ -24,14 +23,14 @@ class Memoizer[A, R](make: A => R) {
       locks.remove(arg, lock)
     }
   }
-  private[this] val map = new LockFreeConcurrentMap[A, R]
+  private[this] val memoized = new collection.concurrent.TrieMap[A, R]
 
   def apply(arg: A): R = {
-    map.get(arg) match {
+    memoized.get(arg) match {
       case Some(res) => res
       case None =>
         synch(arg) {
-          map.getOrElseUpdate(arg, make(arg))
+          memoized.getOrElseUpdate(arg, make(arg))
         }
     }
   }

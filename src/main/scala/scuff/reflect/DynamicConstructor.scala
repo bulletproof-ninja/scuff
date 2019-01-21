@@ -11,7 +11,7 @@ object DynamicConstructor {
   private type Key = (Class[_], Class[_])
   private type Factory = AnyRef => Any
 
-  private[this] val cache = new scuff.concurrent.LockFreeConcurrentMap[Key, Factory]
+  private[this] val cache = new scala.collection.concurrent.TrieMap[Key, Factory]
 
   def apply[T: ClassTag](any: Any): Option[T] = {
     val anyRef = any.asInstanceOf[AnyRef]
