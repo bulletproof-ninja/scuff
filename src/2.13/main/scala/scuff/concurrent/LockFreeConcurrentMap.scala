@@ -7,7 +7,7 @@ import scala.collection.immutable.Map
   * Wrapper-class that turns any immutable Map into a
   * lock-free concurrent map.
   */
-final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map[A, B]())
+final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map.empty[A, B])
   extends collection.concurrent.Map[A, B] {
 
   require(initialMap != null, "Initial map cannot be null")
