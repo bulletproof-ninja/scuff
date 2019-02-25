@@ -16,6 +16,7 @@ import java.beans.Introspector
 import java.beans.PropertyDescriptor
 import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicLong
+import java.net.BindException
 
 object JMX {
 
@@ -62,11 +63,11 @@ object JMX {
     new ObjectName(mxBean.getClass.getPackage.getName, new java.util.Hashtable(attributes.asJava))
   }
 
-  private[this] final val MXBeanSuffix = "MXBean"
+  private[this] final def MXBeanSuffix = "MXBean"
   private[this] final val Server: MBeanServer = ManagementFactory.getPlatformMBeanServer
 
-  def startJMXMP(port: Int): JMXServiceURL = startJMXMP(new InetSocketAddress(InetAddress.getLocalHost, port))
-  def startJMXMP(address: InetSocketAddress = null): JMXServiceURL = {
+  def startJMXMP(port: Int): JMXMPConnectorServer = startJMXMP(new InetSocketAddress(InetAddress.getLocalHost, port))
+  def startJMXMP(address: InetSocketAddress = null): JMXMPConnectorServer = {
     val jmxmpServer = address match {
       case null =>
         new JMXMPConnectorServer(Server)
@@ -75,7 +76,7 @@ object JMX {
         new JMXMPConnectorServer(url, null, Server)
     }
     jmxmpServer.start()
-    jmxmpServer.getAddress
+    jmxmpServer
   }
 
   def register(mxBean: AnyRef, instanceName: Option[String]): ObjectName =
