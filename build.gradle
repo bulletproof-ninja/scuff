@@ -40,7 +40,7 @@ def tsVersion(version) {
 }
 
 wrapper {
-    gradleVersion = '4.10'
+    gradleVersion = '5.2.1'
 }
 
 allprojects {
