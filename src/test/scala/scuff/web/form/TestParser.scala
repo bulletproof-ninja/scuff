@@ -35,13 +35,7 @@ class TestParser {
     Parser onePass form match {
       case Right(foo) =>
         assertTrue(Try(foo.maybe.get).isFailure)
-    }
-    trait Bar {
-      def maybe: Option[Integer]
-      Parser onePass form match {
-        case Right(foo) =>
-          assertEquals(42, foo.maybe.get)
-      }
+      case Left(_) => fail("Should be Right")
     }
   }
 
@@ -64,7 +58,7 @@ class TestParser {
     val form = Map("latLng" -> Seq("181:-45.1234"))
     Parser.onePass(form) match {
       case Left(errors) => assertTrue(errors.contains(Problem("latLng", ProblemType.Syntax)))
-      case Right(b2) => fail("Should have failed")
+      case Right(_) => fail("Should have failed")
     }
     Parser.onePass(form.updated("latLng", Seq("-45.1234  123.4433"))) match {
       case Left(errors) => fail("Should not fail, but does: " + errors)
@@ -86,7 +80,7 @@ class TestParser {
       case Left(errors) =>
         assertEquals(1, errors.size)
         assertTrue(errors.contains(Problem("name", ProblemType.Missing)))
-      case Right(b) => fail("Should fail because both name and year is missing")
+      case Right(_) => fail("Should fail because both name and year is missing")
     }
   }
 
@@ -98,6 +92,7 @@ class TestParser {
     val parser = new Parser[Foo]
     parser.onePass(Map("email" -> Seq("abc@def.gh"))) match {
       case Right(foo) => assertEquals("abc@def.gh", foo.email.toString)
+      case Left(_) => fail("Should be Right")
     }
   }
 
@@ -109,6 +104,7 @@ class TestParser {
     val parser = new Parser[Foo]
     parser.onePass(Map("addr" -> Seq("localhost"))) match {
       case Right(foo) => assertEquals("localhost", foo.addr.getHostName)
+      case Left(_) => fail("Should be Right")
     }
   }
 
@@ -123,6 +119,7 @@ class TestParser {
       case Right(foo) =>
         assertEquals(Seq("foo", "bar"), foo.name)
         assertEquals(Nil, foo.nope)
+      case Left(_) => fail("Should be Right")
     }
   }
 
