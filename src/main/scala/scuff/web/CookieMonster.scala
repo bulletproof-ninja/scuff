@@ -35,9 +35,13 @@ trait CookieMonster[T] {
   def name: String
 
   /**
-    * HTTP only cookie? Defaults to true.
+    * HTTP only cookie? Defaults to `true`.
     */
   protected def isHttpOnly = true
+  /**
+    * Secure cookie? Defaults to `false`.
+    */
+  protected def isSecure = false
 
   /**
     * URL scope for cookie. Default is root.
@@ -64,6 +68,7 @@ trait CookieMonster[T] {
   def set(res: http.HttpServletResponse, value: T, maxAge: FiniteDuration = this.maxAge, path: String = this.path)(implicit req: http.HttpServletRequest): Unit = {
     val cookie = new http.Cookie(validName, codec.encode(value))
     cookie.setHttpOnly(isHttpOnly)
+    cookie.setSecure(isSecure)
     cookie.setMaxAge(maxAge.toSeconds.toFloat.round)
     for (path <- Option(path)) cookie.setPath(path)
     for (domain <- Option(domain(req))) cookie.setDomain(domain)
