@@ -5,6 +5,7 @@ import org.junit.Assert._
 import java.util.UUID
 import java.util.Arrays
 import java.security.SignatureException
+import scuff.json._
 
 class TestHmac {
 
@@ -71,13 +72,14 @@ class TestHmac {
       encoded.replace(user.expiration.toString, (user.expiration+1).toString)
     }
     twoWayModified(shouldFail = false)(user, JsonHmac) { encoded =>
-      val ast = scuff.JsonParserPool.use(_ parseMap encoded)
+      val ast = (JsVal parse encoded).asObj
       assertEquals(2, ast.size)
-      val hash = ast.get("hash")
-      ast.get("data") match {
-        case data: java.util.Map[_, _] =>
-          assertEquals(user.id.toString, data.get("id"))
-          assertEquals(Long box user.expiration, data.get("expiration"))
+      val hash = ast.hash.asStr.value
+      ast.data match {
+        case data @ JsObj(_) =>
+          assertEquals(user.id.toString, data.id.asStr.value)
+          assertEquals(user.expiration, data.expiration.asNum.toLong)
+        case _ => ???
       }
       val userJson = UserJsonCodec.encode(user)
       s"""{"hash":"$hash","data":$userJson}"""

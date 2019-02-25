@@ -64,6 +64,19 @@ package object io {
         case _: EOFException => // Some faulty implementations throw EOF
       }
     }
+    def copyToCharSeq(bufferSize: Int = DefaultBufferSize): CharSequence = copyToCharSeq(new Array[Char](bufferSize))
+    def copyToCharSeq(buffer: Array[Char]): CharSequence = {
+      @annotation.tailrec
+      def copyToStringBuilder(sb: java.lang.StringBuilder): java.lang.StringBuilder = {
+        in.read(buffer) match {
+          case -1 => sb
+          case bytesRead =>
+            if (bytesRead > 0) sb.append(buffer, 0, bytesRead)
+            copyToStringBuilder(sb)
+        }
+      }
+      copyToStringBuilder(new java.lang.StringBuilder(256))
+    }
   }
 
 }

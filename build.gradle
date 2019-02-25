@@ -11,7 +11,6 @@ ext {
 
     vScala = System.properties.scalaVersion ?: '2.11'
     vScalaFull = getScalaFull[vScala]
-    vBoon = '0.34'
     vServletApi = '3.0.1'
     vMailApi = '1.4.7'
     vMockito = '1.10.19'
@@ -77,7 +76,6 @@ allprojects {
         compileOnly "javax.servlet:javax.servlet-api:$vServletApi"
 
         compile "javax.mail:mail:$vMailApi"
-        compile "io.fastjson:boon:$vBoon"
         compile "org.glassfish.main.external:jmxremote_optional-repackaged:4.1.2"
 
         testCompile "org.scala-lang:scala-reflect:$vScalaFull"

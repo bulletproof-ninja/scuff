@@ -1,6 +1,6 @@
 package scuff.web
 
-import scuff._
+import scuff._, json._
 import org.junit._
 import org.junit.Assert._
 import org.mockito.Mockito._
@@ -52,11 +52,9 @@ class TestCookieMonster {
     req.getCookies.find(_.getName == UserCookie.name) match {
       case None => fail("Should have cookie")
       case Some(cookie) =>
-        scuff.JsonParserPool.use(_.parse(cookie.getValue)) match {
-          case ast: java.util.Map[String, Object] =>
-            assertEquals("42|Nils", ast.get("data"))
-            assertEquals(27, ast.get("hash").asInstanceOf[String].length)
-        }
+        val obj = (JsVal parse cookie.getValue).asObj
+        assertEquals("42|Nils", obj.data.asStr.value)
+        assertEquals(27, obj.hash.asStr.value.length)
     }
     UserCookie.get(req) match {
       case None => fail("Should return user cookie")
