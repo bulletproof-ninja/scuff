@@ -68,14 +68,23 @@ object JMX {
 
   def startJMXMP(port: Int): JMXMPConnectorServer = startJMXMP(new InetSocketAddress(InetAddress.getLocalHost, port))
   def startJMXMP(address: InetSocketAddress = null): JMXMPConnectorServer = {
-    val jmxmpServer = address match {
+    val (jmxmpServer, urlOpt) = address match {
       case null =>
-        new JMXMPConnectorServer(Server)
+        val server = new JMXMPConnectorServer(Server)
+        server -> Option(server.getAddress)
       case addr =>
         val url = new JMXServiceURL("jmxmp", addr.getAddress.getHostAddress, addr.getPort)
-        new JMXMPConnectorServer(url, null, Server)
+        new JMXMPConnectorServer(url, null, Server) -> Some(url)
     }
-    jmxmpServer.start()
+
+    try jmxmpServer.start() catch {
+      case cause: BindException =>
+        val target = urlOpt.map(url => s"${url.getHost}:${url.getPort}") getOrElse "default MBean server"
+        val be = new BindException(s"Cannot bind to $target")
+        be.setStackTrace(be.getStackTrace.take(1))
+        be initCause cause
+        throw be
+    }
     jmxmpServer
   }
 

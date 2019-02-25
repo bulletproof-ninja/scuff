@@ -5,6 +5,7 @@ import scala.beans.BeanProperty
 
 import org.junit._, Assert._
 import javax.management.ObjectName
+import java.net.BindException
 
 object TestJMX {
   trait FooBeanMXBean {
@@ -67,6 +68,22 @@ class TestJMX {
     val myBean = FooBeanCaseClassImpl(99)
     val objName = JMX.register(myBean, "My Bean")
     assertEquals("\"My Bean\"", objName.getKeyProperty("name"))
+  }
+
+  @Test
+  def descriptiveBindException(): Unit = {
+    val server = JMX.startJMXMP()
+    val port = server.getAddress.getPort
+    try {
+      JMX.startJMXMP(port)
+    } catch {
+      case be: BindException =>
+        be.printStackTrace()
+        assertTrue(be.getMessage contains s":$port")
+        assertTrue(be.getCause.isInstanceOf[BindException])
+    } finally {
+      server.stop()
+    }
   }
 
 }
