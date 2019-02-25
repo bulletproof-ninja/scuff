@@ -7,7 +7,7 @@ import scala.concurrent.ExecutionContext
 object FuzzyScheduler {
   lazy val global = new FuzzyScheduler(Threads.DefaultScheduler)
   trait FuzzyRunnable extends Runnable {
-    @volatile private var alive = true
+    @volatile private[this] var alive = true
     /**
      * Handle exception.
      * Rethrow to bubble up to underlying executor service
@@ -24,7 +24,7 @@ object FuzzyScheduler {
      * invocations, it's the delay after the previous run
      * ended.
      */
-    def runInterval(): Duration
+    def runInterval(): FiniteDuration
     /**
      * The jitter margin applied to the `runInterval`.
      */
@@ -51,11 +51,12 @@ class FuzzyScheduler(scheduler: ScheduledExecutorService) {
 
   def schedule(pr: FuzzyRunnable): Unit = {
     import math._
-    val intervalMs = pr.runInterval.toMillis
-    val absJitter = intervalMs * pr.intervalJitter
-    val minDelay = intervalMs - absJitter
+    val interval = pr.runInterval.length
+    require(interval > 0, s"Run interval must be greater than 0, was $interval")
+    val absJitter = interval * pr.intervalJitter
+    val minDelay = interval - absJitter
     val jitterRange = absJitter * 2
-    val delayMs = round(random * jitterRange + minDelay)
+    val delay = round(random * jitterRange + minDelay)
     val nextRun = new Runnable {
       def run = if (pr.isAlive) {
         try {
@@ -66,11 +67,11 @@ class FuzzyScheduler(scheduler: ScheduledExecutorService) {
         if (pr.isAlive) try {
           schedule(pr)
         } catch {
-          case e: RejectedExecutionException => // Ok
+          case _: RejectedExecutionException => // Ok
         }
       }
     }
-    scheduler.schedule(nextRun, delayMs, TimeUnit.MILLISECONDS)
+    scheduler.schedule(nextRun, delay, pr.runInterval.unit)
   }
 
 }
