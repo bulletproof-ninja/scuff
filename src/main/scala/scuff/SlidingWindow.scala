@@ -191,11 +191,11 @@ class SlidingWindow[T, R, F](
   private[this] val (finiteWindows, foreverWindows) = windows.partition(_.length.isFinite)
 
   def add(value: T, time: EpochMillis = clock): Unit = storeProvider(_.upsert(timePrecision(time), reducer.init(value))(reducer))
-  def addMany(values: Traversable[T], time: EpochMillis = clock) = if (values.nonEmpty) {
+  def addMany(values: Iterable[T], time: EpochMillis = clock) = if (values.nonEmpty) {
     val reduced = values.map(reducer.init).reduce(reducer)
     storeProvider(_.upsert(timePrecision(time), reduced)(reducer))
   }
-  def addBatch(valuesWithTime: Traversable[(T, EpochMillis)]) = if (valuesWithTime.nonEmpty) {
+  def addBatch(valuesWithTime: Iterable[(T, EpochMillis)]) = if (valuesWithTime.nonEmpty) {
     val reducedByTime = valuesWithTime
       .groupBy(t => timePrecision(t._2))
       .mapValues(_.map(t => reducer.init(t._1)).reduce(reducer))

@@ -4,13 +4,12 @@ import java.lang.reflect.Modifier
 import java.lang.reflect.Method
 
 import collection.JavaConverters._
-import language.existentials
 import java.math.BigDecimal
 import java.math.MathContext
 import java.util.regex.Pattern
 import java.util.regex.Matcher
-import language.dynamics
 import scala.reflect.{ ClassTag, classTag }
+import language.{ existentials, dynamics }
 
 sealed abstract class JsVal {
   final def getOrElse[JS <: JsVal: ClassTag](orElse: => JS): JS =
@@ -120,13 +119,13 @@ final case class JsObj(props: Map[String, JsVal]) extends JsVal
 object JsObj {
   def apply(props: (String, JsVal)*): JsObj = new JsObj(props.toMap)
 }
-final case class JsArr(override val seq: JsVal*) extends JsVal with Iterable[JsVal] {
+final case class JsArr(values: JsVal*) extends JsVal with Iterable[JsVal] {
   override def asArr = this
-  def toJson = seq.iterator.map(_.toJson).mkString("[", ",", "]")
-  def get(idx: Int): Option[JsVal] = if (idx >= 0 && idx < seq.size) Some(seq(idx)) else None
-  def apply(idx: Int): JsVal = if (idx >= 0 && idx < seq.size) seq(idx) else JsUndefined
-  def iterator = seq.iterator
-  def length = seq.size
+  def toJson = values.iterator.map(_.toJson).mkString("[", ",", "]")
+  def get(idx: Int): Option[JsVal] = if (idx >= 0 && idx < values.size) Some(values(idx)) else None
+  def apply(idx: Int): JsVal = if (idx >= 0 && idx < values.size) values(idx) else JsUndefined
+  def iterator = values.iterator
+  def length = values.size
 }
 final case class JsBool(value: Boolean) extends JsVal {
   override def asBool = this
@@ -143,7 +142,7 @@ object JsVal {
   implicit def toJsVal(str: String): JsVal = if (str == null) JsNull else JsStr(str)
   implicit def toJsVal(num: java.lang.Number): JsVal = if (num == null) JsNull else JsNum(num)
   implicit def toJsVal(b: Boolean): JsVal = if (b) JsBool.True else JsBool.False
-  implicit def toJsVal(m: Map[String, Any]): JsVal = if (m == null) JsNull else JsObj(m.mapValues(JsVal(_)))
+  implicit def toJsVal(m: Map[String, Any]): JsVal = if (m == null) JsNull else JsObj(m.mapValues(JsVal(_)).toMap)
   implicit def toJsVal(a: Iterable[Any]): JsVal = if (a == null) JsNull else JsArr(a.iterator.map(JsVal(_)).toSeq: _*)
   implicit def toJsVal(t: (String, Any)): (String, JsVal) = t._1 -> JsVal(t._2)
 

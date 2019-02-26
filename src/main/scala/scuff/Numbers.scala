@@ -7,7 +7,7 @@ object Numbers {
   def unsigned(n: Short) = n & 0xFFFF
   @inline
   def unsigned(n: Byte) = n & 0xFF
-  private[this] val longUnsigner = (2 * BigInt(Long.MaxValue) + 2).underlying()
+  private[this] val longUnsigner = (2 * BigInt(Long.MaxValue) + 2).underlying
   @inline
   def unsigned(value: Long) = {
     if (value < 0)

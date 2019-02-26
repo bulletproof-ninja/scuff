@@ -57,7 +57,7 @@ object StreamPromise {
         super.onError(th)
         delegate onError th
       }
-      def onDone(): Future[R] = promise.tryCompleteWith(delegate.onDone).future
+      def onDone(): Future[R] = promise.completeWith(delegate.onDone).future
     }
   }
 }
