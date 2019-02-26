@@ -51,12 +51,8 @@ allprojects {
     apply plugin: 'eclipse'
     apply plugin: 'com.jfrog.bintray'
 
-    sourceCompatibility = 1.7
-    if (vScala == '2.11') {
-        targetCompatibility = 1.7
-    } else {
-        targetCompatibility = 1.8
-    }
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
 
     sourceSets {
         main {

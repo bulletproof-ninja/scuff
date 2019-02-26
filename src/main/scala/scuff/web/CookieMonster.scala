@@ -4,6 +4,8 @@ import javax.servlet._
 import scuff._
 import scala.concurrent.duration._
 import scala.util.Try
+import java.time.Clock
+import java.time.Instant
 
 private object CookieMonster {
   val SEP = "()<>@,;:\\\"/[]?={}".toSet
@@ -11,6 +13,10 @@ private object CookieMonster {
     val isSep = (SEP.apply _)
     isSep.negate
   }
+
+  final val SystemClock = Clock.systemUTC()
+  final val SessionDuration = -1.seconds
+
 }
 
 /**
@@ -19,18 +25,24 @@ private object CookieMonster {
 trait CookieMonster[T] {
   import java.util.concurrent.TimeUnit
 
-  protected def clock: Clock = Clock.System
+  protected def clock: Clock = CookieMonster.SystemClock
 
   /**
     * Use with `maxAge` for session cookies.
     */
-  final val SessionDuration = -1.seconds
+  final def SessionDuration = CookieMonster.SessionDuration
 
   /** Max-age in seconds. */
   protected def maxAge: FiniteDuration
   /** Convert Expires timestamp to MaxAge seconds, using current time. */
-  final def toMaxAge(epoch: Long, unit: TimeUnit) = new FiniteDuration(unit toSeconds clock.durationUntil(epoch, unit), TimeUnit.SECONDS)
-  final def toMaxAge(expires: java.util.Date): FiniteDuration = toMaxAge(expires.getTime, TimeUnit.MILLISECONDS)
+  final def toMaxAge(expires: Long, unit: TimeUnit) = {
+    val expiresMillis = Instant.ofEpochMilli(unit toMillis expires).toEpochMilli()
+    val diff = expiresMillis - clock.millis
+    new FiniteDuration(diff / 1000, TimeUnit.SECONDS)
+
+  }
+  final def toMaxAge(expires: java.util.Date): FiniteDuration =
+    toMaxAge(expires.getTime, TimeUnit.MILLISECONDS)
   protected def codec: Codec[T, String]
   def name: String
 

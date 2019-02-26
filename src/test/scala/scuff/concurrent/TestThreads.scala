@@ -43,7 +43,7 @@ class TestThreads extends Serializable {
       ec execute new Runnable {
         import language.reflectiveCalls
         override def run = {
-          Thread sleep rand.nextInRange(1 to 5)
+          Thread sleep rand.nextBetween(1, 6)
           f.queue.put(i)
         }
       }

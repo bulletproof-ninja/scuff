@@ -3,6 +3,8 @@ package scuff
 import org.junit._
 import org.junit.Assert._
 
+import scala.{ BigDecimal => Dec }
+
 class TestInterval {
 
   @Test
@@ -65,22 +67,6 @@ class TestInterval {
   }
 
   @Test
-  def `to string`(): Unit = {
-    val iStr = "[45,99;59,25["
-    val i = Interval.parse(iStr).get
-    assertEquals(iStr, i.toString)
-    val i2 = Interval(45.99f until 59.25f)
-    assertEquals("[45.99,59.25)", i2.toString)
-    val i3 = Interval(1f to Float.PositiveInfinity)
-    assertEquals("[1.0,∞)", i3.toString)
-    val i4 = Interval(Float.NegativeInfinity to 1f)
-    assertEquals("(-∞,1.0]", i4.toString)
-    val i5 = Interval(Float.NegativeInfinity to Float.PositiveInfinity)
-    assertEquals("(-∞,∞)", i5.toString)
-    assertEquals("(-∞,∞)", Interval.Unbounded.toString)
-  }
-
-  @Test
   def invalid(): Unit = {
     assertEquals(None, Interval.parse("[45,99;59.25["))
     assertEquals(None, Interval.parse("[45.99;59,25["))
@@ -114,7 +100,7 @@ class TestInterval {
 
   @Test
   def serialization(): Unit = {
-    val i = Interval(1d to Double.PositiveInfinity)
+    val i = Interval("1".bd to "500".bd by "1".bd)
     val ba = new java.io.ByteArrayOutputStream
     val out = new java.io.ObjectOutputStream(ba)
     out.writeObject(i)
@@ -135,8 +121,8 @@ class TestInterval {
     assertFalse(i3.overlaps(i1))
     assertTrue(i3.overlaps(i2))
     assertTrue(i2.overlaps(i2))
-    val i4 = Interval(99999999999999d to Double.PositiveInfinity)
-    val i5 = Interval(1d to Double.PositiveInfinity)
+    val i4 = Interval("99999999999999".bd to "9999999999999999999999".bd by "1".bd)
+    val i5 = Interval("1".bd to "9999999999999999".bd by "1".bd)
     assertTrue(i4 overlaps i5)
     assertTrue(i5 overlaps i4)
   }

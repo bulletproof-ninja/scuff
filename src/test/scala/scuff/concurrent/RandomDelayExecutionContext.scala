@@ -9,7 +9,7 @@ class RandomDelayExecutionContext(exeCtx: ExecutionContext) extends ExecutionCon
   def execute(runnable: Runnable) = exeCtx execute new Runnable {
     def run(): Unit = {
       if (Random.nextBoolean) {
-        val delay = Random.nextInRange(1 to 50)
+        val delay = Random.nextBetween(1, 51)
         Thread sleep delay
       }
       runnable.run()

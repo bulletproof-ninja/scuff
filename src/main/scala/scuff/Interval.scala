@@ -13,8 +13,8 @@ final class Interval[@specialized(Short, Int, Long, Float, Double) T](
 
   private def nanException = throw new IllegalArgumentException("Interval cannot contain NaN")
   private def checkForNaN(n: T) = n match {
-    case d: Double if JD.isNaN(d) => nanException
-    case f: Float if JF.isNaN(f) => nanException
+    case d: Double if d.isNaN => nanException
+    case f: Float if f.isNaN => nanException
     case _ => // All good
   }
 

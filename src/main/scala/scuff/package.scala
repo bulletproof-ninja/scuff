@@ -4,6 +4,7 @@ import scala.math._
 import scala.concurrent.Future
 import scala.util.{ Failure, Success, Try }
 import scala.util.control.NonFatal
+import java.math.MathContext
 
 package object scuff {
 
@@ -26,6 +27,12 @@ package object scuff {
     private def end(offset: Int, len: Int) = if (len == -1) str.length else offset + len
     def unsafeLong(stopper: Numbers.Stopper = Numbers.NonStop, offset: Int = 0, length: Int = -1): Long = {
       Numbers.parseUnsafeLong(str, offset, end(offset, length))(stopper)
+    }
+
+    def bd(implicit mc: MathContext = BigDecimal.defaultMathContext): BigDecimal = str match {
+      case "0" => new BigDecimal(java.math.BigDecimal.ZERO, mc)
+      case "1" => new BigDecimal(java.math.BigDecimal.ONE, mc)
+      case _ => BigDecimal(str, mc)
     }
 
     def offsetStartsWith(offset: Int, startsWith: CharSequence): Boolean = {
@@ -95,20 +102,21 @@ package object scuff {
   }
 
   implicit class ScuffRandom(private val rand: Random) extends AnyVal {
-    def nextInRange(r: Range): Int = nextInRange(NumericRange.inclusive(r.head, r.last, 1))
-    def nextInRange[T](r: Range.Partial[T, NumericRange[T]])(implicit num: Numeric[T]): T = nextInRange(r.by(num.one))
-    def nextInRange[T](r: NumericRange[T])(implicit num: Numeric[T]): T = {
-      val width = num.minus(r.last, r.head)
-      val next = rand.nextDouble * num.toDouble(width) + num.toDouble(r.head)
+    /** Next random number between inclusive/exclusive. */
+    def nextBetween[T](inclExcl: (T, T))(implicit num: Numeric[T]): T = nextBetween(inclExcl._1, inclExcl._2)
+    /** Next random number between inclusive/exclusive. */
+    def nextBetween[T](incl: T, excl: T)(implicit num: Numeric[T]): T = {
+      val scope = num.minus(excl, incl)
+      val next = rand.nextDouble * num.toDouble(scope) + num.toDouble(incl)
       num.zero match {
         case _: Double => next.asInstanceOf[T]
-        case _: Int => math.round(next).asInstanceOf[Int].asInstanceOf[T]
-        case _: Long => math.round(next).asInstanceOf[T]
+        case _: Int => next.toInt.asInstanceOf[T]
+        case _: Long => next.toLong.asInstanceOf[T]
         case _: Float => next.asInstanceOf[Float].asInstanceOf[T]
         case _: BigDecimal => BigDecimal(next).asInstanceOf[T]
-        case _: BigInt => BigInt(math.round(next)).asInstanceOf[T]
-        case _: Short => math.round(next).asInstanceOf[T]
-        case _: Character => math.round(next).asInstanceOf[Char].asInstanceOf[T]
+        case _: BigInt => BigInt(next.toInt).asInstanceOf[T]
+        case _: Short => next.toShort.asInstanceOf[T]
+        case _: Character => next.toChar.asInstanceOf[T]
         case _ => throw new IllegalArgumentException(s"${num.zero.getClass.getName} is unsupported")
       }
     }
@@ -128,7 +136,25 @@ package object scuff {
     def openInBrowser(): Boolean = url.toURI.openInBrowser()
   }
 
-  implicit class ScuffIterable[E](private val iter: TraversableOnce[E]) extends AnyVal {
+  implicit class ScuffIterable[E](private val iter: Iterable[E]) extends AnyVal {
+    def last: E = lastOption getOrElse {
+      throw new NoSuchElementException(s"${iter.getClass.getSimpleName}.last")
+    }
+    def lastOption: Option[E] = if (iter.isEmpty) None else iter match {
+      case idxSeq: collection.IndexedSeq[E] => Some(idxSeq(idxSeq.length - 1))
+      case _ =>
+        var hasValue = false
+        var value: E = null.asInstanceOf[E]
+        iter.foreach { e =>
+          value = e
+          hasValue = true
+        }
+        if (hasValue) Some(value) else None
+    }
+    def head: E = headOption.getOrElse(throw new NoSuchElementException(s"${iter.getClass.getSimpleName}.head"))
+    def headOption: Option[E] = iter.find(_ => true)
+  }
+  implicit class ScuffIterator[E](private val iter: Iterator[E]) extends AnyVal {
     def last: E = lastOption getOrElse {
       throw new NoSuchElementException(s"${iter.getClass.getSimpleName}.last")
     }

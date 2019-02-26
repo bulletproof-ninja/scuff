@@ -3,6 +3,11 @@ package scuff
 import java.util.concurrent.locks.{ ReadWriteLock, ReentrantReadWriteLock }
 import scala.concurrent.duration._
 import language.implicitConversions
+import java.time.Clock
+
+private object LRUHeapCache {
+  val SystemClock = Clock.systemUTC()
+}
 
 /**
   * Fully thread-safe LRU cache implementation that relies on a
@@ -28,7 +33,7 @@ final class LRUHeapCache[K, V](
 
   type R[T] = T
 
-  @inline private def clock = Clock.System
+  protected def clock: Clock = LRUHeapCache.SystemClock
 
   override def toString = readLock(map.toString)
 
@@ -115,8 +120,8 @@ final class LRUHeapCache[K, V](
     refresh(ttlSecs)
 
     @volatile var expiryMillis: Long = _
-    def isStale(now: Long = clock.now) = expiryMillis < now
-    def refresh(ttlSecs: Int) = expiryMillis = if (ttlSecs > 0) clock.now + ttlSecs * 1000 else Long.MaxValue
+    def isStale(now: Long = clock.millis) = expiryMillis < now
+    def refresh(ttlSecs: Int) = expiryMillis = if (ttlSecs > 0) clock.millis + ttlSecs * 1000 else Long.MaxValue
   }
 
   private implicit def toSecs(ttl: Duration): Int = ttl match {
@@ -144,7 +149,7 @@ final class LRUHeapCache[K, V](
     override def run(): Unit = {
       while (!isInterrupted) {
         val staleKeys = readLock {
-          val now = clock.now
+          val now = clock.millis
           map.entrySet.asScala.withFilter(_.getValue.isStale(now)).map(_.getKey)
         }
         if (!staleKeys.isEmpty) {

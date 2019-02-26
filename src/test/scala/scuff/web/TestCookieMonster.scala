@@ -7,6 +7,10 @@ import org.mockito.Mockito._
 import javax.servlet.http._
 import org.mockito.ArgumentCaptor
 import scala.concurrent.duration._
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
+import java.util.concurrent.TimeUnit
 
 class TestCookieMonster {
   @Test
@@ -15,11 +19,8 @@ class TestCookieMonster {
     object CM extends CookieMonster[String] {
       def name = "Testing"
       def codec = Codec.noop
-      override val clock = new Clock {
-        def precision = scala.concurrent.duration.MILLISECONDS
-        def now = 0
-      }
-      def maxAge = toMaxAge(expires, clock.precision)
+      override val clock = Clock.fixed(Instant ofEpochMilli 0, ZoneId.of("UTC"))
+      def maxAge = toMaxAge(expires, TimeUnit.MILLISECONDS)
     }
     assertEquals(9L, CM.maxAge.toSeconds)
   }

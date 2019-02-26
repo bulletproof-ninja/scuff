@@ -119,9 +119,8 @@ ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=
       encoder.asInstanceOf[{ def encodeBuffer(b: Array[Byte]): String }]
     }
     val codec = Base64.RFC_1521
-    val sizeRange = 1024 to 8192
     for (_ <- 1 to 500) {
-      val bytes = new Array[Byte](Random.nextInRange(sizeRange))
+      val bytes = new Array[Byte](Random.nextBetween(1024, 8192 + 1))
       Random.nextBytes(bytes)
       val encoded = Base64.removeEOLs(codec.encode(bytes), 76)
       val decoded = codec.decode(encoded)
