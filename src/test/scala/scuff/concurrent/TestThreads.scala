@@ -83,7 +83,7 @@ class TestThreads extends Serializable {
     val cdl = new CountDownLatch(1)
     val scheduled = Threads.DefaultScheduler.schedule(200.milliseconds)(cdl.countDown)
     assertFalse(scheduled.isDone)
-    assertTrue(cdl.await(999, TimeUnit.MILLISECONDS))
+    assertTrue(cdl.await(5, TimeUnit.SECONDS))
     assertTrue(scheduled.isDone)
   }
   @Test
@@ -91,7 +91,7 @@ class TestThreads extends Serializable {
     val cdl = new CountDownLatch(5)
     val scheduled = Threads.DefaultScheduler.scheduleAtFixedRate(200.milliseconds, 10000.microseconds)(cdl.countDown)
     assertFalse(scheduled.isDone)
-    assertTrue(cdl.await(999, TimeUnit.MILLISECONDS))
+    assertTrue(cdl.await(5, TimeUnit.SECONDS))
     scheduled.cancel(true)
     assertTrue(scheduled.isDone)
   }
@@ -100,7 +100,7 @@ class TestThreads extends Serializable {
     val cdl = new CountDownLatch(5)
     val scheduled = Threads.DefaultScheduler.scheduleWithFixedDelay(200.milliseconds, 10000.microseconds)(cdl.countDown)
     assertFalse(scheduled.isDone)
-    assertTrue(cdl.await(999, TimeUnit.MILLISECONDS))
+    assertTrue(cdl.await(5, TimeUnit.SECONDS))
     scheduled.cancel(true)
     assertTrue(scheduled.isDone)
   }
