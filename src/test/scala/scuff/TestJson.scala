@@ -8,15 +8,44 @@ import java.time.LocalDate
 
 class TestJson {
 
-  final def path = "/JSONTestSuite-master"
+  final def JSONTestSuite = "/JSONTestSuite-master"
+  final def `json.org test suite` = "/json.org test suite"
 
-  private abstract class JsonString {
+  private abstract class JsonFile(path: String, fileOverride: String = null) {
     def json: String = {
-      val filename = NameTransformer decode getClass.getEnclosingMethod.getName
+      val filename = fileOverride match {
+        case null => NameTransformer decode getClass.getEnclosingMethod.getName
+        case file => file
+      }
       val inp = getClass.getResourceAsStream(s"$path/$filename.json").ensuring(_ != null)
       Source.fromInputStream(inp, "UTF-8").mkString
     }
     def parse = JsVal parse json
+  }
+
+  @Test
+  def undefined() = {
+    val obj = JsObj()
+    assertEquals(JsUndefined, obj.foo)
+    assertEquals(JsNum("42".bd), obj.foo getOrElse JsNum(42))
+  }
+
+  @Test
+  def empty_array() = {
+    assertEquals(JsArr(), JsVal parse "  [ \n  ]  ")
+    assertEquals(JsArr(), JsVal parse "[]")
+  }
+
+  @Test
+  def empty_obj() = {
+    assertEquals(JsObj(), JsVal parse "  { \r  }  ")
+    assertEquals(JsObj(), JsVal parse "{}")
+  }
+
+  @Test
+  def empty_str() = {
+    assertEquals(JsStr(""), JsVal parse """  ""  """)
+    assertEquals(JsStr(""), JsVal parse """""""")
   }
 
   @Test
@@ -69,6 +98,10 @@ class TestJson {
     assertEquals(123, f.intValue)
     val JsNum(f2) = JsVal parse "123.999"
     assertEquals(124, f2.floatValue.round)
+    val JsNum(f3) = JsVal parse "0"
+    assertEquals(0, f3.intValue)
+    val JsNum(f4) = JsVal parse "0.123"
+    assertEquals(0.123f, f4.floatValue, 0.000001)
   }
   @Test
   def justNumberWithWS() = {
@@ -78,6 +111,18 @@ class TestJson {
     assertEquals(123, f.intValue)
     val JsNum(f2) = JsVal parse " 123.999 "
     assertEquals(124, f2.floatValue.round)
+    val JsNum(f3a) = JsVal parse "  0"
+    assertEquals(0, f3a.intValue)
+    val JsNum(f3b) = JsVal parse "  0   "
+    assertEquals(0, f3b.intValue)
+    val JsNum(f3c) = JsVal parse "0   "
+    assertEquals(0, f3c.intValue)
+    val JsNum(f4a) = JsVal parse "    0.123"
+    assertEquals(0.123f, f4a.floatValue, 0.000001)
+    val JsNum(f4b) = JsVal parse "0.123     "
+    assertEquals(0.123f, f4b.floatValue, 0.000001)
+    val JsNum(f4c) = JsVal parse "   0.123    "
+    assertEquals(0.123f, f4c.floatValue, 0.000001)
   }
   @Test
   def justNull() = {
@@ -105,8 +150,15 @@ class TestJson {
   }
 
   @Test
+  def `y_string_three-byte-utf-8`() = {
+    object File extends JsonFile(JSONTestSuite)
+    val JsStr(string) = File.parse.asArr(0)
+    assertEquals("\u0821", string)
+  }
+
+  @Test
   def `i_structure_500_nested_arrays`() = {
-    object File extends JsonString
+    object File extends JsonFile(JSONTestSuite)
     val jsVal = File.parse
 
       def countNesting(jsVal: JsVal, count: Int): Int = jsVal match {
@@ -119,14 +171,14 @@ class TestJson {
 
   @Test
   def `i_number_huge_exp`() = {
-    object File extends JsonString
+    object File extends JsonFile(JSONTestSuite)
     val JsArr(JsNum(num)) = File.parse
     assertTrue(num.doubleValue.isPosInfinity)
   }
 
   @Test
   def `y_object_string_unicode`() = {
-    object File extends JsonString
+    object File extends JsonFile(JSONTestSuite)
     File.parse match {
       case obj: JsObj =>
         val JsStr(string) = obj("title")
@@ -137,7 +189,7 @@ class TestJson {
 
   @Test
   def `y_object_extreme_numbers`() = {
-    object File extends JsonString
+    object File extends JsonFile(JSONTestSuite)
     File.parse match {
       case obj: JsObj =>
         val JsNum(min) = obj("min")
@@ -150,7 +202,7 @@ class TestJson {
 
   @Test
   def `n_object_repeated_null_null`() = {
-    object File extends JsonString
+    object File extends JsonFile(JSONTestSuite)
     try {
       File.parse
       fail(s"Should have failed")
@@ -161,7 +213,7 @@ class TestJson {
 
   @Test
   def `y_string_uEscape`() = {
-    object File extends JsonString
+    object File extends JsonFile(JSONTestSuite)
     val JsArr(JsStr(string)) = File.parse
     assertEquals(4, string.length)
     assertEquals("aクリス", string)
@@ -170,25 +222,16 @@ class TestJson {
 
   @Test
   def `y_string_allowed_escapes`() = {
-    object File extends JsonString
+    implicit val config = JsVal.Config(escapeSlashInStrings = true)
+    object File extends JsonFile(JSONTestSuite)
     val content @ JsArr(JsStr(string)) = File.parse
     assertEquals("\"\\/\b\f\n\r\t", string)
     assertEquals(File.json, content.toJson)
   }
 
   @Test
-  def `n_structure_trailing_#`() = {
-    object File extends JsonString
-    File.parse match {
-      case obj: JsObj =>
-        val JsStr(b) = obj("a")
-        assertEquals("b", b)
-      case other => fail(s"Should be JsObj, was $other")
-    }
-  }
-  @Test
   def `y_object_duplicated_key_and_value`() = {
-    object File extends JsonString
+    object File extends JsonFile(JSONTestSuite)
     File.parse match {
       case obj: JsObj =>
         val JsStr(b) = obj("a")
@@ -197,32 +240,38 @@ class TestJson {
     }
   }
 
-  @Test(expected = classOf[IllegalArgumentException])
+  @Test(expected = classOf[MalformedJSON])
+  def `n_structure_trailing_#`(): Unit = {
+    object File extends JsonFile(JSONTestSuite)
+    File.parse
+  }
+
+  @Test(expected = classOf[MalformedJSON])
   def `n_array_newlines_unclosed`(): Unit = {
-    object File extends JsonString
+    object File extends JsonFile(JSONTestSuite)
     File.parse
   }
 
-  @Test(expected = classOf[IllegalArgumentException])
+  @Test(expected = classOf[MalformedJSON])
   def `n_array_colon_instead_of_comma`(): Unit = {
-    object File extends JsonString
+    object File extends JsonFile(JSONTestSuite)
     File.parse
   }
 
-  @Test(expected = classOf[IllegalArgumentException])
+  @Test(expected = classOf[MalformedJSON])
   def `n_structure_object_with_comment`(): Unit = {
-    object File extends JsonString
+    object File extends JsonFile(JSONTestSuite)
     File.parse
   }
-  @Test(expected = classOf[IllegalArgumentException])
+  @Test(expected = classOf[MalformedJSON])
   def `n_object_garbage_at_end`(): Unit = {
-    object File extends JsonString
+    object File extends JsonFile(JSONTestSuite)
     File.parse
   }
 
   @Test
   def `y_string_null_escape`(): Unit = {
-    object File extends JsonString
+    object File extends JsonFile(JSONTestSuite)
     val JsArr(JsStr(nullStr)) = File.parse
     assertEquals(1, nullStr.length)
     assertEquals("0", nullStr(0).toHexString)
@@ -231,14 +280,14 @@ class TestJson {
 
   @Test
   def `number_1000000000000000`() = {
-    object File extends JsonString
+    object File extends JsonFile(JSONTestSuite)
     val JsArr(JsNum(num)) = File.parse
     assertEquals(1000000000000000L, num.longValue)
   }
 
   @Test
   def `y_array_heterogeneous`() = {
-    object File extends JsonString
+    object File extends JsonFile(JSONTestSuite)
     val JsArr(jsNull, JsNum(num), JsStr(str), JsObj(map)) = File.parse
     assertEquals(JsNull, jsNull)
     assertEquals(1, num.intValue)
@@ -248,7 +297,7 @@ class TestJson {
 
   @Test
   def `y_object_duplicated_key`() = {
-    object File extends JsonString
+    object File extends JsonFile(JSONTestSuite)
     File.parse match {
       case obj: JsObj =>
         val JsStr(c) = obj("a")
@@ -259,7 +308,7 @@ class TestJson {
 
   @Test
   def `i_number_real_neg_overflow`() = {
-    object File extends JsonString
+    object File extends JsonFile(JSONTestSuite)
     val JsArr(num @ JsNum(_)) = File.parse
     assertEquals(BigDecimal("-123123e100000"), num.toBigDec)
   }
@@ -283,7 +332,7 @@ class TestJson {
     val json = JsVal(foo1 :: foo2 :: Nil, {
       case date: LocalDate => LocalDateCodec encode date
     }).toJson
-    println(json)
+
     val JsArr(hank: JsObj, marty: JsObj) = JsVal parse json
     assertEquals("Hank", hank("name").asStr.value)
     assertEquals("Marty", marty("name").asStr.value)
@@ -297,4 +346,34 @@ class TestJson {
     assertEquals(Nil, marty.list.asArr.toList)
     assertEquals(today, LocalDateCodec decode marty.date.asStr.value)
   }
+
+  @Test
+  def `json.org fail tests`(): Unit = {
+    val failFiles = 1 to 33
+    val incorrectFails = Set(
+        1, /* Not in spec */
+        18 /* Not in spec */)
+    failFiles.filterNot(incorrectFails).foreach { idx =>
+      object File extends JsonFile(`json.org test suite`, s"fail$idx")
+      try {
+        File.parse
+        fail(s"""File "fail$idx.json" should fail to parse, but didn't""")
+      } catch {
+        case e: MalformedJSON => assertTrue(e.getMessage.length > 0)
+      }
+    }
+    failFiles.filter(incorrectFails).foreach { idx =>
+      object File extends JsonFile(`json.org test suite`, s"fail$idx")
+      assertEquals(File.parse, JsVal parse File.parse.toJson)
+    }
+  }
+  @Test
+  def `json.org pass tests`(): Unit = {
+    val passFiles = 1 to 3
+    passFiles.foreach { idx =>
+      object File extends JsonFile(`json.org test suite`, s"pass$idx")
+      assertEquals(File.parse, JsVal parse File.parse.toJson)
+    }
+  }
+
 }

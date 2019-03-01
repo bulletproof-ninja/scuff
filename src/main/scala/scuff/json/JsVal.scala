@@ -15,7 +15,7 @@ sealed abstract class JsVal {
   final def getOrElse[JS <: JsVal: ClassTag](orElse: => JS): JS =
     if (classTag[JS].runtimeClass isInstance this) this.asInstanceOf[JS]
     else orElse
-  def toJson: String
+  def toJson(implicit config: JsVal.Config): String
   private[this] def wrongType(expected: Class[_]) =
     sys.error(s"Not ${expected.getSimpleName}: $this")
   def asNum: JsNum = wrongType(classOf[JsNum])
@@ -26,7 +26,7 @@ sealed abstract class JsVal {
 }
 final case class JsNum(value: Number) extends JsVal {
   override def asNum = this
-  def toJson: String = {
+  def toJson(implicit config: JsVal.Config): String = {
     value.toString match {
       case asString @ ("NaN" | "Infinity" | "-Infinity") => s""""$asString""""
       case numString => numString
@@ -69,6 +69,8 @@ object JsNum {
   val NaN = JsNum(Double.NaN)
   val PositiveInfinity = JsNum(Double.PositiveInfinity)
   val NegativeInfinity = JsNum(Double.NegativeInfinity)
+  val Zero = JsNum(BigDecimal.ZERO)
+  val One = JsNum(BigDecimal.ONE)
 }
 
 final case class JsStr(value: String) extends JsVal {
@@ -79,28 +81,40 @@ final case class JsStr(value: String) extends JsVal {
     case "-Infinity" => JsNum.NegativeInfinity
     case _ => super.asNum
   }
-  def toJson = s""""${JsStr.escape(value)}""""
+  def toJson(implicit config: JsVal.Config) = s""""${JsStr.escape(value, config.escapeSlashInStrings)}""""
 }
 object JsStr {
-  private[this] val EscapeChars = List(
-    Pattern.compile("\\", Pattern.LITERAL) -> Matcher.quoteReplacement("\\\\"),
-    Pattern.compile("\"", Pattern.LITERAL) -> Matcher.quoteReplacement("\\\""),
-    Pattern.compile("/", Pattern.LITERAL) -> Matcher.quoteReplacement("\\/"),
-    Pattern.compile("\b", Pattern.LITERAL) -> Matcher.quoteReplacement("\\b"),
-    Pattern.compile("\f", Pattern.LITERAL) -> Matcher.quoteReplacement("\\f"),
-    Pattern.compile("\n", Pattern.LITERAL) -> Matcher.quoteReplacement("\\n"),
-    Pattern.compile("\r", Pattern.LITERAL) -> Matcher.quoteReplacement("\\r"),
-    Pattern.compile("\t", Pattern.LITERAL) -> Matcher.quoteReplacement("\\t"))
-  private[json] def escape(str: String): String = EscapeChars.foldLeft(str) {
-    case (str, (m, r)) => m.matcher(str).replaceAll(r)
+  private[this] val (escapesInclSlash, escapesExclSlash) = {
+    val escapeBackslash = Pattern.compile("\\", Pattern.LITERAL) -> Matcher.quoteReplacement("\\\\")
+    val escapeSlash = Pattern.compile("/", Pattern.LITERAL) -> Matcher.quoteReplacement("\\/")
+    val escapeOthers = List(
+      Pattern.compile("\"", Pattern.LITERAL) -> Matcher.quoteReplacement("\\\""),
+      Pattern.compile("\b", Pattern.LITERAL) -> Matcher.quoteReplacement("\\b"),
+      Pattern.compile("\f", Pattern.LITERAL) -> Matcher.quoteReplacement("\\f"),
+      Pattern.compile("\n", Pattern.LITERAL) -> Matcher.quoteReplacement("\\n"),
+      Pattern.compile("\r", Pattern.LITERAL) -> Matcher.quoteReplacement("\\r"),
+      Pattern.compile("\t", Pattern.LITERAL) -> Matcher.quoteReplacement("\\t"))
+
+    // escapeBackslash must always be first
+
+    val inclSlash = escapeBackslash :: escapeSlash :: escapeOthers
+    val exclSlash = escapeBackslash :: escapeOthers
+
+    inclSlash -> exclSlash
+  }
+  private[json] def escape(str: String, escapeSlash: Boolean): String = {
+    val escapes = if (escapeSlash) escapesInclSlash else escapesExclSlash
+    escapes.foldLeft(str) {
+      case (str, (m, r)) => m.matcher(str).replaceAll(r)
+    }
   }
 }
 
 final case object JsNull extends JsVal {
-  def toJson = "null"
+  def toJson(implicit config: JsVal.Config) = "null"
 }
 final case object JsUndefined extends JsVal {
-  def toJson = "null" // Not supposed to be serialized, but probably better to emit "null" than fail
+  def toJson(implicit config: JsVal.Config) = "null" // Not supposed to be serialized, but probably better to emit "null" than fail
 }
 final case class JsObj(props: Map[String, JsVal]) extends JsVal
   with Iterable[(String, JsVal)]
@@ -108,8 +122,8 @@ final case class JsObj(props: Map[String, JsVal]) extends JsVal
 
   def this(props: (String, JsVal)*) = this(props.toMap)
   override def asObj = this
-  def toJson = props.iterator.map {
-    case (name, value) => s""""${JsStr.escape(name)}":${value.toJson}"""
+  def toJson(implicit config: JsVal.Config) = props.iterator.map {
+    case (name, value) => s""""${JsStr.escape(name, config.escapeSlashInStrings)}":${value.toJson}"""
   }.mkString("{", ",", "}")
   def get(name: String): Option[JsVal] = props.get(name)
   def apply(name: String): JsVal = props.getOrElse(name, JsUndefined)
@@ -121,7 +135,7 @@ object JsObj {
 }
 final case class JsArr(values: JsVal*) extends JsVal with Iterable[JsVal] {
   override def asArr = this
-  def toJson = values.iterator.map(_.toJson).mkString("[", ",", "]")
+  def toJson(implicit config: JsVal.Config) = values.iterator.map(_.toJson).mkString("[", ",", "]")
   def get(idx: Int): Option[JsVal] = if (idx >= 0 && idx < values.size) Some(values(idx)) else None
   def apply(idx: Int): JsVal = if (idx >= 0 && idx < values.size) values(idx) else JsUndefined
   def iterator = values.iterator
@@ -129,7 +143,7 @@ final case class JsArr(values: JsVal*) extends JsVal with Iterable[JsVal] {
 }
 final case class JsBool(value: Boolean) extends JsVal {
   override def asBool = this
-  def toJson = if (value) "true" else "false"
+  def toJson(implicit config: JsVal.Config) = if (value) "true" else "false"
 }
 object JsBool {
   val True = JsBool(true)
@@ -138,6 +152,13 @@ object JsBool {
 
 object JsVal {
   import language.implicitConversions
+
+  /**
+   * @param escapeSlashInStrings Escape the character `/` as `\/` in strings?
+   */
+  case class Config(escapeSlashInStrings: Boolean)
+
+  implicit val defaultConfig = Config(escapeSlashInStrings = false)
 
   implicit def toJsVal(str: String): JsVal = if (str == null) JsNull else JsStr(str)
   implicit def toJsVal(num: java.lang.Number): JsVal = if (num == null) JsNull else JsNum(num)
@@ -234,6 +255,11 @@ private class Parser(
   def parse(): JsVal = try parseAny() catch {
     case ioob: IndexOutOfBoundsException =>
       throw new MalformedJSON(s"Incomplete JSON", ioob)
+  } finally {
+    while (pos < json.length) json.charAt(pos) match {
+      case ' ' | '\t' | '\r' | '\n' => pos += 1
+      case unexpected => throwUnexpectedCharException(unexpected)
+    }
   }
 
   private def parseAny(): JsVal = {
@@ -253,6 +279,17 @@ private class Parser(
       case 'f' =>
         pos += 1; parseLiteral("false"); JsBool.False
       case ch @ (',' | '}' | ']') => throwUnexpectedCharException(ch)
+      case '0' =>
+        if (pos+1 < json.length) {
+          json.charAt(pos+1) match {
+            case ',' | '}' | ']' | ' ' | '\t' | '\r' | '\n' => pos += 1; JsNum.Zero
+            case '.' => parseNumber()
+            case unexpected => throw new MalformedJSON(s"Numbers cannot start with 0, offset $pos")
+          }
+        } else {
+          pos += 1
+          JsNum.Zero
+        }
       case _ => parseNumber()
     }
   }
@@ -346,6 +383,9 @@ private class Parser(
             case unexpected => throwUnexpectedCharException(unexpected, pos + 1)
           }
         case '"' => pos + 1
+        case invalid @ ('\b' | '\f' | '\n' | '\r' | '\t') =>
+          val asHex = invalid.toHexString
+          throw new MalformedJSON(s"Unescaped control character 0x0$asHex found at offset $pos")
         case ch =>
           chars(charsIdx) = ch
           charsIdx += 1
@@ -358,20 +398,21 @@ private class Parser(
     string
   }
 
-  private def hasMore(): Boolean = {
+  private def hasMore(CloseChar: Char, isEmpty: Boolean): Boolean = {
     json.charAt(pos) match {
       case ',' =>
+        if (isEmpty) throwUnexpectedCharException(',')
         pos += 1; true
-      case ']' | '}' =>
+      case CloseChar =>
         pos += 1; false
       case ' ' | '\t' | '\r' | '\n' =>
-        pos += 1; hasMore()
+        pos += 1; hasMore(CloseChar, isEmpty)
       case _ => true
     }
   }
 
   private def throwUnexpectedCharException(unexpected: Char, pos: Int = this.pos) =
-    throw new MalformedJSON(s"Malformed JSON. Unexpected character `$unexpected` found at position $pos")
+    throw new MalformedJSON(s"Unexpected character `$unexpected`, offset $pos")
 
   private def parseObject(): JsObj = {
     assert(json.charAt(pos - 1) == '{')
@@ -386,7 +427,7 @@ private class Parser(
       }
 
       def parseProperty(map: Map[String, JsVal]): Map[String, JsVal] = {
-        if (hasMore()) json.charAt(pos) match {
+        if (hasMore('}', map.isEmpty)) json.charAt(pos) match {
           case '"' =>
             pos += 1
             val name = parseString()
@@ -408,7 +449,7 @@ private class Parser(
     assert(json.charAt(pos - 1) == '[')
 
       def parseArray(seq: Vector[JsVal]): Vector[JsVal] = {
-        if (hasMore()) {
+        if (hasMore(']', seq.isEmpty)) {
           parseArray(seq :+ parseAny())
         } else seq
       }
