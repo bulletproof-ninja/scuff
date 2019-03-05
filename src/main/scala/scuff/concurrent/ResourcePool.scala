@@ -18,7 +18,11 @@ import scuff.JMX
   * Unlike traditional resource pools, the pool has
   * no upper limit on resources being created, so be careful
   * if that is a concern. This is done to avoid any locking
-  * (or spinning) penalty.
+  * (or spinning) penalty. Because of this, it's important
+  * to only use this pool for resources that are either
+  * not used much OR is not used long. High usage combined
+  * with long usage times will necessarily result in high
+  * resource creation.
   *
   * Any resource is deliberately discarded when
   * an exception occurs, to avoid potentially
