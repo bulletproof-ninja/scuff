@@ -2,7 +2,11 @@ package scuff.concurrent
 
 import org.junit._, Assert._
 import scala.concurrent.Future
+import scala.concurrent.duration._
 import scuff.StreamConsumer
+import java.util.concurrent.atomic.AtomicInteger
+import scala.util.Try
+import scala.util.Failure
 
 class TestStreamConsumer {
 
@@ -71,5 +75,69 @@ class TestStreamConsumer {
     }
     callMe(1000000)(Sum).await
     assertEquals(BigInt(499999500000L), Sum.sum)
+  }
+
+  @Test
+  def `async, success`(): Unit = {
+    object Average extends AsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
+      private[this] val UnitFuture = Future.successful(())
+      private val sum = new AtomicInteger
+      private val count = new AtomicInteger
+      def apply(i: Int) = {
+        sum.addAndGet(i)
+        count.incrementAndGet()
+        UnitFuture
+      }
+      val completionTimeout = 5.seconds
+      protected def whenDone(): Future[Int] = Future fromTry Try(sum.get / count.get)
+    }
+    (0 to 100).foreach(Average.onNext)
+    val result = Average.onDone().await
+    assertEquals(50, result)
+  }
+
+  @Test
+  def `async, future failure in apply`(): Unit = {
+    object Average extends AsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
+      def apply(i: Int) = Future failed new IllegalArgumentException(s"Invalid number: $i")
+      val completionTimeout = 5.seconds
+      protected def whenDone(): Future[Int] = Future successful 42
+    }
+    (0 to 100).foreach(Average.onNext)
+    Try(Average.onDone().await) match {
+      case Failure(e: IllegalArgumentException) => assertTrue(e.getMessage contains "Invalid number:")
+      case other => fail(s"Should have failed on IllegalArgumentException, was $other")
+    }
+  }
+
+  @Test
+  def `async, onstack failure in apply`(): Unit = {
+    object Average extends AsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
+      def apply(i: Int) = throw new IllegalArgumentException(s"Invalid number: $i")
+      val completionTimeout = 5.seconds
+      protected def whenDone(): Future[Int] = Future successful 42
+    }
+    (0 to 100).foreach(Average.onNext)
+    Try(Average.onDone().await) match {
+      case Failure(e: IllegalArgumentException) => assertTrue(e.getMessage contains "Invalid number:")
+      case other => fail(s"Should have failed on IllegalArgumentException, was $other")
+    }
+  }
+
+  @Test
+  def `async, failure in onDone`(): Unit = {
+    object Average extends AsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
+      private[this] val UnitFuture = Future.successful(())
+      private val sum = new AtomicInteger
+      private val count = new AtomicInteger
+      def apply(i: Int) = ??? // Never called in this test
+      val completionTimeout = 5.seconds
+      protected def whenDone(): Future[Int] = Future fromTry Try(sum.get / count.get)
+    }
+    //(0 to 100).foreach(Average.onNext)
+    Try(Average.onDone().await) match {
+      case Failure(e: ArithmeticException) => assertTrue(e.getMessage contains "zero")
+      case _ => fail("Should have failed on division by zero")
+    }
   }
 }

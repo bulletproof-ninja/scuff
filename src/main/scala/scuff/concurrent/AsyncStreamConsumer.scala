@@ -5,6 +5,7 @@ import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.TimeoutException
 import scuff.StreamConsumer
+import scala.util.control.NonFatal
 
 trait AsyncStreamConsumer[-T, +R]
   extends StreamConsumer[T, Future[R]] {
@@ -19,11 +20,14 @@ trait AsyncStreamConsumer[-T, +R]
   private[this] val error = new AtomicReference[Throwable]
 
   def onNext(t: T): Unit = {
-    val future: Future[_] = apply(t)
+    val future: Future[_] = try apply(t) catch {
+      case NonFatal(th) => Future failed th
+    }
     if (!future.isCompleted) {
       semaphore.tryAcquire()
       future.onComplete(_ => semaphore.release)(Threads.PiggyBack)
     }
+    future.failed.foreach(onError)(Threads.PiggyBack)
   }
 
   def onError(th: Throwable): Unit = error.weakCompareAndSet(null, th)
