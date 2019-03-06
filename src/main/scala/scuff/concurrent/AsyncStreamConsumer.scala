@@ -1,10 +1,10 @@
 package scuff.concurrent
 
+import scuff._
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.TimeoutException
-import scuff.StreamConsumer
 import scala.util.control.NonFatal
 
 trait AsyncStreamConsumer[-T, +R]
@@ -41,7 +41,13 @@ trait AsyncStreamConsumer[-T, +R]
           Threads.newBlockingThread(s"Awaiting completion of ${getClass.getName}") {
             val timeout = completionTimeout
             if (!semaphore.tryAcquire(Int.MaxValue, timeout.length, timeout.unit)) {
-              throw new TimeoutException(s"Timed out after $timeout awaiting completion of ${getClass.getName}")
+              val className = {
+                getClass().optional(_.getName contains "$anon$")
+                  .flatMap[Class[_]](anon => Option(anon.getEnclosingClass))
+                  .getOrElse(getClass)
+              }.getName
+              throw new TimeoutException(
+                s"Stream consumption in `$className` is still not finished, $timeout after stream completion, possibly due to either incomplete stream or incomplete state.")
             }
           }
         case th => Future failed th
