@@ -84,6 +84,7 @@ class TestThreads extends Serializable {
     val scheduled = Threads.DefaultScheduler.schedule(200.milliseconds)(cdl.countDown)
     assertFalse(scheduled.isDone)
     assertTrue(cdl.await(5, TimeUnit.SECONDS))
+    Thread sleep 10 // Sometimes the cdl is triggered so fast, the future is not yet done.
     assertTrue(scheduled.isDone)
   }
   @Test
@@ -93,6 +94,7 @@ class TestThreads extends Serializable {
     assertFalse(scheduled.isDone)
     assertTrue(cdl.await(5, TimeUnit.SECONDS))
     scheduled.cancel(true)
+    Thread sleep 10 // Sometimes the cdl is triggered so fast, the future is not yet done.
     assertTrue(scheduled.isDone)
   }
   @Test
@@ -102,6 +104,7 @@ class TestThreads extends Serializable {
     assertFalse(scheduled.isDone)
     assertTrue(cdl.await(5, TimeUnit.SECONDS))
     scheduled.cancel(true)
+    Thread sleep 10 // Sometimes the cdl is triggered so fast, the future is not yet done.
     assertTrue(scheduled.isDone)
   }
 }
