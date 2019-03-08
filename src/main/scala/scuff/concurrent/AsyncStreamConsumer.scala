@@ -33,21 +33,24 @@ trait AsyncStreamConsumer[-T, +R]
   def onError(th: Throwable): Unit = error.weakCompareAndSet(null, th)
 
   def onDone(): Future[R] = {
+
+      def toClassName(cls: Class[_] = this.getClass): String =
+        if (cls.getName.contains("$anon$") && cls.getEnclosingClass != null) {
+          toClassName(cls.getEnclosingClass)
+        } else cls.getName
+
     val completed: Future[Unit] =
       error.get match {
         case null if semaphore.tryAcquire(Int.MaxValue) => // Fast case
           Future successful (())
         case null => // Slow case
-          Threads.newBlockingThread(s"Awaiting completion of ${getClass.getName}") {
+          val instanceName = toString()
+          val className = toClassName()
+          Threads.newBlockingThread(s"Awaiting completion of $className: $instanceName") {
             val timeout = completionTimeout
             if (!semaphore.tryAcquire(Int.MaxValue, timeout.length, timeout.unit)) {
-              val className = {
-                getClass().optional(_.getName contains "$anon$")
-                  .flatMap[Class[_]](anon => Option(anon.getEnclosingClass))
-                  .getOrElse(getClass)
-              }.getName
               throw new TimeoutException(
-                s"Stream consumption in `$className` is still not finished, $timeout after stream completion, possibly due to either incomplete stream or incomplete state.")
+                s"Stream consumption in `$className` is still not finished, $timeout after stream completion, possibly due to either incomplete stream or incomplete state. Instance: $instanceName")
             }
           }
         case th => Future failed th
