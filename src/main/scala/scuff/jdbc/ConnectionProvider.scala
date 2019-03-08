@@ -116,3 +116,8 @@ trait Retry extends ConnectionProvider {
     }
   }
 }
+
+trait ConnectionSource extends ConnectionProvider {
+  override def forUpdate[R](thunk: Connection => R): R = super.forUpdate(thunk)
+  override def forQuery[R](thunk: Connection => R): R = super.forQuery(thunk)
+}
