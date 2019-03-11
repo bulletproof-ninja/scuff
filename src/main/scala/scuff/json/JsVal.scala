@@ -27,7 +27,8 @@ sealed abstract class JsVal {
 final case class JsNum(value: Number) extends JsVal {
   override def asNum = this
   def toJson(implicit config: JsVal.Config): String = {
-    value.toString match {
+    if (value == null) JsNull.toJson
+    else value.toString match {
       case asString @ ("NaN" | "Infinity" | "-Infinity") => s""""$asString""""
       case numString => numString
     }
@@ -81,7 +82,9 @@ final case class JsStr(value: String) extends JsVal {
     case "-Infinity" => JsNum.NegativeInfinity
     case _ => super.asNum
   }
-  def toJson(implicit config: JsVal.Config) = s""""${JsStr.escape(value, config.escapeSlashInStrings)}""""
+  def toJson(implicit config: JsVal.Config) =
+    if (value == null) JsNull.toJson
+    else s""""${JsStr.escape(value, config.escapeSlashInStrings)}""""
 }
 object JsStr {
   private[this] val (escapesInclSlash, escapesExclSlash) = {
@@ -122,13 +125,15 @@ final case class JsObj(props: Map[String, JsVal]) extends JsVal
 
   def this(props: (String, JsVal)*) = this(props.toMap)
   override def asObj = this
-  def toJson(implicit config: JsVal.Config) = props.iterator.map {
-    case (name, value) => s""""${JsStr.escape(name, config.escapeSlashInStrings)}":${value.toJson}"""
-  }.mkString("{", ",", "}")
-  def get(name: String): Option[JsVal] = props.get(name)
-  def apply(name: String): JsVal = props.getOrElse(name, JsUndefined)
-  def selectDynamic(name: String): JsVal = props.getOrElse(name, JsUndefined)
-  def iterator = props.iterator
+  def toJson(implicit config: JsVal.Config) =
+    if (props == null) JsNull.toJson
+    else props.iterator.map {
+      case (name, value) => s""""${JsStr.escape(name, config.escapeSlashInStrings)}":${value.toJson}"""
+    }.mkString("{", ",", "}")
+  def get(name: String): Option[JsVal] = if (props != null) props.get(name) else None
+  def apply(name: String): JsVal = if (props != null) props.getOrElse(name, JsUndefined) else JsUndefined
+  def selectDynamic(name: String): JsVal = apply(name)
+  def iterator = if (props != null) props.iterator else Iterator.empty
 }
 object JsObj {
   def apply(props: (String, JsVal)*): JsObj = new JsObj(props.toMap)
