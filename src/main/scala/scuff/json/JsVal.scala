@@ -285,11 +285,12 @@ private class Parser(
         pos += 1; parseLiteral("false"); JsBool.False
       case ch @ (',' | '}' | ']') => throwUnexpectedCharException(ch)
       case '0' =>
-        if (pos+1 < json.length) {
-          json.charAt(pos+1) match {
-            case ',' | '}' | ']' | ' ' | '\t' | '\r' | '\n' => pos += 1; JsNum.Zero
+        if (pos + 1 < json.length) {
+          json.charAt(pos + 1) match {
+            case ',' | '}' | ']' | ' ' | '\t' | '\r' | '\n' =>
+              pos += 1; JsNum.Zero
             case '.' => parseNumber()
-            case unexpected => throw new MalformedJSON(s"Numbers cannot start with 0, offset $pos")
+            case _ => throw new MalformedJSON(s"Numbers cannot start with 0, offset $pos")
           }
         } else {
           pos += 1

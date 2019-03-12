@@ -1,4 +1,3 @@
-import scala.collection.immutable.NumericRange
 import util.{ Random }
 import scala.math._
 import scala.concurrent.Future
