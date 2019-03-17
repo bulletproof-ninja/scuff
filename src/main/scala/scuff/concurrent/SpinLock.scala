@@ -14,16 +14,15 @@ final class SpinLock {
   @annotation.tailrec
   def apply[T](thunk: => T): T = {
     if (lock.compareAndSet(null, Thread.currentThread)) {
-      try {
-        thunk
-      } finally {
+      try thunk finally {
         lock.set(null)
       }
-    } else if (lock.get() eq Thread.currentThread) {
+    } else if (lock.get eq Thread.currentThread) {
       thunk
     } else {
       apply(thunk)
     }
   }
 
+  override def toString() = s"SpinLock(owner = ${lock.get})"
 }

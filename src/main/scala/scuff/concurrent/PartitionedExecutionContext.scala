@@ -113,9 +113,9 @@ final object PartitionedExecutionContext {
       threads(idx) = Threads.newSingleThreadExecutor(threadFactory, failureReporter)
     }
       def shutdownAll(exes: Seq[ExecutorService]): Future[Unit] =
-        Threads.newBlockingThread(
+        Threads.onBlockingThread(
             s"Awaiting $Name shutdown",
-            tg = Threads.newThreadGroup(Name, false, failureReporter)) {
+            tg = Threads.newThreadGroup(Name, false, reportFailure = failureReporter)) {
           exes.foreach(_.shutdown)
           exes.foreach { exe =>
             exe.awaitTermination(Long.MaxValue, TimeUnit.MILLISECONDS)

@@ -103,7 +103,7 @@ final class LockFreeExecutionContext private (
     activeThreads.getCount match {
       case 0 => Future successful Unit
       case _ =>
-        Threads.newBlockingThread(s"Awaiting ${classOf[LockFreeExecutionContext].getName} shutdown")(activeThreads.await)
+        Threads.onBlockingThread(s"Awaiting ${classOf[LockFreeExecutionContext].getName} shutdown")(activeThreads.await)
     }
   }
 

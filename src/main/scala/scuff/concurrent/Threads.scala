@@ -24,7 +24,7 @@ object Threads {
     def reportFailure(t: Throwable) = throw t
   }
 
-  private[this] val ScuffThreadGroup = newThreadGroup(getClass.getName, daemon = false, printStackTrace)
+  private[this] val ScuffThreadGroup = newThreadGroup(getClass.getName, daemon = false)
   final lazy val Blocking = {
     val exec = newCachedThreadPool(factory(s"${getClass.getName}.Blocking", ScuffThreadGroup))
     ExecutionContext.fromExecutor(exec, printStackTrace)
@@ -103,12 +103,12 @@ object Threads {
     exec
   }
 
-  def newBlockingThread[T](
+  def onBlockingThread[T](
       name: String, done: Promise[T] = Promise[T], tg: ThreadGroup = MainThreadGroup)(
-      blocking: => T): Future[T] = {
+      blockingThunk: => T): Future[T] = {
     val t = new Thread(tg, name) {
       override def run() = {
-        done complete Try(blocking)
+        done tryComplete Try(blockingThunk)
       }
     }
     t.start()
@@ -192,10 +192,11 @@ object Threads {
   def newThreadGroup(
       name: String,
       daemon: Boolean,
-      failureReporter: Throwable => Unit = printStackTrace) = {
-    val tg = new ThreadGroup(Threads.MainThreadGroup, name) {
+      parent: ThreadGroup = MainThreadGroup,
+      reportFailure: Throwable => Unit = printStackTrace) = {
+    val tg = new ThreadGroup(parent, name) {
       override def uncaughtException(t: Thread, e: Throwable): Unit = {
-        failureReporter(e)
+        reportFailure(e)
       }
     }
     tg.setDaemon(daemon)
@@ -210,7 +211,7 @@ object Threads {
     val tg = if (threadGroup != null) threadGroup else newThreadGroup(name, daemon = true)
     new ScuffThreadFactory(name, tg, tg, true)
   }
-  def newThreadFactory(threadGroup: ThreadGroup): ThreadFactory = {
+  def factory(threadGroup: ThreadGroup): ThreadFactory = {
     new ScuffThreadFactory(threadGroup.getName, threadGroup, threadGroup, threadGroup.isDaemon)
   }
 

@@ -54,22 +54,22 @@ trait AsyncStreamConsumer[-T, +R]
           toClassName(cls.getEnclosingClass)
         } else cls.getName
 
-    val completed: Future[Unit] =
-      error.get match {
-        case null if semaphore.tryAcquire(Int.MaxValue) => // Fast case
-          Future successful (())
-        case null => // Slow case
-          val instanceName = toString()
-          val className = toClassName()
-          Threads.newBlockingThread(s"Awaiting completion of $className: $instanceName") {
-            val timeout = completionTimeout
-            if (!semaphore.tryAcquire(Int.MaxValue, timeout.length, timeout.unit)) {
-              throw new TimeoutException(
-                s"Stream consumption in `$className` is still not finished, $timeout after stream completion, possibly due to either incomplete stream or incomplete state. Instance: $instanceName")
-            }
+    error.get match {
+      case null if semaphore.tryAcquire(Int.MaxValue) => // Fast case, all futures have completed
+        whenDone()
+      case null => // Slow case
+        val instanceName = toString()
+        val className = toClassName()
+        val aquired = Threads.onBlockingThread(s"Awaiting completion of $className: $instanceName") {
+          val timeout = completionTimeout
+          if (!semaphore.tryAcquire(Int.MaxValue, timeout.length, timeout.unit)) {
+            throw new TimeoutException(
+              s"Stream consumption in `$className` is still not finished, $timeout after stream completion, possibly due to either incomplete stream or incomplete state. Instance: $instanceName")
           }
-        case th => Future failed th
-      }
-    completed.flatMap(_ => whenDone())(Threads.PiggyBack)
+        }
+        aquired.flatMap(_ => whenDone)(Threads.PiggyBack)
+      case th => Future failed th
+    }
+
   }
 }
