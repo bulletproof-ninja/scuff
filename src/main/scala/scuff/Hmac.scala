@@ -74,7 +74,7 @@ object Hmac {
 
 private object HmacFunction {
   val macPools: Memoizer[(SecretKey, String, Option[AlgorithmParameterSpec]), ResourcePool[Mac]] = new Memoizer({
-    case (key, algo, spec) => new ResourcePool(newMac(key, algo, spec), 1, algo)
+    case (key, algo, spec) => ResourcePool(newMac(key, algo, spec), minResources = 1, description = algo)
   })
   private[this] def newMac(secretKey: SecretKey, algo: String, spec: Option[AlgorithmParameterSpec]): Mac = {
     val mac = Mac.getInstance(algo)

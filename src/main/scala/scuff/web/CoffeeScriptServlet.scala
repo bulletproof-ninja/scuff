@@ -6,10 +6,10 @@ import HttpHeaders._
 import scuff.js._
 import java.net.URL
 import scuff.concurrent.ResourcePool
-import scala.util.Try
 import scala.concurrent.duration._
 import javax.script._
 import java.util.concurrent.ScheduledFuture
+import scala.util.control.NonFatal
 
 private object CoffeeScriptServlet {
   import CoffeeScriptCompiler._
@@ -28,10 +28,10 @@ private object CoffeeScriptServlet {
 }
 
 /**
-  * Perform on-the-fly conversion of CoffeeScript to JavaScript.
-  *
-  * Use with [[scuff.web.Ice]] for Iced CoffeeScript.
-  */
+ * Perform on-the-fly conversion of CoffeeScript to JavaScript.
+ *
+ * Use with [[scuff.web.Ice]] for Iced CoffeeScript.
+ */
 abstract class CoffeeScriptServlet extends HttpServlet {
 
   private lazy val ScriptEngineMgr = new ScriptEngineManager
@@ -39,14 +39,11 @@ abstract class CoffeeScriptServlet extends HttpServlet {
   protected def engineName = "javascript"
   protected def newJavascriptEngine() = ScriptEngineMgr.getEngineByName(engineName)
   protected def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.DefaultConfig(newJavascriptEngine _))
-  private[this] val compilerPool = new ResourcePool[CoffeeScriptCompiler](createCompiler) {
-    // Don't discard compiler on exception, it still works :-)
-    override def use[A](thunk: CoffeeScriptCompiler => A): A = {
-      val result = super.use { compiler =>
-        Try(thunk(compiler))
-      }
-      result.get
+  private[this] val compilerPool = {
+    implicit val lifecycle = ResourcePool.onEviction(onCompilerTimeout) {
+      case NonFatal(_) => false
     }
+    ResourcePool(createCompiler)
   }
 
   private def createCompiler = {
@@ -57,18 +54,18 @@ abstract class CoffeeScriptServlet extends HttpServlet {
     comp
   }
   private def onCompilerTimeout(comp: CoffeeScriptCompiler): Unit = {
-    log(s"$comp instance removed from pool. ${compilerPool.size} remaining.")
+    log(s"$comp instance removed from pool. ${compilerPool.availableCount} available.")
   }
 
-  @volatile private var pruner: Option[ScheduledFuture[_]] = None
+  @volatile private var eviction: Option[ScheduledFuture[_]] = None
 
   override def init(): Unit = {
     super.init()
-    this.pruner = Some(compilerPool.startPruning(120.minutes, onCompilerTimeout))
+    this.eviction = Some(compilerPool.startEviction(120.minutes))
   }
 
   override def destroy(): Unit = {
-    pruner.foreach(_.cancel(true))
+    eviction.foreach(_.cancel(true))
   }
 
   protected def coffeeCompilation(coffeeScript: String, filename: String): String =
@@ -87,10 +84,10 @@ abstract class CoffeeScriptServlet extends HttpServlet {
   }
 
   /**
-    * Max age, in seconds.
-    * @param req The HTTP request.
-    * Passed for querying, in case max-age depends on the request.
-    */
+   * Max age, in seconds.
+   * @param req The HTTP request.
+   * Passed for querying, in case max-age depends on the request.
+   */
   protected def maxAge(req: HttpServletRequest): Int
 
   private def respond(req: HttpServletRequest, res: HttpServletResponse): Unit = {

@@ -56,14 +56,9 @@ class TestResourcePool {
       expired.set(true)
     }
   }
-  class SomeResourcePool extends ResourcePool(new SomeResource) {
-    override def onCheckout(r: SomeResource) = {
-      r.touch = System.currentTimeMillis()
-    }
-    override def onReturn(r: SomeResource): Unit = {
-      r.touch = System.currentTimeMillis()
-    }
-  }
+  implicit val lifecycle = ResourcePool
+    .onCheckoutReturn[SomeResource](_.touch = System.currentTimeMillis, _.touch = System.currentTimeMillis)
+  class SomeResourcePool extends UnboundedResourcePool(new SomeResource)
 
   private def keepAlive(exe: Executor): Unit = {
     val pool = new SomeResourcePool
@@ -113,4 +108,70 @@ class TestResourcePool {
   def `keep alive w/single thread`(): Unit = {
     keepAlive(Threads.newSingleRunExecutor(Threads.factory("Heater")))
   }
+
+  @Test(expected = classOf[IllegalArgumentException])
+  def `bounded pool min > max`(): Unit = {
+    val pool = new BoundedResourcePool(new SomeResource, 3, 2)
+    fail(s"Should have failed: $pool")
+  }
+
+  @Test(expected = classOf[IllegalArgumentException])
+  def `bounded pool max = 0`(): Unit = {
+    val pool = new BoundedResourcePool(new SomeResource, 0, 0)
+    fail(s"Should have failed: $pool")
+  }
+
+  @Test
+  def `bounded pool`(): Unit = {
+    val pool = new BoundedResourcePool(new SomeResource, 2, 4)
+    assertEquals(2, pool.availableCount)
+    assertEquals(2, pool.activeCount)
+    pool.use { _ =>
+      assertEquals(1, pool.availableCount)
+      assertEquals(2, pool.activeCount)
+      pool.use { _ =>
+        assertEquals(0, pool.availableCount)
+        assertEquals(2, pool.activeCount)
+        pool.use { _ =>
+          assertEquals(0, pool.availableCount)
+          assertEquals(3, pool.activeCount)
+          pool.use { _ =>
+            assertEquals(0, pool.availableCount)
+            assertEquals(4, pool.activeCount)
+            try pool.use(_ => ()) catch {
+              case ResourcePool.Exhausted(max, _) => assertEquals(4, max)
+            }
+            assertEquals(0, pool.availableCount)
+            assertEquals(4, pool.activeCount)
+          }
+          assertEquals(1, pool.availableCount)
+          assertEquals(4, pool.activeCount)
+        }
+        assertEquals(2, pool.availableCount)
+        assertEquals(4, pool.activeCount)
+      }
+      assertEquals(3, pool.availableCount)
+      assertEquals(4, pool.activeCount)
+    }
+    assertEquals(4, pool.availableCount)
+    assertEquals(4, pool.activeCount)
+    try pool.use(_ => ???) catch {
+      case _: Throwable =>
+        assertEquals(3, pool.availableCount)
+        assertEquals(3, pool.activeCount)
+        pool.use { _ =>
+          assertEquals(2, pool.availableCount)
+          assertEquals(3, pool.activeCount)
+        }
+    }
+    val drained = pool.drain()
+    assertEquals(3, drained.size)
+    assertEquals(0, pool.availableCount)
+    assertEquals(0, pool.activeCount)
+    pool.use { _ =>
+      assertEquals(0, pool.availableCount)
+      assertEquals(1, pool.activeCount)
+    }
+  }
+
 }

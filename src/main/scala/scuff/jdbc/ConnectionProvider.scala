@@ -4,19 +4,20 @@ import java.sql.{ Connection, SQLWarning }
 import scala.concurrent.blocking
 import scala.util.Try
 import javax.sql.{ DataSource, ConnectionPoolDataSource }
-import scuff.concurrent.ResourcePool
+
 import java.sql.SQLException
 import java.sql.SQLTransientException
 import java.sql.SQLRecoverableException
+import scuff.concurrent.ResourcePool
 
 /**
-  * Generic trait for providing a JDBC connection.
-  * By default, any warnings will get thrown. This
-  * behavior can be modified by either fixing the
-  * cause of the warning(s), which is the recommended
-  * approach, or, if a fix is infeasible, overriding the
-  * `processWarnings` method.
-  */
+ * Generic trait for providing a JDBC connection.
+ * By default, any warnings will get thrown. This
+ * behavior can be modified by either fixing the
+ * cause of the warning(s), which is the recommended
+ * approach, or, if a fix is infeasible, overriding the
+ * `processWarnings` method.
+ */
 trait ConnectionProvider {
   protected def getConnection: Connection
   protected def prepare(conn: Connection, readOnly: Boolean): Connection = {
@@ -24,6 +25,7 @@ trait ConnectionProvider {
     conn.setAutoCommit(readOnly)
     conn
   }
+  protected def maxConnections: Int = Runtime.getRuntime.availableProcessors * 4
   protected def getConnection(readOnly: Boolean): Connection = prepare(getConnection, readOnly)
   protected def processWarnings(warnings: SQLWarning): Unit = throw warnings
   protected def useConnection[R](readOnly: Boolean)(thunk: Connection => R): R = blocking {
@@ -59,17 +61,19 @@ trait ConnectionPoolDataSourceConnection extends ConnectionProvider {
 }
 
 /**
-  *  Connection provider that uses a {{scuff.concurrent.ResourcePool}}
-  *  to re-use connections.
-  *  Can be used as-is, or `def newResourcePool` can be overridden for custom
-  *  pool behavior, or `def pool` can be overridden to use an existing pool.
-  */
+ *  Connection provider that uses a {{scuff.concurrent.ResourcePool}}
+ *  to re-use connections.
+ *  Can be used as-is, or `def newResourcePool` can be overridden for custom
+ *  pool behavior, or `def pool` can be overridden to use an existing pool.
+ */
 trait ResourcePoolConnection extends ConnectionProvider {
   protected def minSize = 1
   protected def name = getClass.getSimpleName
-  private[this] lazy val _pool = newResourcePool(getConnection)
-  protected def newResourcePool(init: => Connection): ResourcePool[Connection] =
-    new ResourcePool(init, minSize, name)
+  protected def lifecycle: ResourcePool.Lifecycle[Connection]
+  private[this] lazy val _pool = newResourcePool(getConnection, lifecycle)
+  protected def newResourcePool(
+      init: => Connection, lifecycle: ResourcePool.Lifecycle[Connection]): ResourcePool[Connection] =
+    new JdbcConnectionPool(init, minSize, maxConnections, name)(lifecycle)
   protected def pool: ResourcePool[Connection] = _pool
   override protected def useConnection[R](readOnly: Boolean)(thunk: Connection => R): R =
     pool.use { conn =>
@@ -78,16 +82,19 @@ trait ResourcePoolConnection extends ConnectionProvider {
 }
 
 /**
-  *  Connection provider that uses two {{scuff.concurrent.ResourcePool}}s,
-  *  for keeping reads and writes separate.
-  */
+ *  Connection provider that uses two {{scuff.concurrent.ResourcePool}}s,
+ *  for keeping reads and writes separate.
+ */
 trait DualResourcePoolConnection extends ConnectionProvider {
   protected def minSize = 1
   protected def name = getClass.getSimpleName
-  private[this] lazy val _readPool = newResourcePool(readOnly = true, super.getConnection(readOnly = true))
-  private[this] lazy val _writePool = newResourcePool(readOnly = false, super.getConnection(readOnly = false))
-  protected def newResourcePool(readOnly: Boolean, init: => Connection): ResourcePool[Connection] =
-    new ResourcePool(init, minSize, s"$name, ${if (readOnly) "reads" else "writes"}")
+  protected def lifecycle: ResourcePool.Lifecycle[Connection]
+  private[this] lazy val _readPool = newResourcePool(readOnly = true, super.getConnection(readOnly = true), lifecycle)
+  private[this] lazy val _writePool = newResourcePool(readOnly = false, super.getConnection(readOnly = false), lifecycle)
+  protected def newResourcePool(
+      readOnly: Boolean, init: => Connection,
+      lifecycle: ResourcePool.Lifecycle[Connection]): ResourcePool[Connection] =
+    new JdbcConnectionPool(init, minSize, maxConnections, s"$name, ${if (readOnly) "reads" else "writes"}")(lifecycle)
   protected def readPool: ResourcePool[Connection] = _readPool
   protected def writePool: ResourcePool[Connection] = _writePool
   override protected def useConnection[R](readOnly: Boolean)(thunk: Connection => R): R = {
@@ -100,9 +107,10 @@ trait Retry extends ConnectionProvider {
 
   protected def retryCount: Int
 
-  protected def shouldRetry(e: SQLException): Boolean =
-    e.isInstanceOf[SQLTransientException] ||
-      e.isInstanceOf[SQLRecoverableException]
+  protected def shouldRetry(e: SQLException): Boolean = e match {
+    case _: SQLTransientException | _: SQLRecoverableException => true
+    case _ => false
+  }
 
   final override protected def useConnection[R](readOnly: Boolean)(thunk: Connection => R): R = {
     tryThunk(readOnly, retryCount, thunk)
