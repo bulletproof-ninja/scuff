@@ -30,7 +30,9 @@ final case class JsNum(value: Number) extends JsVal {
     if (value == null) JsNull.toJson
     else value.toString match {
       case asString @ ("NaN" | "Infinity" | "-Infinity") => s""""$asString""""
-      case numString => numString
+      case numString =>
+        if (numString endsWith ".0") numString.substring(0, numString.length - 2)
+        else numString
     }
   }
   def toByte = value.byteValue
@@ -167,6 +169,9 @@ object JsVal {
 
   implicit def toJsVal(str: String): JsVal = if (str == null) JsNull else JsStr(str)
   implicit def toJsVal(num: java.lang.Number): JsVal = if (num == null) JsNull else JsNum(num)
+  implicit def toJsVal(num: Long): JsVal = JsNum(num)
+  implicit def toJsVal(num: Double): JsVal = JsNum(num)
+  implicit def toJsVal(num: Float): JsVal = JsNum(num)
   implicit def toJsVal(b: Boolean): JsVal = if (b) JsBool.True else JsBool.False
   implicit def toJsVal(m: Map[String, Any]): JsVal = if (m == null) JsNull else JsObj(m.mapValues(JsVal(_)).toMap)
   implicit def toJsVal(a: Iterable[Any]): JsVal = if (a == null) JsNull else JsArr(a.iterator.map(JsVal(_)).toSeq: _*)

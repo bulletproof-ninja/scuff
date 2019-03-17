@@ -376,4 +376,15 @@ class TestJson {
     }
   }
 
+  @Test
+  def `implicit conversion`(): Unit = {
+    import JsVal._
+    assertEquals("\"hello\"", "hello".toJson)
+    assertEquals("45", 45f.toJson)
+    assertEquals("42", 42.000.toJson)
+    assertEquals("123.456", BigDecimal("123.456").toJson)
+    assertEquals("123.45600", BigDecimal("123.45600").toJson)
+    assertEquals("123.000", BigDecimal("123.000").toJson)
+  }
+
 }
