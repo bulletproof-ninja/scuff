@@ -106,4 +106,11 @@ class TestNumbers {
     assertEquals(-3987065, "abc-3987065/".unsafeInt(Numbers.NonDigit, offset = 3))
   }
 
+  @Test
+  def fibonnaci(): Unit = {
+    Numbers.fibonacci.foreach { n =>
+      println(n)
+      assertTrue(n >= 0)
+    }
+  }
 }

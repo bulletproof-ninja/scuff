@@ -125,4 +125,23 @@ object Numbers {
     }
   }
 
+  /** Fibonacci sequence that stops before overflowing. */
+  def fibonacci: Iterable[Long] = new Iterable[Long] {
+    def iterator: Iterator[Long] = overflowing.takeWhile(_ >= 0)
+    private def overflowing = new Iterator[Long] {
+      var prev0 = 0L
+      var prev1 = 0L
+      def hasNext = true
+      def next = {
+        val n = prev0 + prev1
+        if (n == 0) prev0 = 1
+        else {
+          prev0 = prev1
+          prev1 = n
+        }
+        n
+      }
+    }
+
+  }
 }
