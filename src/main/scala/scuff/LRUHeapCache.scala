@@ -11,7 +11,7 @@ private object LRUHeapCache {
 
 /**
   * Fully thread-safe LRU cache implementation that relies on a
-  * [[java.util.concurrent.locks.ReadWriteLock]] for concurrency
+  * `java.util.concurrent.locks.ReadWriteLock` for concurrency
   * control. All time-to-live (ttl) variables are expected to be
   * in seconds.
   * NOTICE: Objects are stored and returned as-is. If they are mutable,

@@ -4,8 +4,8 @@ import java.util.Date
 import java.text.DateFormat
 
 /**
- * Immutable extension of [[java.util.Date]].
- * Throws [[UnsupportedOperationException]] if accessing any mutating
+ * Immutable extension of `java.util.Date`.
+ * Throws `UnsupportedOperationException` if accessing any mutating
  * method.
  */
 final class Timestamp private (time: Long, toStr: String) extends Date(time) {

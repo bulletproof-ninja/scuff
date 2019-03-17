@@ -6,7 +6,7 @@ import java.util.concurrent.locks.ReentrantLock
 /**
   * Class that guarantees exactly one instance created per
   * argument (based on `equals` equality).
-  * NOTICE: [[scala.collection.concurrent.Map#getOrElseUpdate]]
+  * NOTICE: `scala.collection.concurrent.Map.getOrElseUpdate`
   * can provide similar behavior, but cannot guarantee a single
   * instance per key, due to inherent race conditions.
   */

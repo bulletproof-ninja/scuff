@@ -19,7 +19,7 @@ trait MailRoom {
    * @param subject The email header
    * @param body The email body
    * @param toAll The recipient(s)
-   * @throws MessagingException If email could not be sent
+   * @throws javax.mail.MessagingException If email could not be sent
    */
   @throws(classOf[MessagingException])
   def send(from: InternetAddress, subject: String, body: Document, toAll: Iterable[InternetAddress], attachments: Attachment*): Unit
@@ -31,7 +31,7 @@ trait MailRoom {
    * @param body The email body
    * @param to The recipient
    * @param toMore More recipients
-   * @throws MessagingException If email could not be sent
+   * @throws javax.mail.MessagingException If email could not be sent
    */
   @throws(classOf[MessagingException])
   final def send(from: InternetAddress, subject: String, body: Document, to: InternetAddress, toMore: InternetAddress*): Unit = {

@@ -7,13 +7,28 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.TimeoutException
 import scala.util.control.NonFatal
 
+/**
+ * Stream consumer extension that delegates
+ * `onNext(T): Unit` to `apply(T): Future[_]` and
+ * returns the final result on `onDone(): Future[R]`
+ * through calling `whenDone()` when all `apply(T)`
+ * futures have completed.
+ */
 trait AsyncStreamConsumer[-T, +R]
   extends StreamConsumer[T, Future[R]] {
   self: (T => Future[_]) =>
 
-  /** Max. allowed processing time to completion after `onDone()`. */
+  /**
+   * Max. allowed processing time to completion of
+   * all `Future`s returned from `this.apply(T)`
+   * (which is invoked from `onNext(T)`).
+   */
   protected def completionTimeout: FiniteDuration
-  /** Called when processing is fully completed. */
+  /**
+   * Called when processing is fully completed, i.e.
+   * all `Future`s returned from `this.apply(T)` has
+   * completed.
+   */
   protected def whenDone(): Future[R]
 
   private[this] val semaphore = new java.util.concurrent.Semaphore(Int.MaxValue)

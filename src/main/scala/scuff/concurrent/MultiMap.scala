@@ -64,7 +64,7 @@ class MultiMap[K, V] extends Iterable[(K, Set[V])] {
 
   /**
     *  Add value for key.
-    *  @returns `true` if added, `false` if already exists
+    *  @return `true` if added, `false` if already exists
     */
   def add(key: K, value: V): Boolean = {
       @tailrec def tryAdd(): Boolean = {
@@ -99,7 +99,7 @@ class MultiMap[K, V] extends Iterable[(K, Set[V])] {
 
   /**
     *  Remove value for key.
-    *  @returns `true` if removed, `false` if non-existent
+    *  @return `true` if removed, `false` if non-existent
     */
   def remove(key: K, value: V): Boolean = {
       @tailrec def tryRemove(): Boolean = {

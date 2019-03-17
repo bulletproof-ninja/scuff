@@ -119,7 +119,7 @@ object Password {
 
   /**
     * Configuration.
-    * @param algorithm The digest algorithm. This string must be understood by [[java.security.MessageDigest]]
+    * @param algorithm The digest algorithm. This string must be understood by `java.security.MessageDigest`
     * @param saltLength The length of the random salt generated. Can be 0 for no salt.
     * @param work Defines how to digest iteratively. Can be either a fixed number (at least 1),
     * or a minimum duration (don't go overboard here). Using a duration will be adaptive to the hardware
@@ -133,13 +133,13 @@ object Password {
       case Right(duration) => require(duration.isFinite, "Must be a finite duration: " + duration)
     }
     /**
-      * @param algorithm The digest algorithm. This string must be understood by [[java.security.MessageDigest]]
+      * @param algorithm The digest algorithm. This string must be understood by `java.security.MessageDigest`
       * @param saltLength The length of the random salt generated. Can be 0 for no salt.
       * @param workFactor Number of times to iterate the digest. Must be at least 1.
       */
     def this(algorithm: String, saltLength: Int, workFactor: Int) = this(algorithm, saltLength, Left(workFactor))
     /**
-      * @param algorithm The digest algorithm. This string must be understood by [[java.security.MessageDigest]]
+      * @param algorithm The digest algorithm. This string must be understood by `java.security.MessageDigest`
       * @param saltLength The length of the random salt generated. Can be 0 for no salt.
       * @param workDuration Minimum amount of time spent on iterative digestion
       */

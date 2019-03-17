@@ -46,7 +46,7 @@ trait Cache[K, V] {
 
   /**
    * Shutdown cache. This will permanently disable the cache and purge all entries.
-   * Further attempts to use the cache will result in a [[IllegalStateException]].
+   * Further attempts to use the cache will result in a `IllegalStateException`.
    */
   @throws[IllegalArgumentException]
   def shutdown(): Unit

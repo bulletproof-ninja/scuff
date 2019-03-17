@@ -36,7 +36,7 @@ import collection.JavaConverters._
   *
   * Synchronization: This class is thread-safe and can be used concurrently.
   *
-  * NOTICE: Unlike [[java.text.MessageFormat]] this class expects a backtick (`````),
+  * NOTICE: Unlike `java.text.MessageFormat` this class expects a backtick (`````),
   * not apostrophe, for escaping text inside the curly brackets formatting.
   *
   * @see java.text.MessageFormat
@@ -97,10 +97,10 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Iter
     * @param key The lookup key
     * @param parms The optional formatting parameters
     * @return The string, formatted if applicable
-    * @throws MissingResourceException if key is unknown
-    * @throws MissingFormatArgumentException
+    * @throws java.util.MissingResourceException if key is unknown
+    * @throws java.util.MissingFormatArgumentException
     * if the number of supplied parameters do not match the expected number of parameters
-    * @throws IllegalArgumentException if the parameters otherwise fail to format the message
+    * @throws java.lang.IllegalArgumentException if the parameters otherwise fail to format the message
     */
   def apply(key: String, parms: Any*): String =
     this.get(key, parms: _*).getOrElse {
