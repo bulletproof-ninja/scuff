@@ -9,7 +9,8 @@ import java.math.MathContext
 import java.util.regex.Pattern
 import java.util.regex.Matcher
 import scala.reflect.{ ClassTag, classTag }
-import language.{ existentials, dynamics }
+import language.dynamics
+import java.beans.Introspector
 
 sealed abstract class JsVal {
   final def getOrElse[JS <: JsVal: ClassTag](orElse: => JS): JS =
@@ -198,42 +199,61 @@ object JsVal {
       case Left(value) => JsVal(value, mapper)
     }
     case i: Iterable[_] => JsArr(i.iterator.map(JsVal(_, mapper)).toSeq: _*)
-    case cc: (AnyRef with Product) => JsObj(intoMap(cc, mapper))
     case m: java.util.Map[_, _] => JsObj {
       m.asScala.iterator.filterNot(_._2 == JsUndefined).map {
         case (key, value) => String.valueOf(key) -> JsVal(value, mapper)
       }.toMap
     }
     case i: java.lang.Iterable[_] => JsArr(i.iterator.asScala.map(JsVal(_, mapper)).toSeq: _*)
+    case ref: AnyRef => JsObj(intoMap(ref, mapper))
     case other => JsStr(String valueOf other)
   }
-  private def intoMap(cc: AnyRef with Product, mapper: PartialFunction[Any, Any]): Map[String, JsVal] = {
+  private def intoMap(cc: AnyRef, mapper: PartialFunction[Any, Any]): Map[String, JsVal] = {
     val methods = getters.get(cc.getClass)
     methods.foldLeft(Map.empty[String, JsVal]) {
       case (map, method) => JsVal(method invoke cc, mapper) match {
         case JsNull => map
-        case value => map.updated(method.name, value)
+        case value => map.updated(method.propName, value)
       }
     }
   }
 
-  private case class MethodDef(returnType: Class[_], name: String)(method: Method) {
-    def this(method: Method) = this(method.getReturnType, method.getName)(method)
+  private class MethodDef(returnType: Class[_], val propName: String, private val method: Method) {
+    def this(method: Method) = this(method.getReturnType, method.getName, method)
+    def this(method: Method, name: String) = this(method.getReturnType, name, method)
     def invoke(ref: AnyRef): Any = method invoke ref
+    override def toString() = s"$propName = $method"
+    override def hashCode = method.getName.hashCode ^ method.getReturnType.hashCode
+    override def equals(any: Any): Boolean = any match {
+      case that: MethodDef =>
+        this.method.getName == that.method.getName &&
+        this.method.getReturnType == that.method.getReturnType
+      case _ => false
+    }
   }
   private[this] val getters = new ClassValue[List[MethodDef]] {
     private[this] val excludeClasses = List(classOf[Object], classOf[Product])
-    private[this] val excludeMethods = excludeClasses.flatMap(this.get).toSet
+    private[this] lazy val excludeMethods = excludeClasses.flatMap(this.get).toSet
 
     def computeValue(cls: Class[_]) = {
+      val beanMethods: Set[MethodDef] = if (excludeClasses contains cls) Set.empty
+      else {
+        Introspector.getBeanInfo(cls)
+          .getPropertyDescriptors
+          .flatMap { pd =>
+            Option(pd.getReadMethod)
+              .map(new MethodDef(_, pd.getName))
+          }.filterNot(excludeMethods).toSet
+      }
+
       val methods = cls.getMethods
         .filter(_.getParameterCount == 0)
         .filter(_.getReturnType != Void.TYPE)
         .filterNot(_.getName contains "$")
         .filterNot(m => Modifier isStatic m.getModifiers)
-        .map(new MethodDef(_))
-      if (excludeClasses contains cls) methods.toList
-      else methods.toList.filterNot(excludeMethods)
+        .map(new MethodDef(_)).filterNot(beanMethods) ++ beanMethods
+      if (excludeClasses contains cls) methods.toList // Methods from excluded classes themselves
+      else methods.filterNot(excludeMethods).toList // Exclude methods from excluded classes
     }
   }
 

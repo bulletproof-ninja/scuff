@@ -387,4 +387,12 @@ class TestJson {
     assertEquals("123.000", BigDecimal("123.000").toJson)
   }
 
+  @Test
+  def `javabeans`(): Unit = {
+    class Bean(name: String) {
+      def getName: String = name
+    }
+    assertEquals("""{"name":"Hank"}""", JsVal(new Bean("Hank")).toJson)
+  }
+
 }
