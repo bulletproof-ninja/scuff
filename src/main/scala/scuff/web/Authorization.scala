@@ -102,7 +102,7 @@ trait LoginPageForwarder extends Filter {
   private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain): Unit = {
     if (!res.isCommitted) res.getStatus match {
       case SC_UNAUTHORIZED =>
-        if (req.getMethod().equalsIgnoreCase("GET") && AcceptHeader(req).forall(_.acceptsAny(acceptTypes))) {
+        if (req.getMethod().equalsIgnoreCase("GET") && AcceptHeader(req).forall(_.acceptsAnyOf(acceptTypes))) {
           res.setStatus(SC_FOUND)
           req.getRequestDispatcher(loginPage).forward(req, res)
         } else {
