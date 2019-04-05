@@ -3,6 +3,7 @@ package scuff
 import org.junit._
 import org.junit.Assert._
 import java.io.File
+import java.nio.charset.Charset
 
 class TestProps {
   @Test(expected = classOf[IllegalStateException])
@@ -57,6 +58,26 @@ class TestProps {
       case e: IllegalStateException =>
         println(e.getMessage)
         assertTrue(e.getMessage.contains(file.getName))
+    }
+  }
+
+  @Test
+  def typed_values(): Unit = {
+    val FileEncoding = Props.Key("file.encoding")(Charset.forName)
+    val ArchDataModel = Props.Key("sun.arch.data.model")(_.toInt)
+    SysProps.optional(FileEncoding).foreach { enc =>
+      assertEquals(Charset.forName(enc.name), enc)
+    }
+    SysProps.optional(ArchDataModel).foreach { dm =>
+      assertEquals(0, dm % 8)
+    }
+    val Number = Props.Key("number")(_.toInt)
+    val testProps = Props("test props", "number" -> "234b23")
+    try { testProps.required(Number); fail("Should fail on invalid number") } catch {
+      case arg: IllegalArgumentException =>
+        assertTrue(arg.getMessage contains "\"number\"")
+        assertTrue(arg.getMessage contains "\"234b23\"")
+        assertTrue(arg.getMessage contains "int")
     }
   }
 
