@@ -4,6 +4,7 @@ import scala.concurrent.Future
 import scala.util.{ Failure, Success, Try }
 import scala.util.control.NonFatal
 import java.math.MathContext
+import scala.reflect.ClassTag
 
 package object scuff {
 
@@ -11,6 +12,11 @@ package object scuff {
 
   type TimedCache[K, V] = Cache[K, V] with Expiry[K, V]
   type Serializer[T] = Codec[T, Array[Byte]]
+
+  implicit class ScuffOption[T](private val opt: Option[T]) extends AnyVal {
+    def collectAs[S <: T: ClassTag]: Option[S] = opt.collect { case s: S => s }
+    def collectOrElse[S <: T: ClassTag](orElse: => S): S = collectAs[S] getOrElse orElse
+  }
 
   implicit class ScuffString(private val str: String) extends AnyVal {
     def optional: Option[String] = if (str == null || str.length == 0) None else Some(str)
