@@ -59,11 +59,6 @@ package object scuff {
     }
   }
 
-  implicit class ScuffAny[A](private val any: A) extends AnyVal {
-    def optional(some: Boolean): Option[A] = if (some) Option(any) else None
-    def optional(f: A => Boolean): Option[A] = if (f(any)) Some(any) else None
-  }
-
   implicit class ScuffMap[A, B](private val map: Map[A, B]) extends AnyVal {
     def merge(other: Map[A, B])(collisionHandler: (B, B) => B): Map[A, B] =
       if (other.isEmpty) this.map
