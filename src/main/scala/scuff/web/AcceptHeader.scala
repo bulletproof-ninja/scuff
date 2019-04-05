@@ -6,8 +6,8 @@ import collection.immutable.Seq
 
 final class AcceptHeader(acceptTypes: Seq[MediaType]) {
   require(acceptTypes.nonEmpty, "Cannot have an empty Accept header")
-  private[this] val hasMatchAny = acceptTypes.exists(mt => mt.primaryType == "*")
-  private def matchesTypes(specific: MediaType) = {
+
+  private def matches(specific: MediaType): Boolean = {
     val pruned = specific.pruned
     acceptTypes.exists { mt =>
       mt.primaryType == specific.primaryType &&
@@ -31,9 +31,25 @@ final class AcceptHeader(acceptTypes: Seq[MediaType]) {
       weigthed.sorted(AcceptHeader.Ordering).map(_._2)
     }
   }
-  def accepts(specific: String): Boolean = hasMatchAny || accepts(MediaType(specific))
-  def accepts(specific: MediaType): Boolean = hasMatchAny || matchesTypes(specific)
-  def acceptsAny(specifics: Iterable[MediaType]): Boolean = hasMatchAny || specifics.exists(matchesTypes)
+
+  def hasExactly(contentType: String): Boolean = hasExactly(MediaType(contentType))
+  def hasExactly(mediaType: MediaType): Boolean = {
+    val primary = mediaType.primaryType
+    val sub = mediaType.subType
+    acceptTypes.exists { mt =>
+      mt.primaryType == primary &&
+        mt.subType == sub
+    }
+  }
+
+  /** Accepts anything, i.e. is primary type `*`? */
+  val acceptsAnything = acceptTypes.exists(mt => mt.primaryType == "*")
+  /** Accepts media type? */
+  def accepts(specific: String): Boolean = accepts(MediaType(specific))
+  /** Accepts media type? */
+  def accepts(specific: MediaType): Boolean = acceptsAnything || matches(specific)
+  /** Accepts any of the media types? */
+  def acceptsAnyOf(specifics: Iterable[MediaType]): Boolean = acceptsAnything || specifics.exists(matches)
 
   override def toString(): String = acceptTypes.mkString(", ")
 }

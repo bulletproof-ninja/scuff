@@ -10,14 +10,16 @@ class AcceptHeaderTest {
     val acceptTypes = Set(MediaType("text/html"))
     assertTrue(AcceptHeader("text/html").get.accepts("text/html"))
     assertTrue(AcceptHeader("*/*").get.accepts("text/html"))
+    assertFalse(AcceptHeader("*/*").get.hasExactly("text/html"))
     assertTrue(AcceptHeader("text/*").get.accepts("text/html"))
+    assertFalse(AcceptHeader("text/*").get.hasExactly("text/html"))
     assertFalse(AcceptHeader("image/*").get.accepts("text/html"))
     assertFalse(AcceptHeader("text/*").get.accepts("image/jpeg"))
     assertTrue(AcceptHeader("*/*").get.accepts("image/jpeg"))
-    assertTrue(AcceptHeader("*/*").forall(h => h.acceptsAny(acceptTypes)))
-    assertTrue(AcceptHeader("text/*").forall(h => h.acceptsAny(acceptTypes)))
-    assertFalse(AcceptHeader("image/*").forall(h => h.acceptsAny(acceptTypes)))
-    assertTrue(AcceptHeader("").forall(h => h.acceptsAny(acceptTypes)))
+    assertTrue(AcceptHeader("*/*").forall(_.acceptsAnyOf(acceptTypes)))
+    assertTrue(AcceptHeader("text/*").forall(_.acceptsAnyOf(acceptTypes)))
+    assertFalse(AcceptHeader("image/*").forall(_.acceptsAnyOf(acceptTypes)))
+    assertTrue(AcceptHeader("").forall(_.acceptsAnyOf(acceptTypes)))
   }
 
   @Test
@@ -78,7 +80,7 @@ class AcceptHeaderTest {
     assertFalse(request.accepts("application/json"))
     request.withParm(expected, "v", _.toInt).toList.sortBy(_._2).reverse.headOption match {
       case None => fail("Should match")
-      case Some((mt, version)) =>
+      case Some((_, version)) =>
         assertEquals(42, version)
     }
   }
