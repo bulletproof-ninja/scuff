@@ -3,14 +3,14 @@ package scuff.json
 import java.lang.reflect.Modifier
 import java.lang.reflect.Method
 
-import collection.JavaConverters._
-import java.math.BigDecimal
-import java.math.MathContext
-import java.util.regex.Pattern
-import java.util.regex.Matcher
-import scala.reflect.{ ClassTag, classTag }
 import language.dynamics
+import language.implicitConversions
+
+import collection.JavaConverters._
+import java.math.MathContext
+import scala.reflect.{ ClassTag, classTag }
 import java.beans.Introspector
+import java.math.{ BigInteger => JBigInt, BigDecimal => JBigDec }
 
 sealed abstract class JsVal {
   final def getOrElse[JS <: JsVal: ClassTag](orElse: => JS): JS =
@@ -25,7 +25,7 @@ sealed abstract class JsVal {
   def asObj: JsObj = wrongType(classOf[JsObj])
   def asArr: JsArr = wrongType(classOf[JsArr])
 }
-final case class JsNum(value: Number) extends JsVal {
+final case class JsNum private (value: Number) extends JsVal {
   override def asNum = this
   def toJson(implicit config: JsVal.Config): String = {
     if (value == null) JsNull.toJson
@@ -43,29 +43,48 @@ final case class JsNum(value: Number) extends JsVal {
   def toFloat = value.floatValue
   def toDouble = value.doubleValue
   def toBigInt: BigInt = value match {
-    case bd: java.math.BigDecimal => BigInt(bd.toBigInteger)
+    case bd: JBigDec => BigInt(bd.toBigInteger)
     case bi: java.math.BigInteger => BigInt(bi)
-    case bd: scala.math.BigDecimal => bd.toBigInt
+    case bd: scala.BigDecimal => bd.toBigInt
     case bi: BigInt => bi
     case num => BigInt(num.toString)
   }
   def toBigDec(): scala.BigDecimal = toBigDec(null)
   def toBigDec(mc: MathContext): scala.BigDecimal = value match {
-    case bd: java.math.BigDecimal =>
-      if (mc == null) scala.BigDecimal(bd)
-      else new scala.math.BigDecimal(bd, mc)
-    case bi: java.math.BigInteger =>
-      if (mc == null) scala.BigDecimal(new BigDecimal(bi))
-      else new scala.math.BigDecimal(new BigDecimal(bi, mc), mc)
-    case bd: scala.math.BigDecimal =>
+    case bd: JBigDec =>
+      if (mc == null) BigDecimal(bd)
+      else new BigDecimal(bd, mc)
+    case bi: JBigInt =>
+      if (mc == null) BigDecimal(bi)
+      else new BigDecimal(new JBigDec(bi, mc), mc)
+    case bd: BigDecimal =>
       if (mc == null || mc == bd.mc) bd
       else bd(mc)
     case bi: BigInt =>
-      if (mc == null) scala.math.BigDecimal(bi)
-      else scala.math.BigDecimal(bi, mc)
+      if (mc == null) BigDecimal(bi)
+      else BigDecimal(bi, mc)
     case num =>
-      if (mc == null) scala.math.BigDecimal(num.toString)
-      else scala.math.BigDecimal(num.toString, mc)
+      if (mc == null) BigDecimal(num.toString)
+      else BigDecimal(num.toString, mc)
+  }
+
+  override def hashCode: Int = this.value.intValue.##
+  override def equals(that: Any) = (this eq that.asInstanceOf[AnyRef]) || {
+    that match {
+      case JsNum(`value`) => true
+      case JsNum(bd: JBigDec) => numberEquals(BigDecimal(bd))
+      case JsNum(bi: JBigInt) => numberEquals(BigInt(bi))
+      case JsNum(number) => numberEquals(number)
+      case _ => false
+    }
+  }
+  private def numberEquals(thatValue: Number): Boolean = {
+    val thisValue = this.value match {
+      case bd: JBigDec => BigDecimal(bd)
+      case bi: JBigInt => BigInt(bi)
+      case n => n
+    }
+    thisValue == thatValue
   }
 }
 
@@ -73,8 +92,13 @@ object JsNum {
   val NaN = JsNum(Double.NaN)
   val PositiveInfinity = JsNum(Double.PositiveInfinity)
   val NegativeInfinity = JsNum(Double.NegativeInfinity)
-  val Zero = JsNum(BigDecimal.ZERO)
-  val One = JsNum(BigDecimal.ONE)
+  val Zero = JsNum(BigDecimal(0))
+  val One = JsNum(BigDecimal(1))
+  def apply(n: Number): JsNum = n match {
+    case d: java.lang.Double if d.isNaN() => NaN
+    case f: java.lang.Float if f.isNaN() => NaN
+    case _ => new JsNum(n)
+  }
 }
 
 final case class JsStr(value: String) extends JsVal {
@@ -87,41 +111,52 @@ final case class JsStr(value: String) extends JsVal {
   }
   def toJson(implicit config: JsVal.Config) =
     if (value == null) JsNull.toJson
-    else s""""${JsStr.escape(value, config.escapeSlashInStrings)}""""
+    else s""""${JsStr.escape(value, config.escapeSlash, config.upperCaseHex)}""""
 }
 object JsStr {
-  private[this] val (escapesInclSlash, escapesExclSlash) = {
-    val escapeBackslash = Pattern.compile("\\", Pattern.LITERAL) -> Matcher.quoteReplacement("\\\\")
-    val escapeSlash = Pattern.compile("/", Pattern.LITERAL) -> Matcher.quoteReplacement("\\/")
-    val escapeOthers = List(
-      Pattern.compile("\"", Pattern.LITERAL) -> Matcher.quoteReplacement("\\\""),
-      Pattern.compile("\b", Pattern.LITERAL) -> Matcher.quoteReplacement("\\b"),
-      Pattern.compile("\f", Pattern.LITERAL) -> Matcher.quoteReplacement("\\f"),
-      Pattern.compile("\n", Pattern.LITERAL) -> Matcher.quoteReplacement("\\n"),
-      Pattern.compile("\r", Pattern.LITERAL) -> Matcher.quoteReplacement("\\r"),
-      Pattern.compile("\t", Pattern.LITERAL) -> Matcher.quoteReplacement("\\t"))
 
-    // escapeBackslash must always be first
+  private[json] def escape(inp: String, escapeSlash: Boolean, upperCaseHex: Boolean): String = {
 
-    val inclSlash = escapeBackslash :: escapeSlash :: escapeOthers
-    val exclSlash = escapeBackslash :: escapeOthers
+      @inline def toHex(ch: Char): String = {
+        if (upperCaseHex) ch.toHexString.toUpperCase
+        else ch.toHexString
+      }
 
-    inclSlash -> exclSlash
+      def escape(out: java.lang.StringBuilder, idx: Int): String = {
+        if (idx == inp.length) out.toString()
+        else {
+          (inp charAt idx) match {
+            case '"' => out append '\\' append '"'
+            case '\b' => out append '\\' append 'b'
+            case '\f' => out append '\\' append 'f'
+            case '\n' => out append '\\' append 'n'
+            case '\r' => out append '\\' append 'r'
+            case '\t' => out append '\\' append 't'
+            case '\\' => out append '\\' append '\\'
+            case '/' if escapeSlash => out append '\\' append '/'
+            case ch if ch > 0xfff => out append "\\u" append toHex(ch)
+            case ch if ch > 0xff => out append "\\u0" append toHex(ch)
+            case ch if Character isISOControl ch =>
+              if (ch > 0xf) out append "\\u00" append toHex(ch)
+              else out append "\\u000" append toHex(ch)
+            case ch => out append ch
+          }
+          escape(out, idx + 1)
+        }
+      }
+    escape(new java.lang.StringBuilder(inp.length * 2), 0)
   }
-  private[json] def escape(str: String, escapeSlash: Boolean): String = {
-    val escapes = if (escapeSlash) escapesInclSlash else escapesExclSlash
-    escapes.foldLeft(str) {
-      case (str, (m, r)) => m.matcher(str).replaceAll(r)
-    }
-  }
+
 }
 
 final case object JsNull extends JsVal {
   def toJson(implicit config: JsVal.Config) = "null"
 }
 final case object JsUndefined extends JsVal {
-  def toJson(implicit config: JsVal.Config) = "null" // Not supposed to be serialized, but probably better to emit "null" than fail
+  // Not supposed to be serialized, but probably better to emit "null" than fail
+  def toJson(implicit config: JsVal.Config) = "null"
 }
+
 final case class JsObj(props: Map[String, JsVal]) extends JsVal
   with Iterable[(String, JsVal)]
   with Dynamic {
@@ -131,7 +166,7 @@ final case class JsObj(props: Map[String, JsVal]) extends JsVal
   def toJson(implicit config: JsVal.Config) =
     if (props == null) JsNull.toJson
     else props.iterator.map {
-      case (name, value) => s""""${JsStr.escape(name, config.escapeSlashInStrings)}":${value.toJson}"""
+      case (name, value) => s""""${JsStr.escape(name, config.escapeSlash, config.upperCaseHex)}":${value.toJson}"""
     }.mkString("{", ",", "}")
   def get(name: String): Option[JsVal] = if (props != null) props.get(name) else None
   def apply(name: String): JsVal = if (props != null) props.getOrElse(name, JsUndefined) else JsUndefined
@@ -159,14 +194,14 @@ object JsBool {
 }
 
 object JsVal {
-  import language.implicitConversions
 
   /**
-   * @param escapeSlashInStrings Escape the character `/` as `\/` in strings?
+   * @param escapeSlash Escape the character `/` as `\/` in strings?
+   * @param upperCaseHex Output hexadecimal digits in upper case?
    */
-  case class Config(escapeSlashInStrings: Boolean)
+  case class Config(escapeSlash: Boolean = false, upperCaseHex: Boolean = false)
 
-  implicit val defaultConfig = Config(escapeSlashInStrings = false)
+  implicit val DefaultConfig = new Config()
 
   implicit def toJsVal(str: String): JsVal = if (str == null) JsNull else JsStr(str)
   implicit def toJsVal(num: java.lang.Number): JsVal = if (num == null) JsNull else JsNum(num)
@@ -218,16 +253,16 @@ object JsVal {
     }
   }
 
-  private class MethodDef(returnType: Class[_], val propName: String, private val method: Method) {
-    def this(method: Method) = this(method.getReturnType, method.getName, method)
-    def this(method: Method, name: String) = this(method.getReturnType, name, method)
+  private class MethodDef(val propName: String, private val method: Method) {
+    def this(method: Method) = this(method.getName, method)
+    def this(method: Method, name: String) = this(name, method)
     def invoke(ref: AnyRef): Any = method invoke ref
     override def toString() = s"$propName = $method"
     override def hashCode = method.getName.hashCode ^ method.getReturnType.hashCode
     override def equals(any: Any): Boolean = any match {
       case that: MethodDef =>
         this.method.getName == that.method.getName &&
-        this.method.getReturnType == that.method.getReturnType
+          this.method.getReturnType == that.method.getReturnType
       case _ => false
     }
   }
@@ -278,7 +313,7 @@ private class Parser(
     }
     _charsIdx = value
   }
-  private def charsIdx: Int = _charsIdx
+  @inline private def charsIdx: Int = _charsIdx
 
   private[this] var pos = offset
 
@@ -294,7 +329,7 @@ private class Parser(
 
   private def parseAny(): JsVal = {
     json.charAt(pos) match {
-      case ' ' | '\t' | '\r' | '\n' =>
+      case ' ' | '\t' | '\r' | '\n' | '\f' =>
         pos += 1; parseAny()
       case '"' =>
         pos += 1; JsStr(parseString())
@@ -308,20 +343,27 @@ private class Parser(
         pos += 1; parseLiteral("true"); JsBool.True
       case 'f' =>
         pos += 1; parseLiteral("false"); JsBool.False
-      case ch @ (',' | '}' | ']') => throwUnexpectedCharException(ch)
+      case '-' =>
+        chars(charsIdx) = '-'
+        charsIdx += 1
+        pos += 1;
+        parseNumber(-1)
       case '0' =>
         if (pos + 1 < json.length) {
           json.charAt(pos + 1) match {
             case ',' | '}' | ']' | ' ' | '\t' | '\r' | '\n' =>
               pos += 1; JsNum.Zero
-            case '.' => parseNumber()
-            case _ => throw new MalformedJSON(s"Numbers cannot start with 0, offset $pos")
+            case '.' => parseNumber(0)
+            case ch if ch >= '0' && ch <= '9' => throw new MalformedJSON(s"Numbers cannot start with 0, offset $pos")
+            case unexpected => throwUnexpectedCharException(unexpected, pos + 1)
           }
         } else {
           pos += 1
           JsNum.Zero
         }
-      case _ => parseNumber()
+      case ch if ch > '0' && ch <= '9' =>
+        parseNumber(1)
+      case ch => throwUnexpectedCharException(ch)
     }
   }
 
@@ -339,15 +381,20 @@ private class Parser(
     }
   }
 
-  private def parseNumber(): JsNum = {
+  private def parseNumber(sign: Byte, integer: Long = 0): JsNum = {
 
       def toJsNum(): JsNum = {
-        val num: Number = try new BigDecimal(chars, 0, charsIdx) catch {
-          case _: NumberFormatException =>
-            try java.lang.Double.parseDouble(new String(chars, 0, charsIdx)) catch {
-              case nfe: NumberFormatException =>
-                throw new MalformedJSON(s"Invalid number at offset $pos", nfe)
-            }
+        val num: Number = if (sign != 0 && integer > 0) {
+          assert(sign == -1 || sign == 1)
+          sign * integer
+        } else {
+          try BigDecimal(new JBigDec(chars, 0, charsIdx)) catch {
+            case _: NumberFormatException =>
+              try java.lang.Double.parseDouble(new String(chars, 0, charsIdx)) catch {
+                case nfe: NumberFormatException =>
+                  throw new MalformedJSON(s"Invalid number at offset $pos", nfe)
+              }
+          }
         }
         charsIdx = 0
         JsNum(num)
@@ -357,10 +404,11 @@ private class Parser(
       case ',' | '}' | ']' | ' ' | '\t' | '\r' | '\n' =>
         toJsNum()
       case n =>
+        val isDigit = n >= '0' && n <= '9'
         chars(charsIdx) = n
         charsIdx += 1
         pos += 1
-        parseNumber()
+        parseNumber(if (isDigit && integer >= 0) sign else 0, (integer * 10) + (n - '0'))
     }
     else toJsNum()
   }
@@ -368,11 +416,12 @@ private class Parser(
   private def parseString(): String = {
     assert(json.charAt(pos - 1) == '"')
 
-      def hexToDec(pos: Int): Int = json.charAt(pos) match {
-        case d @ ('0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9') => d - '0'
-        case h @ ('a' | 'b' | 'c' | 'd' | 'e' | 'f') => h - 87
-        case h @ ('A' | 'B' | 'C' | 'D' | 'E' | 'F') => h - 55
-        case unexpected => throwUnexpectedCharException(unexpected, pos)
+      def hexToDec(pos: Int): Int = {
+        val ch = json charAt pos
+        if (ch >= '0' && ch <= '9') ch - '0'
+        else if (ch >= 'a' && ch <= 'f') ch - 87
+        else if (ch >= 'A' && ch <= 'F') ch - 55
+        else throwUnexpectedCharException(ch, pos)
       }
 
       def parseString(pos: Int): Int = json.charAt(pos) match {

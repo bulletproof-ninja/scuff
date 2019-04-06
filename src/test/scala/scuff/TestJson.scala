@@ -222,7 +222,7 @@ class TestJson {
 
   @Test
   def `y_string_allowed_escapes`() = {
-    implicit val config = JsVal.Config(escapeSlashInStrings = true)
+    implicit val config = JsVal.Config(escapeSlash = true)
     object File extends JsonFile(JSONTestSuite)
     val content @ JsArr(JsStr(string)) = File.parse
     assertEquals("\"\\/\b\f\n\r\t", string)
@@ -395,4 +395,67 @@ class TestJson {
     assertEquals("""{"name":"Hank"}""", JsVal(new Bean("Hank")).toJson)
   }
 
+  @Test
+  def `string escape`(): Unit = {
+    val s1 = "\\\"escape \\uffbb\\\""
+    val s2 = """\"escape \uffbb\""""
+//    assertEquals(s1, s2)
+    val js1 = JsStr(s1)
+    val js2 = JsStr(s2)
+    val json1 = js1.toJson
+    val json2 = js2.toJson
+    println(json1)
+    println(json2)
+    val js3 = JsVal parse json1
+    val js4 = JsVal parse json2
+    println(js3.asStr.value)
+    println(js4.asStr.value)
+    assertEquals(js1, js3)
+    assertEquals(js2, js4)
+    assertEquals(js1.value, js3.asStr.value)
+  }
+
+  @Test
+  def `numeric equality`(): Unit = {
+    assertNotEquals(JsNum(42L), 42L)
+    assertNotEquals(JsNum(42L), JsNum(42.00000005))
+    assertEquals(JsNum(42L), JsNum(42.0))
+    assertEquals(JsNum.NaN, JsNum.NaN)
+    assertEquals(JsNum.NaN, JsNum(Double.NaN))
+    assertEquals(JsNum.NaN, JsNum(Float.NaN))
+    assertEquals(JsNum.NaN, JsNum(Float.NaN.toDouble))
+    assertEquals(JsNum(BigInt("42")), JsNum(BigInt("42").underlying))
+    assertEquals(JsNum(BigDecimal("42.10")), JsNum(BigDecimal("42.10000")))
+    assertEquals(JsNum(BigDecimal("42.10000").underlying), JsNum(BigDecimal("42.10")))
+    assertEquals(JsNum(BigDecimal("42.10").underlying), JsNum(BigDecimal("42.10000").underlying))
+    assertEquals(JsNum(BigDecimal(Long.MaxValue)), JsNum(Long.MaxValue))
+    assertEquals(JsNum(Long.MaxValue), JsNum(BigDecimal(Long.MaxValue)))
+    assertEquals(JsNum(BigDecimal(Long.MaxValue).underlying), JsNum(Long.MaxValue))
+    assertEquals(JsNum(Long.MaxValue), JsNum(BigDecimal(Long.MaxValue).underlying))
+    assertEquals(JsNum(BigInt(Long.MaxValue)), JsNum(Long.MaxValue))
+    assertEquals(JsNum(Long.MaxValue), JsNum(BigInt(Long.MaxValue)))
+    assertEquals(JsNum(BigInt(Long.MaxValue).underlying), JsNum(Long.MaxValue))
+    assertEquals(JsNum(Long.MaxValue), JsNum(BigInt(Long.MaxValue).underlying))
+    assertEquals(
+        JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999")),
+        JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999").underlying))
+    assertEquals(
+        JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999.00")),
+        JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999")))
+    assertEquals(
+        JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999.00")),
+        JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999").underlying))
+    assertEquals(
+        JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999")),
+        JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999").underlying))
+    assertEquals(
+        JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999.00").underlying),
+        JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999")))
+    assertEquals(
+        JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999")),
+        JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999.00")))
+    assertEquals(
+        JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999")),
+        JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999.00").underlying))
+  }
 }
