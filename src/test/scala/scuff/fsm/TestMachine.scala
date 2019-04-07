@@ -4,6 +4,7 @@ import org.junit._
 import org.junit.Assert._
 import language.reflectiveCalls
 import scala.util.Try
+import java.time.LocalDate
 
 class TestFSM {
   @Test
@@ -24,7 +25,7 @@ class TestFSM {
       conn(reconnected)
       fail("Cannot reconnect when already connected")
     } catch {
-      case e: IllegalStateException => // Expected
+      case _: IllegalStateException => // Expected
     }
     conn(disconnected)
     assertFalse(conn.isFinal)
@@ -116,9 +117,9 @@ class TestFSM {
     val ParseMonth = new ParseState
     val ParseDay = new ParseState
     val Completed = new FinalState {
-      var date: Option[java.sql.Date] = None
+      var date: Option[LocalDate] = None
       override def onEvent(evt: Event) = evt match {
-        case `done` => date = Some(new java.sql.Date(ParseYear.num - 1900, ParseMonth.num - 1, ParseDay.num))
+        case `done` => date = Some(LocalDate.of(ParseYear.num, ParseMonth.num, ParseDay.num))
       }
     }
 
