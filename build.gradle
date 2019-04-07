@@ -58,10 +58,12 @@ allprojects {
         main {
             scala {
                 if (vScala == '2.13') {
-                    srcDirs = ['src/main/scala', 'src/2.13/main/scala']
-                } else {
-                    srcDirs = ['src/main/scala', 'src/legacy/main/scala']
-                }
+                    srcDirs = ['src/main/scala', 'src/2.13/main/scala', 'src/2.12+2.13/main/scala']
+                } else if (vScala == '2.12') {
+                    srcDirs = ['src/main/scala', 'src/2.12/main/scala', 'src/2.11+2.12/main/scala', 'src/2.12+2.13/main/scala']
+                } else if (vScala == '2.11') {
+                    srcDirs = ['src/main/scala', 'src/2.11/main/scala', 'src/2.11+2.12/main/scala']
+                } else throw new IllegalArgumentException("Unsupported Scala version: " + vScala)
             }
         }
     }
