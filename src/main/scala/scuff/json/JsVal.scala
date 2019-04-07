@@ -25,7 +25,7 @@ sealed abstract class JsVal {
   def asObj: JsObj = wrongType(classOf[JsObj])
   def asArr: JsArr = wrongType(classOf[JsArr])
 }
-final case class JsNum private (value: Number) extends JsVal {
+final case class JsNum(value: Number) extends JsVal {
   override def asNum = this
   def toJson(implicit config: JsVal.Config): String = {
     if (value == null) JsNull.toJson
@@ -44,28 +44,20 @@ final case class JsNum private (value: Number) extends JsVal {
   def toDouble = value.doubleValue
   def toBigInt: BigInt = value match {
     case bd: JBigDec => BigInt(bd.toBigInteger)
-    case bi: java.math.BigInteger => BigInt(bi)
-    case bd: scala.BigDecimal => bd.toBigInt
+    case bi: JBigInt => BigInt(bi)
+    case bd: BigDecimal => bd.toBigInt
     case bi: BigInt => bi
     case num => BigInt(num.toString)
   }
-  def toBigDec(): scala.BigDecimal = toBigDec(null)
-  def toBigDec(mc: MathContext): scala.BigDecimal = value match {
-    case bd: JBigDec =>
-      if (mc == null) BigDecimal(bd)
-      else new BigDecimal(bd, mc)
-    case bi: JBigInt =>
-      if (mc == null) BigDecimal(bi)
-      else new BigDecimal(new JBigDec(bi, mc), mc)
+  def toBigDec(): BigDecimal = toBigDec(MathContext.DECIMAL128)
+  def toBigDec(mc: MathContext): BigDecimal = value match {
+    case bd: JBigDec => new BigDecimal(bd, mc)
+    case bi: JBigInt => new BigDecimal(new JBigDec(bi, mc), mc)
     case bd: BigDecimal =>
-      if (mc == null || mc == bd.mc) bd
+      if (mc == bd.mc) bd
       else bd(mc)
-    case bi: BigInt =>
-      if (mc == null) BigDecimal(bi)
-      else BigDecimal(bi, mc)
-    case num =>
-      if (mc == null) BigDecimal(num.toString)
-      else BigDecimal(num.toString, mc)
+    case bi: BigInt => BigDecimal(bi, mc)
+    case num => BigDecimal(num.toString, mc)
   }
 
   override def hashCode: Int = this.value.intValue.##
@@ -89,16 +81,15 @@ final case class JsNum private (value: Number) extends JsVal {
 }
 
 object JsNum {
-  val NaN = JsNum(Double.NaN)
-  val PositiveInfinity = JsNum(Double.PositiveInfinity)
-  val NegativeInfinity = JsNum(Double.NegativeInfinity)
-  val Zero = JsNum(BigDecimal(0))
-  val One = JsNum(BigDecimal(1))
-  def apply(n: Number): JsNum = n match {
-    case d: java.lang.Double if d.isNaN() => NaN
-    case f: java.lang.Float if f.isNaN() => NaN
-    case _ => new JsNum(n)
-  }
+  val NaN = new JsNum(Double.NaN)
+  val PositiveInfinity = new JsNum(Double.PositiveInfinity)
+  val NegativeInfinity = new JsNum(Double.NegativeInfinity)
+  val Zero = new JsNum(0L)
+  val One = new JsNum(1L)
+
+  def apply(l: Long): JsNum = new JsNum(l)
+  def apply(d: Double): JsNum = if (d.isNaN) NaN else new JsNum(d)
+
 }
 
 final case class JsStr(value: String) extends JsVal {
@@ -204,10 +195,9 @@ object JsVal {
   implicit val DefaultConfig = new Config()
 
   implicit def toJsVal(str: String): JsVal = if (str == null) JsNull else JsStr(str)
-  implicit def toJsVal(num: java.lang.Number): JsVal = if (num == null) JsNull else JsNum(num)
-  implicit def toJsVal(num: Long): JsVal = JsNum(num)
-  implicit def toJsVal(num: Double): JsVal = JsNum(num)
-  implicit def toJsVal(num: Float): JsVal = JsNum(num)
+  implicit def toJsVal(num: Number): JsVal = if (num == null) JsNull else JsNum(num)
+  implicit def toJsVal(num: Long): JsVal = JsNum(num: Number)
+  implicit def toJsVal(num: Double): JsVal = JsNum(num: Number)
   implicit def toJsVal(b: Boolean): JsVal = if (b) JsBool.True else JsBool.False
   implicit def toJsVal(m: Map[String, Any]): JsVal = if (m == null) JsNull else JsObj(m.mapValues(JsVal(_)).toMap)
   implicit def toJsVal(a: Iterable[Any]): JsVal = if (a == null) JsNull else JsArr(a.iterator.map(JsVal(_)).toSeq: _*)

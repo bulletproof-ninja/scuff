@@ -428,6 +428,7 @@ class TestJson {
     assertEquals(JsNum(BigDecimal("42.10")), JsNum(BigDecimal("42.10000")))
     assertEquals(JsNum(BigDecimal("42.10000").underlying), JsNum(BigDecimal("42.10")))
     assertEquals(JsNum(BigDecimal("42.10").underlying), JsNum(BigDecimal("42.10000").underlying))
+
     assertEquals(JsNum(BigDecimal(Long.MaxValue)), JsNum(Long.MaxValue))
     assertEquals(JsNum(Long.MaxValue), JsNum(BigDecimal(Long.MaxValue)))
     assertEquals(JsNum(BigDecimal(Long.MaxValue).underlying), JsNum(Long.MaxValue))
@@ -436,6 +437,16 @@ class TestJson {
     assertEquals(JsNum(Long.MaxValue), JsNum(BigInt(Long.MaxValue)))
     assertEquals(JsNum(BigInt(Long.MaxValue).underlying), JsNum(Long.MaxValue))
     assertEquals(JsNum(Long.MaxValue), JsNum(BigInt(Long.MaxValue).underlying))
+
+    assertEquals(JsNum(BigDecimal(Int.MaxValue)), JsNum(Int.MaxValue))
+    assertEquals(JsNum(Int.MaxValue), JsNum(BigDecimal(Int.MaxValue)))
+    assertEquals(JsNum(BigDecimal(Int.MaxValue).underlying), JsNum(Int.MaxValue))
+    assertEquals(JsNum(Int.MaxValue), JsNum(BigDecimal(Int.MaxValue).underlying))
+    assertEquals(JsNum(BigInt(Int.MaxValue)), JsNum(Int.MaxValue))
+    assertEquals(JsNum(Int.MaxValue), JsNum(BigInt(Int.MaxValue)))
+    assertEquals(JsNum(BigInt(Int.MaxValue).underlying), JsNum(Int.MaxValue))
+    assertEquals(JsNum(Int.MaxValue), JsNum(BigInt(Int.MaxValue).underlying))
+
     assertEquals(
         JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999")),
         JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999").underlying))
