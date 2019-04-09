@@ -339,7 +339,7 @@ abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
 
 object ResourcePool {
   def apply[R <: AnyRef: ClassTag](
-      newResource: R, minResources: Int = 0, maxResources: Int = Int.MaxValue,
+      newResource: => R, minResources: Int = 0, maxResources: Int = Int.MaxValue,
       description: String = "")(
       implicit
       lifecycle: ResourcePool.Lifecycle[R] = ResourcePool.DefaultLifecycle[R]): ResourcePool[R] =
@@ -507,7 +507,7 @@ class BoundedResourcePool[R <: AnyRef: ClassTag] private (
   extends BaseResourcePool[R](tracker.newResource, minResources, description) {
 
   def this(
-      newResource: R, minResources: Int, maxResources: Int,
+      newResource: => R, minResources: Int, maxResources: Int,
       description: String = "")(
       implicit
       lifecycle: ResourcePool.Lifecycle[R]) =
