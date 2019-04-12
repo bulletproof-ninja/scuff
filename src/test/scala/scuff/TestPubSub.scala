@@ -14,7 +14,7 @@ class TestPubSub {
   implicit def f2sb[T](f: T => Unit) = new StreamConsumer[T, Unit] {
     def onNext(t: T) = f(t)
     def onError(e: Throwable) = e.printStackTrace()
-    def onDone() = Future successful Unit
+    def onDone() = Future successful (())
   }
 
   @Test
@@ -22,14 +22,14 @@ class TestPubSub {
     val countDown = new java.util.concurrent.CountDownLatch(6)
     val exceptions = collection.concurrent.TrieMap[Throwable, Unit]()
       def errHandler(t: Throwable): Unit = {
-        exceptions += t -> Unit
+        exceptions += t -> (())
         countDown.countDown()
       }
     val subCtx = PartitionedExecutionContext(numThreads = 1, failureReporter = errHandler)
     val pubSub = new PubSub[Event, Event](subCtx)
-    val s1 = pubSub.subscribe() { e: Event => throw new RuntimeException }
-    val s2 = pubSub.subscribe()((e: Event) => countDown.countDown())
-    val s3 = pubSub.subscribe() { e: Event => countDown.countDown() }
+    val s1 = pubSub.subscribe() { _: Event => throw new RuntimeException }
+    val s2 = pubSub.subscribe()((_: Event) => countDown.countDown())
+    val s3 = pubSub.subscribe() { _: Event => countDown.countDown() }
     pubSub.publish(new Event)
     pubSub.publish(new Event)
     assertTrue(countDown.await(10, TimeUnit.SECONDS))

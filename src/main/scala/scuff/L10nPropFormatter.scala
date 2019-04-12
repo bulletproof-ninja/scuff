@@ -44,8 +44,7 @@ import collection.JavaConverters._
   * @see java.util.PropertyResourceBundle
   * For locale specific `.properties` file name syntax
   */
-class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Iterable[Locale], charset: Charset)
-    extends ((String, Any*) => String) {
+class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Iterable[Locale], charset: Charset) {
 
   /**
     * Subclass constructor. Used when sub-classing is used for location and naming.
@@ -161,7 +160,7 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Iter
 
   def keySet() = map.keySet
 
-  lazy val unformatted: Map[String, String] = map.mapValues(_.unformatted).toMap
+  lazy val unformatted: Map[String, String] = map.map(e => e._1 -> e._2.unformatted)
 
   def unformatted(key: String): Option[String] = map.get(key).map(_.unformatted)
 

@@ -63,7 +63,7 @@ class TestProps {
 
   @Test
   def typed_values(): Unit = {
-    val FileEncoding = Props.Key("file.encoding")(Charset.forName)
+    val FileEncoding = SysProps.Key("file.encoding", Charset.forName)
     val ArchDataModel = Props.Key("sun.arch.data.model")(_.toInt)
     SysProps.optional(FileEncoding).foreach { enc =>
       assertEquals(Charset.forName(enc.name), enc)

@@ -39,14 +39,15 @@ class Props protected (metaName: String, getProperty: String => String, fallback
 }
 
 class SysProps(fallback: Props) extends Props("system property", System.getProperty, fallback)
-object SysProps extends SysProps(null)
+object SysProps extends SysProps(null) with PropsKey
+
 class EnvVars(fallback: Props) extends Props("environment variable", System.getenv, fallback)
-object EnvVars extends EnvVars(null)
-class ManifestAttributes(attrs: Attributes, fallback: Props) extends Props("manifest attribute", attrs.getValue _, fallback) {
+object EnvVars extends EnvVars(null) with PropsKey
+class ManifestAttributes(attrs: Attributes, fallback: Props) extends Props("manifest attribute", attrs.getValue, fallback) {
   def this(manifest: Manifest, fallback: Props) = this(manifest.getMainAttributes, fallback)
 }
 
-object ManifestAttributes {
+object ManifestAttributes extends AnyRef with PropsKey {
   import collection.JavaConverters._
   def apply(cl: ClassLoader = getClass.getClassLoader, fallback: Props = null): Option[Props] = {
     cl.getResources(JarFile.MANIFEST_NAME).asScala.foldLeft(None: Option[ManifestAttributes]) {
@@ -61,6 +62,11 @@ object ManifestAttributes {
   }
 }
 
+trait PropsKey {
+  def Key[T: ClassTag](name: String)(implicit typed: String => T): Key[T] = Props.Key(name)(typed)
+  def Key[T: ClassTag](name: String, typed: String => T): Key[T] = Props.Key(name)(typed)
+}
+
 object Props {
   import java.io._
 
@@ -69,6 +75,7 @@ object Props {
       case NonFatal(th) => throw new IllegalArgumentException(
           s"""Key "$name" value "$value" does not conform to ${classTag[T].runtimeClass}""", th)
     }
+    def typeName = classTag[T].runtimeClass.getSimpleName
   }
 
   def apply(description: String, values: (String, String)*): Props = apply(description, values.toMap)

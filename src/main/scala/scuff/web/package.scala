@@ -15,12 +15,6 @@ package web {
 }
 
 package object web {
-  private val RFC822Pool = scuff.ThreadLocal {
-    new java.text.SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z", java.util.Locale.US)
-  }
-
-  /** ThreadLocal safe date parser. */
-  def RFC822 = RFC822Pool.get()
 
   @inline
   implicit def toHttpReq(req: ServletRequest) = req.asInstanceOf[HttpServletRequest]

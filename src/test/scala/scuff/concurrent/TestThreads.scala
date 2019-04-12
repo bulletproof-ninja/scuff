@@ -53,9 +53,9 @@ class TestThreads extends Serializable {
     val cdl = new CountDownLatch(futures.size)
     futures.foreach { f =>
       f.onComplete {
-        case Failure(t) => fail("Future failed")
+        case Failure(_) => fail("Future failed")
         case Success(i) =>
-          set += i -> Unit
+          set += i -> (())
           cdl.countDown()
       }
     }

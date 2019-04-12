@@ -7,7 +7,7 @@ import javax.servlet._
 sealed trait PrintHeaders {
   protected def isHttpHeaderPrintingEnabled(req: HttpServletRequest): Boolean
   protected def printHeaders(req: HttpServletRequest): Unit = if (isHttpHeaderPrintingEnabled(req)) {
-    import compat.Platform.EOL
+    def EOL = System.lineSeparator
     val buf = new java.lang.StringBuilder(200)
     val headers = req.getHeaderNames().asScala.toList
     buf append s"${req.getMethod} ${req.getRequestURL} has ${headers.size} headers:$EOL"

@@ -101,7 +101,7 @@ final class LockFreeExecutionContext private (
   def shutdown(): Future[Unit] = {
     isShutdown = true
     activeThreads.getCount match {
-      case 0 => Future successful Unit
+      case 0 => Future successful (())
       case _ =>
         Threads.onBlockingThread(s"Awaiting ${classOf[LockFreeExecutionContext].getName} shutdown")(activeThreads.await)
     }

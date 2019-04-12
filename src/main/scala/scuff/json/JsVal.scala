@@ -199,7 +199,7 @@ object JsVal {
   implicit def toJsVal(num: Long): JsVal = JsNum(num: Number)
   implicit def toJsVal(num: Double): JsVal = JsNum(num: Number)
   implicit def toJsVal(b: Boolean): JsVal = if (b) JsBool.True else JsBool.False
-  implicit def toJsVal(m: Map[String, Any]): JsVal = if (m == null) JsNull else JsObj(m.mapValues(JsVal(_)).toMap)
+  implicit def toJsVal(m: Map[String, Any]): JsVal = if (m == null) JsNull else JsObj(m.map(e => e._1 -> JsVal(e._2)))
   implicit def toJsVal(a: Iterable[Any]): JsVal = if (a == null) JsNull else JsArr(a.iterator.map(JsVal(_)).toSeq: _*)
   implicit def toJsVal(t: (String, Any)): (String, JsVal) = t._1 -> JsVal(t._2)
 

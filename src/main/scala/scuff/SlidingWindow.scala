@@ -198,7 +198,7 @@ class SlidingWindow[T, R, F](
   def addBatch(valuesWithTime: Iterable[(T, EpochMillis)]) = if (valuesWithTime.nonEmpty) {
     val reducedByTime = valuesWithTime
       .groupBy(t => timePrecision(t._2))
-      .mapValues(_.map(t => reducer.init(t._1)).reduce(reducer))
+      .map(e => e._1 -> e._2.map(t => reducer.init(t._1)).reduce(reducer))
     storeProvider { map =>
       reducedByTime.foreach {
         case (time, value) => map.upsert(time, value)(reducer)
@@ -250,7 +250,7 @@ class SlidingWindow[T, R, F](
         foreverValue <- foreverOpt
         foreverKey <- foreverWindows
       } map.put(foreverKey, foreverValue)
-      val finalizedMap = map.asScala.mapValues(reducer.finalize)
+      val finalizedMap = map.asScala.map(e => e._1 -> reducer.finalize(e._2))
       if (windows.size > finalizedMap.size) {
         baselineWindows ++ finalizedMap
       } else finalizedMap.toMap

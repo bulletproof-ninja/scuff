@@ -71,12 +71,25 @@ class MediaType private (private val mimeType: MimeType) extends Serializable {
     override def toString() = MediaType.this.toString
   }
 
+  /**
+   * If tree type, prunes the media type down to the base type,
+   * with parameters.
+   * E.g. `application/vnd.foo.bar+json;q=0.8` becomes
+   * `application/json;q=0.8`.
+   * To get a clean base type, use `mediaType.pruned.baseType`.
+   */
   def pruned: MediaType = treeType.map(_.pruned) getOrElse this
+
+  /** As tree type, if defined. */
   def treeType: Option[TreeType] = MediaType.asTreeType(this)
 
+  /** The base type, without parameters. */
   def baseType = mimeType.getBaseType
+  /** The primary type, i.e. `primary/sub`. */
   def primaryType = mimeType.getPrimaryType
+  /** The sub type, i.e. `primary/sub`. */
   def subType = mimeType.getSubType
+
   def parmNames: Iterator[String] = {
     if (mimeType.getParameters.isEmpty) Iterator.empty
     else new AbstractIterator[String] {

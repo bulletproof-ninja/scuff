@@ -127,7 +127,6 @@ class TestStreamConsumer {
   @Test
   def `async, failure in onDone`(): Unit = {
     object Average extends AsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
-      private[this] val UnitFuture = Future.successful(())
       private val sum = new AtomicInteger
       private val count = new AtomicInteger
       def apply(i: Int) = ??? // Never called in this test

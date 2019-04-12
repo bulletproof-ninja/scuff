@@ -48,11 +48,11 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
 
   def addHeader(name: String, value: String) = headers.getOrElseUpdate(name.toLowerCase, (name -> mutable.Buffer[String]()))._2 += value
   def addIntHeader(name: String, value: Int) = addHeader(name, value.toString)
-  def addDateHeader(name: String, value: Long) = addHeader(name, dateFmt.format(new java.util.Date(value)))
+  def addDateHeader(name: String, value: Long) = addHeader(name, dateFmt(value))
 
   def setHeader(name: String, value: String) = headers.put(name.toLowerCase, (name -> mutable.Buffer(value)))
   def setIntHeader(name: String, value: Int) = setHeader(name, value.toString)
-  def setDateHeader(name: String, value: Long) = setHeader(name, dateFmt.format(new java.util.Date(value)))
+  def setDateHeader(name: String, value: Long) = setHeader(name, dateFmt(value))
 
   def getHeader(name: String): String = headers.get(name.toLowerCase) match {
     case None => null
@@ -75,11 +75,12 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
   }
   private[this] var bufferSizeHint = 4096 * 2
   def setBufferSize(hint: Int) = bufferSizeHint = hint
-  private[this] val dateFmt = RFC822
+  private def dateFmt(date: Long): String = HttpHeaders.RFC_1123(date)
+  private def parseDate(str: String): Long = HttpHeaders.RFC_1123(str).toEpochSecond * 1000
   def getDateHeaders(name: String): Seq[Long] =
     headers.get(name.toLowerCase) match {
       case None => Seq.empty
-      case Some((_, values)) => values.flatMap(t => Try(dateFmt.parse(t).getTime).toOption)
+      case Some((_, values)) => values.flatMap(t => Try(parseDate(t)).toOption)
     }
 
   var status = delegate.getStatus()

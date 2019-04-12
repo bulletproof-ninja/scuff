@@ -3,8 +3,6 @@ package scuff
 import org.junit._
 import org.junit.Assert._
 
-import scala.{ BigDecimal => Dec }
-
 class TestInterval {
 
   @Test
