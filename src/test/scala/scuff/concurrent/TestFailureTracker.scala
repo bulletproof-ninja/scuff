@@ -5,7 +5,7 @@ import scala.concurrent.duration._
 import scala.util.Try
 import scuff.Numbers
 
-class TestCircuitBreaker {
+class TestFailureBackoff {
 
   def fibonnaciBackoff(maxBackoff: FiniteDuration) =
     Numbers.fibonacci.view.dropWhile(_ < 2).map(_.seconds).takeWhile(_ <= maxBackoff)
@@ -19,14 +19,14 @@ class TestCircuitBreaker {
 
   @Test(expected = classOf[IllegalArgumentException])
   def `no backoff schedule`(): Unit = {
-    val cb = new CircuitBreaker(3, reportError, Nil)
-    fail(s"Should have failed: $cb")
+    val ft = new FailureTracker(3, reportError, Nil)
+    fail(s"Should have failed: $ft")
   }
 
   @Test(expected = classOf[IllegalArgumentException])
   def `zero failure count threshold`(): Unit = {
-    val cb = new CircuitBreaker(0, reportError, List(2.minutes))
-    fail(s"Should have failed: $cb")
+    val ft = new FailureTracker(0, reportError, List(2.minutes))
+    fail(s"Should have failed: $ft")
   }
 
   @Test
@@ -36,23 +36,23 @@ class TestCircuitBreaker {
     val backoffSchedule = fibonnaciBackoff(2.minutes)
     val scheduleLength = backoffSchedule.size
 
-    val cb = new CircuitBreaker(threshold, reportError, backoffSchedule)
-    assertEquals(0, cb.failureCount)
-    assertFalse(cb.isTripped)
-    assertEquals(Duration.Zero, cb.timeout)
+    val ft = new FailureTracker(threshold, reportError, backoffSchedule)
+    assertEquals(0, ft.failureCount)
+    assertFalse(ft.isTripped)
+    assertEquals(Duration.Zero, ft.timeout)
 
     val backoffIterator = backoffSchedule.iterator
     var currTimeout = backoffIterator.next
 
     (1 to scheduleLength + 5) foreach { n =>
-      cb reportFailure error
-      assertEquals(n, cb.failureCount)
-      if (cb.failureCount < threshold) {
-        assertFalse(cb.isTripped)
-        assertEquals(Duration.Zero, cb.timeout)
+      ft reportFailure error
+      assertEquals(n, ft.failureCount)
+      if (ft.failureCount < threshold) {
+        assertFalse(ft.isTripped)
+        assertEquals(Duration.Zero, ft.timeout)
       } else {
-        assertTrue(cb.isTripped)
-        assertEquals(currTimeout, cb.timeout)
+        assertTrue(ft.isTripped)
+        assertEquals(currTimeout, ft.timeout)
         if (backoffIterator.hasNext) currTimeout = backoffIterator.next
       }
     }
@@ -60,10 +60,10 @@ class TestCircuitBreaker {
     errors.foreach { err =>
       assertSame(error, err)
     }
-    cb.reset()
-    assertEquals(0, cb.failureCount)
-    assertFalse(cb.isTripped)
-    assertEquals(Duration.Zero, cb.timeout)
+    ft.reset()
+    assertEquals(0, ft.failureCount)
+    assertFalse(ft.isTripped)
+    assertEquals(Duration.Zero, ft.timeout)
 
   }
 
