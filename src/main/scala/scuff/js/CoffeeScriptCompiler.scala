@@ -16,17 +16,13 @@ object CoffeeScriptCompiler {
     def polyfills: List[String] = Nil
   }
   case object Version {
-    case object Original extends Version("/META-INF/script/coffee-script.js")
+    case object Legacy extends Version("/META-INF/script/coffee-script.js")
     case object Iced extends Version("/META-INF/script/iced-coffee-script.js") {
       override val defaultOptions = Map('runtime -> "none")
     }
-    case object Coffeescript2 extends Version("/META-INF/script/coffeescript2.js") {
+    case object CS2 extends Version("/META-INF/script/coffeescript.js") {
       override def polyfills: List[String] = List(Polyfills.Object_assign)
     }
-
-    @deprecated("Never that useful", since = "now")
-    case object Redux extends Version("/META-INF/script/CoffeeScriptRedux.js")
-
   }
 
   sealed abstract class Use(val directive: String)
@@ -35,7 +31,14 @@ object CoffeeScriptCompiler {
     case object ASM extends Use("\"use asm\";\n")
   }
 
-  case class Config(version: Version = Version.Original, options: Map[Symbol, Any] = Map.empty, newEngine: () => ScriptEngine = newJavascriptEngine _, useDirective: Use = null, compiler: () => Reader = () => null)
+  case class Config(version: Version = Version.CS2, options: Map[Symbol, Any] = Map.empty, newEngine: () => ScriptEngine = newJavascriptEngine _, useDirective: Use = null, compiler: () => Reader = () => null) {
+    def withEngine(newEngine: => ScriptEngine): Config = this.copy(newEngine = newEngine _)
+    def withCompiler(compiler: => Reader): Config = this.copy(compiler = compiler _)
+    def withOptions(options: (Symbol, Any)*): Config = this.copy(options = this.options ++ options.toMap)
+    def withVersion(v: Version): Config = this.copy(version = v)
+    def withDirective(directive: Use): Config = this.copy(useDirective = directive)
+  }
+
   private val compileFunction = "cs2js"
 
   object Polyfills {

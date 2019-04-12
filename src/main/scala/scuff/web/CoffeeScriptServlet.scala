@@ -11,16 +11,16 @@ import javax.script._
 import java.util.concurrent.ScheduledFuture
 import scala.util.control.NonFatal
 
-private object CoffeeScriptServlet {
+object CoffeeScriptServlet {
   import CoffeeScriptCompiler._
-  def DefaultConfig(engineCtor: () => ScriptEngine) = new Config(
-    version = Version.Original,
+  def LegacyConfig(engineCtor: () => ScriptEngine) = new Config(
+    version = Version.Legacy,
     options = Map('bare -> false), newEngine = engineCtor,
     useDirective = Use.Strict)
-  def Coffeescript2Config(engineCtor: () => ScriptEngine) = new Config(
-    version = Version.Coffeescript2,
+  def CS2Config(engineCtor: () => ScriptEngine) = new Config(
+    version = Version.CS2,
     options = Map('bare -> false), newEngine = engineCtor,
-    useDirective = Use.Strict, compiler = Version.Coffeescript2.compiler _)
+    useDirective = Use.Strict, compiler = Version.CS2.compiler _)
   def IcedConfig(engineCtor: () => ScriptEngine) = new Config(
     version = Version.Iced,
     options = Map('bare -> false, 'runtime -> "window"), newEngine = engineCtor,
@@ -38,7 +38,7 @@ abstract class CoffeeScriptServlet extends HttpServlet {
 
   protected def engineName = "javascript"
   protected def newJavascriptEngine() = ScriptEngineMgr.getEngineByName(engineName)
-  protected def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.DefaultConfig(newJavascriptEngine _))
+  protected def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.CS2Config(newJavascriptEngine _))
   private[this] val compilerPool = {
     implicit val lifecycle = ResourcePool.onEviction(onCompilerTimeout) {
       case NonFatal(_) => false
@@ -66,6 +66,7 @@ abstract class CoffeeScriptServlet extends HttpServlet {
 
   override def destroy(): Unit = {
     eviction.foreach(_.cancel(true))
+    compilerPool.drain()
   }
 
   protected def coffeeCompilation(coffeeScript: String, filename: String): String =
