@@ -10,6 +10,8 @@ import scala.concurrent.duration._
 import javax.script._
 import java.util.concurrent.ScheduledFuture
 import scala.util.control.NonFatal
+import scuff.concurrent.Threads
+import scuff.concurrent.UnboundedResourcePool
 
 object CoffeeScriptServlet {
   import CoffeeScriptCompiler._
@@ -36,6 +38,8 @@ abstract class CoffeeScriptServlet extends HttpServlet {
 
   private lazy val ScriptEngineMgr = new ScriptEngineManager
 
+  /** Number of compilers to initialize at startup. */
+  protected def initCompilers = 0
   protected def engineName = "javascript"
   protected def newJavascriptEngine() = ScriptEngineMgr.getEngineByName(engineName)
   protected def newCoffeeCompiler() = new CoffeeScriptCompiler(CoffeeScriptServlet.CS2Config(newJavascriptEngine _))
@@ -43,7 +47,16 @@ abstract class CoffeeScriptServlet extends HttpServlet {
     implicit val lifecycle = ResourcePool.onEviction(onCompilerTimeout) {
       case NonFatal(_) => false
     }
-    ResourcePool(createCompiler)
+    val pool = new UnboundedResourcePool(createCompiler)
+    val initCompilers = this.initCompilers
+    if (initCompilers > 0) {
+      Threads.onBlockingThread(s"Initialize $initCompilers $engineName compiler(s)") {
+        for (_ <- 1 to initCompilers) {
+          pool push createCompiler
+        }
+      }.failed.foreach(th => log("Failure during compiler initialization", th))(Threads.PiggyBack)
+    }
+    pool
   }
 
   private def createCompiler = {
