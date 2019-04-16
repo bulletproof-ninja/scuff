@@ -2,6 +2,7 @@ package scuff
 
 import org.junit._
 import Assert._
+import scuff._
 
 class TestScuffTraversable {
 
@@ -37,4 +38,13 @@ class TestScuffTraversable {
     assertEquals(0, bytes2 levenshtein bytes2)
   }
 
+  @Test
+  def `sub type collection`(): Unit = {
+    val numbers: List[AnyVal] = 123 :: 467L :: 435d :: 998f :: Nil
+    assertEquals(List(123), numbers.collectAs[Int])
+    assertEquals(List(467L), numbers.collectAs[Long])
+    assertEquals(List(435d), numbers.collectAs[Double])
+    assertEquals(List(998f), numbers.collectAs[Float])
+    assertEquals(numbers, numbers.collectAs[AnyVal])
+  }
 }

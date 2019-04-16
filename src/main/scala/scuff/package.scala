@@ -13,9 +13,9 @@ package object scuff {
   type TimedCache[K, V] = Cache[K, V] with Expiry[K, V]
   type Serializer[T] = Codec[T, Array[Byte]]
 
-  implicit class ScuffOption[T](private val opt: Option[T]) extends AnyVal {
-    def collectAs[S <: T: ClassTag]: Option[S] = opt.collect { case s: S => s }
-    def collectOrElse[S <: T: ClassTag](orElse: => S): S = collectAs[S] getOrElse orElse
+  implicit class ScuffOption[E](private val opt: Option[E]) extends AnyVal {
+    def collectAs[S <: E: ClassTag]: Option[S] = opt.collect { case s: S => s }
+    def collectOrElse[S <: E: ClassTag](orElse: => S): S = collectAs[S] getOrElse orElse
   }
 
   implicit class ScuffString(private val str: String) extends AnyVal {
@@ -138,6 +138,7 @@ package object scuff {
   }
 
   implicit class ScuffIterable[E](private val iter: Iterable[E]) extends AnyVal {
+    def collectAs[S <: E: ClassTag]: Iterable[S] = iter.collect { case s: S => s }
     def last: E = lastOption getOrElse {
       throw new NoSuchElementException(s"${iter.getClass.getSimpleName}.last")
     }
@@ -156,6 +157,7 @@ package object scuff {
     def headOption: Option[E] = iter.find(_ => true)
   }
   implicit class ScuffIterator[E](private val iter: Iterator[E]) extends AnyVal {
+    def collectAs[S <: E: ClassTag]: Iterator[S] = iter.collect { case s: S => s }
     def last: E = lastOption getOrElse {
       throw new NoSuchElementException(s"${iter.getClass.getSimpleName}.last")
     }
