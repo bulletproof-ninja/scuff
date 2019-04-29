@@ -137,6 +137,12 @@ class MultiMap[K, V] extends Iterable[(K, Set[V])] {
     tryRemove()
   }
 
+  /** Remove all values for key. */
+  def removeAll(key: K): Unit = map.remove(key)
+
+  /** Clear entire map. */
+  def clear(): Unit = map.clear()
+
   def iterator: Iterator[(K, Set[V])] = new Iterator[(K, Set[V])] {
     private[this] val entries = MultiMap.this.map.entrySet.iterator
     def hasNext: Boolean = entries.hasNext
