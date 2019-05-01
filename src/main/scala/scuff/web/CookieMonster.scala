@@ -6,64 +6,79 @@ import scala.concurrent.duration._
 import scala.util.Try
 import java.time.Clock
 import java.time.Instant
+import java.time.OffsetDateTime
 
-private object CookieMonster {
-  val SEP = "()<>@,;:\\\"/[]?={}".toSet
-  val NotSep = {
+object CookieMonster {
+  private val SEP = "()<>@,;:\\\"/[]?={}".toSet
+  private val NotSep = {
     val isSep = (SEP.apply _)
     isSep.negate
   }
 
-  final val SystemClock = Clock.systemUTC()
-  final val SessionDuration = -1.seconds
+  private final val SystemClock = Clock.systemUTC()
+  private final val SessionDuration: FiniteDuration = -1.seconds
+
+  sealed trait SameSite
+  object SameSite extends Enumeration {
+    val Lax, Strict, Omit = new Val with SameSite
+  }
 
 }
 
 /**
-  * Typed cookie definition.
-  */
+ * Typed cookie definition.
+ */
 trait CookieMonster[T] {
-  import java.util.concurrent.TimeUnit
 
   protected def clock: Clock = CookieMonster.SystemClock
 
   /**
-    * Use with `maxAge` for session cookies.
-    */
-  final def SessionDuration = CookieMonster.SessionDuration
+   * Assign to `maxAge` for session cookies.
+   */
+  final def SessionCookie: FiniteDuration = CookieMonster.SessionDuration
 
-  /** Max-age in seconds. */
+  /** Max-age in seconds. Use `SessionCookie` for session cookie. */
   protected def maxAge: FiniteDuration
   /** Convert Expires timestamp to MaxAge seconds, using current time. */
-  final def toMaxAge(expires: Long, unit: TimeUnit) = {
-    val expiresMillis = Instant.ofEpochMilli(unit toMillis expires).toEpochMilli()
+  final def toMaxAge(expires: Long, unit: TimeUnit): FiniteDuration = {
+    val expiresMillis = unit toMillis expires
     val diff = expiresMillis - clock.millis
-    new FiniteDuration(diff / 1000, TimeUnit.SECONDS)
-
+    (diff / 1000).seconds
   }
+
+  final def toMaxAge(expires: OffsetDateTime): FiniteDuration =
+    toMaxAge(expires.toEpochSecond, SECONDS)
   final def toMaxAge(expires: java.util.Date): FiniteDuration =
-    toMaxAge(expires.getTime, TimeUnit.MILLISECONDS)
+    toMaxAge(expires.getTime, MILLISECONDS)
   protected def codec: Codec[T, String]
   def name: String
 
   /**
-    * HTTP only cookie? Defaults to `true`.
-    */
+   * HTTP only cookie? Defaults to `true`.
+   */
   protected def isHttpOnly = true
+
+  protected def Lax = CookieMonster.SameSite.Lax
+  protected def Strict = CookieMonster.SameSite.Strict
+  protected def Omit = CookieMonster.SameSite.Omit
+
+  /** `SameSite` values. Defaults to `Lax`. */
+  protected def sameSite: CookieMonster.SameSite = Lax
+
   /**
-    * Secure cookie? Defaults to `false`.
-    */
+   * Secure cookie? Defaults to `false`.
+   */
   protected def isSecure = false
 
   /**
-    * URL scope for cookie. Default is root.
-    */
+   * URL scope for cookie. Default is root.
+   */
   protected def path: String = null
 
   /**
-    * Domain scope for cookie.
-    * Per the Cookie API: "By default, cookies are only returned to the server that sent them."
-    */
+   * Domain scope for cookie.
+   * Per the Cookie API: "By default, cookies are only returned to the server that sent them."
+   */
   protected def domain(req: http.HttpServletRequest): String = null
 
   private lazy val validName: String = {
@@ -75,21 +90,34 @@ trait CookieMonster[T] {
   }
 
   /**
-    * Set value as cookie on response.
-    */
-  def set(res: http.HttpServletResponse, value: T, maxAge: FiniteDuration = this.maxAge, path: String = this.path)(implicit req: http.HttpServletRequest): Unit = {
-    val cookie = new http.Cookie(validName, codec.encode(value))
-    cookie.setHttpOnly(isHttpOnly)
-    cookie.setSecure(isSecure)
-    cookie.setMaxAge(maxAge.toSeconds.toFloat.round)
-    for (path <- Option(path)) cookie.setPath(path)
-    for (domain <- Option(domain(req))) cookie.setDomain(domain)
-    res.addCookie(cookie)
+   * Set value as cookie on response.
+   * @param res Response object
+   * @param value Cookie value
+   * @param overrideMaxAge Optional Max-Age override
+   * @param overridePath Optional Path override
+   * @param req Implicit request object
+   */
+  def set(res: http.HttpServletResponse, value: T, overrideMaxAge: FiniteDuration = this.maxAge, overridePath: String = this.path)(implicit req: http.HttpServletRequest): Unit = {
+    val encodedValue = codec encode value
+    val cookie = new java.lang.StringBuilder(validName.length + encodedValue.length + 200)
+    cookie append validName append '=' append encodedValue
+    if (sameSite != Omit) cookie append "; SameSite=" append sameSite
+    if (isSecure) cookie append "; Secure"
+    if (isHttpOnly) cookie append "; HttpOnly"
+    if (overrideMaxAge.length != SessionCookie.length) {
+      cookie append "; Max-Age=" append overrideMaxAge.toSeconds
+    }
+    domain(req) match {
+      case null => // Ignore
+      case domain => cookie append "; Domain=" append domain
+    }
+    if (overridePath != null) cookie append "; Path=" append overridePath
+    res.addHeader("Set-Cookie", cookie.toString)
   }
 
   /**
-    * Get value from cookie on request.
-    */
+   * Get value from cookie on request.
+   */
   def get(request: http.HttpServletRequest): Option[T] = {
     Option(request.getCookies).flatMap { array =>
       array.find(_.getName == name).flatMap { c =>
@@ -99,8 +127,8 @@ trait CookieMonster[T] {
   }
 
   /**
-    * Remove cookie.
-    */
+   * Remove cookie.
+   */
   def remove(res: http.HttpServletResponse): Unit = {
     val cookie = new http.Cookie(name, "")
     cookie.setMaxAge(0) // Remove cookie

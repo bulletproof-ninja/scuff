@@ -40,15 +40,23 @@ class TestCookieMonster {
     object UserCookie extends HmacCookieMonster[User] {
       def name = "user"
       val hmac = Hmac.json(UserCodec, hmacFunc)
-      def maxAge = SessionDuration
+      def maxAge = 2.minutes
+      override def sameSite = Strict
     }
     val user = new User(42, "Nils")
     implicit val req = mock(classOf[HttpServletRequest])
     val res = mock(classOf[HttpServletResponse])
     UserCookie.set(res, user)
-    val cookieArg = ArgumentCaptor.forClass(classOf[Cookie])
-    verify(res).addCookie(cookieArg.capture)
-    val cookie = cookieArg.getValue
+    val cookieNameArg = ArgumentCaptor.forClass(classOf[String])
+    val cookieContentArg = ArgumentCaptor.forClass(classOf[String])
+    verify(res).addHeader(cookieNameArg.capture, cookieContentArg.capture)
+    val setCookie = cookieNameArg.getValue
+    assertEquals("Set-Cookie", setCookie)
+    val cookieContent = cookieContentArg.getValue
+    assertTrue(cookieContent contains "; SameSite=Strict")
+    assertTrue(cookieContent contains "; Max-Age=120")
+    val Array(cookieValue, _*) = cookieContent.substring(UserCookie.name.length+1, cookieContent.length).split("; ")
+    val cookie = new Cookie(UserCookie.name, cookieValue)
     when(req.getCookies).thenReturn(Array(cookie))
     req.getCookies.find(_.getName == UserCookie.name) match {
       case None => fail("Should have cookie")
