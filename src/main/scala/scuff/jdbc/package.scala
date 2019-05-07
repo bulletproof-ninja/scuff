@@ -17,7 +17,7 @@ package jdbc {
     }
     def evictOnFailure(e: Throwable): Boolean = e match {
       case _: SQLNonTransientConnectionException => true
-      case e: SQLException if e.getSQLState startsWith "08" => true
+      case e: SQLException => Option(e.getSQLState).exists(_ startsWith "08")
       case _ => false
     }
   }
