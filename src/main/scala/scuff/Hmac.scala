@@ -37,14 +37,23 @@ object Hmac {
       key: SecretKey): Hmac[A, Z] =
     apply(toBytes, combinerSplitter, new HmacFunction(key))
 
-  def json(hmac: HmacFunction): Hmac[String, String] =
+  def json(
+      hmac: HmacFunction): Hmac[String, String] =
     json[String](Codec.noop, hmac)
+  def json(
+      hmac: HmacFunction,
+      dataFieldName: String): Hmac[String, String] =
+    json[String](Codec.noop, hmac, dataFieldName)
   def json[A](
       jsonCodec: Codec[A, String],
-      hmac: HmacFunction): Hmac[A, String] = {
+      hmac: HmacFunction,
+      dataFieldName: String = JsonSplitterCombiner.dataFieldName): Hmac[A, String] = {
+    val sc =
+      if (dataFieldName == JsonSplitterCombiner.dataFieldName) JsonSplitterCombiner
+      else new JsonSplitterCombiner(dataFieldName)
     new CustomHmac(
       jsonCodec, Codec.UTF8.encode, hmac,
-      Codec.noop, JsonSplitterCombiner)
+      Codec.noop, sc)
   }
   def base64[A](
       codec: Codec[A, Array[Byte]],
@@ -166,18 +175,19 @@ private object ByteArraySplitterCombiner
   }
 }
 
-private object JsonSplitterCombiner
+private object JsonSplitterCombiner extends JsonSplitterCombiner("data")
+private class JsonSplitterCombiner(val dataFieldName: String)
   extends Codec[(String, Array[Byte]), String] {
   @inline private def b64 = Base64.RFC_4648
   def encode(tuple: (String, Array[Byte])): String = {
     val (data, hash) = tuple
     val b64Hash = b64.encode(hash)
-    s"""{"data":$data,"hash":"$b64Hash"}"""
+    s"""{"$dataFieldName":$data,"hash":"$b64Hash"}"""
   }
-  private def jsonData1Prefix = "{\"data\":"
+  private[this] val jsonData1Prefix = s"""{"$dataFieldName":"""
   private def jsonHash2Prefix = ",\"hash\":"
   private def jsonHash1Prefix = "{\"hash\":"
-  private def jsonData2Prefix = ",\"data\":"
+  private[this] val jsonData2Prefix = s""","$dataFieldName":"""
   def decode(json: String): (String, Array[Byte]) = {
     json.lastIndexOf(jsonHash2Prefix) match {
       case -1 => // hash first

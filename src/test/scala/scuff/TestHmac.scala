@@ -31,7 +31,7 @@ class TestHmac {
 
   val HmacUserCodec = Hmac(Codec.UTF8(UserJsonCodec), secretKey)
   val Base64HmacUser = Base64(HmacUserCodec)
-  val JsonHmac = Hmac.json(UserJsonCodec, new HmacFunction(secretKey))
+  val JsonHmac = Hmac.json(UserJsonCodec, new HmacFunction(secretKey), "user")
 
   private def twoWay[T](user: User, hmac: Codec[User, T]): Unit = {
     val encoded = hmac.encode(user)
@@ -75,14 +75,14 @@ class TestHmac {
       val ast = (JsVal parse encoded).asObj
       assertEquals(2, ast.size)
       val hash = ast.hash.asStr.value
-      ast.data match {
+      ast.user match {
         case data @ JsObj(_) =>
           assertEquals(user.id.toString, data.id.asStr.value)
           assertEquals(user.expiration, data.expiration.asNum.toLong)
         case _ => ???
       }
       val userJson = UserJsonCodec.encode(user)
-      s"""{"hash":"$hash","data":$userJson}"""
+      s"""{"hash":"$hash","user":$userJson}"""
     }
   }
 
