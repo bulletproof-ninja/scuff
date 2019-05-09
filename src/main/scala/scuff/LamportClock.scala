@@ -28,6 +28,7 @@ final class LamportClock(counter: CASLong) {
     }
   }
 
+  override def toString = String valueOf counter.value
 }
 
 object LamportClock {
