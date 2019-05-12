@@ -5,7 +5,6 @@ import scuff._
 import scala.concurrent.duration._
 import scala.util.Try
 import java.time.Clock
-import java.time.Instant
 import java.time.OffsetDateTime
 
 object CookieMonster {
