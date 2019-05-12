@@ -19,12 +19,12 @@ class TestSurgeon {
 
     val bar = new Bar("baz")
     val surgeon = new Surgeon(bar)
-    assertEquals("baz", surgeon.get[String]('bar))
-    assertEquals("baz", surgeon.get[String]('foo))
-    val expected = Map('bar -> "baz", 'foo -> "baz")
+    assertEquals("baz", surgeon.bar)
+    assertEquals("baz", surgeon.foo)
+    val expected = Map("bar" -> "baz", "foo" -> "baz")
     val actual = surgeon.getAll[String]
     assertEquals(expected, actual)
-    val numberFields = surgeon.getAll[Number].filter(kv => List('num, 'd).contains(kv._1))
+    val numberFields = surgeon.getAll[Number].filter(kv => List("num", "d").contains(kv._1))
     val num = numberFields.map(_._2.intValue).sum
     assertEquals(43, num)
     val d = surgeon.getAll[java.lang.Double](exactClass = true).map(_._2.doubleValue).sum

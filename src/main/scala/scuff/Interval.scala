@@ -72,19 +72,19 @@ final class Interval[@specialized(Short, Int, Long, Float, Double) T](
   }
   private def readObject(in: java.io.ObjectInputStream): Unit = {
     val surgeon = new reflect.Surgeon(this)
-    surgeon.set('fromIncl, in.readBoolean)
-    surgeon.set('toIncl, in.readBoolean)
-    surgeon.set('from, in.readObject)
-    surgeon.set('to, in.readObject)
-    surgeon.set(Interval.field_ord_name, in.readObject)
-    surgeon.set('stringRep, in.readObject)
+    surgeon.fromIncl = in.readBoolean
+    surgeon.toIncl = in.readBoolean
+    surgeon.from = in.readObject
+    surgeon.to = in.readObject
+    surgeon.updateDynamic(Interval.field_ord_name)(in.readObject)
+    surgeon.stringRep = in.readObject
   }
 
 }
 
 object Interval {
 
-  private val field_ord_name = Symbol(classOf[Interval[_]].getDeclaredFields().find(f => classOf[Ordering[_]] == f.getType).get.getName)
+  private val field_ord_name = classOf[Interval[_]].getDeclaredFields().find(f => classOf[Ordering[_]] == f.getType).get.getName
 
   val Unbounded = new Interval(false, Double.NegativeInfinity, false, Double.PositiveInfinity)
 

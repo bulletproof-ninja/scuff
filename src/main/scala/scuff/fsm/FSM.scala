@@ -21,7 +21,9 @@ object typed {
         field.setAccessible(true)
         val subState = field.get(superState)
         if (!ignore.contains(subState)) {
-          new scuff.reflect.Surgeon(subState).set('parent, parent).set('assignedName, field.getName)
+          val ss = new scuff.reflect.Surgeon(subState)
+          ss.parent = parent
+          ss.assignedName = field.getName
           ignore += subState
           subState match {
             case ss: typed.SuperState[T] => assignParenthood(ss, ignore)
@@ -105,4 +107,3 @@ class FinalState(name: String = "") extends typed.FinalState[Any]
  * A finite state machine trait, which is itself a super state.
  */
 trait FSM extends typed.FSM[Any]
-

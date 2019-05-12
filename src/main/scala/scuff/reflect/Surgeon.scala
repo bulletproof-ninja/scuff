@@ -4,13 +4,16 @@ import java.lang.reflect.Field
 
 import scala.reflect.{ ClassTag, classTag }
 
+import language.dynamics
+
 /**
   * Helper class to operate on the internals
   * of an arbitrary object.
   * Useful for, among other things, setting
   * final fields on deserialization.
   */
-class Surgeon[T <: AnyRef](patient: T) {
+class Surgeon[T <: AnyRef](patient: T)
+  extends Dynamic {
 
   private[this] val fields = Surgeon.fields.get(patient.getClass)
 
@@ -19,25 +22,24 @@ class Surgeon[T <: AnyRef](patient: T) {
     * @param name Field name
     * @param value Field value
     */
-  def set(field: Symbol, value: Any): this.type = {
-    fields(field).set(patient, value)
-    this
+  def updateDynamic(name: String)(value: Any) = {
+    fields(name).set(patient, value)
   }
-
-  def has(field: Symbol): Boolean = fields.contains(field)
 
   /**
     * Get field value reflectively.
     * @param name Field name
     * @return Field value
     */
-  def get[F](field: Symbol): F = fields(field).get(patient).asInstanceOf[F]
+  def selectDynamic(field: String): Any = fields(field).get(patient)
 
-  def getAll[F: ClassTag]: Map[Symbol, F] = getAll[F](false)
-  def getAll[F: ClassTag](exactClass: Boolean): Map[Symbol, F] = {
+  def hasField(field: String): Boolean = fields.contains(field)
+
+  def getAll[F: ClassTag]: Map[String, F] = getAll[F](false)
+  def getAll[F: ClassTag](exactClass: Boolean): Map[String, F] = {
     val wantType = classTag[F].runtimeClass
     val filtered = fields.filter {
-      case (name, field) =>
+      case (_, field) =>
         if (exactClass) {
           field.getType == wantType
         } else {
@@ -55,19 +57,19 @@ class Surgeon[T <: AnyRef](patient: T) {
 
 private object Surgeon {
 
-  private def extractFields(cls: Class[_], map: Map[Symbol, Field] = Map.empty): Map[Symbol, Field] = {
+  private def extractFields(cls: Class[_], map: Map[String, Field] = Map.empty): Map[String, Field] = {
     if (cls == null) {
       map
     } else {
       cls.getDeclaredFields.foldLeft(extractFields(cls.getSuperclass, map)) {
         case (map, field) =>
           field.setAccessible(true)
-          map.updated(Symbol(field.getName), field)
+          map.updated(field.getName, field)
       }
     }
   }
 
-  val fields = new ClassValue[Map[Symbol, Field]] {
+  val fields = new ClassValue[Map[String, Field]] {
     def computeValue(cls: Class[_]) = extractFields(cls)
   }
 }
