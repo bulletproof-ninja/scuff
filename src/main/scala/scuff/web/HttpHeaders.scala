@@ -1,19 +1,17 @@
 package scuff.web
 
-import scuff.MediaType
-import scala.concurrent.duration.FiniteDuration
-import java.net.URI
-import java.net.URL
+import java.net.{ URI, URL }
+import java.time.{ Instant, LocalDateTime, OffsetDateTime, ZoneId, ZonedDateTime }
 import java.time.format.DateTimeFormatter
-import java.time.ZonedDateTime
-import java.time.LocalDateTime
-import java.time.Instant
-import java.time.OffsetDateTime
+
+import scala.concurrent.duration.FiniteDuration
+
+import scuff.MediaType
 
 object HttpHeaders {
 
   private def RFC_1123 = DateTimeFormatter.RFC_1123_DATE_TIME
-  private def GMT = RFC_1123.getZone
+  private[this] val GMT = ZoneId of "GMT"
 
   def RFC_1123(str: String): ZonedDateTime = ZonedDateTime.parse(str, RFC_1123)
   def RFC_1123(date: ZonedDateTime): String = {
