@@ -33,6 +33,10 @@ trait HttpCaching extends HttpServlet {
 
   /** If possible (e.g. static file system resource), return last modified of resource requested. */
   protected def fetchLastModified(req: HttpServletRequest): Option[Long]
+
+  private def lastModified(req: HttpServletRequest): Option[Long] =
+    fetchLastModified(req).map(lm => (lm / 1000) * 1000) // Shed millis
+
   /** Make cache key for requested resource. `None` means no caching. */
   protected def makeCacheKey(req: HttpServletRequest): Option[Any]
 
@@ -58,7 +62,7 @@ trait HttpCaching extends HttpServlet {
     try {
       val cached = cache.lookupOrStore(cacheKey)(fetchResource(res, buildResponse)) match {
         case currCache =>
-          if (currCache.lastModified != fetchLastModified(req)) { // Server cache invalid
+          if (currCache.lastModified != lastModified(req)) { // Server cache invalid
             val freshCache = fetchResource(res, buildResponse)
             cache.store(cacheKey, freshCache)
             freshCache
