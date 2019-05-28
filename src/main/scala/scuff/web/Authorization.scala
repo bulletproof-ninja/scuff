@@ -42,13 +42,13 @@ abstract class ApplicationSecurityFilter extends Filter {
    * Lookup authenticated user by request.
    * @return Authenticated user, or None if not authenticated
    */
-  protected def getAuthenticatedUser(req: HttpServletRequest): Option[UserPrincipal]
+  protected def getAuthenticatedUser(req: HttpServletRequest, res: HttpServletResponse): Option[UserPrincipal]
   protected def logoutUser(req: HttpServletRequest, res: HttpServletResponse): Unit
 
   def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain): Unit = httpFilter(req, res, chain)
 
   private def getRequest(req: HttpServletRequest, res: HttpServletResponse): HttpServletRequest = {
-    getAuthenticatedUser(req) match {
+    getAuthenticatedUser(req, res) match {
       case Some(authUser) =>
         new HttpServletRequestProxy(req) {
           @volatile var user: Option[UserPrincipal] = Some(authUser)
