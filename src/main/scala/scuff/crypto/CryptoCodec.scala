@@ -1,13 +1,11 @@
 package scuff.crypto
 
-import java.security._
-import scuff._
-import javax.crypto.Cipher
-import scuff.concurrent.UnboundedResourcePool
-import javax.crypto.SecretKey
-import javax.crypto.KeyGenerator
-import java.util.Arrays
+import java.security.{ Key, KeyPair, KeyPairGenerator }
+import javax.crypto.{ Cipher, SecretKey, KeyGenerator }
 import javax.crypto.spec.IvParameterSpec
+import scuff.concurrent.UnboundedResourcePool
+import java.util.Arrays
+import scuff._
 
 class CipherCodec private (val encryptionKey: Key, decryptionKey: Key, cipher: => Cipher)
   extends Codec[Array[Byte], Array[Byte]] {
