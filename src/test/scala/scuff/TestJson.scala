@@ -469,4 +469,17 @@ class TestJson {
         JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999")),
         JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999.00").underlying))
   }
+
+  @Test
+  def `decimals around zero`(): Unit = {
+    (BigDecimal("-10.123") to BigDecimal("10.456") by BigDecimal("0.001")).foreach { num =>
+      var scale = num.scale
+      while (scale >= 0) {
+        val scaled = num.setScale(scale, BigDecimal.RoundingMode.FLOOR)
+        val parsed = JsVal.parse(scaled.toString).asNum.toBigDec()
+        assertEquals(scaled, parsed)
+        scale -= 1
+      }
+    }
+  }
 }
