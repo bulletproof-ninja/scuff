@@ -9,7 +9,7 @@ ext {
         '2.13': '2.13.0-RC2'
     ]
 
-    vScala = System.properties.scalaVersion ?: '2.11'
+    vScala = System.properties.scalaVersion ?: '2.12'
     vScalaFull = getScalaFull[vScala]
     vServletApi = '3.0.1'
     vMailApi = '1.6.2'
