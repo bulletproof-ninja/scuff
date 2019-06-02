@@ -4,8 +4,21 @@ import org.junit._
 import org.junit.Assert._
 import scala.util.Random
 import scala.util.Try
+import java.util.Arrays
 
 class TestBase64 extends {
+
+  val codecs = {
+    import Base64._
+    List(
+      "RFC_1521(lineBreaks = true)" -> RFC_1521(lineBreaks = true, isSymmetric = true),
+      "RFC_1521(lineBreaks = false)" -> RFC_1521(lineBreaks = false),
+      "RFC_4648(withPadding = true)" -> RFC_4648(withPadding = true),
+      "RFC_4648(withPadding = false)" -> RFC_4648(withPadding = false),
+      "Custom('`', '~')" -> Custom('`', '~'),
+      "Custom('$', '%', withPadding = true, paddingChar = '*', maxLineLength = 50)" -> Custom('$', '%', withPadding = true, paddingChar = '*', maxLineLength = 50, isSymmetric = true),
+      "Custom('$', '%', withPadding = false, maxLineLength = 31)" -> Custom('$', '%', withPadding = false, maxLineLength = 31, isSymmetric = true))
+  }
 
   val LeviathanQuote = """
 Man is distinguished, not only by his reason, but by this singular passion from
@@ -20,6 +33,7 @@ dGhlIG1pbmQsIHRoYXQgYnkgYSBwZXJzZXZlcmFuY2Ugb2YgZGVsaWdodCBpbiB0aGUgY29udGlu
 dWVkIGFuZCBpbmRlZmF0aWdhYmxlIGdlbmVyYXRpb24gb2Yga25vd2xlZGdlLCBleGNlZWRzIHRo
 ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=
 """.trim.replaceAll("""[\r\n]+""", "")
+
   @Test
   def `full text encoding, with padding`(): Unit = {
     val codec = Base64.RFC_4648(withPadding = true)
@@ -111,8 +125,9 @@ ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=
     val decoded = new String(codec.decode(encoded)).toString
     assertEquals(LeviathanQuote, decoded)
   }
+
   @Test
-  def `randomized`(): Unit = {
+  def `randomized comparison`(): Unit = {
     import language.reflectiveCalls
     val sunEncoder = Try {
       val encoder = Class.forName("sun.misc.BASE64Encoder").newInstance
@@ -131,6 +146,36 @@ ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=
         val sunEncodedDecoded = codec.decode(sunEncoded)
         assertArrayEquals(bytes, sunEncodedDecoded)
       }
+    }
+  }
+
+  @Test
+  def `linebreaks`(): Unit = {
+    val javaEncoder = java.util.Base64.getMimeEncoder
+    val codec = Base64.RFC_2045(lineBreaks = true, isSymmetric = true)
+    val bytes = new Array[Byte](150)
+    Random.nextBytes(bytes)
+    val scuffEncoded = codec encode bytes
+    val javaEncoded = new String(javaEncoder encode bytes, "US-ASCII")
+    assertEquals(javaEncoded, scuffEncoded.toString.trim)
+    val scuffDecoded = codec decode scuffEncoded
+    assertArrayEquals(bytes, scuffDecoded)
+  }
+
+  @Test
+  def `randomized data`(): Unit = {
+    codecs foreach {
+      case (desc, codec) =>
+        for (_ <- 1 to 500) {
+          val bytes = new Array[Byte](Random.nextBetween(10, 8192 + 1))
+          Random.nextBytes(bytes)
+          val encoded = codec encode bytes
+          val decoded = codec decode encoded
+          if (!Arrays.equals(bytes, decoded)) {
+            fail(s"Codec failed: $desc")
+          }
+
+        }
     }
   }
 

@@ -89,12 +89,27 @@ object Base64 {
       toIndexByChar(base, index + 1, charIndex)
     }
   }
-  private def newSplitter(len: Int): Pattern = s"""(?s).{1,$len}""".r.pattern
+  private case class LineSplitter(pattern: Pattern, lineLen: Int, isSymmetricCodec: Boolean) {
+    def this(lineLen: Int, isSymmetricCodec: Boolean) =
+      this(s"""(?s).{1,$lineLen}""".r.pattern, lineLen, isSymmetricCodec)
+  }
 
   type Base64 = Codec[Array[Byte], CharSequence]
 
-  /** Define custom base64 codec. */
-  def Custom(char62: Char, char63: Char, withPadding: Boolean = true, paddingChar: Char = '=', maxLineLength: Int = 0): Base64 = {
+  /**
+   * Define custom base64 codec.
+   * @param char62 62nd char
+   * @param char63 63rd char
+   * @param withPadding Use padding? Defaults to `true`
+   * @param paddingChar Padding char, if padding. Defaults to `=`
+   * @param maxLineLength Optional max line length. If > 0, will break lines with CR LF.
+   * @param isSymmetric Is decoding input always same as encoded, i.e. if `maxLineLength` is defined? Defaults to `false`.
+   */
+  def Custom(char62: Char, char63: Char,
+      withPadding: Boolean = true,
+      paddingChar: Char = '=',
+      maxLineLength: Int = 0,
+      isSymmetric: Boolean = false): Base64 = {
     val baseChars = {
       val base = RFC4648BaseChars.clone
       base(62) = char62
@@ -103,7 +118,7 @@ object Base64 {
     }
     val charIndex = toIndexByChar(baseChars, 62, RFC4648BaseCharIndex.clone)
     val splitter = if (maxLineLength > 0) {
-      Some(newSplitter(maxLineLength) -> maxLineLength)
+      Some(new LineSplitter(maxLineLength, isSymmetric))
     } else None
     new Impl(baseChars, paddingChar, withPadding, charIndex, splitter)
   }
@@ -117,13 +132,15 @@ object Base64 {
   /** Default base-64 encoding, with padding and line breaks for every 76 characters. */
   val RFC_1521: Base64 = Custom('+', '/', withPadding = true, paddingChar = '=', 76)
   /** Default base-64 encoding, with padding and line breaks optional. */
-  def RFC_1521(lineBreaks: Boolean): Base64 = Custom('+', '/', withPadding = true, paddingChar = '=', if (lineBreaks) 76 else 0)
+  def RFC_1521(lineBreaks: Boolean, isSymmetric: Boolean = true): Base64 = Custom('+', '/', withPadding = true, paddingChar = '=', if (lineBreaks) 76 else 0, lineBreaks && isSymmetric)
   /** Default base-64 encoding, with padding and line breaks for every 76 characters. */
   def RFC_2045: Base64 = RFC_1521
   /** Default base-64 encoding, with padding and line breaks optional. */
-  def RFC_2045(lineBreaks: Boolean): Base64 = RFC_1521(lineBreaks)
+  def RFC_2045(lineBreaks: Boolean, isSymmetric: Boolean = true): Base64 = RFC_1521(lineBreaks, isSymmetric)
 
-  private class Impl(baseChars: Array[Char], paddingChar: Char, withPadding: Boolean, charIdx: Array[Byte], lineSplitter: Option[(Pattern, Int)]) extends Base64 {
+  private class Impl(baseChars: Array[Char], paddingChar: Char, withPadding: Boolean, charIdx: Array[Byte], lineSplitter: Option[LineSplitter]) extends Base64 {
+
+    private[this] val lineLenRemoveEOL = lineSplitter.filter(_.isSymmetricCodec).map(_.lineLen) getOrElse 0
 
     private def encodeBytes(b1: Byte, b2: Byte, b3: Byte, chars: Array[Char], charOffset: Int, padding: Int): Unit = {
       import Numbers.unsigned
@@ -188,12 +205,15 @@ object Base64 {
     private def finishEncoding(chars: Array[Char], removePadding: Int, lineBreak: String = "\r\n"): CharSequence = {
       lineSplitter match {
         case None => new unsafe.CharSeq(chars, 0, chars.length - removePadding)
-        case Some((lineSplitter, maxLineLen)) =>
+        case Some(LineSplitter(lineSplitter, maxLineLen, _)) =>
           val maxLineCount = chars.length / maxLineLen + 1
-          val sb = new java.lang.StringBuilder(maxLineCount * (maxLineLen + lineBreak.length))
-          val m = lineSplitter.matcher(new unsafe.CharSeq(chars, 0, chars.length - removePadding))
-          while (m.find) sb append m.group(0) append lineBreak
-          sb.toString
+          if (maxLineCount == 1) new unsafe.CharSeq(chars, 0, chars.length - removePadding)
+          else {
+            val sb = new java.lang.StringBuilder(maxLineCount * (maxLineLen + lineBreak.length))
+            val m = lineSplitter.matcher(new unsafe.CharSeq(chars, 0, chars.length - removePadding))
+            while (m.find) sb append m.group(0) append lineBreak
+            sb.toString
+          }
       }
 
     }
@@ -210,8 +230,16 @@ object Base64 {
         encodeChunk(bytes, chars)
         finishEncoding(chars, if (withPadding) 0 else padding)
       }
+
     private def invalidLength(s: CharSequence) = new IllegalArgumentException(s"Cannot decode string, invalid length: ${s.length}")
+
     def decode(s: CharSequence): Array[Byte] = {
+      if (lineLenRemoveEOL == 0) decodeNoEOL(s)
+      else decodeNoEOL(removeEOLs(s, lineLenRemoveEOL))
+    }
+
+    // Decode, no EOL expected.
+    private def decodeNoEOL(s: CharSequence): Array[Byte] = {
       s.length match {
         case 0 => Array.empty
         case 1 => if (s.charAt(0) == paddingChar) Array.empty else throw invalidLength(s)
