@@ -22,4 +22,6 @@ class Enum[E: ClassTag] extends Enumeration {
         throw new NoSuchElementException(s"No value found for '$name'; available: $valuesStr")
     }
   }
+
+  def fromId(id: Int): Value = apply(id).asInstanceOf[Value]
 }
