@@ -15,6 +15,7 @@ ext {
     vMailApi = '1.6.2'
     vMockito = '1.10.19'
     vJUnit = '4.12'
+    vBouncyCastle = '1.61'
 }
 
 tasks.withType(ScalaCompile) {
@@ -80,6 +81,8 @@ allprojects {
         testCompile "junit:junit:$vJUnit"
         testCompile "org.mockito:mockito-all:$vMockito"
         testCompile "javax.servlet:javax.servlet-api:$vServletApi"
+
+        testCompile "org.bouncycastle:bcprov-ext-jdk15on:$vBouncyCastle"
     }
 
     jar {
