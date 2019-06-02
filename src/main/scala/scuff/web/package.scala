@@ -40,6 +40,9 @@ package object web {
     def setCookie[T](value: T)(implicit req: HttpServletRequest, cm: CookieMonster[T]): Unit = {
       cm.set(res, value)
     }
+    def removeCookie[T](cm: CookieMonster[T]): Unit = {
+      cm.remove(res)
+    }
   }
   implicit class ScuffRequest(private val req: HttpServletRequest) extends AnyVal {
     def isLocalhost: Boolean = req.getRemoteHost match {
