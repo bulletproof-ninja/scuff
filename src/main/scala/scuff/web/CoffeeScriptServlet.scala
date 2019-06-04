@@ -47,16 +47,7 @@ abstract class CoffeeScriptServlet extends HttpServlet {
     implicit val lifecycle = ResourcePool.onEviction(onCompilerTimeout) {
       case NonFatal(_) => false
     }
-    val pool = new UnboundedResourcePool(createCompiler)
-    val initCompilers = this.initCompilers
-    if (initCompilers > 0) {
-      Threads.onBlockingThread(s"Initialize $initCompilers $engineName compiler(s)") {
-        for (_ <- 1 to initCompilers) {
-          pool push createCompiler
-        }
-      }.failed.foreach(th => log("Failure during compiler initialization", th))(Threads.PiggyBack)
-    }
-    pool
+    new UnboundedResourcePool(createCompiler)
   }
 
   private def createCompiler = {
@@ -74,6 +65,14 @@ abstract class CoffeeScriptServlet extends HttpServlet {
 
   override def init(): Unit = {
     super.init()
+    val initCompilers = this.initCompilers
+    if (initCompilers > 0) {
+      Threads.onBlockingThread(s"$engineName-initializer") {
+        for (_ <- 1 to initCompilers) {
+          compilerPool push createCompiler
+        }
+      }.failed.foreach(th => log("Failure during compiler initialization", th))(Threads.PiggyBack)
+    }
     this.eviction = Some(compilerPool.startEviction(120.minutes))
   }
 
