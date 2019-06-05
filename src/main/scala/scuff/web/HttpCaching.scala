@@ -31,7 +31,12 @@ trait HttpCaching extends HttpServlet {
   private lazy val defaultCache = new LRUHeapCache[Any, Cached](Int.MaxValue)
   protected def cache: scuff.Cache[Any, Cached] { type R[T] = T } = defaultCache
 
-  /** If possible (e.g. static file system resource), return last modified of resource requested. */
+  /**
+   *  If possible (e.g. static file system resource),
+   *  return last modified of resource requested.
+   *  If not possible, or not desired, an ETag hash
+   *  will be used instead.
+   */
   protected def fetchLastModified(req: HttpServletRequest): Option[Long]
 
   private def lastModified(req: HttpServletRequest): Option[Long] =
@@ -42,7 +47,9 @@ trait HttpCaching extends HttpServlet {
 
   private case object NotOkException extends RuntimeException with NoStackTrace
 
-  private def fetchResource(res: HttpServletResponse, buildResponse: HttpServletResponse => Unit): Cached = {
+  private def fetchResource(
+      req: HttpServletRequest, res: HttpServletResponse,
+      buildResponse: HttpServletResponse => Unit): Cached = {
     val proxy = new HttpServletResponseProxy(res)
     buildResponse(proxy)
     if (proxy.status != SC_OK) {
@@ -52,18 +59,30 @@ trait HttpCaching extends HttpServlet {
       proxy.propagate(SC_NO_CONTENT)
       throw NotOkException
     }
-    val lastMod = proxy.getDateHeaders(HttpHeaders.LastModified).headOption
-    val headers = proxy.headers.values.toList.map {
-      case (name, values) => name -> values.toList
+    val lastModHeader = proxy.getDateHeaders(HttpHeaders.LastModified).headOption
+    val lastMod = lastModHeader orElse lastModified(req)
+    val headers = {
+      val headers = proxy.headers.values.toList.map {
+        case (name, values) => name -> values.toList
+      }
+      if (lastModHeader.isDefined) headers
+      else {
+        val withLastMod = lastMod
+          .map(HttpHeaders.RFC_1123)
+          .map(_ :: Nil)
+          .map(HttpHeaders.LastModified -> _)
+          .map(_ :: headers)
+        withLastMod getOrElse headers
+      }
     }
     new Cached(proxy.getBytes, lastMod, headers, proxy.getContentType, proxy.getCharacterEncoding, proxy.getLocale)
   }
   private def respond(cacheKey: Any, req: HttpServletRequest, res: HttpServletResponse)(buildResponse: HttpServletResponse => Unit) =
     try {
-      val cached = cache.lookupOrStore(cacheKey)(fetchResource(res, buildResponse)) match {
+      val cached = cache.lookupOrStore(cacheKey)(fetchResource(req, res, buildResponse)) match {
         case currCache =>
           if (currCache.lastModified != lastModified(req)) { // Server cache invalid
-            val freshCache = fetchResource(res, buildResponse)
+            val freshCache = fetchResource(req, res, buildResponse)
             cache.store(cacheKey, freshCache)
             freshCache
           } else {

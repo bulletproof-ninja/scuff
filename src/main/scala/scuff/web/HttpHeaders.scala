@@ -49,6 +49,7 @@ object HttpHeaders {
   final def Location(location: URI): (String, String) = Location(location.toString)
   final def Location(location: String): (String, String) = Location -> location
 
+  def LastModified(epochMillis: Long): (String, String) = LastModified -> RFC_1123(epochMillis)
   def LastModified(date: java.util.Date): (String, String) = LastModified -> RFC_1123(date)
   def LastModified(date: ZonedDateTime): (String, String) = LastModified -> RFC_1123(date)
   def LastModified(date: LocalDateTime): (String, String) = LastModified -> RFC_1123(date)
