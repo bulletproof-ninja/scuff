@@ -16,6 +16,8 @@ package web {
 
 package object web {
 
+  private[this] val JarSplit = "!".r.pattern
+
   @inline
   implicit def toHttpReq(req: ServletRequest) = req.asInstanceOf[HttpServletRequest]
   @inline
@@ -72,17 +74,22 @@ package object web {
         }
     }
 
+    private def toFile(url: URL): java.io.File =
+      url.getProtocol match {
+        case "file" => new java.io.File(url.getFile)
+        case "jar" =>
+          val Array(jar, _*) = JarSplit.split(url.getFile)
+          toFile(new URL(jar))
+        case _ => sys.error(s"Cannot handle $url")
+      }
+
     def getResource: Option[Resource] = getResource("")
     def getResource(prefixPath: String): Option[Resource] = {
-      req.getServletContext.getResource(s"$prefixPath$servletPathInfo") match {
-        case null => None
-        case url =>
-          val file = new java.io.File(url.toURI)
-          if (file.exists) {
-            Some(new Resource(url, (file.lastModified / 1000) * 1000))
-          } else {
-            None
-          }
+      val urlFile =
+        Option(req.getServletContext.getResource(s"$prefixPath$servletPathInfo"))
+          .map(url => url -> toFile(url))
+      urlFile.filter(_._2.exists) map {
+        case (url, file) => new Resource(url, (file.lastModified / 1000) * 1000)
       }
     }
     def IfNoneMatch = ETag.IfNoneMatch(req)
