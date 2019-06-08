@@ -34,14 +34,16 @@ abstract class AbstractParser(
 
   private[this] var pos = offset
 
-  def parse(): JsVal = try parseAny() catch {
-    case ioob: IndexOutOfBoundsException =>
-      throw new MalformedJSON(s"Incomplete JSON", ioob)
-  } finally {
+  def parse(): JsVal = try {
+    val result = parseAny()
     while (pos < json.length) json.charAt(pos) match {
       case ' ' | '\t' | '\r' | '\n' => pos += 1
       case unexpected => throwUnexpectedCharException(unexpected)
     }
+    result
+  } catch {
+    case ioob: IndexOutOfBoundsException =>
+      throw new MalformedJSON(s"Incomplete JSON", ioob)
   }
 
   private def parseAny(): JsVal = {
