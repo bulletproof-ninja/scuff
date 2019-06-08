@@ -351,8 +351,8 @@ class TestJson {
   def `json.org fail tests`(): Unit = {
     val failFiles = 1 to 33
     val incorrectFails = Set(
-        1, /* Not in spec */
-        18 /* Not in spec */)
+      1, /* Not in spec */
+      18 /* Not in spec */ )
     failFiles.filterNot(incorrectFails).foreach { idx =>
       object File extends JsonFile(`json.org test suite`, s"fail$idx")
       try {
@@ -399,7 +399,7 @@ class TestJson {
   def `string escape`(): Unit = {
     val s1 = "\\\"escape \\uffbb\\\""
     val s2 = """\"escape \uffbb\""""
-//    assertEquals(s1, s2)
+    //    assertEquals(s1, s2)
     val js1 = JsStr(s1)
     val js2 = JsStr(s2)
     val json1 = js1.toJson
@@ -448,26 +448,26 @@ class TestJson {
     assertEquals(JsNum(Int.MaxValue), JsNum(BigInt(Int.MaxValue).underlying))
 
     assertEquals(
-        JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999")),
-        JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999").underlying))
+      JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999")),
+      JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999").underlying))
     assertEquals(
-        JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999.00")),
-        JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999")))
+      JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999.00")),
+      JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999")))
     assertEquals(
-        JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999.00")),
-        JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999").underlying))
+      JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999.00")),
+      JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999").underlying))
     assertEquals(
-        JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999")),
-        JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999").underlying))
+      JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999")),
+      JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999").underlying))
     assertEquals(
-        JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999.00").underlying),
-        JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999")))
+      JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999.00").underlying),
+      JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999")))
     assertEquals(
-        JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999")),
-        JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999.00")))
+      JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999")),
+      JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999.00")))
     assertEquals(
-        JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999")),
-        JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999.00").underlying))
+      JsNum(BigInt("99999999999999999999999999999999999999999999999999999999999999")),
+      JsNum(BigDecimal("99999999999999999999999999999999999999999999999999999999999999.00").underlying))
   }
 
   @Test
@@ -481,5 +481,38 @@ class TestJson {
         scale -= 1
       }
     }
+  }
+
+  @Test
+  def arbitrary(): Unit = {
+    val json =
+s"""{
+  "int": 42,
+  "long": ${Int.MaxValue * 2L},
+  "decimal": 546342523454326546353365363.345345435345345345,
+  "zero": 0,
+  "clown": "🤡",
+  "escapedClown": "\\ud83e\\udd21",
+  "null": null,
+  "true": true,
+  "false": false,
+  "nan": "NaN",
+  "list": [1,2,3],
+  "empty": {}
+}"""
+    println(json)
+    val obj = (JsVal parse json).asObj
+    assertEquals(42, obj("int").asNum.toInt)
+    assertEquals(Int.MaxValue * 2L, obj("long").asNum.toLong)
+    assertEquals(BigDecimal("546342523454326546353365363.345345435345345345"), obj("decimal").asNum.toBigDec)
+    assertEquals(0, obj("zero").asNum.toInt)
+    assertEquals("🤡", obj("clown").asStr.value)
+    assertEquals("🤡", obj("escapedClown").asStr.value)
+    assertEquals(JsNull, obj("null"))
+    assertEquals(JsBool.True, obj("true"))
+    assertEquals(JsBool.False, obj("false"))
+    assertTrue(obj("nan").asNum.toDouble.isNaN)
+    assertEquals(List(1,2,3), obj("list").asArr.toList.map(_.asNum.toInt))
+    assertEquals(JsObj.Empty, obj("empty"))
   }
 }

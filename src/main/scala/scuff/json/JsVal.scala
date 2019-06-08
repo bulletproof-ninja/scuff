@@ -102,11 +102,14 @@ final case class JsStr(value: String) extends JsVal {
   }
   def toJson(implicit config: JsVal.Config) =
     if (value == null) JsNull.toJson
-    else s""""${JsStr.escape(value, config.escapeSlash, config.upperCaseHex)}""""
+    else s""""${JsStr.escape(value)}""""
 }
 object JsStr {
 
-  private[json] def escape(inp: String, escapeSlash: Boolean, upperCaseHex: Boolean): String = {
+  private[json] def escape(inp: String)(implicit config: JsVal.Config): String =
+    escape(inp, config.escapeSlash, config.upperCaseHex)
+
+  private def escape(inp: String, escapeSlash: Boolean, upperCaseHex: Boolean): String = {
 
       @inline def toHex(ch: Char): String = {
         if (upperCaseHex) ch.toHexString.toUpperCase
@@ -135,8 +138,12 @@ object JsStr {
           escape(out, idx + 1)
         }
       }
+
     escape(new java.lang.StringBuilder(inp.length * 2), 0)
   }
+
+  def toJson(inp: String, escapeSlash: Boolean = false, upperCaseHex: Boolean = false): String =
+    s""""${escape(inp, escapeSlash, upperCaseHex)}""""
 
 }
 
@@ -157,7 +164,7 @@ final case class JsObj(props: Map[String, JsVal]) extends JsVal
   def toJson(implicit config: JsVal.Config) =
     if (props == null) JsNull.toJson
     else props.iterator.map {
-      case (name, value) => s""""${JsStr.escape(name, config.escapeSlash, config.upperCaseHex)}":${value.toJson}"""
+      case (name, value) => s""""${JsStr.escape(name)}":${value.toJson}"""
     }.mkString("{", ",", "}")
   def get(name: String): Option[JsVal] = if (props != null) props.get(name) else None
   def apply(name: String): JsVal = if (props != null) props.getOrElse(name, JsUndefined) else JsUndefined
@@ -165,6 +172,7 @@ final case class JsObj(props: Map[String, JsVal]) extends JsVal
   def iterator = if (props != null) props.iterator else Iterator.empty
 }
 object JsObj {
+  val Empty = JsObj()
   def apply(props: (String, JsVal)*): JsObj = new JsObj(props.toMap)
 }
 final case class JsArr(values: JsVal*) extends JsVal with Iterable[JsVal] {
@@ -174,6 +182,9 @@ final case class JsArr(values: JsVal*) extends JsVal with Iterable[JsVal] {
   def apply(idx: Int): JsVal = if (idx >= 0 && idx < values.size) values(idx) else JsUndefined
   def iterator = values.iterator
   def length = values.size
+}
+object JsArr {
+  val Empty = JsArr()
 }
 final case class JsBool(value: Boolean) extends JsVal {
   override def asBool = this
@@ -296,9 +307,13 @@ private final class DefaultParser(json: CharSequence, offset: Int)
   def True = scuff.json.JsBool.True
   def False = scuff.json.JsBool.False
   type JsObj = scuff.json.JsObj
-  def JsObj(m: Map[String, JsVal]): JsObj = new scuff.json.JsObj(m)
+  def JsObj(m: Map[String, JsVal]): JsObj =
+    if (m.isEmpty) scuff.json.JsObj.Empty
+    else new scuff.json.JsObj(m)
   type JsArr = scuff.json.JsArr
-  def JsArr(values: Seq[JsVal]): JsArr = new scuff.json.JsArr(values: _*)
+  def JsArr(values: Seq[JsVal]): JsArr =
+    if (values.isEmpty) scuff.json.JsArr.Empty
+    else new scuff.json.JsArr(values: _*)
   type JsStr = scuff.json.JsStr
   def JsStr(s: String): JsStr = new scuff.json.JsStr(s)
   type JsNull = scuff.json.JsNull.type
