@@ -11,28 +11,32 @@ import scala.reflect.{ ClassTag, classTag }
  * Look up properties from generic source, with generic fallback.
  */
 class Props protected (metaName: String, getProperty: String => String, fallback: Props = null) {
-  def optional(name: String): Option[String] = optional(new Key(name)(identity), Set.empty[String])
-  def optional(name: String, validValues: Set[String]): Option[String] = optional(new Key(name)(identity), validValues)
-  def optional[T](key: Key[T], validValues: Set[T] = Set.empty[T]): Option[T] = {
+  def optional(name: String): Option[String] =
+    optional(new Key(name)(identity))
+  def optional(name: String, validValues: Set[String]): Option[String] =
+    optional(new Key(name, validValues.toSeq: _*)(identity))
+  def optional[T](key: Key[T]): Option[T] = {
     getProperty(key.name) match {
-      case null if fallback != null => fallback.optional(key, validValues)
+      case null if fallback != null => fallback.optional(key)
       case null => None
       case value =>
         val typedValue = key.typed(value)
-        if (!validValues.isEmpty && !validValues.contains(typedValue)) {
-          throw new IllegalStateException(s"The $metaName '${key.name}' has invalid value '$value'; valid values: [${validValues.mkString(", ")}]")
+        if (!key.validValues.isEmpty && !key.validValues.contains(typedValue)) {
+          throw new IllegalStateException(s"The $metaName '${key.name}' has invalid value '$value'; valid values: [${key.validValues.mkString(", ")}]")
         } else {
           Some(typedValue)
         }
     }
   }
 
-  def required(name: String): String = required(new Key(name)(identity), Set.empty[String])
-  def required(name: String, validValues: Set[String]): String = required(new Key(name)(identity), validValues)
+  def required(name: String): String =
+    required(new Key(name)(identity))
+  def required(name: String, validValues: Set[String]): String =
+    required(new Key(name, validValues.toSeq: _*)(identity))
   @throws(classOf[IllegalStateException])
-  def required[T](key: Key[T], validValues: Set[T] = Set.empty[T]): T = optional(key, validValues) match {
-    case None if validValues.isEmpty => throw new IllegalStateException(s"Required $metaName '${key.name}' missing")
-    case None => throw new IllegalStateException(s"Required $metaName '${key.name}' missing; valid values: [${validValues.mkString(", ")}]")
+  def required[T](key: Key[T]): T = optional(key) match {
+    case None if key.validValues.isEmpty => throw new IllegalStateException(s"Required $metaName '${key.name}' missing")
+    case None => throw new IllegalStateException(s"Required $metaName '${key.name}' missing; valid values: [${key.validValues.mkString(", ")}]")
     case Some(value) => value
   }
 
@@ -63,14 +67,16 @@ object ManifestAttributes extends AnyRef with PropsKey {
 }
 
 trait PropsKey {
-  def Key[T: ClassTag](name: String)(implicit typed: String => T): Key[T] = Props.Key(name)(typed)
-  def Key[T: ClassTag](name: String, typed: String => T): Key[T] = Props.Key(name)(typed)
+  def Key[T: ClassTag](name: String, validValues: T*)(implicit typed: String => T): Key[T] =
+    Props.Key(name, validValues: _*)(typed)
+  def Key[T: ClassTag](name: String, typed: String => T, validValues: T*): Key[T] =
+    Props.Key(name, validValues: _*)(typed)
 }
 
 object Props {
   import java.io._
 
-  case class Key[+T: ClassTag](name: String)(_typed: String => T) {
+  case class Key[+T: ClassTag](name: String, validValues: T*)(_typed: String => T) {
     private[Props] def typed(value: String): T = try _typed(value) catch {
       case NonFatal(th) => throw new IllegalArgumentException(
           s"""Key "$name" value "$value" does not conform to ${classTag[T].runtimeClass}""", th)

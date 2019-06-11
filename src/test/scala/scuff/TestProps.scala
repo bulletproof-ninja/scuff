@@ -15,8 +15,9 @@ class TestProps {
 
   @Test
   def `valid value`(): Unit = {
+    val foo = SysProps.Key("foo", validValues = "foo", "bar", "baz")
     System.setProperty("foo", "baz")
-    assertEquals("baz", SysProps.required("foo", Set("foo", "bar", "baz")))
+    assertEquals("baz", SysProps.required(foo))
   }
 
   @Test
@@ -63,7 +64,7 @@ class TestProps {
 
   @Test
   def typed_values(): Unit = {
-    val FileEncoding = SysProps.Key("file.encoding", Charset.forName)
+    val FileEncoding = Props.Key("file.encoding")(Charset.forName)
     val ArchDataModel = Props.Key("sun.arch.data.model")(_.toInt)
     SysProps.optional(FileEncoding).foreach { enc =>
       assertEquals(Charset.forName(enc.name), enc)
