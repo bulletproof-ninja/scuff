@@ -27,6 +27,7 @@ sealed abstract class JsVal {
 }
 case class JsNum(value: Number) extends JsVal {
   override def asNum = this
+  override def asStr: JsStr = new JsStr(String valueOf value)
   def toJson(implicit config: JsVal.Config): String = {
     if (value == null) JsNull.toJson
     else value.toString match {
