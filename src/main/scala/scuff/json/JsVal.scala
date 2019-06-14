@@ -25,7 +25,7 @@ sealed abstract class JsVal {
   def asObj: JsObj = wrongType(classOf[JsObj])
   def asArr: JsArr = wrongType(classOf[JsArr])
 }
-final case class JsNum(value: Number) extends JsVal {
+case class JsNum(value: Number) extends JsVal {
   override def asNum = this
   def toJson(implicit config: JsVal.Config): String = {
     if (value == null) JsNull.toJson
@@ -78,16 +78,26 @@ final case class JsNum(value: Number) extends JsVal {
     }
     thisValue == thatValue
   }
+
 }
 
 object JsNum {
+
   val NaN = new JsNum(Double.NaN)
   val PositiveInfinity = new JsNum(Double.PositiveInfinity)
   val NegativeInfinity = new JsNum(Double.NegativeInfinity)
-  val Zero = new JsNum(0L)
-  val One = new JsNum(1L)
+  val Zero: JsNum = new JsNum(0L) {
+    override val toBigDec = implicitly[Numeric[BigDecimal]].zero
+  }
+  val One: JsNum = new JsNum(1L) {
+    override val toBigDec = implicitly[Numeric[BigDecimal]].one
+  }
 
-  def apply(l: Long): JsNum = new JsNum(l)
+  def apply(l: Long): JsNum = l match {
+    case 0L => Zero
+    case 1L => One
+    case _ => new JsNum(l)
+  }
   def apply(d: Double): JsNum = if (d.isNaN) NaN else new JsNum(d)
 
 }
