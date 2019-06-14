@@ -214,6 +214,17 @@ object JsVal {
   implicit def toJsVal(a: Iterable[Any]): JsVal = if (a == null) JsNull else JsArr(a.iterator.map(JsVal(_)).toSeq: _*)
   implicit def toJsVal(t: (String, Any)): (String, JsVal) = t._1 -> JsVal(t._2)
 
+  implicit def stringValue(js: JsStr): String = js.value
+  implicit def toByte(js: JsNum): Short = js.toByte
+  implicit def toShort(js: JsNum): Short = js.toShort
+  implicit def toInt(js: JsNum): Int = js.toInt
+  implicit def toLong(js: JsNum): Long = js.toLong
+  implicit def toFloat(js: JsNum): Float = js.toFloat
+  implicit def toDouble(js: JsNum): Double = js.toDouble
+  implicit def toBigDecimal(js: JsNum): BigDecimal = js.toBigDec
+  implicit def toJavaBigDecimal(js: JsNum): java.math.BigDecimal = js.toBigDec.underlying
+  implicit def boolValue(js: JsBool): Boolean = js.value
+
   def apply(any: Any, mapper: PartialFunction[Any, Any] = PartialFunction.empty): JsVal = any match {
     case jv: JsVal => jv
     case any if mapper isDefinedAt any => JsVal(mapper(any), mapper)
