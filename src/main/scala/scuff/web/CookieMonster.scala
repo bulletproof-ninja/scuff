@@ -14,13 +14,30 @@ object CookieMonster {
     isSep.negate
   }
 
-  private final val SystemClock = Clock.systemUTC()
   private final val SessionDuration: FiniteDuration = -1.seconds
 
   sealed trait SameSite
   object SameSite extends Enumeration {
     val Lax, Strict, Omit = new Val with SameSite
   }
+
+  /** Convert Expires timestamp to MaxAge seconds, using current time. */
+  final def toMaxAge(expires: Long, unit: TimeUnit)(
+      implicit
+      clock: Clock): FiniteDuration = {
+    val expiresMillis = unit toMillis expires
+    val diff = expiresMillis - clock.millis
+    (diff / 1000).seconds
+  }
+
+  final def toMaxAge(expires: OffsetDateTime)(
+      implicit
+      clock: Clock): FiniteDuration =
+    toMaxAge(expires.toEpochSecond, SECONDS)
+  final def toMaxAge(expires: java.util.Date)(
+      implicit
+      clock: Clock): FiniteDuration =
+    toMaxAge(expires.getTime, MILLISECONDS)
 
 }
 
@@ -29,8 +46,6 @@ object CookieMonster {
  */
 trait CookieMonster[T] {
 
-  protected def clock: Clock = CookieMonster.SystemClock
-
   /**
    * Assign to `maxAge` for session cookies.
    */
@@ -38,17 +53,7 @@ trait CookieMonster[T] {
 
   /** Max-age in seconds. Use `SessionCookie` for session cookie. */
   protected def maxAge: FiniteDuration
-  /** Convert Expires timestamp to MaxAge seconds, using current time. */
-  final def toMaxAge(expires: Long, unit: TimeUnit): FiniteDuration = {
-    val expiresMillis = unit toMillis expires
-    val diff = expiresMillis - clock.millis
-    (diff / 1000).seconds
-  }
 
-  final def toMaxAge(expires: OffsetDateTime): FiniteDuration =
-    toMaxAge(expires.toEpochSecond, SECONDS)
-  final def toMaxAge(expires: java.util.Date): FiniteDuration =
-    toMaxAge(expires.getTime, MILLISECONDS)
   protected def codec: Codec[T, String]
   def name: String
 

@@ -15,12 +15,12 @@ import java.util.concurrent.TimeUnit
 class TestCookieMonster {
   @Test
   def `max age`(): Unit = {
+    implicit val clock = Clock.fixed(Instant ofEpochMilli 0, ZoneId.of("UTC"))
     val expires = 9999
     object CM extends CookieMonster[String] {
       def name = "Testing"
       def codec = Codec.noop
-      override val clock = Clock.fixed(Instant ofEpochMilli 0, ZoneId.of("UTC"))
-      def maxAge = toMaxAge(expires, TimeUnit.MILLISECONDS)
+      def maxAge = CookieMonster.toMaxAge(expires, TimeUnit.MILLISECONDS)
     }
     assertEquals(9L, CM.maxAge.toSeconds)
   }
