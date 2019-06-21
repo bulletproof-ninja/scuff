@@ -79,7 +79,7 @@ class Parser[T](implicit tag: ClassTag[T]) {
   protected def convert(name: String, value: String, toType: Class[_]): Any = {
     converters.get(toType) match {
       case None => DynamicConstructor(value)(ClassTag(toType)).getOrElse {
-        throw new IllegalArgumentException("Cannot coerce %s into %s".format(value, toType.getName))
+        throw new IllegalArgumentException(s"Cannot convert $name: $value into ${toType.getName}")
       }
       case Some(conv) => conv(value)
     }
@@ -94,7 +94,7 @@ class Parser[T](implicit tag: ClassTag[T]) {
             try {
               values += name -> conv
             } catch {
-              case e: Exception => errors += Problem(name, ProblemType.Syntax)
+              case _: Exception => errors += Problem(name, ProblemType.Syntax)
             }
           }
         val withContent = {

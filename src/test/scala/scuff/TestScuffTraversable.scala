@@ -2,7 +2,6 @@ package scuff
 
 import org.junit._
 import Assert._
-import scuff._
 
 class TestScuffTraversable {
 
