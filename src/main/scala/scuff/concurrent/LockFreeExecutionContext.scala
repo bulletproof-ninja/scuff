@@ -21,11 +21,10 @@ object LockFreeExecutionContext {
     def offer(r: Runnable): Boolean = queue.offer(r)
   }
 
-  private lazy val DefaultThreadFactory = Threads.factory(classOf[LockFreeExecutionContext].getName)
   def apply(
     numThreads: Int,
-    tf: ThreadFactory = DefaultThreadFactory,
-    failureReporter: Throwable => Unit = t => t.printStackTrace(System.err),
+    tf: ThreadFactory,
+    failureReporter: Throwable => Unit,
     whenIdle: => Unit = Thread.`yield`,
     queue: RunQueue = new DefaultQueue) = {
     val svc = new LockFreeExecutionContext(numThreads, tf, failureReporter, whenIdle, queue)

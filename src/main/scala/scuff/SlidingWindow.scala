@@ -259,7 +259,7 @@ class SlidingWindow[T, R, F](
 
   def subscribe(
     callbackInterval: FiniteDuration,
-    scheduler: ScheduledExecutorService = Threads.DefaultScheduler)(listener: StreamConsumer[collection.Map[Window, F], _]): Subscription = {
+    scheduler: ScheduledExecutorService)(listener: StreamConsumer[collection.Map[Window, F], _]): Subscription = {
     object SubscriptionState extends Subscription {
       @volatile var schedule: Option[ScheduledFuture[_]] = None
       private val error = new AtomicBoolean(false)

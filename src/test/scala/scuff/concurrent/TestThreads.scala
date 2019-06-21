@@ -1,7 +1,6 @@
 package scuff.concurrent
 
 import java.util.concurrent.{ CountDownLatch, LinkedBlockingQueue, TimeUnit }
-import concurrent.ExecutionContext
 import concurrent.duration._
 import scala.util.{ Failure, Random, Success }
 
@@ -14,9 +13,15 @@ import java.util.concurrent.TimeoutException
 import scala.util.control.NonFatal
 
 class TestThreads extends Serializable {
+
+  implicit val DefaultScheduler = {
+    val tf = Threads.factory("scheduler", _.printStackTrace)
+    Threads.newScheduledThreadPool(8, tf, _.printStackTrace)
+  }
+
   @Test
   def foo(): Unit = {
-    val tf = Threads.factory("MyThread")
+    val tf = Threads.factory("MyThread", _.printStackTrace)
     val latch = new CountDownLatch(1)
     val thread = tf newThread new Runnable {
       def run = latch.countDown()
@@ -29,7 +34,8 @@ class TestThreads extends Serializable {
 
   @Test
   def javaFutures(): Unit = {
-    implicit val ec = ExecutionContext.global
+    implicit val jc = JavaFutureConverter(_.printStackTrace)
+
     val rand = new Random
     val futures = (1 to 1500).map { i =>
       val f = new java.util.concurrent.Future[Int] {
@@ -40,7 +46,7 @@ class TestThreads extends Serializable {
         def get() = queue.remove()
         def get(t: Long, tu: TimeUnit): Int = ???
       }
-      ec execute new Runnable {
+      DefaultScheduler execute new Runnable {
         import language.reflectiveCalls
         override def run = {
           Thread sleep rand.nextBetween(1, 6)
@@ -65,8 +71,6 @@ class TestThreads extends Serializable {
 
   @Test
   def `future timeout`(): Unit = {
-    import ExecutionContext.Implicits.global
-
     try {
       val unit = Future(Thread sleep 1111).withTimeout(55.millis).await
       fail("Should not succeeed")
@@ -81,7 +85,7 @@ class TestThreads extends Serializable {
   @Test
   def scheduler_schedule(): Unit = {
     val cdl = new CountDownLatch(1)
-    val scheduled = Threads.DefaultScheduler.schedule(200.milliseconds)(cdl.countDown)
+    val scheduled = DefaultScheduler.schedule(200.milliseconds)(cdl.countDown)
     assertFalse(scheduled.isDone)
     assertTrue(cdl.await(5, TimeUnit.SECONDS))
     Thread sleep 10 // Sometimes the cdl is triggered so fast, the future is not yet done.
@@ -90,7 +94,7 @@ class TestThreads extends Serializable {
   @Test
   def scheduler_fixedRate(): Unit = {
     val cdl = new CountDownLatch(5)
-    val scheduled = Threads.DefaultScheduler.scheduleAtFixedRate(200.milliseconds, 10000.microseconds)(cdl.countDown)
+    val scheduled = DefaultScheduler.scheduleAtFixedRate(200.milliseconds, 10000.microseconds)(cdl.countDown)
     assertFalse(scheduled.isDone)
     assertTrue(cdl.await(5, TimeUnit.SECONDS))
     scheduled.cancel(true)
@@ -100,7 +104,7 @@ class TestThreads extends Serializable {
   @Test
   def scheduler_fixedDelay(): Unit = {
     val cdl = new CountDownLatch(5)
-    val scheduled = Threads.DefaultScheduler.scheduleWithFixedDelay(200.milliseconds, 10000.microseconds)(cdl.countDown)
+    val scheduled = DefaultScheduler.scheduleWithFixedDelay(200.milliseconds, 10000.microseconds)(cdl.countDown)
     assertFalse(scheduled.isDone)
     assertTrue(cdl.await(5, TimeUnit.SECONDS))
     scheduled.cancel(true)

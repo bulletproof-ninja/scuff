@@ -10,6 +10,7 @@ import scala.util.control.NoStackTrace
 import language.implicitConversions
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeoutException
+import scala.annotation.implicitNotFound
 
 package object concurrent {
   implicit def exeCtxToExecutor(ec: ExecutionContext): Executor = ec match {
@@ -87,7 +88,7 @@ package object concurrent {
         }
       }
     def flatten[A](implicit mustBeFuture: Future[A] =:= T): Future[A] = f.asInstanceOf[Future[Future[A]]].flatMap(identity)(Threads.PiggyBack)
-    def withTimeout(timeout: FiniteDuration)(implicit scheduler: ScheduledExecutorService = Threads.DefaultScheduler): Future[T] = {
+    def withTimeout(timeout: FiniteDuration)(implicit scheduler: ScheduledExecutorService): Future[T] = {
         def fulfill(promise: Promise[T], value: Try[T]): Boolean = {
           try {
             promise.complete(value)
@@ -116,8 +117,12 @@ package object concurrent {
     }
   }
 
+  implicit def typedFutureConv[T](implicit untyped: JavaFutureConverter) =
+    untyped.asInstanceOf[java.util.concurrent.Future[T] => Future[T]]
+
   implicit class ScuffJavaFuture[T](private val f: java.util.concurrent.Future[T]) extends AnyVal {
-    def asScala(implicit conv: java.util.concurrent.Future[T] => Future[T] = Threads.javaFutureConverter): Future[T] = conv(f)
+    @implicitNotFound(msg = s"No java.util.concurrent.Future => scala.concurrent.Future function found. Try an instance of ${classOf[JavaFutureConverter].getName}")
+    def asScala(implicit conv: java.util.concurrent.Future[T] => Future[T]): Future[T] = conv(f)
   }
 
   implicit class ScuffLock(private val lock: java.util.concurrent.locks.Lock) extends AnyVal {

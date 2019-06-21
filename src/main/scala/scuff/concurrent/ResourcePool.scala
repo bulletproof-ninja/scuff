@@ -18,16 +18,18 @@ trait ResourcePool[R <: AnyRef] {
 
   override def toString() = s"${getClass.getSimpleName}($instanceName = $availableCount)}"
 
+  protected def scheduler: ScheduledExecutorService = ResourcePool.scheduler
   /**
    * Start a thread to evict resources that have
    * not been used for at least the given minimum
    * timeout.
    * @param minimumTimeout The minimum amount of time a resource has been unused before being eligible for eviction.
-   * @param executor Scheduler or thread on which to run eviction.
+   * @param executor The thread running the eviction. If not a `ScheduledExecutorService`, a
+   * single thread will be monopolized entirely, until cancelled.
    */
   def startEviction(
       minimumTimeout: FiniteDuration,
-      executor: Executor = Threads.DefaultScheduler): ScheduledFuture[Nothing]
+      executor: Executor): ScheduledFuture[Nothing]
 
   /**
    *  Keep resources hot.
@@ -40,7 +42,7 @@ trait ResourcePool[R <: AnyRef] {
   def startHeater(
       excludeHottest: FiniteDuration = Duration.Zero)(
       interval: FiniteDuration,
-      executor: Executor = Threads.DefaultScheduler)(
+      executor: Executor)(
       heater: R => Unit): ScheduledFuture[Nothing]
 
   def availableCount: Int
@@ -54,6 +56,7 @@ trait ResourcePool[R <: AnyRef] {
 
   /** Use resource. */
   def use[A](thunk: R => A): A
+
 }
 
 abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
@@ -218,7 +221,7 @@ abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
 
   def startEviction(
       minimumTimeout: FiniteDuration,
-      executor: Executor = Threads.DefaultScheduler): ScheduledFuture[Nothing] = {
+      executor: Executor): ScheduledFuture[Nothing] = {
 
     if (evictor.get.isEmpty && evictor.compareAndSet(None, Some(new Evictor(minimumTimeout)))) {
       val newEvictor = evictor.get.get
@@ -235,7 +238,7 @@ abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
   def startHeater(
       excludeHottest: FiniteDuration = Duration.Zero)(
       interval: FiniteDuration,
-      executor: Executor = Threads.DefaultScheduler)(
+      executor: Executor)(
       heater: R => Unit): ScheduledFuture[Nothing] = {
 
     require(interval.length > 0, s"Must have interval: $interval")
@@ -330,7 +333,7 @@ abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
     def getResourceTimeout: String = evictor.get.map(_.timeout.toString) getOrElse "<no timeout>"
     def startEviction(resourceTimeout: Int, resourceTimeoutUnit: String): Unit = {
       val minTimeout = FiniteDuration(resourceTimeout, resourceTimeoutUnit)
-      BaseResourcePool.this.startEviction(minTimeout)
+      BaseResourcePool.this.startEviction(minTimeout, scheduler)
     }
   }
 
@@ -338,16 +341,23 @@ abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
 }
 
 object ResourcePool {
+
+  private lazy val scheduler = {
+    val pst = (th: Throwable) => th.printStackTrace(System.err)
+    val tf = Threads.factory(classOf[ResourcePool[_]].getName, pst)
+    Threads.newScheduledThreadPool(1, tf, pst)
+  }
+
   def apply[R <: AnyRef: ClassTag](
       newResource: => R, minResources: Int = 0, maxResources: Int = Int.MaxValue,
       description: String = "")(
       implicit
       lifecycle: ResourcePool.Lifecycle[R] = ResourcePool.DefaultLifecycle[R]): ResourcePool[R] =
-        if (maxResources == Int.MaxValue) {
-          new UnboundedResourcePool(newResource, minResources, description)
-        } else {
-          new BoundedResourcePool(newResource, minResources, maxResources, description)
-        }
+    if (maxResources == Int.MaxValue) {
+      new UnboundedResourcePool(newResource, minResources, description)
+    } else {
+      new BoundedResourcePool(newResource, minResources, maxResources, description)
+    }
 
   private[concurrent] val ordering = Ordering.by[(Long, _), Long](_._1).reverse
 

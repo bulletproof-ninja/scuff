@@ -8,6 +8,11 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class TestResourcePool {
 
+  val DefaultScheduler = {
+    val tf = Threads.factory("scheduler", _.printStackTrace)
+    Threads.newScheduledThreadPool(1, tf, _.printStackTrace)
+  }
+
   val created = new AtomicInteger
   val closed = new AtomicInteger
 
@@ -21,7 +26,7 @@ class TestResourcePool {
   def `fail heating when too cold`(): Unit = {
     val pool = new SomeResourcePool
     try {
-      pool.startHeater(7.millis)(5.millis) { r =>
+      pool.startHeater(7.millis)(5.millis, DefaultScheduler) { r =>
         r.touch = System.currentTimeMillis()
       }
       fail("Should fail, since heater can never run")
@@ -29,7 +34,7 @@ class TestResourcePool {
       case e: IllegalArgumentException => assertTrue(e.getMessage.contains("7"))
     }
     try {
-      pool.startHeater(5.millis)(5.millis) { r =>
+      pool.startHeater(5.millis)(5.millis, DefaultScheduler) { r =>
         r.touch = System.currentTimeMillis()
       }
       fail("Should fail, since heater can never run")
@@ -43,7 +48,7 @@ class TestResourcePool {
     @volatile var touch = System.currentTimeMillis
     private val expired = new AtomicBoolean(false)
     def isExpired = expired.get
-    val testExpirationSchedule = Threads.DefaultScheduler.scheduleAtFixedRate(100.millis, 100.millis) {
+    val testExpirationSchedule = DefaultScheduler.scheduleAtFixedRate(100.millis, 100.millis) {
       val now = System.currentTimeMillis
       if (now - touch > 100) {
         println(s"Touched at $touch, now is $now, (diff ${now - touch} ms), so closing")
@@ -102,11 +107,11 @@ class TestResourcePool {
 
   @Test
   def `keep alive w/scheduler`(): Unit = {
-    keepAlive(Threads.DefaultScheduler)
+    keepAlive(DefaultScheduler)
   }
   @Test
   def `keep alive w/single thread`(): Unit = {
-    keepAlive(Threads.newSingleRunExecutor(Threads.factory("Heater")))
+    keepAlive(Threads.newSingleRunExecutor(Threads.factory("Heater", _.printStackTrace), _.printStackTrace))
   }
 
   @Test(expected = classOf[IllegalArgumentException])

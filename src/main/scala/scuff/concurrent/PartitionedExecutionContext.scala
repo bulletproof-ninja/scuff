@@ -69,11 +69,6 @@ final object PartitionedExecutionContext {
 
   final val Name = classOf[PartitionedExecutionContext].getName
 
-  lazy val global = PartitionedExecutionContext(
-    Runtime.getRuntime.availableProcessors,
-    (th: Throwable) => th.printStackTrace(System.err),
-    Threads.factory(Name + ".global"))
-
   /**
     * @param numThreads Number of threads used for parallelism
     * @param threadFactory The thread factory used to create the threads
@@ -95,7 +90,7 @@ final object PartitionedExecutionContext {
       numThreads: Int,
       failureReporter: Throwable => Unit,
       getHash: Runnable => Int = _.hashCode): PartitionedExecutionContext =
-        this(numThreads, failureReporter, Threads.factory(Name), getHash)
+        this(numThreads, failureReporter, Threads.factory(Name, failureReporter), getHash)
 
   /**
     * @param numThreads Number of threads used for parallelism

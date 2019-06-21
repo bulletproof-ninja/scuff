@@ -12,6 +12,7 @@ import java.util.concurrent.ScheduledFuture
 import scala.util.control.NonFatal
 import scuff.concurrent.Threads
 import scuff.concurrent.UnboundedResourcePool
+import java.util.concurrent.ScheduledExecutorService
 
 object CoffeeScriptServlet {
   import CoffeeScriptCompiler._
@@ -61,7 +62,10 @@ abstract class CoffeeScriptServlet extends HttpServlet {
     log(s"$comp instance removed from pool. ${compilerPool.availableCount} available.")
   }
 
-  @volatile private var eviction: Option[ScheduledFuture[_]] = None
+  /** Compiler pool eviction scheduler. */
+  protected def evictionScheduler: Option[ScheduledExecutorService]
+
+  @volatile private[this] var eviction: Option[ScheduledFuture[_]] = None
 
   override def init(): Unit = {
     super.init()
@@ -73,7 +77,7 @@ abstract class CoffeeScriptServlet extends HttpServlet {
         }
       }.failed.foreach(th => log("Failure during compiler initialization", th))(Threads.PiggyBack)
     }
-    this.eviction = Some(compilerPool.startEviction(120.minutes))
+    this.eviction = evictionScheduler.map(compilerPool.startEviction(120.minutes, _))
   }
 
   override def destroy(): Unit = {

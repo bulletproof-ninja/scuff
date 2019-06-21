@@ -5,7 +5,7 @@ import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext
 
 object FuzzyScheduler {
-  lazy val global = new FuzzyScheduler(Threads.DefaultScheduler)
+
   trait FuzzyRunnable extends Runnable {
     @volatile private[this] var alive = true
     /**
@@ -47,7 +47,7 @@ class FuzzyScheduler(scheduler: ScheduledExecutorService) {
 
   def shutdownAll(): Unit = scheduler.shutdownNow()
 
-  val executionContext = ExecutionContext.fromExecutorService(scheduler)
+  def executionContext(reportFailure: Throwable => Unit) = ExecutionContext.fromExecutorService(scheduler, reportFailure)
 
   def schedule(pr: FuzzyRunnable): Unit = {
     import math._
