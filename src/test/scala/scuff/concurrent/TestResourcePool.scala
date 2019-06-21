@@ -111,7 +111,7 @@ class TestResourcePool {
   }
   @Test
   def `keep alive w/single thread`(): Unit = {
-    keepAlive(Threads.newSingleRunExecutor(Threads.factory("Heater", _.printStackTrace), _.printStackTrace))
+    keepAlive(Threads.newSingleRunExecutor(Threads.factory("Heater", _.printStackTrace), (th: Throwable) => th.printStackTrace))
   }
 
   @Test(expected = classOf[IllegalArgumentException])
