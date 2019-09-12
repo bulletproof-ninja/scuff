@@ -7,7 +7,7 @@ import scala.beans.BeanProperty
 trait Baz {
   def add(key: String): Unit
   def remove(key: String): Unit
-  def getCurrValue: Long
+  def getCurrValue(): Long
   def setCurrValue(v: Long): Unit
 }
 
