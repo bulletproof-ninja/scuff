@@ -33,6 +33,7 @@ object CoffeeScriptCompiler {
 
   case class Config(version: Version = Version.CS2, options: Map[Symbol, Any] = Map.empty, newEngine: () => ScriptEngine = newJavascriptEngine _, useDirective: Use = null, compiler: () => Reader = () => null) {
     def withEngine(newEngine: => ScriptEngine): Config = this.copy(newEngine = newEngine _)
+    def withEngine(name: String): Config = this.copy(newEngine = () => scuff.js.newEngine(name))
     def withCompiler(compiler: => Reader): Config = this.copy(compiler = compiler _)
     def withOptions(options: (Symbol, Any)*): Config = this.copy(options = this.options ++ options.toMap)
     def withVersion(v: Version): Config = this.copy(version = v)

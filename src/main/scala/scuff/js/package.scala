@@ -58,7 +58,7 @@ package object js {
   implicit def streamToString(is: InputStream) = readerToString(streamToReader(is))
 
   private lazy val scriptEngineMgr = new ScriptEngineManager
-  private[js] def newJavascriptEngine(): javax.script.ScriptEngine = newJavascriptEngine("javascript")
-  private[js] def newJavascriptEngine(name: String): javax.script.ScriptEngine = scriptEngineMgr.getEngineByName(name)
+  private[js] def newJavascriptEngine(): javax.script.ScriptEngine = newEngine("javascript")
+  private[js] def newEngine(name: String): javax.script.ScriptEngine = scriptEngineMgr.getEngineByName(name)
 
 }
