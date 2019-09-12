@@ -4,7 +4,8 @@ import org.junit._, Assert._
 
 class TestEnum {
 
-  sealed trait WeekDay
+  sealed trait WeekDay extends EnumValue
+
   object WeekDay extends Enum[WeekDay] {
     val Mon, Tue, Wed, Thu, Fri, Sat, Sun = new Val with WeekDay
 
@@ -29,14 +30,14 @@ class TestEnum {
 
   @Test(expected = classOf[NoSuchElementException])
   def `valueOf not found`(): Unit = {
-    assertEquals(WeekDay.Mon, WeekDay valueOf "Foo")
+    assertEquals(WeekDay.Mon, WeekDay("Foo"))
   }
 
   @Test
   def `valueOf found`(): Unit = {
-    assertEquals(WeekDay.Mon, WeekDay valueOf "Mon")
-    assertTrue(WeekDay isWorkingDay (WeekDay valueOf "Thu"))
-    assertFalse(WeekDay isWorkingDay (WeekDay valueOf "Sun"))
+    assertEquals(WeekDay.Mon, WeekDay("Mon"))
+    assertTrue(WeekDay isWorkingDay WeekDay("Thu"))
+    assertFalse(WeekDay isWorkingDay WeekDay("Sun"))
   }
 
   @Test
@@ -54,7 +55,7 @@ class TestEnum {
     }
   }
 
-  sealed trait Planet {
+  sealed trait Planet extends EnumValue {
     def mass: Double
     def radius: Double
     def surfaceGravity: Double = Planet.G * mass / (radius * radius)

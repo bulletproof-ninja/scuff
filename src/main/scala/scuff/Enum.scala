@@ -2,20 +2,28 @@ package scuff
 
 import scala.reflect.ClassTag
 
+trait EnumValue {
+  value: Enum[EnumValue]#Value =>
+
+  def id: Int
+}
+
 /**
  * Parametric `scala.Enumeration` extension.
  * @tparam E Sealed trait enum type
  */
-class Enum[E: ClassTag] extends Enumeration {
-  type Value = super.Value with E
+class Enum[V <: EnumValue: ClassTag] extends Enumeration {
 
-  lazy val list: List[Value] = this.values.toList.filter {
-    case _: E => true
-    case _ => false
-  }.asInstanceOf[List[Value]]
+  type Value = V
 
-  def valueOf(name: String): Value = {
-    list.find(_.toString == name) match {
+  lazy val list: List[V] = this.values.toList.collect {
+    case v: V => v
+  }
+
+  def get(name: String): Option[V] = list.find(_.toString == name)
+
+  def apply(name: String): V = {
+    get(name) match {
       case Some(value) => value
       case _ =>
         val valuesStr = this.list.map(v => s"'$v'").mkString(", ")
@@ -23,5 +31,4 @@ class Enum[E: ClassTag] extends Enumeration {
     }
   }
 
-  def fromId(id: Int): Value = apply(id).asInstanceOf[Value]
 }
