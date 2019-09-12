@@ -40,7 +40,7 @@ object LamportClock {
   private final class AtomicCASLong(al: AtomicLong) extends CASLong {
     def this(init: Long) = this(new AtomicLong(init))
     def value: Long = al.get
-    def compAndSwap(expected: Long, update: Long): Boolean = al.weakCompareAndSet(expected, update)
+    def compAndSwap(expected: Long, update: Long): Boolean = al.compareAndSet(expected, update)
     def incrAndGet(): Long = al.incrementAndGet()
   }
 }

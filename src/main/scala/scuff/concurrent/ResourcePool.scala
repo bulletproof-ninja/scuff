@@ -105,7 +105,7 @@ abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
         thread.get match {
           case null => // Ignore
           case thr =>
-            thread.weakCompareAndSet(thr, null)
+            thread.compareAndSet(thr, null)
             thr.interrupt()
         }
       }
@@ -177,7 +177,7 @@ abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
         case poolList if minResources == 0 || poolList.drop(minResources).nonEmpty =>
           poolList.reverse match {
             case (lastUsed, evicted) :: remaining if lastUsed + timeoutMillis < now =>
-              if (pool.weakCompareAndSet(poolList, remaining.reverse)) {
+              if (pool.compareAndSet(poolList, remaining.reverse)) {
                 Some(evicted)
               } else {
                 evictLast(now)
@@ -203,7 +203,7 @@ abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
         def isHot(t: (Long, R)): Boolean = now - t._1 < excludeHottestMillis
       val (hot, cool) = poolList.partition(isHot)
       if (cool.nonEmpty) {
-        if (!pool.weakCompareAndSet(poolList, hot)) {
+        if (!pool.compareAndSet(poolList, hot)) {
           heatPool()
         } else {
           val reheated = cool flatMap {
@@ -277,7 +277,7 @@ abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
   protected def push(r: R): Unit = {
     val tuple = currentMillis -> lifecycle.onReturn(r)
     val list = pool.get
-    if (!pool.weakCompareAndSet(list, tuple :: list)) {
+    if (!pool.compareAndSet(list, tuple :: list)) {
       pushUntilSuccessful(List(tuple))
     }
   }
@@ -291,7 +291,7 @@ abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
           case r => lifecycle.onCheckout(r)
         }
       case list @ (_, head) :: tail =>
-        if (pool.weakCompareAndSet(list, tail)) {
+        if (pool.compareAndSet(list, tail)) {
           lifecycle.onCheckout(head)
         } else {
           popUntilSuccessful()
@@ -303,7 +303,7 @@ abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
   private def pushUntilSuccessful(append: List[(Long, R)]): Unit = {
     val list = pool.get
     val sorted = (list ++ append).sorted(ResourcePool.ordering)
-    if (!pool.weakCompareAndSet(list, sorted)) {
+    if (!pool.compareAndSet(list, sorted)) {
       pushUntilSuccessful(append)
     }
   }

@@ -45,7 +45,7 @@ trait AsyncStreamConsumer[-T, +R]
     future.failed.foreach(onError)(Threads.PiggyBack)
   }
 
-  def onError(th: Throwable): Unit = error.weakCompareAndSet(null, th)
+  def onError(th: Throwable): Unit = error.compareAndSet(null, th)
 
   def onDone(): Future[R] = {
 
