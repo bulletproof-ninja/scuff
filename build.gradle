@@ -13,6 +13,7 @@ ext {
     vScalaFull = getScalaFull[vScala]
     vServletApi = '3.0.1'
     vMailApi = '1.6.2'
+    vActivation = '1.1.1'
     vMockito = '1.10.19'
     vJUnit = '4.12'
     vBouncyCastle = '1.61'
@@ -75,6 +76,7 @@ allprojects {
         compileOnly "javax.servlet:javax.servlet-api:$vServletApi"
 
         compile "javax.mail:javax.mail-api:$vMailApi"
+        compile "javax.activation:activation:$vActivation"
         compile "org.glassfish.main.external:jmxremote_optional-repackaged:4.1.2"
 
         testCompile "org.scala-lang:scala-reflect:$vScalaFull"
