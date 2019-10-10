@@ -111,4 +111,20 @@ class TestThreads extends Serializable {
     Thread sleep 10 // Sometimes the cdl is triggered so fast, the future is not yet done.
     assertTrue(scheduled.isDone)
   }
+
+  @Test
+  def little_piggy(): Unit = {
+    val result = Threads.onBlockingThread("testing") {
+      println(s"Sleeping on: ${Thread.currentThread}")
+      Thread sleep 100
+      "Hello"
+    }
+    val helloWorld = result.map  { hello =>
+      println(s"Future.map on: ${Thread.currentThread}")
+      s"$hello, World!"
+    }(Threads.PiggyBack)
+    assertEquals("Hello, World!", helloWorld.await)
+    println(s"Finishing method on: ${Thread.currentThread}")
+  }
+
 }

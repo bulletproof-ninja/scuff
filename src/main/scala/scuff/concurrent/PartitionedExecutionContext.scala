@@ -5,6 +5,7 @@ import java.util.concurrent.{ Executor, ExecutorService, TimeUnit }
 import scala.concurrent.{ ExecutionContextExecutor, Future }
 import scala.math.abs
 import scala.concurrent.ExecutionContext
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
   * `ExecutionContext`, which serializes execution of `Runnable`
@@ -67,7 +68,12 @@ final class PartitionedExecutionContext(
 
 final object PartitionedExecutionContext {
 
-  final val Name = classOf[PartitionedExecutionContext].getName
+  private[this] val newThreadGroup: (Throwable => Unit) => ThreadGroup = {
+    val Counter = new AtomicInteger
+    val Name = classOf[PartitionedExecutionContext].getName
+    (failureReporter: Throwable => Unit) =>
+      Threads.newThreadGroup(s"$Name-${Counter.getAndIncrement}", false, failureReporter)
+  }
 
   /**
     * @param numThreads Number of threads used for parallelism
@@ -78,8 +84,10 @@ final object PartitionedExecutionContext {
   def apply(
       numThreads: Int,
       failureReporter: Throwable => Unit,
-      threadFactory: java.util.concurrent.ThreadFactory): PartitionedExecutionContext =
-        this(numThreads, failureReporter, threadFactory, _.hashCode)
+      threadFactory: java.util.concurrent.ThreadFactory): PartitionedExecutionContext = {
+    val tg = newThreadGroup(failureReporter)
+    this(numThreads, tg, threadFactory, _.hashCode)
+  }
 
   /**
     * @param numThreads Number of threads used for parallelism
@@ -89,8 +97,10 @@ final object PartitionedExecutionContext {
   def apply(
       numThreads: Int,
       failureReporter: Throwable => Unit,
-      getHash: Runnable => Int = _.hashCode): PartitionedExecutionContext =
-        this(numThreads, failureReporter, Threads.factory(Name, failureReporter), getHash)
+      getHash: Runnable => Int = _.hashCode): PartitionedExecutionContext = {
+    val tg = newThreadGroup(failureReporter)
+    this(numThreads, tg, Threads.factory(tg), getHash)
+  }
 
   /**
     * @param numThreads Number of threads used for parallelism
@@ -100,17 +110,19 @@ final object PartitionedExecutionContext {
     */
   def apply(
       numThreads: Int,
-      failureReporter: Throwable => Unit,
+      threadGroup: ThreadGroup,
       threadFactory: java.util.concurrent.ThreadFactory,
       getHash: Runnable => Int): PartitionedExecutionContext = {
     val threads = new Array[ExecutorService](numThreads)
+    val failureReporter = (th: Throwable) =>
+      threadGroup.uncaughtException(Thread.currentThread, th)
     for (idx <- 0 until numThreads) {
       threads(idx) = Threads.newSingleThreadExecutor(threadFactory, failureReporter)
     }
       def shutdownAll(exes: Seq[ExecutorService]): Future[Unit] =
         Threads.onBlockingThread(
-            s"Awaiting $Name shutdown",
-            tg = Threads.newThreadGroup(Name, false, reportFailure = failureReporter)) {
+            s"Awaiting ${threadGroup.getName} shutdown",
+            tg = threadGroup) {
           exes.foreach(_.shutdown)
           exes.foreach { exe =>
             exe.awaitTermination(Long.MaxValue, TimeUnit.MILLISECONDS)
