@@ -4,8 +4,10 @@ import scuff._
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.TimeoutException
 import scala.util.control.NonFatal
+import scala.util.Failure
 
 /**
  * Stream consumer extension that delegates
@@ -35,32 +37,44 @@ trait AsyncStreamConsumer[-T, +R]
   private[this] val error = new AtomicReference[Throwable]
 
   def onNext(t: T): Unit = {
+
     val future: Future[_] = try apply(t) catch {
       case NonFatal(th) => Future failed th
     }
-    if (!future.isCompleted) {
+
+      implicit def ec = Threads.PiggyBack
+    if (future.isCompleted) {
+      future.failed.foreach(onError)
+    } else {
       semaphore.tryAcquire()
-      future.onComplete(_ => semaphore.release)(Threads.PiggyBack)
+      future
+        .andThen {
+          case Failure(th) => onError(th)
+        }
+        .onComplete {
+          case _ => semaphore.release
+        }
     }
-    future.failed.foreach(onError)(Threads.PiggyBack)
+
   }
 
   def onError(th: Throwable): Unit = error.compareAndSet(null, th)
 
   def onDone(): Future[R] = {
 
-      def toClassName(cls: Class[_] = this.getClass): String =
-        if (cls.getName.contains("$anon$") && cls.getEnclosingClass != null) {
-          toClassName(cls.getEnclosingClass)
-        } else cls.getName
+      def whenDone: Future[R] = {
+        error.get match {
+          case null => this.whenDone()
+          case cause => Future failed cause
+        }
+      }
 
-    error.get match {
-      case null if semaphore.tryAcquire(Int.MaxValue) => // Fast case, all futures have completed
-        whenDone()
-      case null => // Slow case
-        val instanceName = toString()
-        val className = toClassName()
-        val aquired = Threads.onBlockingThread(s"Awaiting completion of $className: $instanceName") {
+    if (semaphore tryAcquire Int.MaxValue) whenDone
+    else error.get match {
+      case th: Throwable => Future failed th // Fail fast
+      case _ =>
+        val instanceName = this.toString()
+        val aquired = Threads.onBlockingThread(s"Awaiting completion of $instanceName") {
           val timeout = completionTimeout
           if (!semaphore.tryAcquire(Int.MaxValue, timeout.length, timeout.unit)) {
             throw new TimeoutException(
@@ -68,8 +82,28 @@ trait AsyncStreamConsumer[-T, +R]
           }
         }
         aquired.flatMap(_ => whenDone)(Threads.PiggyBack)
-      case th => Future failed th
     }
 
   }
+
+  private[this] def className = AsyncStreamConsumer.className(this.getClass)
+
+  override def toString() = s"$className@$hashCode"
+
+}
+
+private object AsyncStreamConsumer {
+
+  def className(cls: Class[_]): String = ClassName get cls
+
+  private[this] val ClassName = new ClassValue[String] {
+    protected def computeValue(cls: Class[_]): String = toClassName(cls)
+
+    @annotation.tailrec
+    private[this] def toClassName(cls: Class[_]): String =
+    if (cls.getName.contains("$anon$") && cls.getEnclosingClass != null) {
+      toClassName(cls.getEnclosingClass)
+    } else cls.getName
+  }
+
 }
