@@ -16,8 +16,8 @@ class TestBase64 extends {
       "RFC_4648(withPadding = true)" -> RFC_4648(withPadding = true),
       "RFC_4648(withPadding = false)" -> RFC_4648(withPadding = false),
       "Custom('`', '~')" -> Custom('`', '~'),
-      "Custom('$', '%', withPadding = true, paddingChar = '*', maxLineLength = 50)" -> Custom('$', '%', withPadding = true, paddingChar = '*', maxLineLength = 50, isSymmetric = true),
-      "Custom('$', '%', withPadding = false, maxLineLength = 31)" -> Custom('$', '%', withPadding = false, maxLineLength = 31, isSymmetric = true))
+      "Custom('$', '%', paddingChar = '*', maxLineLength = 50)" -> Custom('$', '%', paddingChar = '*', maxLineLength = 50, isSymmetric = true),
+      "Custom('$', '%', maxLineLength = 31)" -> Custom('$', '%', maxLineLength = 31, isSymmetric = true))
   }
 
   val LeviathanQuote = """
@@ -114,12 +114,15 @@ ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=
     val bytes = LeviathanQuote.getBytes take 4
     val encoded = Base64.RFC_4648(withPadding = true).encode(bytes).toString
     assertEquals("TWFuIA==", encoded)
+    val encodedNoPad = Base64.RFC_4648(withPadding = false).encode(bytes).toString
+    assertEquals("TWFuIA", encodedNoPad)
     val decoded = Base64.RFC_4648(withPadding = false).decode(encoded)
+    val decodedNoPad = Base64.RFC_4648(withPadding = false).decode(encodedNoPad)
     assertArrayEquals(bytes, decoded)
   }
   @Test
   def `custom`(): Unit = {
-    val codec = Base64.Custom('%', '$', withPadding = true, paddingChar = '_')
+    val codec = Base64.Custom('%', '$', paddingChar = '_')
     val encoded = codec.encode(LeviathanQuote.getBytes)
     assertEquals('_', encoded.charAt(encoded.length - 1))
     val decoded = new String(codec.decode(encoded)).toString

@@ -100,14 +100,12 @@ object Base64 {
    * Define custom base64 codec.
    * @param char62 62nd char
    * @param char63 63rd char
-   * @param withPadding Use padding? Defaults to `true`
-   * @param paddingChar Padding char, if padding. Defaults to `=`
+   * @param paddingChar Padding char, if padding. Defaults to "no padding"
    * @param maxLineLength Optional max line length. If > 0, will break lines with CR LF.
    * @param isSymmetric Is decoding input always same as encoded, i.e. if `maxLineLength` is defined? Defaults to `false`.
    */
   def Custom(char62: Char, char63: Char,
-      withPadding: Boolean = true,
-      paddingChar: Char = '=',
+      paddingChar: Char = 0,
       maxLineLength: Int = 0,
       isSymmetric: Boolean = false): Base64 = {
     val baseChars = {
@@ -120,25 +118,27 @@ object Base64 {
     val splitter = if (maxLineLength > 0) {
       Some(new LineSplitter(maxLineLength, isSymmetric))
     } else None
-    new Impl(baseChars, paddingChar, withPadding, charIndex, splitter)
+    new Impl(baseChars, charIndex, splitter, paddingChar != 0, if (paddingChar != 0) paddingChar else '=')
   }
 
   private[this] val EOLRemover = """[\r\n]+""".r.pattern
 
   /** URL and filename safe encoding, no padding, no line breaks. */
-  val RFC_4648: Base64 = new Impl(RFC4648BaseChars, '=', withPadding = false, RFC4648BaseCharIndex, None)
-  def RFC_4648(withPadding: Boolean): Base64 = new Impl(RFC4648BaseChars, '=', withPadding, RFC4648BaseCharIndex, None)
+  val RFC_4648: Base64 = new Impl(RFC4648BaseChars, RFC4648BaseCharIndex, None, withPadding = false)
+  def RFC_4648(withPadding: Boolean): Base64 =
+    new Impl(RFC4648BaseChars, RFC4648BaseCharIndex, None, withPadding)
 
   /** Default base-64 encoding, with padding and line breaks for every 76 characters. */
-  val RFC_1521: Base64 = Custom('+', '/', withPadding = true, paddingChar = '=', 76)
+  val RFC_1521: Base64 = Custom('+', '/', paddingChar = '=', 76)
   /** Default base-64 encoding, with padding and line breaks optional. */
-  def RFC_1521(lineBreaks: Boolean, isSymmetric: Boolean = true): Base64 = Custom('+', '/', withPadding = true, paddingChar = '=', if (lineBreaks) 76 else 0, lineBreaks && isSymmetric)
+  def RFC_1521(lineBreaks: Boolean, isSymmetric: Boolean = true): Base64 =
+    Custom('+', '/', paddingChar = '=', if (lineBreaks) 76 else 0, lineBreaks && isSymmetric)
   /** Default base-64 encoding, with padding and line breaks for every 76 characters. */
   def RFC_2045: Base64 = RFC_1521
   /** Default base-64 encoding, with padding and line breaks optional. */
   def RFC_2045(lineBreaks: Boolean, isSymmetric: Boolean = true): Base64 = RFC_1521(lineBreaks, isSymmetric)
 
-  private class Impl(baseChars: Array[Char], paddingChar: Char, withPadding: Boolean, charIdx: Array[Byte], lineSplitter: Option[LineSplitter]) extends Base64 {
+  private class Impl(baseChars: Array[Char], charIdx: Array[Byte], lineSplitter: Option[LineSplitter], withPadding: Boolean, paddingChar: Char = '=') extends Base64 {
 
     private[this] val lineLenRemoveEOL = lineSplitter.filter(_.isSymmetricCodec).map(_.lineLen) getOrElse 0
 
