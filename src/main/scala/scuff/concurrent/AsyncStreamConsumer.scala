@@ -4,7 +4,6 @@ import scuff._
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.TimeoutException
 import scala.util.control.NonFatal
 import scala.util.Failure
