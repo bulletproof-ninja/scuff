@@ -1,6 +1,7 @@
 package scuff
 
 import org.junit._, Assert._
+import scuff.crypto.CipherCodec
 
 object TestCrypto {
 
@@ -57,4 +58,26 @@ class TestCrypto {
     val decryptedAES = codec decode encryptedAES
     assertArrayEquals(aes.encryptionKey.getEncoded, decryptedAES)
   }
+
+
+  @Test
+  def aesCustomKey(): Unit = {
+    val aesKey = CipherCodec.SecretKey("AES", 256)
+
+    val aes1 = new crypto.CipherCodec(aesKey, crypto.CipherCodec.newAESCipher _)
+    val codec1 = JavaSerializer[FooBar].pipe(aes1).pipe(ArrayPrinter).pipe(Base64.RFC_4648)
+
+    val aes2 = new crypto.CipherCodec(aesKey, crypto.CipherCodec.newAESCipher _)
+    val codec2 = JavaSerializer[FooBar].pipe(aes2).pipe(ArrayPrinter).pipe(Base64.RFC_4648)
+
+    val fooBar = FooBar("Hello, World!", 42, Map(
+        "inf" -> Double.PositiveInfinity,
+        "max" -> Double.MaxValue,
+        "one" -> 1d,
+        "rando" -> crypto.SecureRandom.nextDouble()))
+    val encrypted = codec1.encode(fooBar)
+    val decrypted = codec2.decode(encrypted)
+    assertEquals(fooBar, decrypted)
+  }
+
 }
