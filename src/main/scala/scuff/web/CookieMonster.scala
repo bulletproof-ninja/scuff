@@ -116,7 +116,7 @@ trait CookieMonster[T] {
       case domain => cookie append "; Domain=" append domain
     }
     if (overridePath != null) cookie append "; Path=" append overridePath
-    res.setHeader("Set-Cookie", cookie.toString)
+    res.addHeader("Set-Cookie", cookie.toString)
   }
 
   /**
