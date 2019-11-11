@@ -121,7 +121,7 @@ package object concurrent {
     untyped.asInstanceOf[java.util.concurrent.Future[T] => Future[T]]
 
   implicit class ScuffJavaFuture[T](private val f: java.util.concurrent.Future[T]) extends AnyVal {
-    @implicitNotFound(msg = s"No java.util.concurrent.Future => scala.concurrent.Future function found. Try an instance of ${classOf[JavaFutureConverter].getName}")
+    @implicitNotFound(msg = s"No java.util.concurrent.Future => scala.concurrent.Future function found. Try an instance of JavaFutureConverter")
     def asScala(implicit conv: java.util.concurrent.Future[T] => Future[T]): Future[T] = conv(f)
   }
 
