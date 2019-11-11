@@ -51,6 +51,7 @@ package object web {
       case "localhost" | "127.0.0.1" | "0:0:0:0:0:0:0:1" | "::1" => true
       case _ => false
     }
+    def remove(attr: Attribute[_]): Unit = attr.remove(req)
     def set[T](attr: Attribute[T], value: T): Unit = attr.set(req, value)
     def get[T](attr: Attribute[T]): Option[T] = attr.get(req)
     def getClientScheme: String = {
