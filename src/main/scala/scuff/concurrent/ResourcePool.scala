@@ -61,7 +61,7 @@ trait ResourcePool[R <: AnyRef] {
 
 abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
     resourceFactory: => R,
-    minResources: Int = 0,
+    minResources: Int,
     description: String)(
     implicit
     lifecycle: ResourcePool.Lifecycle[R])
@@ -348,8 +348,14 @@ object ResourcePool {
     Threads.newScheduledThreadPool(1, tf, pst)
   }
 
+  /**
+   * @param newResource New resource function. Cannot be a constant value.
+   * @param minResources Minimum number of resources to pool. Defaults to `1`.
+   * @param maxResources Maximum number of resources to pool. Defaults to `Int.MaxValue`, which is interpreted as unbounded.
+   * @param description Optional additional description. Defaults to nothing.
+   */
   def apply[R <: AnyRef: ClassTag](
-      newResource: => R, minResources: Int = 0, maxResources: Int = Int.MaxValue,
+      newResource: => R, minResources: Int = 1, maxResources: Int = Int.MaxValue,
       description: String = "")(
       implicit
       lifecycle: ResourcePool.Lifecycle[R] = ResourcePool.DefaultLifecycle[R]): ResourcePool[R] =
@@ -450,14 +456,18 @@ object ResourcePool {
  * NOTICE: As with any pool, make absolutely sure the
  * resource does not escape the `use` scope, but
  * that almost goes without saying, amirite?
+ *
+ * @param newResource New resource function. Cannot be a constant value.
+ * @param minResources Minimum number of resources to pool. Defaults to `1`.
+ * @param description Optional additional description. Defaults to nothing.
  */
 class UnboundedResourcePool[R <: AnyRef: ClassTag](
-    resourceFactory: => R,
-    minResources: Int = 0,
+    newResource: => R,
+    minResources: Int = 1,
     description: String = "")(
     implicit
     lifecycle: ResourcePool.Lifecycle[R] = ResourcePool.DefaultLifecycle[R])
-  extends BaseResourcePool[R](resourceFactory, minResources, description) {
+  extends BaseResourcePool[R](newResource, minResources, description) {
 
   override def pop() = super.pop()
   override def push(r: R) = super.push(r)
