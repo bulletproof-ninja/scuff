@@ -9,35 +9,15 @@ import scuff._
 
 /**
  * Cipher codec.
- * @param encryptionKey  Encryption key
- * @param decryptionKey Decryption key
- * @param newCihper New `Cipher` function, which must return a new unique instance
  */
-class CipherCodec private (
+final class CipherCodec private (
     val encryptionKey: Key,
     decryptionKey: Key,
     newCipher: () => Cipher)
   extends Codec[Array[Byte], Array[Byte]] {
 
-  /**
-   * @param keyPair  Asymmetric key pair
-   * @param decryptionKey Decryption key
-   * @param newCihper New `Cipher` function, which must return a new unique instance
-   */
-  def this(keyPair: KeyPair, newCipher: () => Cipher) = this(keyPair.getPublic, keyPair.getPrivate, newCipher)
-
-  /**
-   * @param symmetricKey  Symmetric key
-   * @param newCihper New `Cipher` function, which must return a new unique instance
-   */
-  def this(symmetricKey: SecretKey, newCipher: () => Cipher) = this(symmetricKey, symmetricKey, newCipher)
-
-  private def this(symmetricKey: SecretKey) = this(symmetricKey, () => Cipher.getInstance(symmetricKey.getAlgorithm))
-
-  def this(algorithm: String, keySize: Int) = this(CipherCodec.SecretKey(algorithm, keySize))
-
   private[this] val cipherPool = new UnboundedResourcePool(newCipher.apply)
-  private[this] val blockSize = cipherPool.use(_.getBlockSize) // Can be 0
+  private[this] val blockSize = newCipher().getBlockSize // Can be 0
   private[this] def randomIV() =
     if (blockSize == 0) Array.emptyByteArray
     else {
@@ -93,6 +73,15 @@ class CipherCodec private (
 
 object CipherCodec {
 
+  private[this] val rando = SecureRandom.generateSeed(8)
+
+  private def verify(codec: CipherCodec): codec.type = {
+    val encoded = codec encode rando
+    val decoded = codec decode encoded
+    require(rando sameElements decoded, s"Must encode/decode correctly")
+    codec
+  }
+
   def SecretKey(algo: String, keySize: Int): SecretKey = {
     val keyGen = KeyGenerator.getInstance(algo)
     keyGen.init(keySize, SecureRandom)
@@ -111,13 +100,18 @@ object CipherCodec {
   /** Generate ad-hoc symmetric cipher. */
   def symmetric(algo: String, keySize: Int): CipherCodec = {
     val keyAlgo = algo.split("/")(0)
-    new CipherCodec(SecretKey(keyAlgo, keySize), () => newCipher(algo))
+    apply(SecretKey(keyAlgo, keySize), () => newCipher(algo))
   }
 
   /** Generate ad-hoc asymmetric cipher. */
   def asymmetric(algo: String, keySize: Int): CipherCodec = {
     val keyAlgo = algo.split("/")(0)
-    new CipherCodec(KeyPair(keyAlgo, keySize), () => newCipher(algo))
+    apply(KeyPair(keyAlgo, keySize), () => newCipher(algo))
+  }
+
+  def AES(aesKey: SecretKey): CipherCodec = {
+    require(aesKey.getAlgorithm startsWith "AES", s"Must be AES key, was: ${aesKey.getAlgorithm}")
+    apply(aesKey, CipherCodec.newAESCipher _)
   }
 
   /**
@@ -133,5 +127,31 @@ object CipherCodec {
    */
   def RSA(keySize: Int = 2048): CipherCodec =
     asymmetric("RSA", keySize)
+
+      /**
+   * @param keyPair  Asymmetric key pair
+   * @param decryptionKey Decryption key
+   * @param newCihper New `Cipher` function, which must return a new unique instance
+   */
+  def apply(keyPair: KeyPair, newCipher: () => Cipher): CipherCodec =
+    verify {
+      new CipherCodec(keyPair.getPublic, keyPair.getPrivate, newCipher)
+    }
+
+  /**
+   * @param symmetricKey  Symmetric key
+   * @param newCihper New `Cipher` function, which must return a new unique instance
+   */
+  def apply(symmetricKey: SecretKey, newCipher: () => Cipher): CipherCodec =
+    verify {
+      new CipherCodec(symmetricKey, symmetricKey, newCipher)
+    }
+
+
+  def apply(symmetricKey: SecretKey): CipherCodec =
+    apply(symmetricKey, () => Cipher.getInstance(symmetricKey.getAlgorithm))
+
+  def apply(algorithm: String, keySize: Int): CipherCodec =
+    apply(CipherCodec.SecretKey(algorithm, keySize))
 
 }

@@ -2,6 +2,7 @@ package scuff
 
 import org.junit._, Assert._
 import scuff.crypto.CipherCodec
+import java.security.InvalidKeyException
 
 object TestCrypto {
 
@@ -59,15 +60,14 @@ class TestCrypto {
     assertArrayEquals(aes.encryptionKey.getEncoded, decryptedAES)
   }
 
-
   @Test
   def aesCustomKey(): Unit = {
     val aesKey = CipherCodec.SecretKey("AES", 256)
 
-    val aes1 = new crypto.CipherCodec(aesKey, crypto.CipherCodec.newAESCipher _)
+    val aes1 = crypto.CipherCodec(aesKey, crypto.CipherCodec.newAESCipher _)
     val codec1 = JavaSerializer[FooBar].pipe(aes1).pipe(ArrayPrinter).pipe(Base64.RFC_4648)
 
-    val aes2 = new crypto.CipherCodec(aesKey, crypto.CipherCodec.newAESCipher _)
+    val aes2 = crypto.CipherCodec(aesKey, crypto.CipherCodec.newAESCipher _)
     val codec2 = JavaSerializer[FooBar].pipe(aes2).pipe(ArrayPrinter).pipe(Base64.RFC_4648)
 
     val fooBar = FooBar("Hello, World!", 42, Map(
@@ -80,4 +80,17 @@ class TestCrypto {
     assertEquals(fooBar, decrypted)
   }
 
+  @Test
+  def failFast(): Unit = {
+    val bytes = scuff.crypto.SecureRandom.generateSeed(127)
+    val invalidKey = new javax.crypto.spec.SecretKeySpec(bytes, "AES")
+    try {
+      val codec = crypto.CipherCodec.AES(invalidKey)
+      fail(s"Should fail on invalid key length: $codec")
+    } catch {
+      case e: InvalidKeyException =>
+        assertTrue(e.getMessage contains bytes.length.toString)
+    }
+
+  }
 }
