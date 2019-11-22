@@ -9,6 +9,6 @@ package object crypto {
   val SecureRandom = java.security.SecureRandom.getInstanceStrong
 
   Try(Class.forName("org.bouncycastle.jce.provider.BouncyCastleProvider")).foreach { bcProv =>
-    Security addProvider bcProv.newInstance.asInstanceOf[Provider]
+    Security addProvider bcProv.getDeclaredConstructor().newInstance().asInstanceOf[Provider]
   }
 }
