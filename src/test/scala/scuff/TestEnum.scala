@@ -4,7 +4,7 @@ import org.junit._, Assert._
 
 class TestEnum {
 
-  sealed trait WeekDay extends EnumValue
+  sealed trait WeekDay extends Enum.Value
 
   object WeekDay extends Enum[WeekDay] {
     val Mon, Tue, Wed, Thu, Fri, Sat, Sun = new Val with WeekDay
@@ -55,7 +55,7 @@ class TestEnum {
     }
   }
 
-  sealed trait Planet extends EnumValue {
+  sealed trait Planet extends Enum.Value {
     def mass: Double
     def radius: Double
     def surfaceGravity: Double = Planet.G * mass / (radius * radius)
@@ -74,6 +74,28 @@ class TestEnum {
     val Saturn = Val(5.688e+26, 6.0268e7)
     val Uranus = Val(8.686e+25, 2.5559e7)
     val Neptune = Val(1.024e+26, 2.4746e7)
+  }
+
+  sealed trait Binary extends Enum.Value {
+    def num: String
+  }
+  object Binary extends Enum[Binary] {
+    case class Val(num: String) extends super.Val with Binary
+
+    val Zero = new Val("0")
+    val One = new Val("1")
+  }
+
+  @Test
+  def `different string value`(): Unit = {
+    assertEquals("Zero", Binary.Zero.name)
+    assertEquals("One", Binary.One.name)
+    assertEquals(Binary.Zero, Binary(_.num == "0"))
+    assertEquals(Binary.One, Binary(_.num == "1"))
+    assertEquals(Binary.Zero, Binary(0))
+    assertEquals(Binary.One, Binary(1))
+    assertEquals(Binary.Zero, Binary.withName("Zero"))
+    assertEquals(Binary.One, Binary("One"))
   }
 
 }

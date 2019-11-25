@@ -2,17 +2,21 @@ package scuff
 
 import scala.reflect.ClassTag
 
-trait EnumValue {
-  value: Enum[EnumValue]#Value =>
+object Enum {
+  trait Value {
+    value: Enum[Enum.Value]#Value =>
 
-  def id: Int
+    def id: Int
+    final def name: String = this.toString
+
+  }
 }
 
 /**
  * Parametric `scala.Enumeration` extension.
  * @tparam E Sealed trait enum type
  */
-class Enum[V <: EnumValue: ClassTag] extends Enumeration {
+class Enum[V <: Enum.Value: ClassTag] extends Enumeration {
 
   type Value = V
 
@@ -20,7 +24,9 @@ class Enum[V <: EnumValue: ClassTag] extends Enumeration {
     case v: V => v
   }
 
-  def get(name: String): Option[V] = list.find(_.toString == name)
+  def find(find: V => Boolean): Option[V] = list.find(find)
+
+  def get(name: String): Option[V] = list.find(_.name == name)
 
   def apply(name: String): V = {
     get(name) match {
@@ -28,6 +34,13 @@ class Enum[V <: EnumValue: ClassTag] extends Enumeration {
       case _ =>
         val valuesStr = this.list.map(v => s"'$v'").mkString(", ")
         throw new NoSuchElementException(s"No value found for '$name'; available: $valuesStr")
+    }
+  }
+
+  def apply(find: V => Boolean): V = {
+    list.find(find) match {
+      case Some(value) => value
+      case _ => throw new NoSuchElementException
     }
   }
 
