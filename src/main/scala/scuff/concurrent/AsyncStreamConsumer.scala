@@ -72,12 +72,11 @@ trait AsyncStreamConsumer[-T, +R]
     else error.get match {
       case th: Throwable => Future failed th // Fail fast
       case _ =>
-        val instanceName = this.toString()
-        val aquired = Threads.onBlockingThread(s"Awaiting completion of $instanceName") {
+        val aquired = Threads.onBlockingThread(s"Awaiting completion of ${AsyncStreamConsumer.this}") {
           val timeout = completionTimeout
           if (!semaphore.tryAcquire(Int.MaxValue, timeout.length, timeout.unit)) {
             throw new TimeoutException(
-              s"Stream consumption in `$className` is still not finished, $timeout after stream completion, possibly due to either incomplete stream or incomplete state. Instance: $instanceName")
+              s"Stream consumption in ${AsyncStreamConsumer.this} is still not finished, $timeout after stream completion, possibly due to either incomplete stream or incomplete state.")
           }
         }
         aquired.flatMap(_ => whenDone)(Threads.PiggyBack)
@@ -85,24 +84,6 @@ trait AsyncStreamConsumer[-T, +R]
 
   }
 
-  private[this] def className = AsyncStreamConsumer.className(this.getClass)
-
-  override def toString() = s"$className@$hashCode"
-
-}
-
-private object AsyncStreamConsumer {
-
-  def className(cls: Class[_]): String = ClassName get cls
-
-  private[this] val ClassName = new ClassValue[String] {
-    protected def computeValue(cls: Class[_]): String = toClassName(cls)
-
-    @annotation.tailrec
-    private[this] def toClassName(cls: Class[_]): String =
-    if (cls.getName.contains("$anon$") && cls.getEnclosingClass != null) {
-      toClassName(cls.getEnclosingClass)
-    } else cls.getName
-  }
+  override def toString() = s"${this.getClass.getName}@$hashCode"
 
 }
