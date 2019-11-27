@@ -48,7 +48,7 @@ abstract class CoffeeScriptServlet extends HttpServlet {
     implicit val lifecycle = ResourcePool.onEviction(onCompilerTimeout) {
       case NonFatal(_) => false
     }
-    ResourcePool(createCompiler, minResources = 0, description = engineName)
+    new UnboundedResourcePool(createCompiler, minResources = 0, description = engineName)
   }
 
   private def createCompiler = {
