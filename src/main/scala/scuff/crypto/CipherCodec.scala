@@ -3,7 +3,7 @@ package scuff.crypto
 import java.security.{ Key, KeyPair, KeyPairGenerator }
 import javax.crypto.{ Cipher, SecretKey, KeyGenerator }
 import javax.crypto.spec.IvParameterSpec
-import scuff.concurrent.UnboundedResourcePool
+import scuff.concurrent.ResourcePool
 import java.util.Arrays
 import scuff._
 
@@ -16,7 +16,7 @@ final class CipherCodec private (
     newCipher: () => Cipher)
   extends Codec[Array[Byte], Array[Byte]] {
 
-  private[this] val cipherPool = new UnboundedResourcePool(newCipher.apply)
+  private[this] val cipherPool = ResourcePool(newCipher.apply, description = encryptionKey.getAlgorithm)
   private[this] val blockSize = newCipher().getBlockSize // Can be 0
   private[this] def randomIV() =
     if (blockSize == 0) Array.emptyByteArray
