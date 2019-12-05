@@ -4,7 +4,6 @@ import org.junit._
 import org.junit.Assert._
 import scuff.concurrent.PartitionedExecutionContext
 import java.util.concurrent.TimeUnit
-import scala.concurrent.Future
 
 class TestPubSub {
   import language.implicitConversions
@@ -14,7 +13,7 @@ class TestPubSub {
   implicit def f2sb[T](f: T => Unit) = new StreamConsumer[T, Unit] {
     def onNext(t: T) = f(t)
     def onError(e: Throwable) = e.printStackTrace()
-    def onDone() = Future successful (())
+    def onDone(): Unit = ()
   }
 
   @Test

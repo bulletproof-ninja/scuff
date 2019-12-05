@@ -80,13 +80,12 @@ class TestStreamConsumer {
   @Test
   def `async, success`(): Unit = {
     object Average extends AsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
-      private[this] val UnitFuture = Future.successful(())
       private val sum = new AtomicInteger
       private val count = new AtomicInteger
       def apply(i: Int) = {
         sum.addAndGet(i)
         count.incrementAndGet()
-        UnitFuture
+        Future.unit
       }
       val completionTimeout = 5.seconds
       protected def whenDone(): Future[Int] = Future fromTry Try(sum.get / count.get)

@@ -8,7 +8,7 @@ import scala.concurrent.duration._
 import scala.util.{ Failure, Success }
 import scala.util.control.NonFatal
 import SlidingWindow._
-import scuff.concurrent.{ StreamPromise, Threads }
+import scuff.concurrent._
 
 object SlidingWindow {
 
@@ -205,7 +205,7 @@ class SlidingWindow[T, R, F](
       }
     }
   }
-  private[this] val NoFuture = Future successful None
+
   /**
     * Take snapshot of the provided window(s), using the `Reducer`,
     * and return result. If a window has no entries, or if `finalize`
@@ -216,7 +216,7 @@ class SlidingWindow[T, R, F](
     */
   def snapshot(now: EpochMillis = clock): Future[Map[Window, F]] = {
     val (finitesFuture, foreverFuture) = storeProvider { tsMap =>
-      val sinceForever = if (foreverWindows.isEmpty) NoFuture else tsMap.queryAll(reducer)
+      val sinceForever = if (foreverWindows.isEmpty) Future.none else tsMap.queryAll(reducer)
       type WinMap = java.util.HashMap[Window, R]
       val initMap = new WinMap(windows.size * 2, 1f)
       val finiteMap =

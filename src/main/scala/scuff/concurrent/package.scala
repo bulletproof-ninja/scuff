@@ -184,4 +184,12 @@ package object concurrent {
     }
   }
 
+  private[this] val NoFuture = Future successful None
+  private[this] val NilFuture = Future successful Nil
+  implicit class ScuffFutureType(private val f: Future.type) extends AnyVal {
+    def none: Future[None.type] = NoFuture
+    def nil: Future[Nil.type] = NilFuture
+  }
+
+
 }
