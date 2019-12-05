@@ -249,7 +249,7 @@ private class CharsetControl(charset: Charset, altLoader: ClassLoader) extends R
           // If the class isn't a ResourceBundle subclass, throw a
           // ClassCastException.
           if (classOf[ResourceBundle].isAssignableFrom(bundleClass)) {
-            bundle = bundleClass.newInstance()
+            bundle = bundleClass.getConstructor().newInstance()
           } else {
             throw new ClassCastException(bundleClass.getName()
               + " cannot be cast to ResourceBundle")
