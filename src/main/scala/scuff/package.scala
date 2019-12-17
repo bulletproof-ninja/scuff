@@ -174,6 +174,17 @@ package object scuff {
     }
     def head: E = headOption.getOrElse(throw new NoSuchElementException(s"${iter.getClass.getSimpleName}.head"))
     def headOption: Option[E] = iter.find(_ => true)
+
+    /** This assumes a lazy iterator. */
+    def limitActiveFutures(maxActiveFutures: Int)(pf: PartialFunction[E, Future[_]]): Iterator[E] = {
+        val future: (E => Future[_]) = (e: E) => if (pf isDefinedAt e) pf(e) else Future.unit
+      new concurrent.BlockingBoundedFuturesIterator(maxActiveFutures, iter, future)
+    }
+    /** This assumes a lazy iterator. */
+    def limitActive(maxActiveFutures: Int)(implicit ev: E <:< Future[_]): Iterator[E] = {
+      assert(ev != null) // No warning
+      new concurrent.BlockingBoundedFuturesIterator[E](maxActiveFutures, iter, _.asInstanceOf[Future[_]])
+    }
   }
   implicit class ScuffArray[E](private val arr: Array[E]) extends AnyVal {
     def levenshtein(s2: scala.collection.IndexedSeq[E]): Int = new ScuffIdxSeq(arr).levenshtein(s2)
