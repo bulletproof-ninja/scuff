@@ -177,6 +177,7 @@ package object scuff {
 
     /** This assumes a lazy iterator. */
     def limitActiveFutures(maxActiveFutures: Int)(pf: PartialFunction[E, Future[_]]): Iterator[E] = {
+      import scuff.concurrent._ // For 2.11
         val future: (E => Future[_]) = (e: E) => if (pf isDefinedAt e) pf(e) else Future.unit
       new concurrent.BlockingBoundedFuturesIterator(maxActiveFutures, iter, future)
     }

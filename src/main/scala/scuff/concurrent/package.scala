@@ -87,7 +87,7 @@ package object concurrent {
             throw timeout
         }
       }
-    def flatten[A](implicit ev: T =:= Future[A]): Future[A] = {
+    def flatten[A](implicit ev: T <:< Future[A]): Future[A] = {
       assert(ev != null) // Remove warning
       f.asInstanceOf[Future[Future[A]]].flatMap(identity)(Threads.PiggyBack)
     }
@@ -124,7 +124,7 @@ package object concurrent {
     untyped.asInstanceOf[java.util.concurrent.Future[T] => Future[T]]
 
   implicit class ScuffJavaFuture[T](private val f: java.util.concurrent.Future[T]) extends AnyVal {
-    @implicitNotFound(msg = s"No java.util.concurrent.Future => scala.concurrent.Future function found. Try an instance of JavaFutureConverter")
+    @implicitNotFound(msg = "No java.util.concurrent.Future => scala.concurrent.Future function found. Try an instance of JavaFutureConverter")
     def asScala(implicit conv: java.util.concurrent.Future[T] => Future[T]): Future[T] = conv(f)
   }
 
