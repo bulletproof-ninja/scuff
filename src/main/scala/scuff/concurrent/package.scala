@@ -87,7 +87,10 @@ package object concurrent {
             throw timeout
         }
       }
-    def flatten[A](implicit mustBeFuture: Future[A] =:= T): Future[A] = f.asInstanceOf[Future[Future[A]]].flatMap(identity)(Threads.PiggyBack)
+    def flatten[A](implicit ev: T =:= Future[A]): Future[A] = {
+      assert(ev != null) // Remove warning
+      f.asInstanceOf[Future[Future[A]]].flatMap(identity)(Threads.PiggyBack)
+    }
     def withTimeout(timeout: FiniteDuration)(implicit scheduler: ScheduledExecutorService): Future[T] = {
         def fulfill(promise: Promise[T], value: Try[T]): Boolean = {
           try {

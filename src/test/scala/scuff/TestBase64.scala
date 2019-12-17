@@ -119,6 +119,7 @@ ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=
     val decoded = Base64.RFC_4648(withPadding = false).decode(encoded)
     val decodedNoPad = Base64.RFC_4648(withPadding = false).decode(encodedNoPad)
     assertArrayEquals(bytes, decoded)
+    assertArrayEquals(bytes, decodedNoPad)
   }
   @Test
   def `custom`(): Unit = {
