@@ -52,6 +52,7 @@ class TestEnum {
     val planet: Planet = Planet.Earth
     planet match {
       case Planet.Earth => // Success
+      case _ => ???
     }
   }
 
