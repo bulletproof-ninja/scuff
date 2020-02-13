@@ -80,6 +80,16 @@ class TestJson {
   }
 
   @Test
+  def leadingZero() = {
+    try {
+      JsVal parse """{"foo":0123}"""
+      fail("Should fail on leading zero")
+    } catch {
+      case _: MalformedJSON => // Expected
+    }
+  }
+
+  @Test
   def justString() = {
     val JsStr(string) = JsVal parse """"abc""""
     assertEquals("abc", string)
