@@ -278,7 +278,7 @@ abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
     val tuple = currentMillis -> lifecycle.onReturn(r)
     val list = pool.get
     if (!pool.compareAndSet(list, tuple :: list)) {
-      pushUntilSuccessful(List(tuple))
+      pushUntilSuccessful(tuple :: Nil)
     }
   }
 
@@ -288,11 +288,11 @@ abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
       case Nil =>
         newResource match {
           case null => throw new IllegalStateException("Resource constructor returned `null`.")
-          case r => lifecycle.onCheckout(r)
+          case res => lifecycle onCheckout res
         }
       case list @ (_, head) :: tail =>
         if (pool.compareAndSet(list, tail)) {
-          lifecycle.onCheckout(head)
+          lifecycle onCheckout head
         } else {
           popUntilSuccessful()
         }
@@ -302,7 +302,7 @@ abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
   @tailrec
   private def pushUntilSuccessful(append: List[(Long, R)]): Unit = {
     val list = pool.get
-    val sorted = (list ++ append).sorted(ResourcePool.ordering)
+    val sorted = (list ++ append) sorted ResourcePool.ordering
     if (!pool.compareAndSet(list, sorted)) {
       pushUntilSuccessful(append)
     }
@@ -312,8 +312,8 @@ abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
     val r = pop()
     val a = try thunk(r) catch {
       case NonFatal(cause) =>
-        if (lifecycle evictOnFailure cause) {
-          Try(lifecycle onEviction r)
+        if (lifecycle evictOnFailure cause) Try {
+          lifecycle onEviction r
         } else {
           push(r)
         }
@@ -367,11 +367,11 @@ object ResourcePool {
 
   private[concurrent] val ordering = Ordering.by[(Long, _), Long](_._1).reverse
 
-  trait Lifecycle[R] {
+  trait Lifecycle[R <: AnyRef] {
     /** Perform any necessary housekeeping before checking out. */
-    def onCheckout(r: R): R
+    def onCheckout(r: R): r.type
     /** Perform any necessary housekeeping after returned. */
-    def onReturn(r: R): R
+    def onReturn(r: R): r.type
     /** Perform any necessary housekeeping when evicted, for any reason, including failure. */
     def onEviction(r: R): Unit
     /** Should resource be evicted on this failure? */
@@ -384,9 +384,9 @@ object ResourcePool {
    *  NOTE: Evicting on failure is often not what's desired,
    *  so generally use a custom lifecycle.
    */
-  def DefaultLifecycle[R](): Lifecycle[R] = new Lifecycle[R] {
-    def onCheckout(r: R): R = r
-    def onReturn(r: R): R = r
+  def DefaultLifecycle[R <: AnyRef](): Lifecycle[R] = new Lifecycle[R] {
+    def onCheckout(r: R): r.type = r
+    def onReturn(r: R): r.type = r
     def onEviction(r: R): Unit = r match {
       case r: AutoCloseable => r.close()
       case _ => // noop
@@ -398,17 +398,17 @@ object ResourcePool {
    * which exceptions to not cause eviction.
    * NOTE return `false` to keep in pool, i.e. _not_ evict.
    */
-  def onEviction[R](f: R => Unit)(evictOn: PartialFunction[Throwable, Boolean] = PartialFunction.empty): Lifecycle[R] =
+  def onEviction[R <: AnyRef](f: R => Unit)(evictOn: PartialFunction[Throwable, Boolean] = PartialFunction.empty): Lifecycle[R] =
     new Lifecycle[R] {
-      def onCheckout(r: R): R = r
-      def onReturn(r: R): R = r
+      def onCheckout(r: R): r.type = r
+      def onReturn(r: R): r.type = r
       def onEviction(r: R): Unit = f(r)
       def evictOnFailure(cause: Throwable): Boolean = if (evictOn isDefinedAt cause) evictOn(cause) else true
     }
-  def onCheckoutReturn[R](checkingOut: R => Unit, returning: R => Unit): Lifecycle[R] =
+  def onCheckoutReturn[R <: AnyRef](checkingOut: R => Unit, returning: R => Unit): Lifecycle[R] =
     new Lifecycle[R] {
-      def onCheckout(r: R): R = { checkingOut(r); r }
-      def onReturn(r: R): R = { returning(r); r }
+      def onCheckout(r: R): r.type = { checkingOut(r); r }
+      def onReturn(r: R): r.type = { returning(r); r }
       def onEviction(r: R): Unit = r match {
         case r: AutoCloseable => r.close()
         case _ => // noop
@@ -431,7 +431,7 @@ object ResourcePool {
     def this(cause: Throwable) = this(s"Cannot create new resource", cause)
   }
 
-  final case class Exhausted(maxResources: Int, resourceType: Class[AnyRef])
+  final case class Exhausted(maxResources: Int, resourceType: Class[_ <: AnyRef])
     extends ResourcePool.ResourceUnavailable(
       s"No available ${resourceType.getName}. All $maxResources are currently in use.")
 
@@ -500,7 +500,7 @@ private object BoundedResourcePool {
             assert(currentActive < max)
             if (activeCounter.compareAndSet(currentActive, currentActive + 1)) {
               try resourceFactory catch {
-                case th: Throwable =>
+                case NonFatal(th) =>
                   decrementActiveCount()
                   throw th // Will be caught in `ResourcePool` instance and wrapped
               }
@@ -552,7 +552,7 @@ class BoundedResourcePool[R <: AnyRef: ClassTag] private (
   override def use[A](thunk: R => A): A =
     super.use { resource =>
       try thunk(resource) catch {
-        case th: Throwable =>
+        case NonFatal(th) =>
           tracker.decrementActiveCount()
           throw th
       }
