@@ -28,6 +28,8 @@ class Enum[V <: Enum.Value: ClassTag] extends Enumeration {
 
   def get(name: String): Option[V] = list.find(_.name == name)
 
+  def id(id: Int): V = this.apply(id).asInstanceOf[V]
+
   def apply(name: String): V = {
     get(name) match {
       case Some(value) => value
