@@ -16,9 +16,9 @@ object CookieMonster {
 
   private final val SessionDuration: FiniteDuration = -1.seconds
 
-  sealed trait SameSite
-  object SameSite extends Enumeration {
-    val Lax, Strict, Omit = new Val with SameSite
+  sealed trait SameSite extends Enum.Value
+  object SameSite extends Enum[SameSite] {
+    val Lax, Strict, None, omit = new Val with SameSite
   }
 
   /** Convert Expires timestamp to MaxAge seconds, using current time. */
@@ -62,12 +62,10 @@ trait CookieMonster[T] {
    */
   protected def isHttpOnly = true
 
-  protected def Lax = CookieMonster.SameSite.Lax
-  protected def Strict = CookieMonster.SameSite.Strict
-  protected def Omit = CookieMonster.SameSite.Omit
+  protected def SameSite = CookieMonster.SameSite
 
-  /** `SameSite` values. Defaults to `Lax`. */
-  protected def sameSite: CookieMonster.SameSite = Lax
+  /** `SameSite` value. Defaults to `Lax`. */
+  protected def sameSite: CookieMonster.SameSite = SameSite.Lax
 
   /**
    * Secure cookie? Defaults to `false`.
@@ -105,7 +103,7 @@ trait CookieMonster[T] {
     val encodedValue = codec encode value
     val cookie = new java.lang.StringBuilder(validName.length + encodedValue.length + 200)
     cookie append validName append '=' append encodedValue
-    if (sameSite != Omit) cookie append "; SameSite=" append sameSite
+    if (sameSite != SameSite.omit) cookie append "; SameSite=" append sameSite
     if (isSecure) cookie append "; Secure"
     if (isHttpOnly) cookie append "; HttpOnly"
     if (overrideMaxAge.length != SessionCookie.length) {

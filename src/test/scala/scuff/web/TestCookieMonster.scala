@@ -41,7 +41,7 @@ class TestCookieMonster {
       def name = "user"
       val hmac = Hmac.json(UserCodec, hmacFunc)
       def maxAge = 2.minutes
-      override def sameSite = Strict
+      override def sameSite = SameSite.Strict
     }
     val user = new User(42, "Nils")
     implicit val req = mock(classOf[HttpServletRequest])
