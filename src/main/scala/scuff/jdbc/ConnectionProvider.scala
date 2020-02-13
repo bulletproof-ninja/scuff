@@ -9,6 +9,7 @@ import java.sql.SQLException
 import java.sql.SQLTransientException
 import java.sql.SQLRecoverableException
 import scuff.concurrent.ResourcePool
+import scala.util.control.NonFatal
 
 /**
  * Generic trait for providing a JDBC connection.
@@ -21,8 +22,8 @@ import scuff.concurrent.ResourcePool
 trait ConnectionProvider {
   protected def getConnection: Connection
   protected def prepare(conn: Connection, readOnly: Boolean): Connection = {
-    conn.setReadOnly(readOnly)
-    conn.setAutoCommit(readOnly)
+    conn setReadOnly readOnly
+    conn setAutoCommit readOnly
     conn
   }
   protected def maxConnections: Int = Runtime.getRuntime.availableProcessors * 4
@@ -36,18 +37,20 @@ trait ConnectionProvider {
       r
     } finally Try(conn.close)
   }
-  protected def forUpdate[R](thunk: Connection => R): R = useConnection(readOnly = false) { conn =>
-    try {
-      val r = thunk(conn)
-      conn.commit()
-      r
-    } catch {
-      case t: Throwable =>
-        Try(conn.rollback())
-        throw t
+  protected def forUpdate[R](thunk: Connection => R): R =
+    useConnection(readOnly = false) { conn =>
+      try {
+        val r = thunk(conn)
+        conn.commit()
+        r
+      } catch {
+        case NonFatal(t) =>
+          Try(conn.rollback())
+          throw t
+      }
     }
-  }
-  protected def forQuery[R](thunk: Connection => R): R = useConnection(readOnly = true)(thunk)
+  protected def forQuery[R](thunk: Connection => R): R =
+    useConnection(readOnly = true)(thunk)
 }
 
 trait DataSourceConnection extends ConnectionProvider {
@@ -61,7 +64,7 @@ trait ConnectionPoolDataSourceConnection extends ConnectionProvider {
 }
 
 /**
- *  Connection provider that uses a {{scuff.concurrent.ResourcePool}}
+ *  Connection provider that uses a [[scuff.concurrent.ResourcePool]]
  *  to re-use connections.
  *  Can be used as-is, or `def newResourcePool` can be overridden for custom
  *  pool behavior, or `def pool` can be overridden to use an existing pool.
@@ -82,7 +85,7 @@ trait ResourcePoolConnection extends ConnectionProvider {
 }
 
 /**
- *  Connection provider that uses two {{scuff.concurrent.ResourcePool}}s,
+ *  Connection provider that uses two [[scuff.concurrent.ResourcePool]]s,
  *  for keeping reads and writes separate.
  */
 trait DualResourcePoolConnection extends ConnectionProvider {

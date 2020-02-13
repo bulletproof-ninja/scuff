@@ -56,7 +56,7 @@ object Hmac {
       Codec.noop, sc)
   }
   def base64[A](
-      codec: Codec[A, Array[Byte]],
+      serializer: Serializer[A],
       hmac: HmacFunction,
       b64: Base64.Base64 = Base64.RFC_4648): Hmac[A, String] = {
     val splitterCombiner = new Codec[(Array[Byte], Array[Byte]), String] {
@@ -70,7 +70,7 @@ object Hmac {
       }
     }
     new CustomHmac[A, Array[Byte], Array[Byte], String](
-      codec, identity, hmac, Codec.noop, splitterCombiner)
+      serializer, identity, hmac, Codec.noop, splitterCombiner)
   }
 
   def generateKey(bitSize: Int = 512, algorithm: String = DefaultAlgorithm): SecretKey = {

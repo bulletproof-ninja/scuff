@@ -58,4 +58,5 @@ class TestFutures {
     val futureSum = (Future sequence lazyBoundedIterator).map(_.sum)
     assertEquals(range.sum, futureSum await 60.seconds)
   }
+
 }

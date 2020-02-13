@@ -323,7 +323,8 @@ object JsVal {
 }
 
 private final class DefaultParser(json: CharSequence, offset: Int)
-  extends AbstractParser(json, offset) {
+extends AbstractParser(json, offset) {
+
   type JsVal = scuff.json.JsVal
   type JsBool = scuff.json.JsBool
   def True = scuff.json.JsBool.True
@@ -343,4 +344,5 @@ private final class DefaultParser(json: CharSequence, offset: Int)
   type JsNum = scuff.json.JsNum
   def JsNum(n: Number): JsNum = new scuff.json.JsNum(n)
   def Zero: JsNum = scuff.json.JsNum.Zero
+
 }
