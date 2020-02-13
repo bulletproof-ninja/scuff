@@ -168,7 +168,7 @@ private object ByteArraySplitterCombiner
     combined
   }
   def decode(array: Array[Byte]): (Array[Byte], Array[Byte]) = {
-    val a1EndPos = Numbers.bytesToInt(array) + 4
+    val a1EndPos = Numbers.toInt(array) + 4
     val a1 = Arrays.copyOfRange(array, 4, a1EndPos)
     val a2 = Arrays.copyOfRange(array, a1EndPos, array.length)
     a1 -> a2

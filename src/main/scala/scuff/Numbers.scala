@@ -28,7 +28,8 @@ object Numbers {
     }
   }
 
-  def bytesToLong(arr: Array[Byte], offset: Int = 0): Long =
+  def toLong(arr: Array[Byte]): Long = bytesToLong(arr, 0)
+  def bytesToLong(arr: Array[Byte], offset: Int): Long =
     (arr(offset): Long) << 56 |
       ((arr(offset + 1): Long) & 0xff) << 48 |
       ((arr(offset + 2): Long) & 0xff) << 40 |
@@ -38,13 +39,15 @@ object Numbers {
       ((arr(offset + 6): Long) & 0xff) << 8 |
       ((arr(offset + 7): Long) & 0xff)
 
-  def bytesToInt(arr: Array[Byte], offset: Int = 0): Int =
+  def toInt(arr: Array[Byte]): Int = bytesToInt(arr, 0)
+  def bytesToInt(arr: Array[Byte], offset: Int): Int =
     (arr(offset): Int) << 24 |
       ((arr(offset + 1): Int) & 0xff) << 16 |
       ((arr(offset + 2): Int) & 0xff) << 8 |
       ((arr(offset + 3): Int) & 0xff)
 
-  def longToBytes(long: Long, arr: Array[Byte] = new Array[Byte](8), offset: Int = 0): Array[Byte] = {
+  def toBytes(long: Long): Array[Byte] = longToBytes(long, new Array[Byte](8), 0)
+  def longToBytes(long: Long, arr: Array[Byte], offset: Int = 0): Array[Byte] = {
     arr(offset) = (long >> 56).asInstanceOf[Byte]
     arr(offset + 1) = (long >> 48).asInstanceOf[Byte]
     arr(offset + 2) = (long >> 40).asInstanceOf[Byte]
@@ -56,7 +59,8 @@ object Numbers {
     arr
   }
 
-  def intToBytes(int: Int, arr: Array[Byte] = new Array[Byte](4), offset: Int = 0): Array[Byte] = {
+  def toBytes(int: Int): Array[Byte] = intToBytes(int, new Array[Byte](4), 0)
+  def intToBytes(int: Int, arr: Array[Byte], offset: Int = 0): Array[Byte] = {
     arr(offset) = (int >> 24).asInstanceOf[Byte]
     arr(offset + 1) = (int >> 16).asInstanceOf[Byte]
     arr(offset + 2) = (int >> 8).asInstanceOf[Byte]

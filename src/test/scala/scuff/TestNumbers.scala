@@ -15,10 +15,10 @@ class TestNumbers {
       val arrI1 = new Array[Byte](4)
       r.nextBytes(arrL1)
       r.nextBytes(arrI1)
-      val l = Numbers.bytesToLong(arrL1)
-      val i = Numbers.bytesToInt(arrI1)
-      val arrL2 = Numbers.longToBytes(l)
-      val arrI2 = Numbers.intToBytes(i)
+      val l = arrL1.toLong()
+      val i = arrI1.toInt()
+      val arrL2 = l.toByteArray()
+      val arrI2 = i.toByteArray()
       assertTrue(Arrays.equals(arrL1, arrL2))
       assertTrue(Arrays.equals(arrI1, arrI2))
     }
@@ -29,10 +29,10 @@ class TestNumbers {
     for (_ <- 1 to 1000) {
       val l1 = r.nextLong
       val i1 = r.nextInt
-      val arrL = Numbers.longToBytes(l1)
-      val arrI = Numbers.intToBytes(i1)
-      val l2 = Numbers.bytesToLong(arrL)
-      val i2 = Numbers.bytesToInt(arrI)
+      val arrL = l1.toByteArray()
+      val arrI = i1.toByteArray()
+      val l2 = arrL.toLong()
+      val i2 = arrI.toInt()
       assertEquals(l1, l2)
       assertEquals(i1, i2)
     }
@@ -64,8 +64,8 @@ class TestNumbers {
       r.nextBytes(arrI)
       val bbLong = ByteBuffer.wrap(arrL).getLong()
       val bbInt = ByteBuffer.wrap(arrI).getInt()
-      val arrLong = Numbers.bytesToLong(arrL)
-      val arrInt = Numbers.bytesToInt(arrI)
+      val arrLong = Numbers.toLong(arrL)
+      val arrInt = Numbers.toInt(arrI)
       assertEquals(bbLong, arrLong)
       assertEquals(bbInt, arrInt)
     }

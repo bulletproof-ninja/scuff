@@ -61,7 +61,7 @@ class TestHmac {
     val exp = System.currentTimeMillis + 60000
     val user = new User(exp, UUID.randomUUID)
     twoWayModified(shouldFail = true)(user, HmacUserCodec) { encoded =>
-      val len = Numbers.bytesToInt(encoded)
+      val len = encoded.toInt()
       val jsonUser = Arrays.copyOfRange(encoded, 4, 4 + len).utf8
       val modifiedJson = jsonUser.replace(exp.toString, (exp + 123456).toString)
       val modifiedJsonBytes = modifiedJson.utf8
