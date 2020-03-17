@@ -1,5 +1,6 @@
 package scuff
 
+import java.io.File
 import java.net.{ InetAddress, URL }
 import java.util.Locale
 
@@ -86,13 +87,36 @@ package object web {
         case _ => sys.error(s"Cannot handle $url")
       }
 
-    def getResource: Option[Resource] = getResource("")
-    def getResource(prefixPath: String): Option[Resource] = {
+    private def newResource(file: File): Resource =
+      newResource(file.toURI.toURL, file)
+    private def newResource(url: URL, file: File): Resource = {
+      new Resource(url, (file.lastModified / 1000) * 1000)
+    }
+    private def findCPResource(resource: String, cl: ClassLoader): Option[Resource] = {
+      import collection.JavaConverters._
+      val resources = cl.getResources("").asScala.toList
+      resources
+        .flatMap { url =>
+          val file = new java.io.File(url.getFile, resource)
+          if (file.exists) newResource(file) :: Nil
+          else Nil
+        }
+        .headOption
+    }
+
+    def getResource: Option[Resource] = getResource("", None)
+    def getResource(searchClasspath: ClassLoader): Option[Resource] = getResource("", Option(searchClasspath))
+    def getResource(prefixPath: String, searchClasspath: Option[ClassLoader] = None): Option[Resource] = {
+      val resource = s"$prefixPath$servletPathInfo"
       val urlFile =
-        Option(req.getServletContext.getResource(s"$prefixPath$servletPathInfo"))
+        Option(req.getServletContext getResource resource)
           .map(url => url -> toFile(url))
       urlFile.filter(_._2.exists) map {
-        case (url, file) => new Resource(url, (file.lastModified / 1000) * 1000)
+        case (url, file) => newResource(url, file)
+      } orElse {
+        searchClasspath.flatMap {
+          findCPResource(resource, _)
+        }
       }
     }
     def IfNoneMatch = ETag.IfNoneMatch(req)
