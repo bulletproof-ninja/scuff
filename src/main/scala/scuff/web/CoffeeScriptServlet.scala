@@ -100,6 +100,9 @@ abstract class CoffeeScriptServlet extends HttpServlet {
     }
   }
 
+  /** Optional resource class loader. */
+  protected def resourceClassLoader: ClassLoader = null
+
   /**
    * Max age, in seconds.
    * @param req The HTTP request.
@@ -108,7 +111,7 @@ abstract class CoffeeScriptServlet extends HttpServlet {
   protected def maxAge(req: HttpServletRequest): Int
 
   private def respond(req: HttpServletRequest, res: HttpServletResponse): Unit = {
-    req.getResource match {
+    req.getResource(resourceClassLoader) match {
       case None => res.setStatus(HttpServletResponse.SC_NOT_FOUND)
       case Some(Resource(url, lastModified)) =>
         if (req.IfModifiedSince(lastModified)) {
