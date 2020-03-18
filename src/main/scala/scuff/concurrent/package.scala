@@ -92,26 +92,18 @@ package object concurrent {
       f.asInstanceOf[Future[Future[A]]].flatMap(identity)(Threads.PiggyBack)
     }
     def withTimeout(timeout: FiniteDuration)(implicit scheduler: ScheduledExecutorService): Future[T] = {
-        def fulfill(promise: Promise[T], value: Try[T]): Boolean = {
-          try {
-            promise.complete(value)
-            true
-          } catch {
-            case _: IllegalStateException => false
-          }
-        }
       if (f.isCompleted) f
       else {
         val promise = Promise[T]
         val cmd = new Runnable {
           def run(): Unit = {
-            fulfill(promise, Failure(new TimeoutException(s"Timed out after $timeout") with NoStackTrace))
+            promise tryFailure new TimeoutException(s"Timed out after $timeout") with NoStackTrace
           }
         }
         val timeoutFuture = scheduler.schedule(cmd, timeout.length, timeout.unit)
         f.onComplete {
           case result =>
-            if (fulfill(promise, result)) {
+            if (promise tryComplete result) {
               timeoutFuture.cancel(false)
             }
         }(Threads.PiggyBack)
