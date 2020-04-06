@@ -4,8 +4,8 @@ import scala.collection.JavaConverters._
 
 import javax.servlet.http.{ HttpServletRequest, HttpServletResponse }
 
-case class ETag(tag: String)(val weak: Boolean) {
-  val headerString = (if (weak) "W/\"" else "\"") concat tag concat "\""
+case class ETag(value: String)(val weak: Boolean) {
+  val headerString = (if (weak) "W/\"" else "\"") concat value concat "\""
   def addTo(res: HttpServletResponse) = res.addHeader(HttpHeaders.ETag, headerString)
   def setTo(res: HttpServletResponse) = res.setHeader(HttpHeaders.ETag, headerString)
   override def toString = s"${HttpHeaders.ETag}: ${headerString}"
@@ -30,7 +30,7 @@ object ETag {
    *  Convenience method for any data type, EXCEPT String,
    *  which is ambiguous at call site.
    */
-  def apply(tag: Any, weak: Boolean = false): ETag = new ETag(tag.toString)(weak)
+  def apply(value: Any, weak: Boolean = false): ETag = new ETag(value.toString)(weak)
 
   private def getETags(header: String, req: HttpServletRequest): List[ETag] = {
     req.getHeaders(header).asScala.toList.flatMap(parse)

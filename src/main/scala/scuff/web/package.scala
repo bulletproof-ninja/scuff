@@ -133,8 +133,10 @@ package object web {
         last != since
       }
     }
-    def IfMatch(matchTag: ETag): Boolean = IfMatch.exists(etag => etag.tag == "*" || etag == matchTag)
-    def IfNoneMatch(matchTag: ETag): Boolean = IfNoneMatch.exists(etag => etag.tag == "*" || etag == matchTag)
+    def IfMatch(matchTag: ETag): Boolean =
+      IfMatch.exists(etag => etag.value == "*" || etag == matchTag)
+    def IfNoneMatch(matchTag: ETag): Boolean =
+      IfNoneMatch.exists(etag => etag.value == "*" || etag == matchTag)
     def Referer: Option[String] = req.getHeader(HttpHeaders.Referer).optional
     def Expect: Option[String] = req.getHeader(HttpHeaders.Expect).optional
     def userLocales: List[Locale] = req.getLocales().asScala.toList
