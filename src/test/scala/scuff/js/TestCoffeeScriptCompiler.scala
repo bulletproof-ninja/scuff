@@ -85,7 +85,7 @@ arr = [3,5,23,67,34]
 #sqr = (a) -> a*3
 boo = sqr 15
 """
-    val compiler = new CoffeeScriptCompiler(Config(version = Version.Legacy, options = Map('bare -> true)))
+    val compiler = new CoffeeScriptCompiler(Config(version = Version.Legacy, options = Map(bare -> true)))
     val js = compiler.compile(coffee).replaceAll("\\s", "")
     val expected =
       """
@@ -110,7 +110,7 @@ sqr1 = (a) -> a*3
 sqr2 = (a) => a*3
 boo = sqr 15
 """
-    val compiler = new CoffeeScriptCompiler(new Config(options = Map('bare -> true), version = Version.CS2))
+    val compiler = new CoffeeScriptCompiler(new Config(options = Map(bare -> true), version = Version.CS2))
     val js = compiler.compile(coffee).replaceAll("\\s", "")
     val expected =
       """

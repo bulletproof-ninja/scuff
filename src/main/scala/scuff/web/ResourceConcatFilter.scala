@@ -24,7 +24,7 @@ abstract class ResourceConcatFilter extends Filter {
   protected def NameSplitter = DefaultNameSplitter
 
   private def expandResources(ctx: ServletContext, path: String, filename: String): List[String] = {
-    import collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     if (filename.indexOf('*') != -1) {
       val filePattern = java.util.regex.Pattern.compile(filename.replace(".", "\\.").replace("*", ".*").replace("$", "\\$").concat("$"))
       val resourceSet = ctx.getResourcePaths(path).asInstanceOf[java.util.Set[String]]
@@ -83,7 +83,7 @@ abstract class ResourceConcatFilter extends Filter {
           res.setLastModified(lastMod).setMaxAge(maxAge(req))
           resources.foreach { resource =>
             val proxyReq = new HttpServletRequestProxy(req) {
-              import collection.JavaConverters._
+              import scala.jdk.CollectionConverters._
               override def getServletPath = req.getPathInfo match {
                 case null => resource
                 case _ => req.getServletPath

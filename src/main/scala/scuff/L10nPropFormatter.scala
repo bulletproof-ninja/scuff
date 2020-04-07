@@ -12,7 +12,7 @@ import java.util.{
 import java.text.MessageFormat
 import java.nio.charset.Charset
 import scala.util.Try
-import collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /**
   * Class that combines a `.properties` file with a formatter.

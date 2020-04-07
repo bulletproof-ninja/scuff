@@ -1,6 +1,6 @@
 package scuff.web
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import javax.servlet.http.{ HttpServletRequest, HttpServletResponse }
 

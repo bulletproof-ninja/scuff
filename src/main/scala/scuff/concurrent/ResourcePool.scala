@@ -9,7 +9,6 @@ import scala.concurrent.duration.{ Duration, FiniteDuration }
 import scala.reflect.{ ClassTag, classTag }
 import scala.util.Try
 import scala.util.control.NonFatal
-import scala.language.existentials
 
 import scuff.JMX
 

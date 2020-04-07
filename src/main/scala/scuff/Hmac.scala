@@ -1,5 +1,7 @@
 package scuff
 
+import concurrent.ResourcePool
+
 import java.security.SignatureException
 import java.security.spec.AlgorithmParameterSpec
 import java.util.Arrays
@@ -7,7 +9,6 @@ import java.util.Arrays
 import scala.util.control.NonFatal
 
 import javax.crypto.{ Mac, SecretKey }
-import scuff.concurrent.ResourcePool
 
 object Hmac {
 

@@ -4,10 +4,9 @@ import java.util.concurrent.{ Callable, Executor, ScheduledExecutorService }
 
 import scala.concurrent.{ Await, ExecutionContext, Future, Promise, TimeoutException }
 import scala.concurrent.duration.{ DurationInt, FiniteDuration }
-import scala.util.{ Failure, Try }
+import scala.util.Try
 import scala.util.control.NoStackTrace
 
-import language.implicitConversions
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeoutException
 import scala.annotation.implicitNotFound
@@ -21,7 +20,6 @@ package object concurrent {
     }
   }
   implicit class ScuffExecutor(private val ec: { def execute(run: Runnable): Unit }) extends AnyVal {
-    import language.reflectiveCalls
     def execute(thunk: => Unit): Unit = ec execute new Runnable {
       def run = thunk
     }

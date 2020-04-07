@@ -132,7 +132,6 @@ ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=
 
   @Test
   def `randomized comparison`(): Unit = {
-    import language.reflectiveCalls
     val sunEncoder = Try {
       val encoder = Class.forName("sun.misc.BASE64Encoder").getConstructor().newInstance()
       encoder.asInstanceOf[{ def encodeBuffer(b: Array[Byte]): String }]

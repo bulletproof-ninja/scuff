@@ -3,8 +3,6 @@ package scuff
 import java.io.{ BufferedWriter, ByteArrayOutputStream, File, FileInputStream, OutputStream, OutputStreamWriter }
 import java.net.{ InetAddress, InetSocketAddress }
 
-import language.implicitConversions
-
 import javax.activation.DataHandler
 import javax.mail.{ Address, Message, MessagingException, PasswordAuthentication, Session, Transport }
 import javax.mail.internet.{ InternetAddress, MimeBodyPart, MimeMessage, MimeMultipart }

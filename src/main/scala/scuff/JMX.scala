@@ -3,7 +3,7 @@ package scuff
 import java.lang.management.ManagementFactory
 
 import scala.reflect.{ ClassTag, classTag }
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import java.net.InetSocketAddress
 import java.net.InetAddress

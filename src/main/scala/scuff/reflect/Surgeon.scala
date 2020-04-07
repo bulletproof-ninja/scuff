@@ -3,7 +3,6 @@ package scuff.reflect
 import java.lang.reflect.Field
 
 import scala.reflect.{ ClassTag, classTag }
-
 import language.dynamics
 
 /**

@@ -1,14 +1,17 @@
 package scuff
 
+import concurrent._
+
 import java.util.concurrent.{ ScheduledExecutorService, ScheduledFuture }
 import java.util.concurrent.atomic.AtomicBoolean
-import scala.collection.JavaConverters._
+
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
 import scala.util.{ Failure, Success }
 import scala.util.control.NonFatal
+
 import SlidingWindow._
-import scuff.concurrent._
 
 object SlidingWindow {
 

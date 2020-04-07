@@ -15,18 +15,19 @@ import scuff.concurrent.UnboundedResourcePool
 import java.util.concurrent.ScheduledExecutorService
 
 object CoffeeScriptServlet {
+
   import CoffeeScriptCompiler._
   def LegacyConfig(engineCtor: () => ScriptEngine) = new Config(
     version = Version.Legacy,
-    options = Map('bare -> false), newEngine = engineCtor,
+    options = Map(bare -> false), newEngine = engineCtor,
     useDirective = Use.Strict)
   def CS2Config(engineCtor: () => ScriptEngine) = new Config(
     version = Version.CS2,
-    options = Map('bare -> false), newEngine = engineCtor,
+    options = Map(bare -> false), newEngine = engineCtor,
     useDirective = Use.Strict, compiler = Version.CS2.compiler _)
   def IcedConfig(engineCtor: () => ScriptEngine) = new Config(
     version = Version.Iced,
-    options = Map('bare -> false, 'runtime -> "window"), newEngine = engineCtor,
+    options = Map(bare -> false, runtime -> "window"), newEngine = engineCtor,
     useDirective = Use.Strict, compiler = Version.Iced.compiler _)
 }
 

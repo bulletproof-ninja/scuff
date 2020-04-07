@@ -3,14 +3,13 @@ package scuff.json
 import java.lang.reflect.Modifier
 import java.lang.reflect.Method
 
-import language.dynamics
-import language.implicitConversions
-
-import collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import java.math.MathContext
 import scala.reflect.{ ClassTag, classTag }
 import java.beans.Introspector
 import java.math.{ BigInteger => JBigInt, BigDecimal => JBigDec }
+
+import language.dynamics
 
 sealed abstract class JsVal {
   final def getOrElse[JS <: JsVal: ClassTag](orElse: => JS): JS =

@@ -9,7 +9,7 @@ ext {
         '2.13': '2.13.1'
     ]
 
-    vScala = System.properties.scalaVersion ?: '2.12'
+    vScala = System.properties.scalaVersion ?: '2.13'
     vScalaFull = getScalaFull[vScala]
     vServletApi = '3.0.1'
     vMailApi = '1.6.2'
@@ -20,7 +20,7 @@ ext {
 }
 
 tasks.withType(ScalaCompile) {
-    def args = System.properties.compilerArgs ?: "-feature -deprecation -explaintypes -unchecked -Xlint -language:implicitConversions,higherKinds"
+    def args = System.properties.compilerArgs ?: "-feature -deprecation -explaintypes -unchecked -Xlint -language:implicitConversions,higherKinds,reflectiveCalls,existentials"
     scalaCompileOptions.additionalParameters = args.split(" ").toList()
 }
 tasks.withType(Jar) {
@@ -50,7 +50,6 @@ allprojects {
     }
     apply plugin: 'scala'
     apply plugin: 'maven-publish'
-    apply plugin: 'eclipse'
     apply plugin: 'com.jfrog.bintray'
 
     sourceCompatibility = 1.8
@@ -71,6 +70,7 @@ allprojects {
     }
 
     dependencies {
+        compile "org.scala-lang.modules:scala-collection-compat_$vScala:2.1.4"
 
         compileOnly "org.scala-lang:scala-reflect:$vScalaFull"
         compileOnly "javax.servlet:javax.servlet-api:$vServletApi"
@@ -110,7 +110,7 @@ allprojects {
 
                 from components.java
                 artifact sourceJar
-                if (vScala != '2.13') { // Bug in 2.13.0-M4
+                if (vScala != '2.13') { // Bug remains in 2.13.1
                     artifact docsJar
                 }
             }

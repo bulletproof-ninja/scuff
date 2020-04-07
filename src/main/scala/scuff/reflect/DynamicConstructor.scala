@@ -4,7 +4,6 @@ import scala.reflect._
 import java.lang.reflect.{ Array => _, _ }
 import scala.util._
 import scala.util.control.NoStackTrace
-import language.existentials
 
 object DynamicConstructor {
 

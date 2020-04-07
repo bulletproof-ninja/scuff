@@ -1,7 +1,6 @@
 package scuff
 
 import scala.concurrent.duration.Duration
-import language.higherKinds
 
 /**
  * Generic cache interface.

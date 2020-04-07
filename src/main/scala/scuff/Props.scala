@@ -1,9 +1,11 @@
 package scuff
 
+import Props.Key
+
 import java.util.jar.Attributes
 import java.util.jar.Manifest
 import java.util.jar.JarFile
-import scuff.Props.Key
+
 import scala.util.control.NonFatal
 import scala.reflect.{ ClassTag, classTag }
 
@@ -52,7 +54,7 @@ class ManifestAttributes(attrs: Attributes, fallback: Props) extends Props("mani
 }
 
 object ManifestAttributes extends AnyRef with PropsKey {
-  import collection.JavaConverters._
+  import scala.jdk.CollectionConverters._
   def apply(cl: ClassLoader = getClass.getClassLoader, fallback: Props = null): Option[Props] = {
     cl.getResources(JarFile.MANIFEST_NAME).asScala.foldLeft(None: Option[ManifestAttributes]) {
       case (chain, url) => Some {

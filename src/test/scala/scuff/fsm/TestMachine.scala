@@ -2,7 +2,6 @@ package scuff.fsm
 
 import org.junit._
 import org.junit.Assert._
-import language.reflectiveCalls
 import scala.util.Try
 import java.time.LocalDate
 

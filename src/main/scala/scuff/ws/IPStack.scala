@@ -38,7 +38,7 @@ object IPStack {
     def format = "json"
 
     def parseGeoPoint(buf: java.io.BufferedReader): Option[geo.Point] = {
-      val root @ JsObj(_) = JsVal parse buf.copyToCharSeq(256)
+      val root = (JsVal parse buf.copyToCharSeq(256)).asObj
       root.latitude -> root.longitude match {
         case (JsNum(latitude), JsNum(longitude)) => Some {
           new geo.Point(latitude = latitude.doubleValue, longitude = longitude.doubleValue)

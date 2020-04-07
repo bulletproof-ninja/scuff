@@ -4,7 +4,7 @@ import java.io.{ ByteArrayOutputStream, OutputStreamWriter, PrintWriter }
 import java.util.Locale
 
 import scala.collection.{ Seq, mutable }
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 import javax.servlet.ServletOutputStream

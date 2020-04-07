@@ -6,7 +6,6 @@ import scuff.concurrent.PartitionedExecutionContext
 import java.util.concurrent.TimeUnit
 
 class TestPubSub {
-  import language.implicitConversions
 
   class Event
 

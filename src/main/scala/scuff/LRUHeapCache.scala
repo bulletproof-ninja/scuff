@@ -2,7 +2,6 @@ package scuff
 
 import java.util.concurrent.locks.{ ReadWriteLock, ReentrantReadWriteLock }
 import scala.concurrent.duration._
-import language.implicitConversions
 import java.time.Clock
 
 private object LRUHeapCache {
@@ -132,7 +131,7 @@ final class LRUHeapCache[K, V](
   private var scavenger: Option[Thread] = None
 
   private class Scavenger extends Thread("%s expiry scavenger".format(LRUHeapCache.this.getClass.getSimpleName)) {
-    import collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     setDaemon(true)
 

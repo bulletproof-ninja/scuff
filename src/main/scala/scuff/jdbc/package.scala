@@ -1,7 +1,8 @@
 package scuff
 
+import concurrent.ResourcePool
+
 import java.sql._
-import scuff.concurrent.ResourcePool
 
 package jdbc {
 
@@ -19,6 +20,7 @@ package jdbc {
 
 package object jdbc {
 
-  val DefaultConnectionLifecycle = new DefaultConnectionLifecycle
+  val DefaultConnectionLifecycle: ResourcePool.Lifecycle[Connection] =
+    new DefaultConnectionLifecycle
 
 }

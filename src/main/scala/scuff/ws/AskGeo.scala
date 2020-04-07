@@ -53,7 +53,7 @@ object AskGeo {
     def format = "json"
 
     def parseTimeZone(buf: java.io.BufferedReader): Seq[java.util.TimeZone] = {
-      val root @ JsObj(_) = JsVal parse buf.copyToCharSeq(1024)
+      val root = (JsVal parse buf.copyToCharSeq(1024)).asObj
       val code = root.code.asNum.toInt
       if (code != 0) {
         val msg = root.message getOrElse JsStr(s"Error code: $code")

@@ -5,7 +5,6 @@ import org.junit.Assert._
 import scala.concurrent.duration._
 import scala.concurrent.duration.DurationInt
 import scuff.concurrent.ScuffScalaFuture
-import language.implicitConversions
 
 class TestSlidingWindows {
   import SlidingWindow._

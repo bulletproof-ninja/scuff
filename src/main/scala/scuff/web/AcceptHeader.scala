@@ -3,6 +3,7 @@ package scuff.web
 import scala.util.Try
 import scuff.MediaType
 import collection.immutable.Seq
+import collection.compat._
 
 final class AcceptHeader(acceptTypes: Seq[MediaType]) {
   require(acceptTypes.nonEmpty, "Cannot have an empty Accept header")
@@ -22,7 +23,7 @@ final class AcceptHeader(acceptTypes: Seq[MediaType]) {
       .filter(_.matches(matchType))
       .flatMap { mt =>
         mt.parm(parmName).flatMap(p => Try(map(p)).toOption.map(mt -> _))
-      }.toIterable
+      }.to(Iterable)
   def preferenceOrdered(): Seq[MediaType] = {
     if (acceptTypes.size == 1) acceptTypes else {
       val weigthed = acceptTypes.zipWithIndex.map {
@@ -89,7 +90,7 @@ object AcceptHeader {
   }
 
   def apply(req: javax.servlet.http.HttpServletRequest): Option[AcceptHeader] = {
-    import collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val types = req.getHeaders("Accept").asScala.flatMap(split(_)).toList
     if (types.isEmpty) None else Some(new AcceptHeader(types))
   }

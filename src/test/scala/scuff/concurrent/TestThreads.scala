@@ -47,7 +47,6 @@ class TestThreads extends Serializable {
         def get(t: Long, tu: TimeUnit): Int = ???
       }
       DefaultScheduler execute new Runnable {
-        import language.reflectiveCalls
         override def run = {
           Thread sleep rand.nextBetween(1, 6)
           f.queue.put(i)

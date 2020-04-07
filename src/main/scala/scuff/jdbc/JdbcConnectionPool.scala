@@ -1,9 +1,8 @@
 package scuff.jdbc
 
 import java.sql.Connection
-import scuff.concurrent.BoundedResourcePool
-import scuff.concurrent.ResourcePool
-import scuff.concurrent.ResourcePool.Exhausted
+
+import scuff.concurrent.{ BoundedResourcePool, ResourcePool }
 
 /**
  * Bounded non-blocking JDBC connection pool.
@@ -13,7 +12,7 @@ import scuff.concurrent.ResourcePool.Exhausted
  * @param name Optional pool name
  * @param lifecycle Type class for connection lifecycle behavior
  */
-@throws[Exhausted]("when `maxConnections` have been reached and all connections are unavailable")
+@throws[ResourcePool.Exhausted]("when `maxConnections` have been reached and all connections are unavailable")
 class JdbcConnectionPool(
   newConnection: => Connection,
   minConnections: Int, maxConnections: Int,

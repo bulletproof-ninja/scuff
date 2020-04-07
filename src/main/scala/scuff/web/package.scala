@@ -4,8 +4,7 @@ import java.io.File
 import java.net.{ InetAddress, URL }
 import java.util.Locale
 
-import scala.collection.JavaConverters._
-import scala.language.implicitConversions
+import scala.jdk.CollectionConverters._
 
 import javax.servlet.{ ServletRequest, ServletResponse }
 import javax.servlet.http.{ HttpServletRequest, HttpServletResponse }
@@ -93,7 +92,7 @@ package object web {
       new Resource(url, (file.lastModified / 1000) * 1000)
     }
     private def findCPResource(resource: String, cl: ClassLoader): Option[Resource] = {
-      import collection.JavaConverters._
+      import scala.jdk.CollectionConverters._
       val resources = cl.getResources("").asScala.toList
       resources
         .flatMap { url =>

@@ -4,7 +4,7 @@ import org.junit._
 import org.junit.Assert._
 
 class TestPassword {
-  import language.implicitConversions
+
   implicit def config(algo: String) = new Password.Config(algo, 0, 1)
   implicit def config(salt: Int) = new Password.Config("SHA-256", salt, 1)
   implicit val config: Password.Config = config("SHA-256")

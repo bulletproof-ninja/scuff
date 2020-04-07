@@ -7,6 +7,9 @@ import scuff._
 
 object CoffeeScriptCompiler {
 
+  val bare = Symbol("bare")
+  val runtime = Symbol("runtime")
+
   sealed abstract class Version(compilerPath: String) {
     def compiler(): Reader = getClass().getResourceAsStream(compilerPath) match {
       case null => sys.error("Cannot find compiler script in classpath: " + compilerPath)
@@ -18,7 +21,7 @@ object CoffeeScriptCompiler {
   case object Version {
     case object Legacy extends Version("/META-INF/script/coffee-script.js")
     case object Iced extends Version("/META-INF/script/iced-coffee-script.js") {
-      override val defaultOptions = Map('runtime -> "none")
+      override val defaultOptions = Map(runtime -> "none")
     }
     case object CS2 extends Version("/META-INF/script/coffeescript.js") {
       override def polyfills: List[String] = List(Polyfills.Object_assign)
@@ -33,7 +36,7 @@ object CoffeeScriptCompiler {
 
   case class Config(version: Version = Version.CS2, options: Map[Symbol, Any] = Map.empty, newEngine: () => ScriptEngine = newJavascriptEngine _, useDirective: Use = null, compiler: () => Reader = () => null) {
     def withEngine(newEngine: => ScriptEngine): Config = this.copy(newEngine = newEngine _)
-    def withEngine(name: String): Config = this.copy(newEngine = () => scuff.js.newEngine(name))
+    def withEngine(name: String): Config = this.copy(newEngine = () => js.newEngine(name))
     def withCompiler(compiler: => Reader): Config = this.copy(compiler = compiler _)
     def withOptions(options: (Symbol, Any)*): Config = this.copy(options = this.options ++ options.toMap)
     def withVersion(v: Version): Config = this.copy(version = v)
