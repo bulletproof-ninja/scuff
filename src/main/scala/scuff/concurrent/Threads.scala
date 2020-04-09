@@ -29,7 +29,7 @@ object Threads {
       : ExecutionContextExecutor = {
     val tg = newThreadGroup(name, false, reportFailure = reportFailure)
     val tf = factory(tg)
-    val exec = newCachedThreadPool(tf, maxThreads, reportFailure)
+    val exec = newCachedThreadPool(tf, reportFailure, maxThreads)
     ExecutionContext.fromExecutor(exec, reportFailure)
   }
 
@@ -101,8 +101,8 @@ object Threads {
 
   def newCachedThreadPool(
       threadFactory: ThreadFactory,
-      maxThreads: Int = Short.MaxValue,
-      failureReporter: Throwable => Unit = null): ExecutionContextExecutorService = {
+      failureReporter: Throwable => Unit = null,
+      maxThreads: Int = Short.MaxValue): ExecutionContextExecutorService = {
     val exec = new CachedThreadPool(threadFactory, maxThreads, new SynchronousQueue[Runnable], Option(failureReporter))
     Runtime.getRuntime addShutdownHook new Thread {
       override def run(): Unit = {
