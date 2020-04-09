@@ -24,18 +24,23 @@ object Threads {
     def reportFailure(t: Throwable) = throw t
   }
 
-  def newBlockingThreadPool(name: String, reportFailure: Throwable => Unit) = {
+  def newBlockingThreadPool(
+      name: String, reportFailure: Throwable => Unit, maxThreads: Int = Short.MaxValue)
+      : ExecutionContextExecutor = {
     val tg = newThreadGroup(name, false, reportFailure = reportFailure)
     val tf = factory(tg)
-    val exec = newCachedThreadPool(tf, reportFailure)
+    val exec = newCachedThreadPool(tf, maxThreads, reportFailure)
     ExecutionContext.fromExecutor(exec, reportFailure)
   }
 
   def newScheduledThreadPool(
       corePoolSize: Int, threadFactory: ThreadFactory,
-      failureReporter: Throwable => Unit = null): ScheduledExecutorService with ExecutionContext = {
+      failureReporter: Throwable => Unit = null)
+      : ScheduledExecutorService with ExecutionContext = {
 
-    object ScheduledExecutor extends ScheduledThreadPoolExecutor(corePoolSize, threadFactory) with FailureReporting {
+    object ScheduledExecutor
+    extends ScheduledThreadPoolExecutor(corePoolSize, threadFactory)
+    with FailureReporting {
       override def reportFailure(th: Throwable) = {
         if (failureReporter != null) failureReporter(th)
         else super.reportFailure(th)
@@ -96,8 +101,9 @@ object Threads {
 
   def newCachedThreadPool(
       threadFactory: ThreadFactory,
+      maxThreads: Int = Short.MaxValue,
       failureReporter: Throwable => Unit = null): ExecutionContextExecutorService = {
-    val exec = new CachedThreadPool(threadFactory, new SynchronousQueue[Runnable], Option(failureReporter))
+    val exec = new CachedThreadPool(threadFactory, maxThreads, new SynchronousQueue[Runnable], Option(failureReporter))
     Runtime.getRuntime addShutdownHook new Thread {
       override def run(): Unit = {
         exec.shutdownNow()
@@ -108,10 +114,12 @@ object Threads {
 
   private final class CachedThreadPool(
     threadFactory: ThreadFactory,
+    maxThreads: Int,
     queue: SynchronousQueue[Runnable],
     failureReporter: Option[Throwable => Unit])
-      extends ThreadPoolExecutor(1, Short.MaxValue, 60L, TimeUnit.SECONDS, queue, threadFactory)
-      with ExecutionContextExecutorService with FailureReporting {
+  extends ThreadPoolExecutor(1, maxThreads, 60L, TimeUnit.SECONDS, queue, threadFactory)
+  with ExecutionContextExecutorService
+  with FailureReporting {
 
     private[this] val reportException = failureReporter getOrElse super.reportFailure _
     override def reportFailure(th: Throwable) = reportException(th)
