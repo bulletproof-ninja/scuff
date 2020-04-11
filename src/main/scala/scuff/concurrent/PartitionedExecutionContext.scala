@@ -77,9 +77,8 @@ final object PartitionedExecutionContext {
 
   /**
     * @param numThreads Number of threads used for parallelism
-    * @param threadFactory The thread factory used to create the threads
     * @param failureReporter Sink for exceptions
-    * @param getHash Function for deriving hash from `Runnable`
+    * @param threadFactory The thread factory used to create the threads
     */
   def apply(
       numThreads: Int,
@@ -104,8 +103,10 @@ final object PartitionedExecutionContext {
 
   /**
     * @param numThreads Number of threads used for parallelism
+  /**
+    * @param numThreads Number of threads used for parallelism
+    * @param threadGroup Sink for exceptions
     * @param threadFactory The thread factory used to create the threads
-    * @param failureReporter Sink for exceptions
     * @param getHash Function for deriving hash from `Runnable`
     */
   def apply(

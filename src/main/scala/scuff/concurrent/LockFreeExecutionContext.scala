@@ -38,14 +38,10 @@ object LockFreeExecutionContext {
   * High throughput executor. Use this for temporary processing
   * of predictably high load, and shut down when done, as it
   * relies on spinning threads, due to the lock-free nature.
-  * NOTICE: This class is safe to use for multiple producers
-  * (that is, if the `RunQueue` implementation supports it; the default one does),
-  * but cannot safely be shut down, unless all producers have
-  * stopped. This could in theory be negated by use of external
-  * synchronization, but would defeat the purpose of this class.
-  * So, either use single producer (and shutdown when done),
-  * or determine, in some way, that all production has stopped before
-  * shutting down.
+  * NOTE: This class is safe to use for multiple producers
+  * (that is, if the `RunQueue` implementation supports it;
+  * the default one does), but cannot safely be shut down unless
+  * all producers have stopped, so ensure shutdown coordination.
   */
 final class LockFreeExecutionContext private (
   consumerThreads: Int,

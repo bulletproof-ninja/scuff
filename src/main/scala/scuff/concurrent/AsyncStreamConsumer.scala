@@ -14,6 +14,8 @@ import scala.util.Failure
  * returns the final result on `onDone(): Future[R]`
  * through calling `whenDone()` when all `apply(T)`
  * futures have completed.
+ * @tparam T The stream content
+ * @tparam R The final stream result
  */
 trait AsyncStreamConsumer[-T, +R]
   extends StreamConsumer[T, Future[R]] {
@@ -25,16 +27,19 @@ trait AsyncStreamConsumer[-T, +R]
    * (which is invoked from `onNext(T)`).
    */
   protected def completionTimeout: FiniteDuration
+
   /**
-   * Called when processing is fully completed, i.e.
-   * all `Future`s returned from `this.apply(T)` has
-   * completed.
+   * Produce final result, when done.
+   * Called when internal processing is fully completed,
+   * i.e. all `Future`s returned from `this.apply(T)` has
+   * completed successfully.
    */
   protected def whenDone(): Future[R]
 
   private[this] val semaphore = new java.util.concurrent.Semaphore(Int.MaxValue)
   private[this] val error = new AtomicReference[Throwable]
 
+  /** Forwarded to `apply(T): Future[_]` */
   def onNext(t: T): Unit = {
 
     val future: Future[_] = try apply(t) catch {

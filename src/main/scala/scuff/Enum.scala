@@ -14,7 +14,7 @@ object Enum {
 
 /**
  * Parametric `scala.Enumeration` extension.
- * @tparam E Sealed trait enum type
+ * @tparam V Sealed trait enum type
  */
 class Enum[V <: Enum.Value: ClassTag] extends Enumeration {
 
