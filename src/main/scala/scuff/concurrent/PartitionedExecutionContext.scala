@@ -103,6 +103,16 @@ final object PartitionedExecutionContext {
 
   /**
     * @param numThreads Number of threads used for parallelism
+    * @param threadGroup Sink for exceptions
+    * @param threadFactory The thread factory used to create the threads
+    */
+  def apply(
+      numThreads: Int,
+      threadGroup: ThreadGroup,
+      threadFactory: java.util.concurrent.ThreadFactory)
+      : PartitionedExecutionContext =
+    this.apply(numThreads, threadGroup, threadFactory, _.hashCode)
+
   /**
     * @param numThreads Number of threads used for parallelism
     * @param threadGroup Sink for exceptions
