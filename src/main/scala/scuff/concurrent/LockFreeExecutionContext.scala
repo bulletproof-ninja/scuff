@@ -49,7 +49,7 @@ final class LockFreeExecutionContext private (
   failureReporter: Throwable => Unit,
   whenIdle: => Unit,
   queue: LockFreeExecutionContext.RunQueue)
-    extends ExecutionContextExecutor {
+extends ExecutionContextExecutor {
 
   require(consumerThreads > 0, s"Must have at least 1 consumer thread. Received $consumerThreads")
 
