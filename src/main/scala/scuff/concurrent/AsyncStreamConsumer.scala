@@ -37,6 +37,7 @@ extends StreamConsumer[T, Future[R]] {
   protected def whenDone(): Future[R]
 
   private[this] val semaphore = new java.util.concurrent.Semaphore(Int.MaxValue)
+  protected final def activeCount: Int = Int.MaxValue - semaphore.availablePermits
   private[this] val error = new AtomicReference[Throwable]
 
   /** Forwarded to `apply(T): Future[_]` */
@@ -51,13 +52,13 @@ extends StreamConsumer[T, Future[R]] {
       future.failed.foreach(onError)
     } else {
       semaphore.tryAcquire()
-      future
-        .andThen {
-          case Failure(th) => onError(th)
-        }
-        .onComplete {
-          case _ => semaphore.release
-        }
+      future.onComplete {
+        case Failure(th) =>
+          onError(th)
+          semaphore.release
+        case _ => // Success
+          semaphore.release
+      }
     }
 
   }
@@ -73,15 +74,17 @@ extends StreamConsumer[T, Future[R]] {
         }
       }
 
-    if (semaphore tryAcquire Int.MaxValue) whenDone
+    if (semaphore tryAcquire Int.MaxValue) whenDone // Fast path, all futures already completed
     else error.get match {
-      case th: Throwable => Future failed th // Fail fast
+      case th: Throwable => Future failed th // Fail fast on error
       case _ =>
-        val aquired = Threads.onBlockingThread(s"Awaiting completion of ${AsyncStreamConsumer.this}") {
+        val instanceName = this.toString()
+        val aquired = Threads.onBlockingThread(s"Awaiting completion of $instanceName") {
           val timeout = completionTimeout
           if (!semaphore.tryAcquire(Int.MaxValue, timeout.length, timeout.unit)) {
-            throw new TimeoutException(
-              s"Stream consumption in ${AsyncStreamConsumer.this} is still not finished, $timeout after stream completion, possibly due to either incomplete stream or incomplete state.")
+            val stillActive = this.activeCount
+            if (stillActive > 0) throw new TimeoutException(
+              s"$instanceName stream consumption still has $stillActive active Futures, $timeout after stream completion. Timeout is either too small or stream possibly incomplete.")
           }
         }
         aquired.flatMap(_ => whenDone)(Threads.PiggyBack)
