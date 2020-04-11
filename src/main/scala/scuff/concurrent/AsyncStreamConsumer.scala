@@ -94,4 +94,20 @@ extends StreamConsumer[T, Future[R]] {
 
   override def toString() = s"${this.getClass.getName}@$hashCode"
 
+  protected val mxBean: AsyncStreamConsumer.AsyncStreamConsumerMXBean = new AsyncStreamConsumerBean
+  protected class AsyncStreamConsumerBean
+  extends AsyncStreamConsumer.AsyncStreamConsumerMXBean {
+    def getActiveCount: Int = AsyncStreamConsumer.this.activeCount
+  }
+
+  JMX.register(mxBean, toString)
+
+}
+
+object AsyncStreamConsumer {
+
+  private[concurrent] trait AsyncStreamConsumerMXBean {
+    def getActiveCount: Int
+  }
+
 }
