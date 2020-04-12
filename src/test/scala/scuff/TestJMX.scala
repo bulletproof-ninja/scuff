@@ -33,23 +33,25 @@ class TestJMX {
         }
       }
     updateValues()
-    JMX.register(bean, "random_values")
+    val reg = JMX.register(bean, "random_values")
     while (true) {
       Thread sleep 5000
       updateValues()
     }
+    reg.cancel()
   }
 
   private def uniqueNames(quoted: Boolean, beanName: String, typeName: String, i1: AnyRef, i2: AnyRef): Unit = {
-    val objName1 = JMX.register(i1, beanName)
-    if (quoted) assertEquals(ObjectName quote beanName, objName1.getKeyProperty("name"))
-    else assertEquals(beanName, objName1.getKeyProperty("name"))
-    val objName2 = JMX.register(i2, beanName)
-    if (quoted) assertEquals(ObjectName quote s"$beanName[1]", objName2.getKeyProperty("name"))
-    else assertEquals(s"$beanName[1]", objName2.getKeyProperty("name"))
+    val reg1 = JMX.register(i1, beanName)
+    if (quoted) assertEquals(ObjectName quote beanName, reg1.name.getKeyProperty("name"))
+    else assertEquals(beanName, reg1.name.getKeyProperty("name"))
+    val reg2 = JMX.register(i2, beanName)
+    if (quoted) assertEquals(ObjectName quote s"$beanName[1]", reg2.name.getKeyProperty("name"))
+    else assertEquals(s"$beanName[1]", reg2.name.getKeyProperty("name"))
 
-    assertEquals(typeName, objName1.getKeyProperty("type"))
-    assertEquals(typeName, objName2.getKeyProperty("type"))
+    assertEquals(typeName, reg2.name.getKeyProperty("type"))
+    assertEquals(typeName, reg2.name.getKeyProperty("type"))
+    (reg1 :: reg2 :: Nil).foreach(_.cancel)
   }
 
   @Test
@@ -66,8 +68,9 @@ class TestJMX {
   @Test
   def quoteUnquoted(): Unit = {
     val myBean = FooBeanCaseClassImpl(99)
-    val objName = JMX.register(myBean, "My Bean")
-    assertEquals("\"My Bean\"", objName.getKeyProperty("name"))
+    val reg = JMX.register(myBean, "My Bean")
+    assertEquals("\"My Bean\"", reg.name.getKeyProperty("name"))
+    reg.cancel()
   }
 
   @Test

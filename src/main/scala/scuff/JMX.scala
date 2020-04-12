@@ -17,8 +17,20 @@ import java.beans.PropertyDescriptor
 import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicLong
 import java.net.BindException
+import scala.util.control.NonFatal
 
 object JMX {
+
+  final case class Registration(name: ObjectName)
+  extends Subscription {
+    require(Server isRegistered name)
+    def cancel: Unit = try {
+      Server unregisterMBean name
+    } catch {
+      case NonFatal(cause) =>
+        cause.printStackTrace(System.err)
+    }
+  }
 
   private[this] val unsafeChars = Array(' ', '*', '?', '=', ':', '"', '\n', '\\', '/', ',')
   private[this] val nameCounters = new Memoizer[String, AtomicInteger](_ => new AtomicInteger)
@@ -88,25 +100,25 @@ object JMX {
     jmxmpServer
   }
 
-  def register(mxBean: AnyRef, instanceName: Option[String]): ObjectName =
+  def register(mxBean: AnyRef, instanceName: Option[String]): Registration =
     register(mxBean, instanceName, Map.empty[String, String])
-  def register(mxBean: AnyRef, instanceName: Option[String], attributes: Map[String, String]): ObjectName = {
+  def register(mxBean: AnyRef, instanceName: Option[String], attributes: Map[String, String]): Registration = {
     val attrs = instanceName.foldLeft(attributes) {
       case (attrs, name) => attrs.updated("name", name)
     }
     register(mxBean, attrs)
   }
-  def register(mxBean: AnyRef, instanceName: String = null, attributes: Map[String, String] = Map.empty): ObjectName =
+  def register(mxBean: AnyRef, instanceName: String = null, attributes: Map[String, String] = Map.empty): Registration =
     register(mxBean, instanceName.optional, attributes)
 
-  def register(mxBean: AnyRef, attributes: Map[String, String]): ObjectName = {
+  def register(mxBean: AnyRef, attributes: Map[String, String]): Registration = {
     val objName = mkObjName(mxBean, attributes)
     register(mxBean, objName)
-    objName
   }
-  def register(mxBean: AnyRef, objectName: ObjectName): Unit =
+  def register(mxBean: AnyRef, objectName: ObjectName): Registration = {
     Server.registerMBean(mxBean, objectName)
-
+    Registration(objectName)
+  }
   /**
     * Implement this trait if your bean have properties
     * that are unknown or variable at compile time.

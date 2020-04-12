@@ -87,20 +87,25 @@ extends StreamConsumer[T, Future[R]] {
               s"$instanceName stream consumption still has $stillActive active Futures, $timeout after stream completion. Timeout is either too small or stream possibly incomplete.")
           }
         }
-        aquired.flatMap(_ => whenDone)(Threads.PiggyBack)
+          implicit def ec = Threads.PiggyBack
+        aquired
+          .flatMap(_ => whenDone)
+          .andThen{ case _ => jmxRegistration.foreach(_.cancel) }
     }
 
   }
 
   override def toString() = s"${this.getClass.getName}@$hashCode"
 
-  protected val mxBean: AsyncStreamConsumer.AsyncStreamConsumerMXBean = new AsyncStreamConsumerBean
+  /** override with `= new AsyncStreamConsumerBean`. */
+  protected def mxBean: AsyncStreamConsumer.AsyncStreamConsumerMXBean = null
   protected class AsyncStreamConsumerBean
   extends AsyncStreamConsumer.AsyncStreamConsumerMXBean {
     def getActiveCount: Int = AsyncStreamConsumer.this.activeCount
   }
 
-  JMX.register(mxBean, toString)
+  private[this] val jmxRegistration: Option[JMX.Registration] =
+    Option(mxBean).map(JMX.register(_, toString))
 
 }
 
