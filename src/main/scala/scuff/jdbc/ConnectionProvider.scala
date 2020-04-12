@@ -89,6 +89,10 @@ trait ResourcePoolConnection extends ConnectionProvider {
  *  for keeping reads and writes separate.
  */
 trait DualResourcePoolConnection extends ConnectionProvider {
+  protected def maxWriteConnections: Int = (super.maxConnections / 3) max 1
+  protected def maxReadConnections: Int = (super.maxConnections - maxWriteConnections) max 1
+  private def max(readOnly: Boolean) = if (readOnly) maxReadConnections else maxWriteConnections
+  override protected def maxConnections = maxReadConnections + maxWriteConnections
   protected def minSize = 1
   protected def name = getClass.getSimpleName
   protected def lifecycle: ResourcePool.Lifecycle[Connection]
@@ -97,7 +101,7 @@ trait DualResourcePoolConnection extends ConnectionProvider {
   protected def newResourcePool(
       readOnly: Boolean, init: => Connection,
       lifecycle: ResourcePool.Lifecycle[Connection]): ResourcePool[Connection] =
-    new JdbcConnectionPool(init, minSize, maxConnections, s"$name, ${if (readOnly) "reads" else "writes"}")(lifecycle)
+    new JdbcConnectionPool(init, minSize, max(readOnly), s"$name, ${if (readOnly) "reads" else "writes"}")(lifecycle)
   protected def readPool: ResourcePool[Connection] = _readPool
   protected def writePool: ResourcePool[Connection] = _writePool
   override protected def useConnection[R](readOnly: Boolean)(thunk: Connection => R): R = {
