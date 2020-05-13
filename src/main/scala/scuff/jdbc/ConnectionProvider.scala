@@ -85,14 +85,18 @@ trait ResourcePoolConnection extends ConnectionProvider {
 }
 
 /**
- *  Connection provider that uses two [[scuff.concurrent.ResourcePool]]s,
- *  for keeping reads and writes separate.
+ * Connection provider that uses two [[scuff.jdbc.JdbcConnectionPool]]s,
+ * for keeping reads and writes separate.
+ * IMPORTANT: If statements are executed on a fixed thread pool, make
+ * sure that two different thread pools are used, to match
+ * `maxWriteConnections` and `maxReadConnections`, avoiding exhausting
+ * differently sized read/write connections pools.
  */
 trait DualResourcePoolConnection extends ConnectionProvider {
   protected def maxWriteConnections: Int = (super.maxConnections / 3) max 1
   protected def maxReadConnections: Int = (super.maxConnections - maxWriteConnections) max 1
   private def max(readOnly: Boolean) = if (readOnly) maxReadConnections else maxWriteConnections
-  override protected def maxConnections = maxReadConnections + maxWriteConnections
+  final override protected def maxConnections = maxReadConnections + maxWriteConnections
   protected def minSize = 1
   protected def name = getClass.getSimpleName
   protected def lifecycle: ResourcePool.Lifecycle[Connection]
@@ -135,4 +139,20 @@ trait Retry extends ConnectionProvider {
 trait ConnectionSource extends ConnectionProvider {
   override def forUpdate[R](thunk: Connection => R): R = super.forUpdate(thunk)
   override def forQuery[R](thunk: Connection => R): R = super.forQuery(thunk)
+}
+
+trait AsyncConnectionSource extends ConnectionProvider {
+
+  import concurrent.{ Future, ExecutionContext }
+
+  def forUpdate[R](
+      blockingWrites: ExecutionContext)(
+      thunk: Connection => R): Future[R] =
+    Future(super.forUpdate(thunk))(blockingWrites)
+
+  def forQuery[R](
+      blockingReads: ExecutionContext)(
+      thunk: Connection => R): Future[R] =
+    Future(super.forQuery(thunk))(blockingReads)
+
 }
