@@ -5,8 +5,6 @@ import java.nio.charset.Charset
 
 import javax.script.ScriptEngineManager
 
-import scala.language.implicitConversions
-
 package object js {
 
   def UTF8 = Charset.forName("UTF-8")

@@ -136,7 +136,7 @@ object Numbers {
       var prev0 = 0L
       var prev1 = 0L
       def hasNext = true
-      def next = {
+      def next() = {
         val n = prev0 + prev1
         if (n == 0) prev0 = 1
         else {

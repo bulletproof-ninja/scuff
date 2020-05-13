@@ -64,10 +64,10 @@ class TestCrypto {
   def aesCustomKey(): Unit = {
     val aesKey = CipherCodec.SecretKey("AES", 256)
 
-    val aes1 = crypto.CipherCodec(aesKey, crypto.CipherCodec.newAESCipher _)
+    val aes1 = crypto.CipherCodec(aesKey, () => crypto.CipherCodec.newAESCipher)
     val codec1 = JavaSerializer[FooBar].pipe(aes1).pipe(ArrayPrinter).pipe(Base64.RFC_4648)
 
-    val aes2 = crypto.CipherCodec(aesKey, crypto.CipherCodec.newAESCipher _)
+    val aes2 = crypto.CipherCodec(aesKey, () => crypto.CipherCodec.newAESCipher)
     val codec2 = JavaSerializer[FooBar].pipe(aes2).pipe(ArrayPrinter).pipe(Base64.RFC_4648)
 
     val fooBar = FooBar("Hello, World!", 42, Map(

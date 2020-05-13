@@ -95,7 +95,7 @@ class MediaType private (private val mimeType: MimeType) extends Serializable {
     else new AbstractIterator[String] {
       private[this] val names = mimeType.getParameters.getNames
       def hasNext = names.hasMoreElements
-      def next = names.nextElement.toString
+      def next() = names.nextElement.toString
     }
   }
 

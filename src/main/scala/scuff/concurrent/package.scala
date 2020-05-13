@@ -2,7 +2,7 @@ package scuff
 
 import java.util.concurrent.{ Callable, Executor, ScheduledExecutorService }
 
-import scala.concurrent.{ Await, ExecutionContext, Future, Promise, TimeoutException }
+import scala.concurrent._
 import scala.concurrent.duration.{ DurationInt, FiniteDuration }
 import scala.util.Try
 import scala.util.control.NoStackTrace

@@ -132,4 +132,10 @@ allprojects {
         }
     }
 
+    test {
+        testLogging {
+            exceptionFormat = 'full'
+        }
+    }
+
 }

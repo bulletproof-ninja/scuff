@@ -146,7 +146,7 @@ class MultiMap[K, V] extends Iterable[(K, Set[V])] {
   def iterator: Iterator[(K, Set[V])] = new Iterator[(K, Set[V])] {
     private[this] val entries = MultiMap.this.map.entrySet.iterator
     def hasNext: Boolean = entries.hasNext
-    def next: (K, Set[V]) = {
+    def next(): (K, Set[V]) = {
       val entry = entries.next
       (entry.getKey, entry.getValue)
     }

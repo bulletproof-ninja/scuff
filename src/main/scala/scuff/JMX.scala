@@ -24,7 +24,7 @@ object JMX {
   final case class Registration(name: ObjectName)
   extends Subscription {
     require(Server isRegistered name)
-    def cancel: Unit = try {
+    def cancel(): Unit = try {
       Server unregisterMBean name
     } catch {
       case NonFatal(cause) =>

@@ -62,7 +62,7 @@ class PubSub[F, MSG](consumerCtx: ExecutionContext)(implicit conv: MSG => F) ext
     val fs = new FilteringSubscriber(subscriber, filter, subscriber.hashCode)
     subscribers.add(fs)
     new Subscription {
-      def cancel = fs.cancelSubscription()
+      def cancel() = fs.cancelSubscription()
     }
   }
 

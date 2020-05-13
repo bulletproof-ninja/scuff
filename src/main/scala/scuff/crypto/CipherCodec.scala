@@ -111,7 +111,7 @@ object CipherCodec {
 
   def AES(aesKey: SecretKey): CipherCodec = {
     require(aesKey.getAlgorithm startsWith "AES", s"Must be AES key, was: ${aesKey.getAlgorithm}")
-    apply(aesKey, CipherCodec.newAESCipher _)
+    apply(aesKey, () => CipherCodec.newAESCipher)
   }
 
   /**

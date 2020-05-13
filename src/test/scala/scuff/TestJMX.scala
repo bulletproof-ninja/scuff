@@ -17,7 +17,7 @@ object TestJMX {
   }
   case class FooBeanCaseClassImpl(@BeanProperty foo: Int) extends FooBeanMXBean
   case class BarBeanImpl(var bar: String) extends BarBean {
-    def getBar = bar
+    def getBar() = bar
   }
 }
 class TestJMX {
