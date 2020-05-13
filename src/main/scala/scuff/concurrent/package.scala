@@ -180,11 +180,15 @@ package object concurrent {
   private[this] val NoFuture = Future successful None
   private[this] val NilFuture = Future successful Nil
   private[this] val UnitFuture = Future successful (())
+  private[this] val TrueFuture = Future successful true
+  private[this] val FalseFuture = Future successful false
 
   implicit final class ScuffFutureObject(private val f: Future.type) extends AnyVal {
     def none: Future[None.type] = NoFuture
     def nil: Future[Nil.type] = NilFuture
     def unit: Future[Unit] = UnitFuture
+    def True: Future[Boolean] = TrueFuture
+    def False: Future[Boolean] = FalseFuture
   }
 
 }
