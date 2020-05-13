@@ -7,7 +7,7 @@ ext {
     getScalaFull = [
         '2.11': '2.11.12',
         '2.12': '2.12.11',
-        '2.13': '2.13.1'
+        '2.13': '2.13.2'
     ]
 
     vScala = System.properties.scalaVersion ?: '2.13'
@@ -47,7 +47,7 @@ wrapper {
 
 allprojects {
     repositories {
-        mavenCentral()
+        jcenter()
     }
     apply plugin: 'scala'
     apply plugin: 'maven-publish'
