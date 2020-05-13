@@ -93,29 +93,50 @@ object JsNum {
     override val toBigDec = implicitly[Numeric[BigDecimal]].one
   }
 
-  def apply(l: Long): JsNum = l match {
-    case 0L => Zero
-    case 1L => One
-    case _ => new JsNum(l)
-  }
-  def apply(d: Double): JsNum = if (d.isNaN) NaN else new JsNum(d)
+  private[this] val long2JsNum =
+    (Byte.MinValue to Byte.MaxValue).foldLeft(new Array[JsNum](256)) {
+      case (arr, num) =>
+        arr(num+128) = new JsNum(num)
+        arr
+    }
+
+  def apply(l: Long): JsNum =
+    if (l >= Byte.MinValue && l <= Byte.MaxValue) long2JsNum(l.asInstanceOf[Int]+128)
+    else new JsNum(l)
+
+  def apply(d: Double): JsNum =
+    if (d.isNaN) NaN
+    else if (d.isPosInfinity) PositiveInfinity
+    else if (d.isNegInfinity) NegativeInfinity
+    else new JsNum(d)
 
 }
 
 final case class JsStr(value: String) extends JsVal {
   override def asStr = this
-  override def asNum = value match {
-    case "NaN" => JsNum.NaN
-    case "Infinity" => JsNum.PositiveInfinity
-    case "-Infinity" => JsNum.NegativeInfinity
-    case _ => super.asNum
-  }
+  override def asNum = JsStr.String2JsNum(value)
   def toJson(implicit config: JsVal.Config) =
     if (value == null) JsNull.toJson
     else s""""${JsStr.escape(value)}""""
 }
 object JsStr {
 
+  private val String2JsNum = {
+    import java.math.{ BigDecimal => BD }
+    val cache = {
+      (Byte.MinValue to Byte.MaxValue).foldLeft(Map.empty[String, JsNum]) {
+        case (map, num) => map.updated(num.toString, JsNum.apply(num: Long))
+      } ++
+      Map("NaN" -> JsNum.NaN, "Infinity" -> JsNum.PositiveInfinity, "-Infinity" -> JsNum.NegativeInfinity)
+    }
+    cache.withDefault { numStr =>
+      val num: Number = try new BD(numStr) catch {
+        case _: NumberFormatException =>
+          java.lang.Double.parseDouble(numStr)
+      }
+      new JsNum(num)
+    }
+  }
   private[json] def escape(inp: String)(implicit config: JsVal.Config): String =
     escape(inp, config.escapeSlash, config.upperCaseHex)
 

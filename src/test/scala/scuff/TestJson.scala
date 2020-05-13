@@ -525,4 +525,20 @@ s"""{
     assertEquals(List(1,2,3), obj("list").asArr.toList.map(_.asNum.toInt))
     assertEquals(JsObj.Empty, obj("empty"))
   }
+
+  @Test
+  def numericStrings(): Unit = {
+    val jsonInts = (Short.MinValue to Short.MaxValue).map(s => s""" "$s" """).mkString("[", ",", "]")
+    (JsVal parse jsonInts).asArr.foreach { jsVal =>
+      val short = jsVal.asNum.toInt
+      assertTrue(short >= Short.MinValue)
+      assertTrue(short <= Short.MaxValue)
+    }
+    val jsonFloats = (Short.MinValue to Short.MaxValue).map(s => s""" "$s.1230${s.abs.toInt}" """).mkString("[", ",", "]")
+    (JsVal parse jsonFloats).asArr.foreach { jsVal =>
+      val dbl = jsVal.asNum.toDouble
+      assertTrue(dbl >= Short.MinValue - 1)
+      assertTrue(dbl <= Short.MaxValue + 1)
+    }
+  }
 }

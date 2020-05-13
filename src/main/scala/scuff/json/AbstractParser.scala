@@ -100,6 +100,10 @@ abstract class AbstractParser(
     }
   }
 
+  /**
+    * @param sign -1, 1, or 0 if decimal
+    * @param integer integer value
+    */
   private def parseNumber(sign: Byte, integer: Long = 0): JsNum = {
 
       def toJsNum(): JsNum = {
@@ -107,7 +111,7 @@ abstract class AbstractParser(
           assert(sign == -1 || sign == 1)
           sign * integer
         } else {
-          try BigDecimal(new java.math.BigDecimal(chars, 0, charsIdx)) catch {
+          try new java.math.BigDecimal(chars, 0, charsIdx) catch {
             case _: NumberFormatException =>
               try java.lang.Double.parseDouble(new String(chars, 0, charsIdx)) catch {
                 case nfe: NumberFormatException =>
