@@ -41,7 +41,6 @@ object Point {
    * Parse string of decimal latitude then longitude, e.g.
    * "35.027311, -111.023075"
    * @param str The lat/lng decimal string
-   * @param radius The radius in meters. Cannot be negative or NaN. Defaults to 0.
    */
   def parse(str: String): Try[Point] = Try {
     regex.findFirstMatchIn(str) match {
