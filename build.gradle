@@ -71,7 +71,7 @@ allprojects {
     }
 
     dependencies {
-        compile "org.scala-lang.modules:scala-collection-compat_$vScala:2.1.4"
+        compile "org.scala-lang.modules:scala-collection-compat_$vScala:2.1.6"
 
         compileOnly "org.scala-lang:scala-reflect:$vScalaFull"
         compileOnly "javax.servlet:javax.servlet-api:$vServletApi"

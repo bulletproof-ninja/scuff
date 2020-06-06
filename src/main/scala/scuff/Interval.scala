@@ -1,5 +1,7 @@
 package scuff
 
+import scala.collection.compat.immutable._
+
 import scala.collection.immutable.NumericRange
 import java.lang.{ Double => JD, Float => JF }
 
@@ -18,12 +20,12 @@ final class Interval[@specialized(Short, Int, Long, Float, Double) T](
     case _ => // All good
   }
 
-  def toStream(step: T)(implicit integral: Integral[T]): Stream[T] = {
+  def toStream(step: T)(implicit integral: Integral[T]): LazyList[T] = {
     val start = if (fromIncl) from else integral.plus(from, integral.one)
     val end = if (toIncl) to else integral.minus(to, integral.one)
-    Stream.range(start, end, step)
+    LazyList.range(start, end, step)
   }
-  def toStream(implicit integral: Integral[T]): Stream[T] = toStream(integral.one)
+  def toStream(implicit integral: Integral[T]): LazyList[T] = toStream(integral.one)
 
   def contains(c: T) =
     (fromIncl && ord.gteq(c, from) || ord.gt(c, from)) &&
