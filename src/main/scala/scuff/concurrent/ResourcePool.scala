@@ -553,7 +553,7 @@ class BoundedResourcePool[R <: AnyRef: ClassTag] private (
     super.use { resource =>
       try thunk(resource) catch {
         case NonFatal(th) =>
-          tracker.decrementActiveCount()
+          if (lifecycle evictOnFailure th) tracker.decrementActiveCount()
           throw th
       }
     }
