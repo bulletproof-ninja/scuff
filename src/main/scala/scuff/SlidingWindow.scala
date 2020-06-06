@@ -86,7 +86,10 @@ object SlidingWindow {
     def apply[T](thunk: TimeStore => T): T
     trait TimeStore {
       def upsert(ts: EpochMillis, insert: V)(update: (V, V) => V): Unit
-      def querySince[R](ts: EpochMillis)(callback: StreamConsumer[(EpochMillis, V), Future[R]]): Future[R]
+      def querySince[R](
+          ts: EpochMillis)(
+          callback: StreamConsumer[(EpochMillis, V), Future[R]])
+          : Future[R]
       /**
         * Optional method. Can return Future(None) if unsupported, but
         * will then not be able to supply value for Infinite windows.
@@ -124,7 +127,10 @@ object SlidingWindow {
     protected val timeStore = new UnsynchedJavaUtilMap with ForeverReduction {
       protected type M = java.util.TreeMap[EpochMillis, V]
       protected val map = new M
-      def querySince[R](ts: EpochMillis)(callback: StreamConsumer[(EpochMillis, V), Future[R]]): Future[R] = {
+      def querySince[R](
+          ts: EpochMillis)(
+          callback: StreamConsumer[(EpochMillis, V), Future[R]])
+          : Future[R] = {
         map.headMap(ts).clear()
         map.entrySet.iterator.asScala.foreach(e => callback.onNext(e.getKey -> e.getValue))
         callback.onDone()
@@ -135,7 +141,10 @@ object SlidingWindow {
     protected val timeStore = new UnsynchedJavaUtilMap with ForeverReduction {
       protected type M = java.util.HashMap[EpochMillis, V]
       protected val map = new M(256)
-      def querySince[R](ts: EpochMillis)(callback: StreamConsumer[(EpochMillis, V), Future[R]]): Future[R] = {
+      def querySince[R](
+          ts: EpochMillis)(
+          callback: StreamConsumer[(EpochMillis, V), Future[R]])
+          : Future[R] = {
         val iter = map.entrySet.iterator
         while (iter.hasNext) {
           val entry = iter.next
@@ -159,7 +168,10 @@ object SlidingWindow {
           case existing => map.update(ts, update(existing, value))
         }
       }
-      def querySince[R](ts: EpochMillis)(callback: StreamConsumer[(EpochMillis, V), Future[R]]): Future[R] = {
+      def querySince[R](
+          ts: EpochMillis)(
+          callback: StreamConsumer[(EpochMillis, V), Future[R]])
+          : Future[R] = {
         map.retain {
           case entry @ (key, _) =>
             if (ts > key) false
@@ -261,8 +273,10 @@ class SlidingWindow[T, R, F](
   }
 
   def subscribe(
-    callbackInterval: FiniteDuration,
-    scheduler: ScheduledExecutorService)(listener: StreamConsumer[collection.Map[Window, F], _]): Subscription = {
+      callbackInterval: FiniteDuration,
+      scheduler: ScheduledExecutorService)(
+      listener: StreamConsumer[collection.Map[Window, F], _])
+      : Subscription = {
     object SubscriptionState extends Subscription {
       @volatile var schedule: Option[ScheduledFuture[_]] = None
       private val error = new AtomicBoolean(false)
