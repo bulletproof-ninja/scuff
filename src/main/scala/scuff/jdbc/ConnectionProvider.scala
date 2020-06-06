@@ -10,6 +10,8 @@ import java.sql.SQLTransientException
 import java.sql.SQLRecoverableException
 import scuff.concurrent.ResourcePool
 import scala.util.control.NonFatal
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 
 /**
  * Generic trait for providing a JDBC connection.
@@ -119,7 +121,7 @@ trait Retry extends ConnectionProvider {
   protected def retryCount: Int
 
   protected def shouldRetry(e: SQLException): Boolean = e match {
-    case _: SQLTransientException | _: SQLRecoverableException => true
+    case _: SQLTransientException => true
     case _ => false
   }
 
@@ -145,14 +147,56 @@ trait AsyncConnectionSource extends ConnectionProvider {
 
   import concurrent.{ Future, ExecutionContext }
 
-  def forUpdate[R](
+  protected def asyncUpdate[R](
       blockingWrites: ExecutionContext)(
       thunk: Connection => R): Future[R] =
     Future(super.forUpdate(thunk))(blockingWrites)
 
-  def forQuery[R](
+  protected def asyncQuery[R](
       blockingReads: ExecutionContext)(
       thunk: Connection => R): Future[R] =
     Future(super.forQuery(thunk))(blockingReads)
+
+  implicit def updateContext: ExecutionContext
+  implicit def queryContext: ExecutionContext
+
+  def asyncUpdate[R](thunk: Connection => R): Future[R] =
+    asyncUpdate(updateContext)(thunk)
+
+  def asyncQuery[R](thunk: Connection => R): Future[R] =
+    asyncQuery(queryContext)(thunk)
+}
+
+class AsyncConnectionPool(
+  blockingCtx: ExecutionContext,
+  override protected val maxConnections: Int,
+  newConnection: () => Connection)(
+  implicit
+  protected val lifecycle: ResourcePool.Lifecycle[Connection] = DefaultConnectionLifecycle)
+extends ResourcePoolConnection
+with AsyncConnectionSource {
+
+  implicit def updateContext: ExecutionContext = blockingCtx
+  implicit def queryContext: ExecutionContext = blockingCtx
+
+  protected def getConnection: Connection = newConnection()
+
+}
+
+class DualAsyncConnectionPool(
+  blockingReadCtx: ExecutionContext,
+  override protected val maxReadConnections: Int,
+  blockingWriteCtx: ExecutionContext,
+  override protected val maxWriteConnections: Int,
+  newConnection: () => Connection)(
+  implicit
+  protected val lifecycle: ResourcePool.Lifecycle[Connection] = DefaultConnectionLifecycle)
+extends DualResourcePoolConnection
+with AsyncConnectionSource {
+
+  implicit def updateContext: ExecutionContext = blockingWriteCtx
+  implicit def queryContext: ExecutionContext = blockingReadCtx
+
+  protected def getConnection: Connection = newConnection()
 
 }
