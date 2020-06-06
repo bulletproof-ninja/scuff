@@ -1,7 +1,7 @@
 package scuff.concurrent
 
 import scuff._
-import scala.concurrent.Future
+import scala.concurrent._
 import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.TimeoutException
@@ -27,6 +27,7 @@ extends StreamConsumer[T, Future[R]] {
    * (which is invoked from `onNext(T)`).
    */
   protected def completionTimeout: FiniteDuration
+  protected implicit def executionContext: ExecutionContext
 
   /**
    * Produce final result, when done.
@@ -47,7 +48,6 @@ extends StreamConsumer[T, Future[R]] {
       case NonFatal(th) => Future failed th
     }
 
-      implicit def ec = Threads.PiggyBack
     if (future.isCompleted) {
       future.failed.foreach(onError)
     } else {
@@ -87,7 +87,7 @@ extends StreamConsumer[T, Future[R]] {
               s"$instanceName stream consumption still has $stillActive active Futures, $timeout after stream completion. Timeout is either too small or stream possibly incomplete.")
           }
         }
-          implicit def ec = Threads.PiggyBack
+
         aquired
           .flatMap(_ => whenDone)
           .andThen{ case _ => jmxRegistration.foreach(_.cancel) }

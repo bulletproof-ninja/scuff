@@ -7,6 +7,7 @@ import scuff.StreamConsumer
 import java.util.concurrent.atomic.AtomicInteger
 import scala.util.Try
 import scala.util.Failure
+import scala.concurrent.ExecutionContext
 
 class TestStreamConsumer {
 
@@ -80,6 +81,9 @@ class TestStreamConsumer {
   @Test
   def `async, success`(): Unit = {
     object Average extends AsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
+
+      protected def executionContext = ExecutionContext.global
+
       private val sum = new AtomicInteger
       private val count = new AtomicInteger
       def apply(i: Int) = {
@@ -98,6 +102,7 @@ class TestStreamConsumer {
   @Test
   def `async, future failure in apply`(): Unit = {
     object Average extends AsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
+      protected def executionContext = ExecutionContext.global
       def apply(i: Int) = Future failed new IllegalArgumentException(s"Invalid number: $i")
       val completionTimeout = 5.seconds
       protected def whenDone(): Future[Int] = Future successful 42
@@ -112,6 +117,7 @@ class TestStreamConsumer {
   @Test
   def `async, onstack failure in apply`(): Unit = {
     object Average extends AsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
+      protected def executionContext = ExecutionContext.global
       def apply(i: Int) = throw new IllegalArgumentException(s"Invalid number: $i")
       val completionTimeout = 5.seconds
       protected def whenDone(): Future[Int] = Future successful 42
@@ -126,6 +132,7 @@ class TestStreamConsumer {
   @Test
   def `async, failure in onDone`(): Unit = {
     object Average extends AsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
+      protected def executionContext = ExecutionContext.global
       private val sum = new AtomicInteger
       private val count = new AtomicInteger
       def apply(i: Int) = ??? // Never called in this test

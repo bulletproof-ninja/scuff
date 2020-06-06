@@ -5,7 +5,8 @@ import scala.util.Try
 import scala.util.control.NonFatal
 import scuff.StreamConsumer
 
-trait StreamPromise[-V, +R] extends StreamConsumer[V, Future[R]] {
+trait StreamPromise[-V, +R]
+extends StreamConsumer[V, Future[R]] {
   def future: Future[R] = promise.future
   def onError(th: Throwable) = promise tryFailure th
   protected[this] val promise = Promise[R]
@@ -32,23 +33,24 @@ object StreamPromise {
     callback.future
   }
   def foreach[V](subscribe: StreamConsumer[V, _] => _)(next: V => _): Future[Unit] = {
-    val callback = StreamPromise(())(next)
-    subscribe(callback)
-    callback.future
+    val promise = StreamPromise(())(next)
+    subscribe(promise)
+    promise.future
   }
 
-  def apply[V, R](lazyResult: => R)(next: V => _): StreamPromise[V, R] = new StreamPromise[V, R] {
+  def apply[V, R](lazyResult: => R)(next: V => Any): StreamPromise[V, R] = new StreamPromise[V, R] {
     def onNext(value: V): Unit = try {
       next(value)
     } catch {
       case NonFatal(th) =>
-        promise.tryFailure(th)
+        promise tryFailure th
     }
     def onDone(): Future[R] = {
-      if (!promise.isCompleted) promise.tryComplete(Try(lazyResult))
+      if (!promise.isCompleted) promise tryComplete Try(lazyResult)
       promise.future
     }
   }
+
   def apply[V, R](delegate: StreamConsumer[V, Future[R]]): StreamPromise[V, R] = delegate match {
     case promise: StreamPromise[V, R] => promise
     case _ => new StreamPromise[V, R] {
