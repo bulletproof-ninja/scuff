@@ -5,7 +5,7 @@ import scala.concurrent.duration._
 object FailureTracker {
   private final case class State private (
       count: Int, nextTimeout: FiniteDuration, timeoutSchedule: Iterator[FiniteDuration]) {
-    def this(timeoutSchedule: Iterator[FiniteDuration]) = this(1, timeoutSchedule.next, timeoutSchedule)
+    def this(timeoutSchedule: Iterator[FiniteDuration]) = this(1, timeoutSchedule.next(), timeoutSchedule)
   }
 
   def apply(failureCountThreshold: Int, failureReporter: Throwable => Unit,
@@ -43,7 +43,7 @@ class FailureTracker(
 
   def reset(): Unit = if (failureState != null) writeLock { failureState = null }
 
-  def timeout(): FiniteDuration = {
+  def timeout: FiniteDuration = {
     val state = failureState
     if (state == null || state.count < failureThreshold) Duration.Zero
     else writeLock {
@@ -51,7 +51,7 @@ class FailureTracker(
       if (state == null || state.count < failureThreshold) Duration.Zero
       else {
         if (state.timeoutSchedule.hasNext) {
-          failureState = state.copy(nextTimeout = state.timeoutSchedule.next)
+          failureState = state.copy(nextTimeout = state.timeoutSchedule.next())
         }
         state.nextTimeout
       }

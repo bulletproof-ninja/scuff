@@ -17,8 +17,8 @@ class TestNumbers {
       r.nextBytes(arrI1)
       val l = arrL1.toLong()
       val i = arrI1.toInt()
-      val arrL2 = l.toByteArray()
-      val arrI2 = i.toByteArray()
+      val arrL2 = l.toByteArray
+      val arrI2 = i.toByteArray
       assertTrue(Arrays.equals(arrL1, arrL2))
       assertTrue(Arrays.equals(arrI1, arrI2))
     }
@@ -27,10 +27,10 @@ class TestNumbers {
   @Test
   def `forth and back`(): Unit = {
     for (_ <- 1 to 1000) {
-      val l1 = r.nextLong
-      val i1 = r.nextInt
-      val arrL = l1.toByteArray()
-      val arrI = i1.toByteArray()
+      val l1 = r.nextLong()
+      val i1 = r.nextInt()
+      val arrL = l1.toByteArray
+      val arrI = i1.toByteArray
       val l2 = arrL.toLong()
       val i2 = arrI.toInt()
       assertEquals(l1, l2)
@@ -43,8 +43,8 @@ class TestNumbers {
     for (_ <- 1 to 1000) {
       val arrL = new Array[Byte](8)
       val arrI = new Array[Byte](4)
-      val l = r.nextLong
-      val i = r.nextInt
+      val l = r.nextLong()
+      val i = r.nextInt()
       val bbL = ByteBuffer.allocate(8)
       val bbI = ByteBuffer.allocate(4)
       bbL.putLong(l)

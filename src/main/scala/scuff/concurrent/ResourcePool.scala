@@ -384,7 +384,7 @@ object ResourcePool {
    *  NOTE: Evicting on failure is often not what's desired,
    *  so generally use a custom lifecycle.
    */
-  def DefaultLifecycle[R <: AnyRef](): Lifecycle[R] = new Lifecycle[R] {
+  def DefaultLifecycle[R <: AnyRef]: Lifecycle[R] = new Lifecycle[R] {
     def onCheckout(r: R): r.type = r
     def onReturn(r: R): r.type = r
     def onEviction(r: R): Unit = r match {

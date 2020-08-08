@@ -44,7 +44,7 @@ class Localized[T](val byLang: Map[Locale, T], val defaultLang: Locale) extends 
     val i = key.locales.iterator
     var value: Option[T] = None
     while (value.isEmpty && i.hasNext) {
-      value = byLang.get(i.next)
+      value = byLang get i.next()
     }
     value
   }

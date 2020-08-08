@@ -6,7 +6,7 @@ import scala.util.Try
 
 object JavaFutureConverter {
   def apply(
-      failureReporter: Throwable => Unit, 
+      failureReporter: Throwable => Unit,
       sleep: FiniteDuration = 1.millisecond): JavaFutureConverter = {
     val conv = new JavaFutureConverter(failureReporter, sleep)
     conv.thread.start()
@@ -48,7 +48,7 @@ final class JavaFutureConverter private (failureReporter: Throwable => Unit, sle
     if (f.isDone) {
       try Future successful f.get catch { case NonFatal(e) => Future failed e }
     } else {
-      val promise = Promise[Any]
+      val promise = Promise[Any]()
       queue.synchronized {
         val notifyOnContent = queue.isEmpty
         queue enqueue promise -> f

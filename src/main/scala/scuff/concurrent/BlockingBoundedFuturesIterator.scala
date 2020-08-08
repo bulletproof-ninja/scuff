@@ -18,7 +18,7 @@ final class BlockingBoundedFuturesIterator[T](
 
   def next(): T = {
     sem.acquire()
-    val elem = try iter.next catch {
+    val elem = try iter.next() catch {
       case NonFatal(cause) =>
         sem.release()
         throw cause

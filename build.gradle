@@ -6,8 +6,8 @@ plugins {
 ext {
     getScalaFull = [
         '2.11': '2.11.12',
-        '2.12': '2.12.11',
-        '2.13': '2.13.2'
+        '2.12': '2.12.12',
+        '2.13': '2.13.3'
     ]
 
     vScala = System.properties.scalaVersion ?: '2.13'
@@ -21,11 +21,14 @@ ext {
 }
 
 tasks.withType(ScalaCompile) {
-    def args = System.properties.compilerArgs ?: "-feature -deprecation -explaintypes -unchecked -Xlint -language:implicitConversions,higherKinds,reflectiveCalls,existentials"
+    def args = System.properties.compilerArgs ?:
+        vScala == "2.13"
+            ? "-feature -deprecation -explaintypes -unchecked -Xlint -language:implicitConversions,higherKinds,reflectiveCalls,existentials -Wunused"
+            : "-feature -deprecation -explaintypes -unchecked -Xlint -language:implicitConversions,higherKinds,reflectiveCalls,existentials -Ywarn-unused"
     scalaCompileOptions.additionalParameters = args.split(" ").toList()
 }
 tasks.withType(Jar) {
-    baseName = "${project.name}_$vScala"
+    archiveBaseName = "${project.name}_$vScala"
 }
 
 if (version == '') {

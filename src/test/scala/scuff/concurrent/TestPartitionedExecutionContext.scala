@@ -30,8 +30,8 @@ class TestPartitionedExecutionContext {
     val hashRange = -5000 to 5000
     val threadsByHash = new LockFreeConcurrentMap[Int, Set[Thread]]
     val futures =  for (_ <- 1 to jobsPerHash; hash <- hashRange) yield {
-      val a = Random.nextInt
-      val b = Random.nextInt
+      val a = Random.nextInt()
+      val b = Random.nextInt()
       (a*b) -> ec.submit(hash) {
         updateMap(hash, Thread.currentThread, threadsByHash)
         a * b

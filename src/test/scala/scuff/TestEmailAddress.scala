@@ -10,7 +10,7 @@ class TestEmailAddress {
       new EmailAddress("hello@world@foo.bar")
       fail("Cannot have multiple @s")
     } catch {
-      case e: IllegalArgumentException => // Expected
+      case _: IllegalArgumentException => // Expected
     }
   }
 
@@ -19,7 +19,7 @@ class TestEmailAddress {
       new EmailAddress(".hello@foo.bar")
       fail("Cannot start with dot")
     } catch {
-      case e: IllegalArgumentException => // Expected
+      case _: IllegalArgumentException => // Expected
     }
   }
 
@@ -28,7 +28,7 @@ class TestEmailAddress {
       new EmailAddress("hello..world@foo.bar")
       fail("Cannot have multiple successive dot")
     } catch {
-      case e: IllegalArgumentException => assertFalse(EmailAddress.isValid("hello..world@foo.bar"))
+      case _: IllegalArgumentException => assertFalse(EmailAddress.isValid("hello..world@foo.bar"))
     }
   }
 
@@ -37,7 +37,7 @@ class TestEmailAddress {
       new EmailAddress("hello.@foo.bar")
       fail("Cannot end with dot")
     } catch {
-      case e: IllegalArgumentException => // Expected
+      case _: IllegalArgumentException => // Expected
     }
   }
 
@@ -46,7 +46,7 @@ class TestEmailAddress {
       new EmailAddress("abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcde@foo.bar")
       fail("User part cannot exceed 64 chars")
     } catch {
-      case e: IllegalArgumentException => // Expected
+      case _: IllegalArgumentException => // Expected
     }
   }
 
@@ -55,7 +55,7 @@ class TestEmailAddress {
       new EmailAddress("@foo.bar")
       fail("User part missing")
     } catch {
-      case e: IllegalArgumentException => assertFalse(EmailAddress.isValid("@foo.bar"))
+      case _: IllegalArgumentException => assertFalse(EmailAddress.isValid("@foo.bar"))
     }
   }
 

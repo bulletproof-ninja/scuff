@@ -7,11 +7,9 @@ import javax.sql.{ DataSource, ConnectionPoolDataSource }
 
 import java.sql.SQLException
 import java.sql.SQLTransientException
-import java.sql.SQLRecoverableException
 import scuff.concurrent.ResourcePool
 import scala.util.control.NonFatal
 import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
 
 /**
  * Generic trait for providing a JDBC connection.

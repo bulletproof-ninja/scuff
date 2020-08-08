@@ -24,7 +24,7 @@ package object concurrent {
       def run = thunk
     }
     def submit(runnable: Runnable): Future[Unit] = {
-      val promise = Promise[Unit]
+      val promise = Promise[Unit]()
       ec execute new Runnable {
         def run = promise complete Try(runnable.run)
         override def hashCode = runnable.hashCode
@@ -32,7 +32,7 @@ package object concurrent {
       promise.future
     }
     def submit[T](callable: Callable[T]): Future[T] = {
-      val promise = Promise[T]
+      val promise = Promise[T]()
       ec execute new Runnable {
         def run = promise complete Try(callable.call)
         override def hashCode = callable.hashCode
@@ -40,7 +40,7 @@ package object concurrent {
       promise.future
     }
     def submit[T](thunk: => T): Future[T] = {
-      val promise = Promise[T]
+      val promise = Promise[T]()
       ec execute new Runnable {
         def run = promise complete Try(thunk)
       }
@@ -92,7 +92,7 @@ package object concurrent {
     def withTimeout(timeout: FiniteDuration)(implicit scheduler: ScheduledExecutorService): Future[T] = {
       if (f.isCompleted) f
       else {
-        val promise = Promise[T]
+        val promise = Promise[T]()
         val cmd = new Runnable {
           def run(): Unit = {
             promise tryFailure new TimeoutException(s"Timed out after $timeout") with NoStackTrace

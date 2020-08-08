@@ -51,7 +51,7 @@ class TestJMX {
 
     assertEquals(typeName, reg2.name.getKeyProperty("type"))
     assertEquals(typeName, reg2.name.getKeyProperty("type"))
-    (reg1 :: reg2 :: Nil).foreach(_.cancel)
+    (reg1 :: reg2 :: Nil) foreach { _.cancel() }
   }
 
   @Test

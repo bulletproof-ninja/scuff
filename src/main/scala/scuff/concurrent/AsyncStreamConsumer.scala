@@ -90,7 +90,7 @@ extends StreamConsumer[T, Future[R]] {
 
         aquired
           .flatMap(_ => whenDone)
-          .andThen{ case _ => jmxRegistration.foreach(_.cancel) }
+          .andThen { case _ => jmxRegistration.foreach { _.cancel() } }
     }
 
   }
@@ -105,7 +105,7 @@ extends StreamConsumer[T, Future[R]] {
   }
 
   private[this] val jmxRegistration: Option[JMX.Registration] =
-    Option(mxBean).map(JMX.register(_, toString))
+    Option(mxBean).map(JMX.register(_, AsyncStreamConsumer.this.toString))
 
 }
 

@@ -181,7 +181,7 @@ class TestFSM {
 
     phone(ReceiverLifted)
     number.foreach(phone(DigitDialed, _))
-    assertEquals(number, Active.number.result)
+    assertEquals(number, Active.number.result())
     phone(Connected)
     assertTrue(phone is Active.Ringing)
     phone(CalleeReceiverLifted)

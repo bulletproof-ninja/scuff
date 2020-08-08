@@ -1,8 +1,6 @@
 package scuff
 
-import org.junit._
-import org.junit.Assert._
-import org.junit.Test
+import org.junit._, Assert._
 
 class TestSerializer {
 

@@ -9,7 +9,7 @@ trait StreamPromise[-V, +R]
 extends StreamConsumer[V, Future[R]] {
   def future: Future[R] = promise.future
   def onError(th: Throwable) = promise tryFailure th
-  protected[this] val promise = Promise[R]
+  protected[this] val promise = Promise[R]()
 }
 
 object StreamPromise {
@@ -59,7 +59,7 @@ object StreamPromise {
         super.onError(th)
         delegate onError th
       }
-      def onDone(): Future[R] = promise.completeWith(delegate.onDone).future
+      def onDone(): Future[R] = (promise completeWith delegate.onDone()).future
     }
   }
 }

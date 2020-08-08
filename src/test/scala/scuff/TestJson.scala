@@ -320,7 +320,7 @@ class TestJson {
   def `i_number_real_neg_overflow`() = {
     object File extends JsonFile(JSONTestSuite)
     val JsArr(num @ JsNum(_)) = File.parse
-    assertEquals(BigDecimal("-123123e100000"), num.toBigDec)
+    assertEquals(BigDecimal("-123123e100000"), num.toBigDec())
   }
 
   @Test
@@ -350,7 +350,7 @@ class TestJson {
     assertEquals(32, marty("age").asNum.toInt)
     assertEquals(JsBool.True, hank("bool"))
     assertEquals(JsBool.False, marty("bool"))
-    assertEquals(BigDecimal("3452.874"), hank.float.asNum.toBigDec)
+    assertEquals(BigDecimal("3452.874"), hank.float.asNum.toBigDec())
     assertEquals(JsNum.PositiveInfinity, marty.float.asNum)
     assertEquals(List(-234, 123), hank.list.asArr.map(_.asNum.toInt).toList)
     assertEquals(Nil, marty.list.asArr.toList)
@@ -514,7 +514,7 @@ s"""{
     val obj = (JsVal parse json).asObj
     assertEquals(42, obj("int").asNum.toInt)
     assertEquals(Int.MaxValue * 2L, obj("long").asNum.toLong)
-    assertEquals(BigDecimal("546342523454326546353365363.345345435345345345"), obj("decimal").asNum.toBigDec)
+    assertEquals(BigDecimal("546342523454326546353365363.345345435345345345"), obj("decimal").asNum.toBigDec())
     assertEquals(0, obj("zero").asNum.toInt)
     assertEquals("🤡", obj("clown").asStr.value)
     assertEquals("🤡", obj("escapedClown").asStr.value)

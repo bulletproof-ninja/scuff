@@ -2,8 +2,6 @@ package scuff.reflect
 
 import org.junit._
 import org.junit.Assert._
-import java.awt.Color
-import java.util.concurrent.atomic.AtomicLong
 
 class TestDynamicConstructor {
 

@@ -24,7 +24,7 @@ object FuzzyScheduler {
      * invocations, it's the delay after the previous run
      * ended.
      */
-    def runInterval(): FiniteDuration
+    def runInterval: FiniteDuration
     /**
      * The jitter margin applied to the `runInterval`.
      */
@@ -50,13 +50,13 @@ class FuzzyScheduler(scheduler: ScheduledExecutorService) {
   def executionContext(reportFailure: Throwable => Unit) = ExecutionContext.fromExecutorService(scheduler, reportFailure)
 
   def schedule(pr: FuzzyRunnable): Unit = {
-    import math._
+    import java.lang.Math._
     val interval = pr.runInterval.length
     require(interval > 0, s"Run interval must be greater than 0, was $interval")
     val absJitter = interval * pr.intervalJitter
     val minDelay = interval - absJitter
     val jitterRange = absJitter * 2
-    val delay = round(random * jitterRange + minDelay)
+    val delay = round(random() * jitterRange + minDelay)
     val nextRun = new Runnable {
       def run = if (pr.isAlive) {
         try {

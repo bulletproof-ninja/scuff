@@ -49,8 +49,7 @@ case class JsNum(value: Number) extends JsVal {
     case bi: BigInt => bi
     case num => BigInt(num.toString)
   }
-  def toBigDec(): BigDecimal = toBigDec(MathContext.DECIMAL128)
-  def toBigDec(mc: MathContext): BigDecimal = value match {
+  def toBigDec(mc: MathContext = MathContext.DECIMAL128): BigDecimal = value match {
     case bd: JBigDec => new BigDecimal(bd, mc)
     case bi: JBigInt => new BigDecimal(new JBigDec(bi, mc), mc)
     case bd: BigDecimal =>
@@ -87,10 +86,10 @@ object JsNum {
   val PositiveInfinity = new JsNum(Double.PositiveInfinity)
   val NegativeInfinity = new JsNum(Double.NegativeInfinity)
   val Zero: JsNum = new JsNum(0L) {
-    override val toBigDec = implicitly[Numeric[BigDecimal]].zero
+    override def toBigDec(mc: MathContext) = implicitly[Numeric[BigDecimal]].zero
   }
   val One: JsNum = new JsNum(1L) {
-    override val toBigDec = implicitly[Numeric[BigDecimal]].one
+    override def toBigDec(mc: MathContext) = implicitly[Numeric[BigDecimal]].one
   }
 
   private[this] val long2JsNum =
@@ -252,8 +251,8 @@ object JsVal {
   implicit def toLong(js: JsNum): Long = js.toLong
   implicit def toFloat(js: JsNum): Float = js.toFloat
   implicit def toDouble(js: JsNum): Double = js.toDouble
-  implicit def toBigDecimal(js: JsNum): BigDecimal = js.toBigDec
-  implicit def toJavaBigDecimal(js: JsNum): java.math.BigDecimal = js.toBigDec.underlying
+  implicit def toBigDecimal(js: JsNum): BigDecimal = js.toBigDec()
+  implicit def toJavaBigDecimal(js: JsNum): java.math.BigDecimal = js.toBigDec().underlying
   implicit def boolValue(js: JsBool): Boolean = js.value
 
   def apply(any: Any, mapper: PartialFunction[Any, Any] = PartialFunction.empty): JsVal = any match {

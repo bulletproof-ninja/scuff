@@ -55,11 +55,11 @@ class Proxylicious[T](implicit tag: ClassTag[T]) {
 
   trait Sandwich {
     class DSLMethod(method: Method) {
-      def named(methodName: Symbol) = new DSLString(method, methodName.name)
+      def named(methodName: String) = new DSLString(method, methodName)
     }
     class DSLString(method: Method, methodName: String = null) {
       def returns(returnType: Class[_]): Boolean = (methodName == null || nameMatches) && method.getReturnType() == returnType
-      def nameMatches() = method.getName() == methodName
+      def nameMatches = method.getName() == methodName
     }
     implicit def method2dslm(method: Method) = new DSLMethod(method)
     implicit def method2dsls(method: Method) = new DSLString(method)

@@ -83,18 +83,18 @@ package object scuff {
   }
 
   implicit class ScuffByte(private val b: Byte) extends AnyVal {
-    def unsigned() = Numbers unsigned b
+    def unsigned = Numbers unsigned b
   }
   implicit class ScuffShort(private val s: Short) extends AnyVal {
-    def unsigned() = Numbers unsigned s
+    def unsigned = Numbers unsigned s
   }
   implicit class ScuffLong(private val l: Long) extends AnyVal {
-    def toByteArray() = Numbers toBytes l
-    def unsigned() = Numbers unsigned l
+    def toByteArray = Numbers toBytes l
+    def unsigned = Numbers unsigned l
   }
   implicit class ScuffInt(private val i: Int) extends AnyVal {
-    def toByteArray() = Numbers toBytes i
-    def unsigned() = Numbers unsigned i
+    def toByteArray = Numbers toBytes i
+    def unsigned = Numbers unsigned i
   }
   implicit class ScuffByteArray(private val arr: Array[Byte]) extends AnyVal {
     def toLong(offset: Int = 0) = Numbers.bytesToLong(arr, offset)
@@ -108,7 +108,7 @@ package object scuff {
     /** Next random number between inclusive/exclusive. */
     def nextBetween[T](incl: T, excl: T)(implicit num: Numeric[T]): T = {
       val scope = num.minus(excl, incl)
-      val next = rand.nextDouble * num.toDouble(scope) + num.toDouble(incl)
+      val next = rand.nextDouble() * num.toDouble(scope) + num.toDouble(incl)
       num.zero match {
         case _: Double => next.asInstanceOf[T]
         case _: Int => next.toInt.asInstanceOf[T]

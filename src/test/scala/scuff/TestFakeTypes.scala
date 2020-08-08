@@ -13,7 +13,7 @@ object TestFakeTypes {
   }
   type FooID = FooID.Type
   implicit class FooIDOps(private val id: FooID) extends AnyVal {
-    def unwrap() = FooID unwrap id
+    def unwrap = FooID unwrap id
     def toBarID() = BarID(unwrap)
   }
 

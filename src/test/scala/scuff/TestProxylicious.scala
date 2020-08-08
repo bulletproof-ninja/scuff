@@ -17,7 +17,7 @@ class TestProxylicious {
     val doubler = new proxyfier.Sandwich {
       def include(method: Method) = {
         method.getParameterTypes match {
-          case Array(Integer.TYPE, Integer.TYPE) => method named 'apply returns Integer.TYPE
+          case Array(Integer.TYPE, Integer.TYPE) => method named "apply" returns Integer.TYPE
           case _ => false
         }
       }

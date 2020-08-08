@@ -13,7 +13,7 @@ class TestLockFreeConcurrentMap {
     assertEquals(0, map.size)
     map.put(1, "one")
     assertEquals(1, map.size)
-    assertEquals("one", map.iterator.next._2)
+    assertEquals("one", map.iterator.next()._2)
     map += 5 -> "five"
     assertTrue (
       s"Failed, was: ${map}",

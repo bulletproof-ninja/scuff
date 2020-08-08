@@ -42,7 +42,7 @@ class TestFailureBackoff {
     assertEquals(Duration.Zero, ft.timeout)
 
     val backoffIterator = backoffSchedule.iterator
-    var currTimeout = backoffIterator.next
+    var currTimeout = backoffIterator.next()
 
     (1 to scheduleLength + 5) foreach { n =>
       ft reportFailure error
@@ -53,7 +53,7 @@ class TestFailureBackoff {
       } else {
         assertTrue(ft.isTripped)
         assertEquals(currTimeout, ft.timeout)
-        if (backoffIterator.hasNext) currTimeout = backoffIterator.next
+        if (backoffIterator.hasNext) currTimeout = backoffIterator.next()
       }
     }
     assertEquals(threshold, errors.size)

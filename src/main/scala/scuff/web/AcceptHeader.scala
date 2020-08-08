@@ -16,7 +16,7 @@ final class AcceptHeader(acceptTypes: Seq[MediaType]) {
     }
   }
 
-  def preference(): MediaType = preferenceOrdered.head
+  def preference: MediaType = preferenceOrdered.head
   def withParm(mt: MediaType, parmName: String): Iterable[(MediaType, String)] = withParm(mt, parmName, identity)
   def withParm[P](matchType: MediaType, parmName: String, map: String => P): Iterable[(MediaType, P)] =
     acceptTypes.iterator
@@ -24,7 +24,7 @@ final class AcceptHeader(acceptTypes: Seq[MediaType]) {
       .flatMap { mt =>
         mt.parm(parmName).flatMap(p => Try(map(p)).toOption.map(mt -> _))
       }.to(Iterable)
-  def preferenceOrdered(): Seq[MediaType] = {
+  def preferenceOrdered: Seq[MediaType] = {
     if (acceptTypes.size == 1) acceptTypes else {
       val weigthed = acceptTypes.zipWithIndex.map {
         case (mt, idx) => (mt.q, mt, idx)

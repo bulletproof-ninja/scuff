@@ -56,7 +56,10 @@ object SlidingWindow {
     }
   }
 
-  case class Sum[N: Numeric]() extends Reducer[N, N, N] {
+  object Sum {
+    def apply[N: Numeric] = new Sum[N]
+  }
+  class Sum[N: Numeric] extends Reducer[N, N, N] {
     private def num = implicitly[Numeric[N]]
     def init(n: N) = n
     def apply(x: N, y: N) = num.plus(x, y)
@@ -64,7 +67,10 @@ object SlidingWindow {
     def default = num.zero
   }
 
-  case class Average[N: Numeric]() extends Reducer[N, (N, Int), Option[N]] {
+  object Average {
+    def apply[N: Numeric] = new Average[N]
+  }
+  class Average[N: Numeric] extends Reducer[N, (N, Int), Option[N]] {
     private def num = implicitly[Numeric[N]]
     private[this] val div = num match {
       case f: Fractional[N] => f.div _

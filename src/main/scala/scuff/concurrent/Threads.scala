@@ -55,7 +55,7 @@ object Threads {
   }
 
   def onBlockingThread[T](
-      name: String, done: Promise[T] = Promise[T], tg: ThreadGroup = MainThreadGroup)(
+      name: String, done: Promise[T] = Promise[T](), tg: ThreadGroup = MainThreadGroup)(
       blockingThunk: => T): Future[T] = {
     val t = new Thread(tg, name) {
       override def run() = {

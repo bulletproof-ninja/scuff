@@ -41,7 +41,7 @@ object typed {
 
     def is(state: BaseState[T]) = stateMatch(state, currState)
     def current = currState
-    def isFinal() = currState match {
+    def isFinal = currState match {
       case Some(_: FinalState[_]) => true
       case _ => false
     }
@@ -95,13 +95,13 @@ sealed class BaseState[-T] {
 }
 
 /** Super state. Is expected to contain other states as `val`s. */
-class SuperState(name: String = "") extends typed.SuperState[Any]
+class SuperState(name: String = "") extends typed.SuperState[Any](name)
 
 /** Leaf state. Should not contain other sub states. */
-class State(name: String = "") extends typed.State[Any]
+class State(name: String = "") extends typed.State[Any](name)
 
 /** Final state. */
-class FinalState(name: String = "") extends typed.FinalState[Any]
+class FinalState(name: String = "") extends typed.FinalState[Any](name)
 
 /**
  * A finite state machine trait, which is itself a super state.

@@ -16,7 +16,7 @@ final class CipherCodec private (
     newCipher: () => Cipher)
   extends Codec[Array[Byte], Array[Byte]] {
 
-  private[this] val cipherPool = ResourcePool(newCipher.apply, description = encryptionKey.getAlgorithm)
+  private[this] val cipherPool = ResourcePool(newCipher(), description = encryptionKey.getAlgorithm)
   private[this] val blockSize = newCipher().getBlockSize // Can be 0
   private[this] def randomIV() =
     if (blockSize == 0) Array.emptyByteArray

@@ -17,7 +17,7 @@ trait MetricsCollector[@specialized(Long, Int, AnyRef) V] {
     */
   def report(
       name: String, method: Method = null)(
-      value: V, time: Long = timestamp): Unit
+      value: V, time: Long = timestamp()): Unit
 }
 
 object TimeCollector {
