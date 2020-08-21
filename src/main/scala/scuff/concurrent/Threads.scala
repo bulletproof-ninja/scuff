@@ -29,8 +29,7 @@ object Threads {
       : ExecutionContextExecutor = {
     val tg = newThreadGroup(name, false, reportFailure = reportFailure)
     val tf = factory(tg)
-    val exec = newCachedThreadPool(tf, reportFailure, maxThreads)
-    ExecutionContext.fromExecutor(exec, reportFailure)
+    newCachedThreadPool(name, tf, reportFailure, maxThreads)
   }
 
   def newScheduledThreadPool(
@@ -99,11 +98,17 @@ object Threads {
     def execute(runnable: Runnable) = runnable.run()
   }
 
+  private[this] val ThrowException = new ThreadPoolExecutor.AbortPolicy
+
   def newCachedThreadPool(
-      threadFactory: ThreadFactory,
-      failureReporter: Throwable => Unit = null,
-      maxThreads: Int = Short.MaxValue): ExecutionContextExecutorService = {
-    val exec = new CachedThreadPool(threadFactory, maxThreads, new SynchronousQueue[Runnable], Option(failureReporter))
+      name: String,
+      threadFactory: ThreadFactory = null,
+      failureReporter: Throwable => Unit,
+      maxThreads: Int = Short.MaxValue,
+      queue: BlockingQueue[Runnable] = new LinkedBlockingQueue[Runnable],
+      handler: RejectedExecutionHandler = ThrowException): ExecutionContextExecutorService = {
+    val tf = Option(threadFactory) getOrElse factory(name, failureReporter)
+    val exec = new CachedThreadPool(name, tf, maxThreads, queue, handler, Option(failureReporter))
     Runtime.getRuntime addShutdownHook new Thread {
       override def run(): Unit = {
         exec.shutdownNow()
@@ -112,18 +117,25 @@ object Threads {
     exec
   }
 
+  private[this] val MatchHexHash = "@[0-9a-f]+".r
+
   private final class CachedThreadPool(
+    name: String,
     threadFactory: ThreadFactory,
     maxThreads: Int,
-    queue: SynchronousQueue[Runnable],
+    queue: BlockingQueue[Runnable],
+    handler: RejectedExecutionHandler,
     failureReporter: Option[Throwable => Unit])
-  extends ThreadPoolExecutor(1, maxThreads, 60L, TimeUnit.SECONDS, queue, threadFactory)
+  extends ThreadPoolExecutor(1, maxThreads, 60L, TimeUnit.SECONDS, queue, threadFactory, handler)
   with ExecutionContextExecutorService
   with FailureReporting {
 
     private[this] val reportException = failureReporter getOrElse super.reportFailure _
     override def reportFailure(th: Throwable) = reportException(th)
 
+    override def toString() = {
+      MatchHexHash.replaceFirstIn(super.toString, s"($name)")
+    }
   }
 
   def newSingleThreadExecutor(threadFactory: ThreadFactory, failureReporter: Throwable => Unit = null, queue: BlockingQueue[Runnable] = new LinkedBlockingQueue[Runnable]): ExecutionContextExecutorService = {

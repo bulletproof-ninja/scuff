@@ -126,4 +126,16 @@ class TestThreads extends Serializable {
     println(s"Finishing method on: ${Thread.currentThread}")
   }
 
+  @Test
+  def has_name(): Unit = {
+    val name = "tHeNaMe"
+    val pool = Threads.newBlockingThreadPool(name, throw _)
+    println(s"Pool name: $pool")
+    assertTrue(pool.toString contains name)
+    val threadName = pool.submit {
+      Thread.currentThread.getName
+    }
+    assertTrue(threadName.await contains name)
+  }
+
 }
