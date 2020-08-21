@@ -28,7 +28,7 @@ class TestCrypto {
 
   @Test
   def aes(): Unit = {
-    val aes = crypto.CipherCodec.AES()
+    val aes = crypto.CipherCodec.generateAES()
     val codec = JavaSerializer[FooBar].pipe(aes).pipe(ArrayPrinter).pipe(Base64.RFC_4648)
     val fooBar = FooBar("Hello, World!", 42, Map(
         "inf" -> Double.PositiveInfinity,
@@ -42,8 +42,8 @@ class TestCrypto {
 
   @Test
   def rsa(): Unit = {
-    val aes = crypto.CipherCodec.AES(256)
-    val rsa = crypto.CipherCodec.RSA(2048)
+    val aes = crypto.CipherCodec.generateAES(256)
+    val rsa = crypto.CipherCodec.generateRSA(2048)
     val codec = rsa.pipe(ArrayPrinter).pipe(Base64.RFC_4648)
     val encryptedAES = codec encode aes.encryptionKey.getEncoded
     val decryptedAES = codec decode encryptedAES
@@ -52,7 +52,7 @@ class TestCrypto {
 
   @Test
   def twofish(): Unit = {
-    val aes = crypto.CipherCodec.AES(256)
+    val aes = crypto.CipherCodec.generateAES(256)
     val tf = crypto.CipherCodec.symmetric("Twofish/CBC/PKCS5Padding", 128)
     val codec = tf.pipe(ArrayPrinter).pipe(Base64.RFC_4648)
     val encryptedAES = codec encode aes.encryptionKey.getEncoded
@@ -62,7 +62,7 @@ class TestCrypto {
 
   @Test
   def aesCustomKey(): Unit = {
-    val aesKey = CipherCodec.SecretKey("AES", 256)
+    val aesKey = CipherCodec.generateSecretKey("AES", 256)
 
     val aes1 = crypto.CipherCodec(aesKey, () => crypto.CipherCodec.newAESCipher)
     val codec1 = JavaSerializer[FooBar].pipe(aes1).pipe(ArrayPrinter).pipe(Base64.RFC_4648)

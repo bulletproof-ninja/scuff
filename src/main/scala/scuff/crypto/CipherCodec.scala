@@ -73,22 +73,37 @@ final class CipherCodec private (
 
 object CipherCodec {
 
-  private[this] val rando = SecureRandom.generateSeed(8)
-
-  private def verify(codec: CipherCodec): codec.type = {
-    val encoded = codec encode rando
-    val decoded = codec decode encoded
-    require(rando sameElements decoded, s"Must encode/decode correctly")
-    codec
+  private[this] val verify: CipherCodec => CipherCodec = {
+    val rando = SecureRandom.generateSeed(32)
+    (codec: CipherCodec) => {
+      val encoded = codec encode rando
+      val decoded = codec decode encoded
+      require(rando sameElements decoded, s"Must encode/decode correctly")
+      codec
+    }
   }
 
-  def SecretKey(algo: String, keySize: Int): SecretKey = {
+  /**
+    * Ad hoc secret key generation.
+    *
+    * @param algo Key algorithm
+    * @param keySize Key size
+    * @return new random secret key
+    */
+  def generateSecretKey(algo: String, keySize: Int): SecretKey = {
     val keyGen = KeyGenerator.getInstance(algo)
     keyGen.init(keySize, SecureRandom)
     keyGen.generateKey()
   }
 
-  def KeyPair(algo: String, keySize: Int): KeyPair = {
+  /**
+    * Ad hoc key pair generation.
+    *
+    * @param algo Key pair algorithm
+    * @param keySize Key size
+    * @return new random key pair
+    */
+  def generateKeyPair(algo: String, keySize: Int): KeyPair = {
     val keyGen = KeyPairGenerator.getInstance(algo)
     keyGen.initialize(keySize, SecureRandom)
     keyGen.generateKeyPair()
@@ -100,13 +115,13 @@ object CipherCodec {
   /** Generate ad-hoc symmetric cipher. */
   def symmetric(algo: String, keySize: Int): CipherCodec = {
     val keyAlgo = algo.split("/")(0)
-    apply(SecretKey(keyAlgo, keySize), () => newCipher(algo))
+    apply(generateSecretKey(keyAlgo, keySize), () => newCipher(algo))
   }
 
   /** Generate ad-hoc asymmetric cipher. */
   def asymmetric(algo: String, keySize: Int): CipherCodec = {
     val keyAlgo = algo.split("/")(0)
-    apply(KeyPair(keyAlgo, keySize), () => newCipher(algo))
+    apply(generateKeyPair(keyAlgo, keySize), () => newCipher(algo))
   }
 
   def AES(aesKey: SecretKey): CipherCodec = {
@@ -116,30 +131,29 @@ object CipherCodec {
 
   /**
    * Generate ad-hoc AES cipher codec.
-   * @param keySize Valid values are 128, 192, 256
+   * @param keySize Valid values are 128, 192, 256; defaults to 256
    */
-  def AES(keySize: Int = 256): CipherCodec =
+  def generateAES(keySize: Int = 256): CipherCodec =
     symmetric("AES/CBC/PKCS5Padding", keySize)
 
   /**
    * Generate ad-hoc RSA cipher codec.
-   * @param keySize For RSA, it's not recommended to use below 1024
+   * @param keySize For RSA, it's not recommended to use below 1024; defaults to 2048
    */
-  def RSA(keySize: Int = 2048): CipherCodec =
+  def generateRSA(keySize: Int = 2048): CipherCodec =
     asymmetric("RSA", keySize)
 
-      /**
-   * @param keyPair  Asymmetric key pair
-   * @param decryptionKey Decryption key
-   * @param newCihper New `Cipher` function, which must return a new unique instance
-   */
+  /**
+    * @param keyPair  Asymmetric key pair
+    * @param newCihper New `Cipher` function, which must return a new unique instance
+    */
   def apply(keyPair: KeyPair, newCipher: () => Cipher): CipherCodec =
     verify {
       new CipherCodec(keyPair.getPublic, keyPair.getPrivate, newCipher)
     }
 
   /**
-   * @param symmetricKey  Symmetric key
+   * @param symmetricKey Symmetric key
    * @param newCihper New `Cipher` function, which must return a new unique instance
    */
   def apply(symmetricKey: SecretKey, newCipher: () => Cipher): CipherCodec =
@@ -147,11 +161,20 @@ object CipherCodec {
       new CipherCodec(symmetricKey, symmetricKey, newCipher)
     }
 
-
+  /**
+    * @param symmetricKey Symmetric key
+    * @return
+    */
   def apply(symmetricKey: SecretKey): CipherCodec =
     apply(symmetricKey, () => Cipher.getInstance(symmetricKey.getAlgorithm))
 
-  def apply(algorithm: String, keySize: Int): CipherCodec =
-    apply(CipherCodec.SecretKey(algorithm, keySize))
+  /**
+    * Create ad hoc `CipherCodec`.
+    * @param algorithm
+    * @param keySize
+    * @return
+    */
+  def generate(algorithm: String, keySize: Int): CipherCodec =
+    apply(generateSecretKey(algorithm, keySize))
 
 }
