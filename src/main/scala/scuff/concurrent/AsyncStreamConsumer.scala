@@ -1,9 +1,8 @@
 package scuff.concurrent
 
 import scuff._
-import scala.concurrent._
-import scala.concurrent.duration.FiniteDuration
-import java.util.concurrent.atomic.AtomicReference
+import scala.concurrent._, duration.FiniteDuration
+import java.util.concurrent.atomic.{ AtomicReference, AtomicLong }
 import java.util.concurrent.TimeoutException
 import scala.util.control.NonFatal
 import scala.util.Failure
@@ -38,11 +37,15 @@ extends StreamConsumer[T, Future[R]] {
   protected def whenDone(): Future[R]
 
   private[this] val semaphore = new java.util.concurrent.Semaphore(Int.MaxValue)
+  private[this] val counter = new AtomicLong
   protected final def activeCount: Int = Int.MaxValue - semaphore.availablePermits
+  protected final def totalCount: Long = counter.get
   private[this] val error = new AtomicReference[Throwable]
 
   /** Forwarded to `apply(T): Future[_]` */
-  def onNext(t: T): Unit = {
+  def onNext(t: T): Unit = if (error.get == null) {
+
+    counter.incrementAndGet()
 
     val future: Future[_] = try apply(t) catch {
       case NonFatal(th) => Future failed th
@@ -76,7 +79,7 @@ extends StreamConsumer[T, Future[R]] {
 
     if (semaphore tryAcquire Int.MaxValue) whenDone // Fast path, all futures already completed
     else error.get match {
-      case th: Throwable => Future failed th // Fail fast on error
+      case cause: Throwable => Future failed cause // Fail fast on error
       case _ =>
         val instanceName = this.toString()
         val aquired = Threads.onBlockingThread(s"Awaiting completion of $instanceName") {
@@ -102,6 +105,7 @@ extends StreamConsumer[T, Future[R]] {
   protected class AsyncStreamConsumerBean
   extends AsyncStreamConsumer.AsyncStreamConsumerMXBean {
     def getActiveCount: Int = AsyncStreamConsumer.this.activeCount
+    def getTotalCount: Long = AsyncStreamConsumer.this.totalCount
   }
 
   private[this] val jmxRegistration: Option[JMX.Registration] =
@@ -113,6 +117,7 @@ object AsyncStreamConsumer {
 
   private[concurrent] trait AsyncStreamConsumerMXBean {
     def getActiveCount: Int
+    def getTotalCount: Long
   }
 
 }
