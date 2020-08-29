@@ -38,8 +38,12 @@ with StreamConsumer[T, Future[R]] {
 
   private[this] val semaphore = new java.util.concurrent.Semaphore(Int.MaxValue)
   private[this] val counter = new AtomicLong
-  protected final def activeCount: Int = Int.MaxValue - semaphore.availablePermits
-  protected final def totalCount: Long = counter.get
+  protected def activeCount: Int = semaphore.availablePermits match {
+    case Int.MaxValue => 0 // All finished
+    case availablePermits => availablePermits
+  }
+
+  protected def totalCount: Long = counter.get
   private[this] val error = new AtomicReference[Throwable]
 
   /** Forwarded to `apply(T): Future[_]` */

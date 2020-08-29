@@ -9,6 +9,12 @@ import scala.util.Try
 import scala.util.Failure
 import scala.concurrent.ExecutionContext
 
+object TestStreamConsumer {
+  def main(args: Array[String]): Unit = {
+    new TestStreamConsumer().`async, onstack failure in apply`()
+  }
+}
+
 class TestStreamConsumer {
 
   implicit def ec = RandomDelayExecutionContext
@@ -82,6 +88,9 @@ class TestStreamConsumer {
   def `async, success`(): Unit = {
     object Average extends AsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
 
+      override def activeCount = super.activeCount
+      override def totalCount = super.totalCount
+
       protected def executionContext = ExecutionContext.global
 
       private val sum = new AtomicInteger
@@ -94,7 +103,11 @@ class TestStreamConsumer {
       val completionTimeout = 5.seconds
       protected def whenDone(): Future[Int] = Future fromTry Try(sum.get / count.get)
     }
+    assertEquals(0, Average.activeCount)
+    assertEquals(0, Average.totalCount)
+
     (0 to 100).foreach(Average.onNext)
+    assertEquals(101, Average.totalCount)
     val result = Average.onDone().await
     assertEquals(50, result)
   }
@@ -117,15 +130,21 @@ class TestStreamConsumer {
   @Test
   def `async, onstack failure in apply`(): Unit = {
     object Average extends AsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
+      override def totalCount: Long = super.totalCount
       protected def executionContext = ExecutionContext.global
       def apply(i: Int) = throw new IllegalArgumentException(s"Invalid number: $i")
       val completionTimeout = 5.seconds
       protected def whenDone(): Future[Int] = Future successful 42
     }
-    (0 to 100).foreach(Average.onNext)
+    (0 to 100).foreach { n =>
+      Average onNext n
+    }
+    assertEquals(1, Average.totalCount)
     Try(Average.onDone().await) match {
-      case Failure(e: IllegalArgumentException) => assertTrue(e.getMessage contains "Invalid number:")
-      case other => fail(s"Should have failed on IllegalArgumentException, was $other")
+      case Failure(e: IllegalArgumentException) =>
+        assertTrue(e.getMessage startsWith "Invalid number:")
+      case other =>
+        fail(s"Should have failed on IllegalArgumentException, was $other")
     }
   }
 
