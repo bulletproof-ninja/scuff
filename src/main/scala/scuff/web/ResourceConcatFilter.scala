@@ -50,7 +50,8 @@ abstract class ResourceConcatFilter extends Filter {
   /** Include resource name as comment. */
   protected def asComment(resource: String): Option[String]
   /** Print comment. */
-  protected def printComment(comment: String, res: HttpServletResponse) = res.getOutputStream().println(comment)
+  protected def printComment(comment: String, res: HttpServletResponse) =
+    res.getOutputStream().println(comment)
 
   /**
    * Max age, in seconds, for concatenated resources.
