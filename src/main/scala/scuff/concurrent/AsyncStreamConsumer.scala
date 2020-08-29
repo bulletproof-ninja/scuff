@@ -54,19 +54,20 @@ with StreamConsumer[T, Future[R]] {
     if (future.isCompleted) {
       future.failed.value.flatMap(_.toOption).foreach(onError)
     } else {
-      semaphore.tryAcquire()
-      future.onComplete {
+      if (semaphore.tryAcquire()) future.onComplete {
         case Failure(th) =>
-          onError(th)
           semaphore.release
+          onError(th)
         case _ => // Success
           semaphore.release
-      }
+      } else throw new IllegalStateException(
+        s"Cannot process $t after `onDone()` has been called")
     }
 
   }
 
-  def onError(th: Throwable): Unit = error.compareAndSet(null, th)
+  def onError(th: Throwable): Unit =
+    error.compareAndSet(null, th)
 
   def onDone(): Future[R] = {
 
