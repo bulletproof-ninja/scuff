@@ -17,8 +17,8 @@ import scala.util.Failure
  * @tparam R The final stream result
  */
 trait AsyncStreamConsumer[-T, +R]
-extends StreamConsumer[T, Future[R]] {
-  self: (T => Future[_]) =>
+extends (T => Future[_])
+with StreamConsumer[T, Future[R]] {
 
   /**
    * Max. allowed processing time to completion of
