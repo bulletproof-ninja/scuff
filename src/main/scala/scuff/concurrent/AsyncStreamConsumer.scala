@@ -52,7 +52,7 @@ extends StreamConsumer[T, Future[R]] {
     }
 
     if (future.isCompleted) {
-      future.failed.foreach(onError)
+      future.failed.value.flatMap(_.toOption).foreach(onError)
     } else {
       semaphore.tryAcquire()
       future.onComplete {
