@@ -30,7 +30,7 @@ class TestFutures {
     }
     val yes = future2.await(20.millis, caught)
     assertEquals("Oh yeah", yes)
-    Thread sleep 201
+    Thread sleep 300
     exception match {
       case None => fail("Should have exception")
       case Some(e) => assertEquals("Oh noes", e.getMessage)
