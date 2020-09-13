@@ -38,9 +38,9 @@ with StreamConsumer[T, Future[R]] {
 
   private[this] val semaphore = new java.util.concurrent.Semaphore(Int.MaxValue)
   private[this] val counter = new AtomicLong
-  protected def activeCount: Int = semaphore.availablePermits match {
+  protected def activeCount: Int = (Int.MaxValue - semaphore.availablePermits) match {
     case Int.MaxValue => 0 // All finished
-    case availablePermits => availablePermits
+    case active => active
   }
 
   protected def totalCount: Long = counter.get
