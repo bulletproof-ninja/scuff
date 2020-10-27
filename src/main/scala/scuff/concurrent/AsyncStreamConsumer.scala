@@ -92,7 +92,7 @@ with StreamConsumer[T, Future[R]] {
           if (!semaphore.tryAcquire(Int.MaxValue, timeout.length, timeout.unit)) {
             val stillActive = this.activeCount
             if (stillActive > 0) throw new TimeoutException(
-              s"$instanceName stream consumption still has $stillActive active Futures, $timeout after stream completion. Timeout is either too small or stream possibly incomplete.")
+              s"$instanceName stream consumption still has $stillActive active Future(s), $timeout after stream completion. Timeout is too short or stream possibly incomplete.")
           }
         }
 
