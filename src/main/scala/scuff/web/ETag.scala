@@ -13,15 +13,19 @@ case class ETag(value: String)(val weak: Boolean) {
 
 object ETag {
 
+  val Asterisk = ETag("*")(false)
+
   private final val ETagsExtractor = """
-  ([wW]\/)?"([^"]+)"
+    ([Ww]\/)?"([^ "]*)"|\*
   """.trim.r
 
   def parse(fromHeader: String): List[ETag] = {
     ETagsExtractor.findAllMatchIn(fromHeader).map { m =>
-      val weak = m.group(1) ne null
-      val value = m.group(2)
-      new ETag(value)(weak)
+      if ((m group 0) == "*") Asterisk else {
+        val weak = m.group(1) ne null
+        val value = m.group(2)
+        new ETag(value)(weak)
+      }
     }.toList
   }
 

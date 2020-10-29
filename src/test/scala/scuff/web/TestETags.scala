@@ -39,6 +39,18 @@ class TestETags {
         assertTrue(etag.weak)
     }
 
+    ETag.parse("*").head match {
+      case etag @ ETag(value) =>
+        assertEquals("*", value)
+        assertFalse(etag.weak)
+    }
+
+    ETag.parse("\"\"").head match {
+      case etag @ ETag(value) =>
+        assertEquals("", value)
+        assertFalse(etag.weak)
+    }
+
   }
 
 }
