@@ -119,7 +119,7 @@ object Props {
   def resource(cls: Class[_]): Props = resource(cls, null)
   def resource(cls: Class[_], fallback: Props): Props = {
     val resourceName = "/" + cls.getName.replace('.', '/') + ".properties"
-    val inp = cls.getResourceAsStream(resourceName).ensuring(_ != null, s"Classpath resource not found: $resourceName")
+    val inp = cls.getResourceAsStream(resourceName).require(_ != null, s"Classpath resource not found: $resourceName")
     apply(s"$resourceName property", inp, fallback)
   }
 }

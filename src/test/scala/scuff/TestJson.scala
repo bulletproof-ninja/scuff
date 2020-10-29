@@ -17,7 +17,7 @@ class TestJson {
         case null => NameTransformer decode getClass.getEnclosingMethod.getName
         case file => file
       }
-      val inp = getClass.getResourceAsStream(s"$path/$filename.json").ensuring(_ != null)
+      val inp = getClass.getResourceAsStream(s"$path/$filename.json").require(_ != null)
       Source.fromInputStream(inp, "UTF-8").mkString
     }
     def parse = JsVal parse json

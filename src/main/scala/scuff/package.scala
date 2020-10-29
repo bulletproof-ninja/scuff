@@ -13,6 +13,11 @@ package object scuff {
   type TimedCache[K, V] = Cache[K, V] with Expiry[K, V]
   type Serializer[T] = Codec[T, Array[Byte]]
 
+  implicit final class Require[A](private val a: A) extends AnyVal {
+    def require(cond: A => Boolean): A = { Predef.require(cond(a)); a }
+    def require(cond: A => Boolean, msg: => Any): A = { Predef.require(cond(a), msg); a }
+  }
+
   implicit class ScuffOption[E](private val opt: Option[E]) extends AnyVal {
     def collectAs[S <: E: ClassTag]: Option[S] = opt.collect { case s: S => s }
     def collectOrElse[S <: E: ClassTag](orElse: => S): S = collectAs[S] getOrElse orElse
