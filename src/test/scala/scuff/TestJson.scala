@@ -1,10 +1,17 @@
 package scuff
 
 import org.junit._, Assert._
+
 import scala.reflect.NameTransformer
+import scala.util.Random
 import scala.io.Source
+
 import json._
-import java.time.LocalDate
+
+import java.time._
+
+import java.util.UUID
+
 
 class TestJson {
 
@@ -541,4 +548,32 @@ s"""{
       assertTrue(dbl <= Short.MaxValue + 1)
     }
   }
+
+  @Test
+  def javaTime() = {
+    case class Foo(date: LocalDate, dateTime: OffsetDateTime, instant: Instant)
+    val now = Instant.now()
+    val today = LocalDate from now.atOffset(ZoneOffset.UTC)
+    val timestamp = OffsetDateTime from now.atOffset(ZoneOffset.UTC)
+    val json = JsVal(Foo(today, timestamp, now)).toJson
+    val ast = JsVal.parse(json).asObj
+    val foo = Foo(
+      LocalDate parse ast.date.asStr,
+      OffsetDateTime parse ast.dateTime.asStr,
+      Instant parse ast.instant.asStr)
+    assertEquals(today, foo.date)
+  }
+
+  @Test
+  def uuid() = {
+    case class Foo(rando: UUID = UUID.randomUUID(), reallyRando: UUID = new UUID(Random.nextLong(), Random.nextLong()))
+    val foo = Foo()
+    val json = JsVal(foo).toJson
+    val ast = (JsVal parse json).asObj
+    val foo2 = Foo(
+      UUID fromString ast.rando.asStr,
+      UUID fromString ast.reallyRando.asStr)
+    assertEquals(foo, foo2)
+  }
+
 }

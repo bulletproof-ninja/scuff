@@ -10,6 +10,9 @@ import java.beans.Introspector
 import java.math.{ BigInteger => JBigInt, BigDecimal => JBigDec }
 
 import language.dynamics
+import java.util.UUID
+import java.time.temporal.Temporal
+import scuff.EmailAddress
 
 sealed abstract class JsVal {
   final def getOrElse[JS <: JsVal: ClassTag](orElse: => JS): JS =
@@ -282,13 +285,18 @@ object JsVal {
       }.toMap
     }
     case i: java.lang.Iterable[_] => JsArr(i.iterator.asScala.map(JsVal(_, mapper)).toSeq: _*)
-    case ref: AnyRef => JsObj(intoMap(ref, mapper))
-    case other => JsStr(String valueOf other)
+    case asString @ (_: UUID | _: Temporal | _: EmailAddress) => JsStr(asString.toString)
+    case other =>
+      val methods = other match {
+        case _: AnyRef => getters.get(other.getClass)
+        case _ => Nil
+      }
+      if (methods.isEmpty) JsStr(other.toString)
+      else JsObj(intoMap(other.asInstanceOf[AnyRef], methods, mapper))
   }
-  private def intoMap(cc: AnyRef, mapper: PartialFunction[Any, Any]): Map[String, JsVal] = {
-    val methods = getters.get(cc.getClass)
+  private def intoMap(target: AnyRef, methods: List[MethodDef], mapper: PartialFunction[Any, Any]): Map[String, JsVal] = {
     methods.foldLeft(Map.empty[String, JsVal]) {
-      case (map, method) => JsVal(method invoke cc, mapper) match {
+      case (map, method) => JsVal(method invoke target, mapper) match {
         case JsNull => map
         case value => map.updated(method.propName, value)
       }
@@ -309,11 +317,12 @@ object JsVal {
     }
   }
   private[this] val getters = new ClassValue[List[MethodDef]] {
-    private[this] val excludeClasses = List(classOf[Object], classOf[Product])
-    private[this] lazy val excludeMethods = excludeClasses.flatMap(this.get).toSet
+    private[this] val excludedClasses = classOf[Object] :: classOf[Product] :: Nil
+    private[this] lazy val excludeMethods = excludedClasses.flatMap(this.get).toSet
 
     def computeValue(cls: Class[_]) = {
-      val beanMethods: Set[MethodDef] = if (excludeClasses contains cls) Set.empty
+      val isExcludedClass = excludedClasses contains cls
+      val beanMethods: Set[MethodDef] = if (isExcludedClass) Set.empty
       else {
         Introspector.getBeanInfo(cls)
           .getPropertyDescriptors
@@ -323,14 +332,18 @@ object JsVal {
           }.filterNot(excludeMethods).toSet
       }
 
-      val methods = cls.getMethods
-        .filter(_.getParameterCount == 0)
-        .filter(_.getReturnType != Void.TYPE)
-        .filterNot(_.getName contains "$")
-        .filterNot(m => Modifier isStatic m.getModifiers)
-        .map(new MethodDef(_)).filterNot(beanMethods) ++ beanMethods
-      if (excludeClasses contains cls) methods.toList // Methods from excluded classes themselves
-      else methods.filterNot(excludeMethods).toList // Exclude methods from excluded classes
+      val isBeanOrCC = beanMethods.nonEmpty || cls.getInterfaces.contains(classOf[Product])
+
+      if (isBeanOrCC || isExcludedClass) {
+        val methods = cls.getMethods
+          .filter(_.getParameterCount == 0)
+          .filter(_.getReturnType != Void.TYPE)
+          .filterNot(_.getName contains "$")
+          .filterNot(m => Modifier isStatic m.getModifiers)
+          .map(new MethodDef(_)).filterNot(beanMethods) ++ beanMethods
+        if (isExcludedClass) methods.toList // Methods from excluded classes themselves
+        else methods.filterNot(excludeMethods).toList // Exclude methods from excluded classes
+      } else Nil
     }
   }
 
