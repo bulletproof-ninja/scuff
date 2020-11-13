@@ -19,7 +19,8 @@ import java.util.concurrent.atomic.AtomicInteger
   * overriding `hashCode()` will lead to arbitrary thread
   * execution, negating the purpose of this class.
   * @param singleThreadExecutors the `Executor`s used.
-  * It is essential, for this class to work, that they are single-threaded.
+  * It is essential, for this class to work as intended,
+  * that they are single-threaded.
   * @param shutdownExecutors Executors' shutdown function
   * @param failureReporter The failure reporter function
   */
@@ -130,7 +131,7 @@ final object PartitionedExecutionContext {
     for (idx <- 0 until numThreads) {
       threads(idx) = Threads.newSingleThreadExecutor(threadFactory, failureReporter)
     }
-      def shutdownAll(exes: Seq[ExecutorService]): Future[Unit] =
+      def shutdownAll(exes: Array[ExecutorService]): Future[Unit] =
         Threads.onBlockingThread(
             s"Awaiting ${threadGroup.getName} shutdown",
             tg = threadGroup) {
@@ -139,6 +140,6 @@ final object PartitionedExecutionContext {
             exe.awaitTermination(Long.MaxValue, TimeUnit.MILLISECONDS)
           }
         }
-    new PartitionedExecutionContext(threads, shutdownAll(threads), failureReporter, getHash)
+    new PartitionedExecutionContext(threads.toSeq, shutdownAll(threads), failureReporter, getHash)
   }
 }
