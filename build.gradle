@@ -21,10 +21,11 @@ ext {
 }
 
 tasks.withType(ScalaCompile) {
+    def sharedDefaults = "-feature -deprecation -explaintypes -unchecked -Xlint -language:implicitConversions,higherKinds,reflectiveCalls,existentials"
     def args = System.properties.compilerArgs ?:
         vScala == "2.13"
-            ? "-feature -deprecation -explaintypes -unchecked -Xlint -language:implicitConversions,higherKinds,reflectiveCalls,existentials -Wunused"
-            : "-feature -deprecation -explaintypes -unchecked -Xlint -language:implicitConversions,higherKinds,reflectiveCalls,existentials -Ywarn-unused"
+            ? "$sharedDefaults -Wunused"
+            : "$sharedDefaults -Ywarn-unused"
     scalaCompileOptions.additionalParameters = args.split(" ").toList()
 }
 tasks.withType(Jar) {
@@ -45,7 +46,7 @@ def tsVersion(version) {
 }
 
 wrapper {
-    gradleVersion = '6.5.1'
+    gradleVersion = '6.7'
 }
 
 allprojects {
