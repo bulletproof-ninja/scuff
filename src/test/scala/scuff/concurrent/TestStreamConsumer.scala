@@ -86,7 +86,7 @@ class TestStreamConsumer {
 
   @Test
   def `async, success`(): Unit = {
-    object Average extends AsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
+    object Average extends StrictAsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
 
       override def activeCount = super.activeCount
       override def totalCount = super.totalCount
@@ -114,7 +114,7 @@ class TestStreamConsumer {
 
   @Test
   def `async, future failure in apply`(): Unit = {
-    object Average extends AsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
+    object Average extends StrictAsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
       protected def executionContext = ExecutionContext.global
       def apply(i: Int) = Future failed new IllegalArgumentException(s"Invalid number: $i")
       val completionTimeout = 5.seconds
@@ -129,7 +129,7 @@ class TestStreamConsumer {
 
   @Test
   def `async, onstack failure in apply`(): Unit = {
-    object Average extends AsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
+    object Average extends StrictAsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
       override def totalCount: Long = super.totalCount
       protected def executionContext = ExecutionContext.global
       def apply(i: Int) = throw new IllegalArgumentException(s"Invalid number: $i")
@@ -139,7 +139,7 @@ class TestStreamConsumer {
     (0 to 100).foreach { n =>
       Average onNext n
     }
-    assertEquals(1, Average.totalCount)
+    assertEquals(101, Average.totalCount)
     Try(Average.onDone().await) match {
       case Failure(e: IllegalArgumentException) =>
         assertTrue(e.getMessage startsWith "Invalid number:")
@@ -150,7 +150,7 @@ class TestStreamConsumer {
 
   @Test
   def `async, failure in onDone`(): Unit = {
-    object Average extends AsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
+    object Average extends StrictAsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
       protected def executionContext = ExecutionContext.global
       private val sum = new AtomicInteger
       private val count = new AtomicInteger

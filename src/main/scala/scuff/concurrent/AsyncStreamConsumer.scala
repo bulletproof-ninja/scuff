@@ -146,3 +146,12 @@ object AsyncStreamConsumer {
   }
 
 }
+trait StrictAsyncStreamConsumer[-T, +R]
+extends AsyncStreamConsumer[T, R] {
+  protected def whenDone(): Future[R]
+  protected def whenDone(timedOut: Option[TimeoutException], errors: List[Throwable]): Future[R] =
+    (timedOut orElse errors.headOption) match {
+      case Some(failure) => Future failed failure
+      case None => whenDone()
+    }
+}
