@@ -30,11 +30,16 @@ with StreamConsumer[T, Future[R]] {
 
   /**
    * Produce final result, when done.
-   * Called when internal processing is fully completed,
-   * i.e. all `Future`s returned from `this.apply(T)` has
-   * completed successfully.
+   * Called when external processing is completed,
+   * and either all `Future`s returned from `this.apply(T)` has
+   * completed, or the process timed out waiting for all `Future`s
+   * to complete. In the latter case, the timeout duration will be
+   * provided.
+   * @param timedOut Optional timeout, if triggered
+   * (i.e. will be `None` if all `Future`s completed)
+   * @param errors Any errors from `apply`
    */
-  protected def whenDone(): Future[R]
+  protected def whenDone(timedOut: Option[TimeoutException], errors: List[Throwable]): Future[R]
 
   private[this] val semaphore = new java.util.concurrent.Semaphore(Int.MaxValue)
   private[this] val counter = new AtomicLong
@@ -44,10 +49,20 @@ with StreamConsumer[T, Future[R]] {
   }
 
   protected def totalCount: Long = counter.get
-  private[this] val error = new AtomicReference[Throwable]
+  protected def errorCount: Int = internalErrors.get.size
+  private[this] val externalError = new AtomicReference[Throwable]
+  private[this] val internalErrors = new AtomicReference[List[Throwable]](Nil)
+
+  @annotation.tailrec
+  private def addInternalError(th: Throwable): Unit = {
+    val list = internalErrors.get
+    if (!internalErrors.compareAndSet(list, th :: list)) {
+      addInternalError(th)
+    }
+  }
 
   /** Forwarded to `apply(T): Future[_]` */
-  def onNext(t: T): Unit = if (error.get == null) {
+  def onNext(t: T): Unit = if (externalError.get == null) {
 
     counter.incrementAndGet()
 
@@ -56,12 +71,12 @@ with StreamConsumer[T, Future[R]] {
     }
 
     if (future.isCompleted) {
-      future.failed.value.flatMap(_.toOption).foreach(onError)
+      future.failed.value.flatMap(_.toOption).foreach(addInternalError)
     } else {
       if (semaphore.tryAcquire()) future.onComplete {
         case Failure(th) =>
           semaphore.release
-          onError(th)
+          addInternalError(th)
         case _ => // Success
           semaphore.release
       } else throw new IllegalStateException(
@@ -71,33 +86,36 @@ with StreamConsumer[T, Future[R]] {
   }
 
   def onError(th: Throwable): Unit =
-    error.compareAndSet(null, th)
+    externalError.compareAndSet(null, th)
 
   def onDone(): Future[R] = {
 
-      def whenDone: Future[R] = {
-        error.get match {
-          case null => this.whenDone()
+      def whenDone(timeout: Option[TimeoutException]): Future[R] = {
+        externalError.get match {
+          case null => this.whenDone(timeout, internalErrors.get)
           case cause => Future failed cause
         }
       }
 
-    if (semaphore tryAcquire Int.MaxValue) whenDone // Fast path, all futures already completed
-    else error.get match {
-      case cause: Throwable => Future failed cause // Fail fast on error
+    if (semaphore tryAcquire Int.MaxValue) whenDone(None) // Fast path, all futures already completed
+    else externalError.get match {
+      case cause: Throwable => Future failed cause // Fail fast on external error
       case _ =>
         val instanceName = this.toString()
         val aquired = Threads.onBlockingThread(s"Awaiting completion of $instanceName") {
           val timeout = completionTimeout
-          if (!semaphore.tryAcquire(Int.MaxValue, timeout.length, timeout.unit)) {
+          if (semaphore.tryAcquire(Int.MaxValue, timeout.length, timeout.unit)) None
+          else {
             val stillActive = this.activeCount
-            if (stillActive > 0) throw new TimeoutException(
-              s"$instanceName stream consumption still has $stillActive active Future(s), $timeout after stream completion. Timeout is too short or stream possibly incomplete.")
+            if (stillActive > 0) Some {
+              new TimeoutException(
+                s"$instanceName stream consumption still has $stillActive active Future(s), $timeout after `onDone()` was invoked. Timeout is either too short OR stream is incomplete.")
+            } else None
           }
         }
 
         aquired
-          .flatMap(_ => whenDone)
+          .flatMap(whenDone)
           .andThen { case _ => jmxRegistration.foreach { _.cancel() } }
     }
 
@@ -110,6 +128,7 @@ with StreamConsumer[T, Future[R]] {
   protected class AsyncStreamConsumerBean
   extends AsyncStreamConsumer.AsyncStreamConsumerMXBean {
     def getActiveCount: Int = AsyncStreamConsumer.this.activeCount
+    def getErrorCount: Int = AsyncStreamConsumer.this.errorCount
     def getTotalCount: Long = AsyncStreamConsumer.this.totalCount
   }
 
@@ -122,6 +141,7 @@ object AsyncStreamConsumer {
 
   private[concurrent] trait AsyncStreamConsumerMXBean {
     def getActiveCount: Int
+    def getErrorCount: Int
     def getTotalCount: Long
   }
 
