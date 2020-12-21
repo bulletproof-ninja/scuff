@@ -16,7 +16,7 @@ import scala.util.Failure
  * @tparam T The stream content
  * @tparam R The final stream result
  */
-trait AsyncStreamConsumer[-T, +R]
+trait AsyncStreamConsumer[-T, R]
 extends (T => Future[_])
 with StreamConsumer[T, Future[R]] {
 
@@ -50,7 +50,7 @@ with StreamConsumer[T, Future[R]] {
 
   protected def totalCount: Long = counter.get
   protected def errorCount: Int = internalErrors.get.size
-  private[this] val externalError = new AtomicReference[Throwable]
+  protected final val promise = Promise[R]()
   private[this] val internalErrors = new AtomicReference[List[Throwable]](Nil)
 
   @annotation.tailrec
@@ -62,45 +62,40 @@ with StreamConsumer[T, Future[R]] {
   }
 
   /** Forwarded to `apply(T): Future[_]` */
-  def onNext(t: T): Unit = if (externalError.get == null) {
+  def onNext(t: T): Unit =
+    if (promise.isCompleted) throw new IllegalStateException("Consumption completed")
+    else {
 
-    counter.incrementAndGet()
+      counter.incrementAndGet()
 
-    val future: Future[_] = try apply(t) catch {
-      case NonFatal(th) => Future failed th
+      val future: Future[_] = try apply(t) catch {
+        case NonFatal(th) => Future failed th
+      }
+
+      if (future.isCompleted) {
+        future.failed.value.flatMap(_.toOption).foreach(addInternalError)
+      } else {
+        if (semaphore.tryAcquire()) future.onComplete {
+          case Failure(th) =>
+            semaphore.release
+            addInternalError(th)
+          case _ => // Success
+            semaphore.release
+        } else throw new IllegalStateException(
+          s"Cannot process $t after stream has completed.")
+      }
+
     }
-
-    if (future.isCompleted) {
-      future.failed.value.flatMap(_.toOption).foreach(addInternalError)
-    } else {
-      if (semaphore.tryAcquire()) future.onComplete {
-        case Failure(th) =>
-          semaphore.release
-          addInternalError(th)
-        case _ => // Success
-          semaphore.release
-      } else throw new IllegalStateException(
-        s"Cannot process $t after `onDone()` has been called")
-    }
-
-  }
 
   def onError(th: Throwable): Unit =
-    externalError.compareAndSet(null, th)
+    promise failure th
 
   def onDone(): Future[R] = {
 
-      def whenDone(timeout: Option[TimeoutException]): Future[R] = {
-        externalError.get match {
-          case null => this.whenDone(timeout, internalErrors.get)
-          case cause => Future failed cause
-        }
-      }
-
-    if (semaphore tryAcquire Int.MaxValue) whenDone(None) // Fast path, all futures already completed
-    else externalError.get match {
-      case cause: Throwable => Future failed cause // Fail fast on external error
-      case _ =>
+    if (!promise.isCompleted) promise.completeWith {
+      if (semaphore tryAcquire Int.MaxValue) {
+        whenDone(None, internalErrors.get)
+      } else {
         val instanceName = this.toString()
         val aquired = Threads.onBlockingThread(s"Awaiting completion of $instanceName") {
           val timeout = completionTimeout
@@ -115,10 +110,13 @@ with StreamConsumer[T, Future[R]] {
         }
 
         aquired
-          .flatMap(whenDone)
+          .flatMap(whenDone(_, internalErrors.get))
           .andThen { case _ => jmxRegistration.foreach { _.cancel() } }
+
+      }
     }
 
+    promise.future
   }
 
   override def toString() = s"${this.getClass.getName}@$hashCode"
@@ -146,7 +144,7 @@ object AsyncStreamConsumer {
   }
 
 }
-trait StrictAsyncStreamConsumer[-T, +R]
+trait StrictAsyncStreamConsumer[-T, R]
 extends AsyncStreamConsumer[T, R] {
   protected def whenDone(): Future[R]
   protected def whenDone(timedOut: Option[TimeoutException], errors: List[Throwable]): Future[R] =

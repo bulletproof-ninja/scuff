@@ -8,6 +8,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.util.Try
 import scala.util.Failure
 import scala.concurrent.ExecutionContext
+import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicLong
 
 object TestStreamConsumer {
   def main(args: Array[String]): Unit = {
@@ -164,4 +166,30 @@ class TestStreamConsumer {
       case _ => fail("Should have failed on division by zero")
     }
   }
+
+  @Test
+  def `fully async`() = {
+    object Sum extends AsyncStreamConsumer[Long, Long] {
+      override def activeCount: Int = super.activeCount
+      override def totalCount: Long = super.totalCount
+      implicit protected def executionContext: ExecutionContext = RandomDelayExecutionContext
+      protected def completionTimeout: FiniteDuration = 5.seconds
+      private val sum = new AtomicLong
+      def apply(n: Long): Future[_] = Future {
+        println(s"S + $n = ${ sum addAndGet n }")
+      }
+      protected def whenDone(timedOut: Option[TimeoutException], errors: List[Throwable]): Future[Long] = {
+        assertEquals(None, timedOut)
+        assertEquals(Nil, errors)
+        Future successful sum.get
+      }
+    }
+    (1L to 100L).foreach(Sum.onNext)
+    assertEquals(100L, Sum.totalCount)
+    val sum = Sum.onDone().await
+    assertEquals(0, Sum.activeCount)
+    assertEquals(5050, sum)
+  }
+
+
 }
