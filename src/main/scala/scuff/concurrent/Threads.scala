@@ -169,13 +169,13 @@ object Threads {
       else abortPolicy.rejectedExecution(r, exe)
     }
 
-
   }
 
   private def rootThreadGroup(group: ThreadGroup): ThreadGroup = {
     if (group.getParent == null) group
     else rootThreadGroup(group.getParent)
   }
+
   def newThreadGroup(
       name: String,
       daemon: Boolean,

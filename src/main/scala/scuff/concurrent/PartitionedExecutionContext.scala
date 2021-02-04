@@ -1,14 +1,10 @@
 package scuff.concurrent
 
-import java.util.concurrent.{ Executor, ExecutorService, TimeUnit }
-
-import scala.concurrent.{ ExecutionContextExecutor, Future }
-import scala.math.abs
-import scala.concurrent.ExecutionContext
+import java.util.concurrent.{ Future => _, _ }
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.BlockingQueue
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.Semaphore
+
+import scala.concurrent._
+import scala.math.abs
 
 /**
   * `ExecutionContext`, which serializes execution of `Runnable`
@@ -88,6 +84,16 @@ final object PartitionedExecutionContext {
       Threads.newThreadGroup(s"$Name-${Counter.getAndIncrement}", false, failureReporter)
   }
 
+  def apply(
+      numThreads: Int,
+      blockingQueueCapacity: Int,
+      threadGroup: ThreadGroup)
+      : PartitionedExecutionContext =
+    this.apply(
+      numThreads, blockingQueueCapacity,
+      threadGroup,
+      Threads factory threadGroup)
+
   /**
     * @param partitionQueues The individal partition queues.
     * This will equal the number of threads used for parallelism
@@ -97,9 +103,24 @@ final object PartitionedExecutionContext {
   def apply(
       partitionQueues: Seq[BlockingQueue[Runnable]],
       failureReporter: Throwable => Unit,
-      threadFactory: java.util.concurrent.ThreadFactory): PartitionedExecutionContext = {
+      threadFactory: ThreadFactory): PartitionedExecutionContext = {
     val tg = newThreadGroup(failureReporter)
     this(partitionQueues, tg, threadFactory, _.hashCode)
+  }
+
+  /**
+    * @param numThreads Number of threads
+    * @param blockingQueueCapacity The virtual queue capacity, before blocking on `execute`
+    * @param failureReporter Sink for exceptions
+    * @param threadFactory The thread factory used to create the threads
+    */
+  def apply(
+      numThreads: Int,
+      blockingQueueCapacity: Int,
+      failureReporter: Throwable => Unit,
+      threadFactory: ThreadFactory): PartitionedExecutionContext = {
+    val tg = newThreadGroup(failureReporter)
+    this(numThreads, blockingQueueCapacity, tg, threadFactory, _.hashCode)
   }
 
   /**
@@ -115,19 +136,30 @@ final object PartitionedExecutionContext {
     val tg = newThreadGroup(failureReporter)
     this.apply(partitionQueues, tg, Threads.factory(tg), getHash)
   }
+
   /**
     * @param numThreads Number of threads
-    * @param blockingQueueCapacity The virtual queue capacity, before blocking on `execute`
-    * @param threadGroup Sink for exceptions
-    * @param threadFactory The thread factory used to create the threads
+    * @param failureReporter Sink for exceptions
     */
   def apply(
       numThreads: Int,
       failureReporter: Throwable => Unit)
+      : PartitionedExecutionContext =
+    this.apply(numThreads, Int.MaxValue, failureReporter)
+
+  /**
+    * @param numThreads Number of threads
+    * @param blockingQueueCapacity The virtual queue capacity, before blocking on `execute`
+    * @param failureReporter Sink for exceptions
+    */
+  def apply(
+      numThreads: Int,
+      blockingQueueCapacity: Int,
+      failureReporter: Throwable => Unit)
       : PartitionedExecutionContext = {
     val tg = newThreadGroup(failureReporter)
     val queues = Seq.fill(numThreads)(new LinkedBlockingQueue[Runnable])
-    this(queues, tg, Threads.factory(tg))
+    this.apply(queues, blockingQueueCapacity, tg, Threads.factory(tg), _.hashCode)
   }
 
   /**
@@ -140,7 +172,7 @@ final object PartitionedExecutionContext {
       numThreads: Int,
       blockingQueueCapacity: Int,
       threadGroup: ThreadGroup,
-      threadFactory: java.util.concurrent.ThreadFactory)
+      threadFactory: ThreadFactory)
       : PartitionedExecutionContext =
     this.apply(
       Seq.fill(numThreads)(new LinkedBlockingQueue[Runnable]),
@@ -156,7 +188,7 @@ final object PartitionedExecutionContext {
   def apply(
       numThreads: Int,
       threadGroup: ThreadGroup,
-      threadFactory: java.util.concurrent.ThreadFactory)
+      threadFactory: ThreadFactory)
       : PartitionedExecutionContext =
     this.apply(
       Seq.fill(numThreads)(new LinkedBlockingQueue[Runnable]),
@@ -173,7 +205,7 @@ final object PartitionedExecutionContext {
   def apply(
       partitionQueues: Seq[BlockingQueue[Runnable]],
       threadGroup: ThreadGroup,
-      threadFactory: java.util.concurrent.ThreadFactory)
+      threadFactory: ThreadFactory)
       : PartitionedExecutionContext =
     this.apply(partitionQueues, threadGroup, threadFactory, _.hashCode)
 
@@ -188,7 +220,7 @@ final object PartitionedExecutionContext {
       numThreads: Int,
       blockingQueueCapacity: Int,
       threadGroup: ThreadGroup,
-      threadFactory: java.util.concurrent.ThreadFactory,
+      threadFactory: ThreadFactory,
       getHash: Runnable => Int)
       : PartitionedExecutionContext =
     this.apply(
@@ -207,7 +239,7 @@ final object PartitionedExecutionContext {
   def apply(
       partitionQueues: Seq[BlockingQueue[Runnable]],
       threadGroup: ThreadGroup,
-      threadFactory: java.util.concurrent.ThreadFactory,
+      threadFactory: ThreadFactory,
       getHash: Runnable => Int)
       : PartitionedExecutionContext =
     this.apply(
@@ -247,7 +279,7 @@ final object PartitionedExecutionContext {
       partitionQueues: Seq[BlockingQueue[Runnable]],
       aggregateQueueCapacity: Int,
       threadGroup: ThreadGroup,
-      threadFactory: java.util.concurrent.ThreadFactory,
+      threadFactory: ThreadFactory,
       getHash: Runnable => Int)
       : PartitionedExecutionContext = {
 
@@ -259,8 +291,7 @@ final object PartitionedExecutionContext {
     val queues = partitionQueues.toArray
     val numThreads = queues.length
     val threads = new Array[ExecutorService](numThreads)
-    val failureReporter = (th: Throwable) =>
-      threadGroup.uncaughtException(Thread.currentThread, th)
+    val failureReporter = threadGroup.uncaughtException(Thread.currentThread, _)
     for (idx <- 0 until numThreads) {
       threads(idx) = Threads.newSingleThreadExecutor(threadFactory, failureReporter, queues(idx))
     }
