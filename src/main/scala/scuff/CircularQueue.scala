@@ -6,7 +6,7 @@ import java.util.ArrayDeque
   * Simple bounded circular queue that
   * replaces the oldest entry with the newest
   * when capacity is reached.
-  * NOTE: This implementation is NOT thread-safe
+  * @note This implementation is ''NOT'' thread-safe
   * if used concurrently.
   */
 final class CircularQueue[T](capacity: Int) {
