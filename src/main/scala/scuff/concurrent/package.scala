@@ -20,12 +20,23 @@ package object concurrent {
     }
   }
   implicit class ScuffExecutor(private val ec: { def execute(run: Runnable): Unit }) extends AnyVal {
-    def execute(thunk: => Unit): Unit = ec execute new Runnable {
+
+    @inline private def execute(r: Runnable): Unit =
+      ec match {
+        case ec: ExecutionContext =>
+          ec execute r
+        case exe: Executor =>
+          exe execute r
+        case _ =>
+          ec execute r
+      }
+
+    def execute(thunk: => Unit): Unit = this execute new Runnable {
       def run = thunk
     }
     def submit(runnable: Runnable): Future[Unit] = {
       val promise = Promise[Unit]()
-      ec execute new Runnable {
+      this execute new Runnable {
         def run = promise complete Try(runnable.run)
         override def hashCode = runnable.hashCode
       }
@@ -33,7 +44,7 @@ package object concurrent {
     }
     def submit[T](callable: Callable[T]): Future[T] = {
       val promise = Promise[T]()
-      ec execute new Runnable {
+      this execute new Runnable {
         def run = promise complete Try(callable.call)
         override def hashCode = callable.hashCode
       }
@@ -41,7 +52,7 @@ package object concurrent {
     }
     def submit[T](thunk: => T): Future[T] = {
       val promise = Promise[T]()
-      ec execute new Runnable {
+      this execute new Runnable {
         def run = promise complete Try(thunk)
       }
       promise.future
