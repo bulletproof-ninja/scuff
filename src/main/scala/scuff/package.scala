@@ -225,4 +225,18 @@ package object scuff {
     def max(thatEnum: E): E = if (this.enum.ordinal >= thatEnum.ordinal) this.enum else thatEnum
   }
 
+  private[this] val ReturnNone = () => None
+  private[this] val ReturnNil = () => Nil
+  private[this] val ReturnUnit = () => ()
+  private[this] val ReturnTrue = () => true
+  private[this] val ReturnFalse = () => false
+
+  implicit final class ScuffFunctionObject(private val f: Function.type) extends AnyVal {
+    def none: () => None.type = ReturnNone
+    def nil: () => Nil.type = ReturnNil
+    def unit: () => Unit = ReturnUnit
+    def True: () => Boolean = ReturnTrue
+    def False: () => Boolean = ReturnFalse
+  }
+
 }

@@ -6,6 +6,9 @@ import scala.concurrent.{ ExecutionContextExecutor, Future }
 import scala.math.abs
 import scala.concurrent.ExecutionContext
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.BlockingQueue
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.Semaphore
 
 /**
   * `ExecutionContext`, which serializes execution of `Runnable`
@@ -25,17 +28,26 @@ import java.util.concurrent.atomic.AtomicInteger
   * @param failureReporter The failure reporter function
   */
 final class PartitionedExecutionContext(
-    singleThreadExecutors: Seq[Executor],
-    shutdownExecutors: => Future[Unit],
-    failureReporter: Throwable => Unit,
-    getHash: Runnable => Int = _.hashCode)
-  extends ExecutionContextExecutor {
+  singleThreadExecutors: Seq[Executor],
+  shutdownExecutors: => Future[Unit],
+  failureReporter: Throwable => Unit,
+  getHash: Runnable => Int = _.hashCode,
+  aggregateQueueCapacity: Int = Int.MaxValue)
+extends ExecutionContextExecutor {
 
   require(singleThreadExecutors.size > 0, "Must have at least one thread")
 
-  private[this] val threads = singleThreadExecutors.toArray.map {
-    case ec: ExecutionContext => ec
-    case exe: Executor => ExecutionContext.fromExecutor(exe, failureReporter)
+  private[this] val threads = {
+    val threads = singleThreadExecutors.toArray.map {
+      case ec: ExecutionContext => ec
+      case exe: Executor => ExecutionContext.fromExecutor(exe, failureReporter)
+    }
+    if (aggregateQueueCapacity == Int.MaxValue || aggregateQueueCapacity <= 0) threads
+    else {
+      val semaphore = new Semaphore(aggregateQueueCapacity)
+      threads.map(new BlockingExecutionContext(semaphore, _))
+    }
+
   }
 
   def singleThread(hash: Int): ExecutionContext with Executor = executorByHash(hash)
@@ -77,33 +89,67 @@ final object PartitionedExecutionContext {
   }
 
   /**
-    * @param numThreads Number of threads used for parallelism
+    * @param partitionQueues The individal partition queues.
+    * This will equal the number of threads used for parallelism
     * @param failureReporter Sink for exceptions
     * @param threadFactory The thread factory used to create the threads
     */
   def apply(
-      numThreads: Int,
+      partitionQueues: Seq[BlockingQueue[Runnable]],
       failureReporter: Throwable => Unit,
       threadFactory: java.util.concurrent.ThreadFactory): PartitionedExecutionContext = {
     val tg = newThreadGroup(failureReporter)
-    this(numThreads, tg, threadFactory, _.hashCode)
+    this(partitionQueues, tg, threadFactory, _.hashCode)
   }
 
   /**
-    * @param numThreads Number of threads used for parallelism
+    * @param partitionQueues The individal partition queues.
+    * This will equal the number of threads used for parallelism
     * @param failureReporter Sink for exceptions
     * @param getHash Function for deriving hash from `Runnable`
     */
   def apply(
-      numThreads: Int,
+      partitionQueues: Seq[BlockingQueue[Runnable]],
       failureReporter: Throwable => Unit,
       getHash: Runnable => Int = _.hashCode): PartitionedExecutionContext = {
     val tg = newThreadGroup(failureReporter)
-    this(numThreads, tg, Threads.factory(tg), getHash)
+    this.apply(partitionQueues, tg, Threads.factory(tg), getHash)
+  }
+  /**
+    * @param numThreads Number of threads
+    * @param blockingQueueCapacity The virtual queue capacity, before blocking on `execute`
+    * @param threadGroup Sink for exceptions
+    * @param threadFactory The thread factory used to create the threads
+    */
+  def apply(
+      numThreads: Int,
+      failureReporter: Throwable => Unit)
+      : PartitionedExecutionContext = {
+    val tg = newThreadGroup(failureReporter)
+    val queues = Seq.fill(numThreads)(new LinkedBlockingQueue[Runnable])
+    this(queues, tg, Threads.factory(tg))
   }
 
   /**
-    * @param numThreads Number of threads used for parallelism
+    * @param numThreads Number of threads
+    * @param blockingQueueCapacity The virtual queue capacity, before blocking on `execute`
+    * @param threadGroup Sink for exceptions
+    * @param threadFactory The thread factory used to create the threads
+    */
+  def apply(
+      numThreads: Int,
+      blockingQueueCapacity: Int,
+      threadGroup: ThreadGroup,
+      threadFactory: java.util.concurrent.ThreadFactory)
+      : PartitionedExecutionContext =
+    this.apply(
+      Seq.fill(numThreads)(new LinkedBlockingQueue[Runnable]),
+      blockingQueueCapacity,
+      threadGroup, threadFactory,
+      _.hashCode)
+
+  /**
+    * @param numThreads Number of threads
     * @param threadGroup Sink for exceptions
     * @param threadFactory The thread factory used to create the threads
     */
@@ -112,34 +158,121 @@ final object PartitionedExecutionContext {
       threadGroup: ThreadGroup,
       threadFactory: java.util.concurrent.ThreadFactory)
       : PartitionedExecutionContext =
-    this.apply(numThreads, threadGroup, threadFactory, _.hashCode)
+    this.apply(
+      Seq.fill(numThreads)(new LinkedBlockingQueue[Runnable]),
+      Int.MaxValue,
+      threadGroup, threadFactory,
+      _.hashCode)
 
   /**
-    * @param numThreads Number of threads used for parallelism
+    * @param partitionQueues The individal partition queues.
+    * This will equal the number of threads used for parallelism
+    * @param threadGroup Sink for exceptions
+    * @param threadFactory The thread factory used to create the threads
+    */
+  def apply(
+      partitionQueues: Seq[BlockingQueue[Runnable]],
+      threadGroup: ThreadGroup,
+      threadFactory: java.util.concurrent.ThreadFactory)
+      : PartitionedExecutionContext =
+    this.apply(partitionQueues, threadGroup, threadFactory, _.hashCode)
+
+  /**
+    * @param numThreads Number of threads
+    * @param blockingQueueCapacity The virtual queue capacity, before blocking on `execute`
     * @param threadGroup Sink for exceptions
     * @param threadFactory The thread factory used to create the threads
     * @param getHash Function for deriving hash from `Runnable`
     */
   def apply(
       numThreads: Int,
+      blockingQueueCapacity: Int,
       threadGroup: ThreadGroup,
       threadFactory: java.util.concurrent.ThreadFactory,
-      getHash: Runnable => Int): PartitionedExecutionContext = {
+      getHash: Runnable => Int)
+      : PartitionedExecutionContext =
+    this.apply(
+      Seq.fill(numThreads)(new LinkedBlockingQueue[Runnable]),
+      blockingQueueCapacity,
+      threadGroup, threadFactory,
+      getHash)
+
+  /**
+    * @param partitionQueues The individal partition queues.
+    * This will equal the number of threads used for parallelism
+    * @param threadGroup Sink for exceptions
+    * @param threadFactory The thread factory used to create the threads
+    * @param getHash Function for deriving hash from `Runnable`
+    */
+  def apply(
+      partitionQueues: Seq[BlockingQueue[Runnable]],
+      threadGroup: ThreadGroup,
+      threadFactory: java.util.concurrent.ThreadFactory,
+      getHash: Runnable => Int)
+      : PartitionedExecutionContext =
+    this.apply(
+      partitionQueues, Int.MaxValue,
+      threadGroup, threadFactory,
+      getHash)
+
+  /**
+    * @param partitionQueues The individal partition queues.
+    * This will equal the number of threads used for parallelism
+    * @param aggregateQueueCapacity The aggregated (virtual) queue capacity, before blocking on `execute`
+    * @param threadGroup Sink for exceptions
+    * @param threadFactory The thread factory used to create the threads
+    * @param getHash Function for deriving hash from `Runnable`
+    */
+  def apply(
+      partitionQueues: Seq[BlockingQueue[Runnable]],
+      aggregateQueueCapacity: Int,
+      threadGroup: ThreadGroup,
+      getHash: Runnable => Int)
+      : PartitionedExecutionContext =
+    this.apply(
+      partitionQueues, aggregateQueueCapacity,
+      threadGroup, Threads.factory(threadGroup),
+      getHash)
+
+
+  /**
+    * @param partitionQueues The individal partition queues.
+    * This will equal the number of threads used for parallelism
+    * @param aggregateQueueCapacity The aggregated (virtual) queue capacity, before blocking on `execute`
+    * @param threadGroup Sink for exceptions
+    * @param threadFactory The thread factory used to create the threads
+    * @param getHash Function for deriving hash from `Runnable`
+    */
+  def apply(
+      partitionQueues: Seq[BlockingQueue[Runnable]],
+      aggregateQueueCapacity: Int,
+      threadGroup: ThreadGroup,
+      threadFactory: java.util.concurrent.ThreadFactory,
+      getHash: Runnable => Int)
+      : PartitionedExecutionContext = {
+
+    if (aggregateQueueCapacity != Int.MaxValue && aggregateQueueCapacity > 0) {
+      require(
+        partitionQueues.forall(_.remainingCapacity >= aggregateQueueCapacity)
+      , s"Not all queues have capacity to match the aggregate queue capacity of $aggregateQueueCapacity")
+    }
+    val queues = partitionQueues.toArray
+    val numThreads = queues.length
     val threads = new Array[ExecutorService](numThreads)
     val failureReporter = (th: Throwable) =>
       threadGroup.uncaughtException(Thread.currentThread, th)
     for (idx <- 0 until numThreads) {
-      threads(idx) = Threads.newSingleThreadExecutor(threadFactory, failureReporter)
+      threads(idx) = Threads.newSingleThreadExecutor(threadFactory, failureReporter, queues(idx))
     }
-      def shutdownAll(exes: Array[ExecutorService]): Future[Unit] =
-        Threads.onBlockingThread(
-            s"Awaiting ${threadGroup.getName} shutdown",
-            tg = threadGroup) {
-          exes.foreach(_.shutdown)
-          exes.foreach { exe =>
-            exe.awaitTermination(Long.MaxValue, TimeUnit.MILLISECONDS)
+        def shutdownAll(exes: Array[ExecutorService]): Future[Unit] =
+          Threads.onBlockingThread(
+              s"Awaiting ${threadGroup.getName} shutdown",
+              tg = threadGroup) {
+            exes.foreach(_.shutdown)
+            exes.foreach { exe =>
+              exe.awaitTermination(Long.MaxValue, TimeUnit.MILLISECONDS)
+            }
           }
-        }
-    new PartitionedExecutionContext(threads.toSeq, shutdownAll(threads), failureReporter, getHash)
+    new PartitionedExecutionContext(threads.toSeq, shutdownAll(threads), failureReporter, getHash, aggregateQueueCapacity)
   }
 }

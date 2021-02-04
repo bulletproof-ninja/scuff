@@ -4,6 +4,7 @@ import java.util.concurrent.{ Future => _, _ }
 
 import scala.concurrent._
 import scala.util.Try
+import java.util.concurrent.ThreadPoolExecutor.AbortPolicy
 
 /**
  * Thread helper class.
@@ -138,8 +139,13 @@ object Threads {
     }
   }
 
-  def newSingleThreadExecutor(threadFactory: ThreadFactory, failureReporter: Throwable => Unit = null, queue: BlockingQueue[Runnable] = new LinkedBlockingQueue[Runnable]): ExecutionContextExecutorService = {
-    val exec = new SingleThreadExecutor(threadFactory, queue, Option(failureReporter))
+  def newSingleThreadExecutor(
+      threadFactory: ThreadFactory,
+      failureReporter: Throwable => Unit = null,
+      queue: BlockingQueue[Runnable] = new LinkedBlockingQueue[Runnable],
+      rejectionHandler: RejectedExecutionHandler = FullQueueAbortPolicy)
+      : ExecutionContextExecutorService = {
+    val exec = new SingleThreadExecutor(threadFactory, queue, Option(failureReporter), rejectionHandler)
     Runtime.getRuntime addShutdownHook new Thread {
       override def run(): Unit = {
         exec.shutdownNow()
@@ -148,19 +154,23 @@ object Threads {
     exec
   }
 
-  private final class SingleThreadExecutor(
-    threadFactory: ThreadFactory,
-    queue: BlockingQueue[Runnable],
-    failureReporter: Option[Throwable => Unit])
-      extends ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, queue, threadFactory)
-      with ExecutionContextExecutorService
-      with FailureReporting {
+  /**
+    * Custom `AbortPolicy` that throws
+    * [[scuff.concurrent.QueueFullRejection]]
+    * when rejected due to a full queue, and otherwise will throw
+    * [[scuff.concurrent.ExecutorShutdownRejection]].
+    */
+  final val FullQueueAbortPolicy = new RejectedExecutionHandler {
+    private[this] val abortPolicy = new AbortPolicy
+    def rejectedExecution(r: Runnable, exe: ThreadPoolExecutor): Unit = {
+      val queue = exe.getQueue()
+      if (exe.isShutdown) throw new ExecutorShutdownRejection(r, exe)
+      else if (queue.remainingCapacity == 0) throw new QueueFullRejection(r, exe, queue.size) // <- racy
+      else abortPolicy.rejectedExecution(r, exe)
+    }
 
-    private[this] val reportException = failureReporter getOrElse super.reportFailure _
-    override def reportFailure(th: Throwable) = reportException(th)
 
   }
-
 
   private def rootThreadGroup(group: ThreadGroup): ThreadGroup = {
     if (group.getParent == null) group
