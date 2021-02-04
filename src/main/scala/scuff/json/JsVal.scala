@@ -1,18 +1,21 @@
 package scuff.json
 
-import java.lang.reflect.Modifier
-import java.lang.reflect.Method
-
-import scala.jdk.CollectionConverters._
-import java.math.MathContext
-import scala.reflect.{ ClassTag, classTag }
 import java.beans.Introspector
-import java.math.{ BigInteger => JBigInt, BigDecimal => JBigDec }
+import java.lang.reflect.{Method, Modifier}
+import java.math.MathContext
+import java.math.{BigDecimal => JBigDec}
+import java.math.{BigInteger => JBigInt}
+import java.time.temporal.Temporal
+import java.util.UUID
+
+import scala.annotation.tailrec
+import scala.collection.compat._
+import scala.jdk.CollectionConverters._
+import scala.reflect.{ClassTag, classTag}
+
+import scuff.EmailAddress
 
 import language.dynamics
-import java.util.UUID
-import java.time.temporal.Temporal
-import scuff.EmailAddress
 
 sealed abstract class JsVal {
   final def getOrElse[JS <: JsVal: ClassTag](orElse: => JS): JS =
@@ -219,6 +222,111 @@ with Dynamic {
   def updated(name: String, value: JsVal): JsObj =
     JsObj(props.updated(name, value))
   def iterator = if (props != null) props.iterator else Iterator.empty
+
+  private[json] def compressKeysInternal(
+    dictionary: collection.concurrent.Map[Int, String],
+    dictSnapshot: Map[String, Int],
+    isConcurrent: Boolean)
+    : (Map[String, Int], JsObj) = {
+
+    @tailrec
+    def addPropToDict(prop: String): Int = {
+      val newOffset =
+        if (dictionary.isEmpty) 0
+        else dictionary.keysIterator.max + 1
+      dictionary.putIfAbsent(newOffset, prop) match {
+        case None =>
+          newOffset
+        case Some(existingProp) => // Race condition
+          if (existingProp == prop) newOffset
+          else addPropToDict(prop)
+      }
+    }
+
+    var workIndex = dictSnapshot
+
+    @tailrec
+    def indexOf(prop: String, resetWorkIndexWhenNotFound: Boolean = isConcurrent): Int = {
+      workIndex.getOrElse(prop, -1) match {
+        case -1 =>
+          if (resetWorkIndexWhenNotFound) {
+            workIndex = JsObj.invert(dictionary)
+            indexOf(prop, false)
+          } else {
+            val offset = addPropToDict(prop)
+            workIndex = JsObj.invert(dictionary)
+            offset
+          }
+        case offset => offset
+      }
+    }
+    val compressed =
+      props.foldLeft(Map.empty[String, JsVal]) {
+        case (byIndex, (prop, obj: JsObj)) =>
+          val (updIndex, compressedObj) =
+            obj.compressKeysInternal(dictionary, workIndex, isConcurrent)
+          workIndex = updIndex
+          byIndex.updated(indexOf(prop).toString, compressedObj)
+        case (byIndex, (prop, arr: JsArr)) =>
+          val (updIndex, compressedArr) =
+            arr.compressObjKeysInternal(dictionary, workIndex, isConcurrent)
+          workIndex = updIndex
+          byIndex.updated(indexOf(prop).toString, compressedArr)
+        case (byIndex, (prop, value)) =>
+          byIndex.updated(indexOf(prop).toString, value)
+      }
+
+    workIndex -> new JsObj(compressed)
+
+  }
+
+  /**
+    * Compress the keys in this object,
+    * using a dictionary.
+    * @param dictionary The dictionary used and populated during compression
+    * @param isConcurrentDictionary Flag indicating if dictionary is used concurrently.
+    * If `true`, certain steps are taken to minimize duplicate properties, but at the cost of speed.
+    * @param dictionarySnapshot Optional inverted dictionary snapshot.
+    * Can improve performance if available.
+    */
+  def compressKeys(
+      dictionary: collection.concurrent.Map[Int, String],
+      isConcurrentDictionary: Boolean = false,
+      dictionarySnapshot: Map[String, Int]= Map.empty): JsObj =
+    compressKeysInternal(
+        dictionary,
+        if (dictionarySnapshot.nonEmpty) dictionarySnapshot else JsObj.invert(dictionary),
+        isConcurrentDictionary)
+      ._2
+
+  def restoreCompressedKeys(
+      dictionary: Array[String],
+      isLenient: Boolean = true): JsObj = {
+
+    def resolve(prop: String): String =
+      try dictionary(prop.toInt) catch {
+        case _: NumberFormatException =>
+          if (isLenient) prop
+          else  throw new IllegalStateException(
+            s"""Found invalid offset value: "$prop", expected integer content. Enable leniency to use as-is.""")
+        case _: IndexOutOfBoundsException =>
+          throw new IllegalStateException(
+            s"""Invalid dictionary index value of $prop is outside dictionary size of ${dictionary.length} """)
+      }
+
+    val restored =
+      props.foldLeft(Map.empty[String, JsVal]) {
+        case (byProp, (offset, obj: JsObj)) =>
+          byProp.updated(resolve(offset), obj.restoreCompressedKeys(dictionary, isLenient))
+        case (byProp, (offset, arr: JsArr)) =>
+          byProp.updated(resolve(offset), arr.restoreCompressedObjKeys(dictionary, isLenient))
+        case (byProp, (offset, value)) =>
+          byProp.updated(resolve(offset), value)
+      }
+    new JsObj(restored)
+
+  }
+
 }
 object JsObj {
   def Empty(implicit config: JsVal.Config) = JsObj()
@@ -227,6 +335,14 @@ object JsObj {
       implicit
       config: JsVal.Config): JsObj =
     new JsObj(props.toMap)
+
+  private[json] def invert(
+    index: collection.concurrent.Map[Int, String])
+    : Map[String, Int] =
+  index.map {
+    case (offset, prop) => prop -> offset
+  }.toMap
+
 }
 final case class JsArr(
   values: JsVal*)(
@@ -242,9 +358,75 @@ with Iterable[JsVal] {
     else config.undefinedAccess(idx)
   def iterator = values.iterator
   def length = values.size
+
+  private[json] def compressObjKeysInternal(
+      dictionary: collection.concurrent.Map[Int, String],
+      dictSnapshot: Map[String, Int],
+      isConcurrent: Boolean): (Map[String, Int], JsArr) = {
+
+    var workIndex = dictSnapshot
+
+    val compressed = values.map {
+        case obj: JsObj =>
+          val (updIndex, compressed) = obj.compressKeysInternal(dictionary, workIndex, isConcurrent)
+          workIndex = updIndex
+          compressed
+        case arr: JsArr =>
+          val (updIndex, compressed) = arr.compressObjKeysInternal(dictionary, workIndex, isConcurrent)
+          workIndex = updIndex
+          compressed
+        case other =>
+          other
+      }
+    workIndex -> new JsArr(compressed: _*)
+  }
+
+  /**
+    * Compress any JSON object keys in array, if they exist.
+    * @param dictionary The dictionary used and populated during compression
+    * @param isConcurrentDictionary Flag indicating if dictionary is used concurrently.
+    * If `true`, certain steps are taken to minimize duplicate properties, but at the cost of speed.
+    * @param dictionarySnapshot Optional inverted dictionary snapshot.
+    * Can improve performance if available.
+    */
+  def compressObjKeys(
+      dictionary: collection.concurrent.Map[Int, String],
+      isConcurrentDictionary: Boolean = false,
+      dictionarySnapshot: Map[String, Int] = Map.empty): JsArr =
+    compressObjKeysInternal(
+        dictionary,
+        if (dictionarySnapshot.nonEmpty) dictionarySnapshot else JsObj.invert(dictionary),
+        isConcurrentDictionary)
+      ._2
+
+  /**
+    * Restore any JSON object keys,
+    * which has been compressed.
+    * @see compressObjKeys
+    * @param dictionary The dictionary as an array. Will not be modified.
+    * @param isLenient If `true` will assume that any non-integer key is a verbatim key. Defaults to `false`
+    */
+  def restoreCompressedObjKeys(
+      dictionary: Array[String],
+      isLenient: Boolean = false): JsArr = {
+    val restored = values.map {
+        case obj: JsObj => obj.restoreCompressedKeys(dictionary, isLenient)
+        case arr: JsArr => arr.restoreCompressedObjKeys(dictionary, isLenient)
+        case other => other
+      }
+    new JsArr(restored: _*)
+  }
+
 }
 object JsArr {
   def Empty(implicit config: JsVal.Config) = JsArr()
+
+  def fromMap(
+    indexed: collection.Map[Int, String])(
+    implicit
+    config: JsVal.Config): JsArr =
+  scuff.json.fromMap(indexed.mapValues(JsStr(_)))
+
 }
 final case class JsBool(value: Boolean) extends JsVal {
   override def asBool = this
@@ -260,12 +442,19 @@ object JsVal {
   /**
    * @param escapeSlash Escape the character `/` as `\/` in strings?
    * @param upperCaseHex Output hexadecimal digits in upper case?
+   * @param undefinedAccess Define behavior when accessing an undefined array index or object property.
+   * The function parameter of `Any` is expected to be either an `Int` index value, or `String` property name.
    */
   case class Config(
       escapeSlash: Boolean = false,
       upperCaseHex: Boolean = false,
       undefinedAccess: Any => JsVal = _ => JsUndefined) {
 
+    /**
+      * @param onUndefined
+      * The function parameter of `Any` is expected to be either
+      * an `Int` index value, or `String` property name.
+      */
     def withUndefinedAccess(onUndefined: Any => JsVal): Config =
       this.copy(undefinedAccess = onUndefined)
 

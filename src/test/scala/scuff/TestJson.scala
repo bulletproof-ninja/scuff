@@ -604,4 +604,39 @@ s"""{
     assertEquals(foo, foo2)
   }
 
+  @Test
+  def keyCompression(): Unit = {
+    object File extends JsonFile(`json.org test suite`, s"pass1")
+    val orgArr = {
+      val orgJson = Iterator.fill(1000)(File.json).mkString("[", ",", "]")
+      JsVal.parse(orgJson).asArr
+    }
+    val orgJsonCompact = orgArr.toJson
+    println(orgJsonCompact)
+    val dict = new TrieMap[Int, String]
+    assertTrue(dict.isEmpty)
+    val compressed = orgArr.compressObjKeys(dict, isConcurrentDictionary = false)
+    assertFalse(dict.isEmpty)
+    val keySet = dict.values.toSet
+    assertEquals("Duplicate props in dictionary!", dict.size, keySet.size)
+    val orgIndex: JsArr = JsArr.fromMap(dict)
+    val complete = JsObj("index" -> orgIndex, "values" -> compressed)
+    val compressedJson = complete.toJson
+    println(compressedJson)
+    val uncompLen = orgJsonCompact.length
+    val compLen = compressedJson.length
+    val reductionPct = ((1 - (compLen / uncompLen.toFloat)) * 100).round
+    println(s"Uncompressed length: $uncompLen, compressed length: $compLen, reduction: ~$reductionPct%")
+    assertTrue(orgJsonCompact.length > compressedJson.length)
+    val parsedComplete = JsVal.parse(compressedJson).asObj
+    val parsedIndex = parsedComplete.index.asArr
+    assertEquals(orgIndex, parsedIndex)
+    val arrIndex = parsedIndex.map(_.asStr.value).toArray
+    assertEquals(dict.size, arrIndex.length)
+    val parsedValues = parsedComplete.values.asArr
+    assertEquals(compressed, parsedValues)
+    val restoredArr = parsedValues.restoreCompressedObjKeys(arrIndex, false)
+    assertEquals(orgArr, restoredArr)
+  }
+
 }
