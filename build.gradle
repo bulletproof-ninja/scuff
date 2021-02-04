@@ -6,8 +6,8 @@ plugins {
 ext {
     getScalaFull = [
         '2.11': '2.11.12',
-        '2.12': '2.12.12',
-        '2.13': '2.13.3'
+        '2.12': '2.12.13',
+        '2.13': '2.13.4'
     ]
 
     vScala = System.properties.scalaVersion ?: '2.13'
@@ -75,7 +75,7 @@ allprojects {
     }
 
     dependencies {
-        compile "org.scala-lang.modules:scala-collection-compat_$vScala:2.1.6"
+        compile "org.scala-lang.modules:scala-collection-compat_$vScala:2.4.1"
 
         compileOnly "org.scala-lang:scala-reflect:$vScalaFull"
         compileOnly "javax.servlet:javax.servlet-api:$vServletApi"
