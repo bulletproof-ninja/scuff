@@ -188,36 +188,63 @@ final case object JsUndefined extends JsVal {
   def toJson(implicit config: JsVal.Config) = "null"
 }
 
-final case class JsObj(props: Map[String, JsVal]) extends JsVal
-  with Iterable[(String, JsVal)]
-  with Dynamic {
+final case class JsObj(
+  props: Map[String, JsVal])(
+  implicit
+  config: JsVal.Config)
+extends JsVal
+with Iterable[(String, JsVal)]
+with Dynamic {
 
-  def this(props: (String, JsVal)*) = this(props.toMap)
+  def this(props: (String, JsVal)*)(
+      implicit
+      config: JsVal.Config) =
+    this(props.toMap)
+
   override def asObj = this
   def toJson(implicit config: JsVal.Config) =
     if (props == null) JsNull.toJson
     else props.iterator.map {
       case (name, value) => s""""${JsStr.escape(name)}":${value.toJson}"""
     }.mkString("{", ",", "}")
-  def get(name: String): Option[JsVal] = if (props != null) props.get(name) else None
-  def apply(name: String): JsVal = if (props != null) props.getOrElse(name, JsUndefined) else JsUndefined
+  def get(name: String): Option[JsVal] =
+    if (props != null) props.get(name) else None
+  def getOrElse(name: String, default: => JsVal) =
+    if (props != null) props.getOrElse(name, default) else default
+  def apply(name: String): JsVal =
+    if (props != null) {
+      props.getOrElse(name, config.undefinedAccess(name))
+    } else config.undefinedAccess(name)
   def selectDynamic(name: String): JsVal = apply(name)
+  def updated(name: String, value: JsVal): JsObj =
+    JsObj(props.updated(name, value))
   def iterator = if (props != null) props.iterator else Iterator.empty
 }
 object JsObj {
-  val Empty = JsObj()
-  def apply(props: (String, JsVal)*): JsObj = new JsObj(props.toMap)
+  def Empty(implicit config: JsVal.Config) = JsObj()
+  def apply(
+      props: (String, JsVal)*)(
+      implicit
+      config: JsVal.Config): JsObj =
+    new JsObj(props.toMap)
 }
-final case class JsArr(values: JsVal*) extends JsVal with Iterable[JsVal] {
+final case class JsArr(
+  values: JsVal*)(
+  implicit
+  config: JsVal.Config)
+extends JsVal
+with Iterable[JsVal] {
   override def asArr = this
   def toJson(implicit config: JsVal.Config) = values.iterator.map(_.toJson).mkString("[", ",", "]")
   def get(idx: Int): Option[JsVal] = if (idx >= 0 && idx < values.size) Some(values(idx)) else None
-  def apply(idx: Int): JsVal = if (idx >= 0 && idx < values.size) values(idx) else JsUndefined
+  def apply(idx: Int): JsVal =
+    if (idx >= 0 && idx < values.size) values(idx)
+    else config.undefinedAccess(idx)
   def iterator = values.iterator
   def length = values.size
 }
 object JsArr {
-  val Empty = JsArr()
+  def Empty(implicit config: JsVal.Config) = JsArr()
 }
 final case class JsBool(value: Boolean) extends JsVal {
   override def asBool = this
@@ -234,7 +261,15 @@ object JsVal {
    * @param escapeSlash Escape the character `/` as `\/` in strings?
    * @param upperCaseHex Output hexadecimal digits in upper case?
    */
-  case class Config(escapeSlash: Boolean = false, upperCaseHex: Boolean = false)
+  case class Config(
+      escapeSlash: Boolean = false,
+      upperCaseHex: Boolean = false,
+      undefinedAccess: Any => JsVal = _ => JsUndefined) {
+
+    def withUndefinedAccess(onUndefined: Any => JsVal): Config =
+      this.copy(undefinedAccess = onUndefined)
+
+  }
 
   implicit val DefaultConfig = new Config()
 
@@ -362,11 +397,11 @@ extends AbstractParser(json, offset) {
   def True = scuff.json.JsBool.True
   def False = scuff.json.JsBool.False
   type JsObj = scuff.json.JsObj
-  def JsObj(m: Map[String, JsVal]): JsObj =
+  def JsObj(m: Map[String, JsVal])(implicit config: JsVal.Config): JsObj =
     if (m.isEmpty) scuff.json.JsObj.Empty
     else new scuff.json.JsObj(m)
   type JsArr = scuff.json.JsArr
-  def JsArr(values: Seq[JsVal]): JsArr =
+  def JsArr(values: Seq[JsVal])(implicit config: JsVal.Config): JsArr =
     if (values.isEmpty) scuff.json.JsArr.Empty
     else new scuff.json.JsArr(values: _*)
   type JsStr = scuff.json.JsStr

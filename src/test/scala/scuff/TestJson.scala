@@ -11,6 +11,10 @@ import json._
 import java.time._
 
 import java.util.UUID
+import scala.util.Success
+import scala.util.Failure
+import scala.util.Try
+import scala.collection.concurrent.TrieMap
 
 
 class TestJson {
@@ -35,6 +39,30 @@ class TestJson {
     val obj = JsObj()
     assertEquals(JsUndefined, obj.foo)
     assertEquals(JsNum("42".bd), obj.foo getOrElse JsNum(42))
+  }
+
+  @Test
+  def undefined_failure() = {
+    implicit val config = JsVal.DefaultConfig.withUndefinedAccess {
+      case idx: Int => sys.error(s"Index out of bounds: $idx")
+      case field: String => sys.error(s"Undefined: $field")
+    }
+    val obj = JsObj()
+    Try(obj.foo) match {
+      case Success(_) => fail("Should throw exception")
+      case Failure(cause) =>
+        assertEquals("Undefined: foo", cause.getMessage)
+    }
+    Try(assertEquals(JsNum("42".bd), obj.bar getOrElse JsNum(42))) match {
+      case Success(_) => fail("Should throw exception")
+      case Failure(cause) =>
+        assertEquals("Undefined: bar", cause.getMessage)
+    }
+    Try(JsArr.Empty.apply(5)) match {
+      case Success(_) => fail("Should throw exception")
+      case Failure(cause) =>
+        assertEquals("Index out of bounds: 5", cause.getMessage)
+    }
   }
 
   @Test

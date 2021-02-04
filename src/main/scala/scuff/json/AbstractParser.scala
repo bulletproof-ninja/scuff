@@ -9,9 +9,9 @@ abstract class AbstractParser(
   def True: JsBool
   def False: JsBool
   type JsObj <: JsVal
-  def JsObj(m: Map[String, JsVal]): JsObj
+  def JsObj(m: Map[String, JsVal])(implicit config: JsVal.Config): JsObj
   type JsArr <: JsVal
-  def JsArr(values: Seq[JsVal]): JsArr
+  def JsArr(values: Seq[JsVal])(implicit config: JsVal.Config): JsArr
   type JsStr <: JsVal
   def JsStr(s: String): JsStr
   type JsNull <: JsVal
