@@ -15,6 +15,13 @@ import scala.util.Success
 import scala.util.Failure
 import scala.util.Try
 import scala.collection.concurrent.TrieMap
+import java.net.URI
+import java.util.TimeZone
+import java.io.File
+import java.net.URL
+import java.util.SimpleTimeZone
+import java.util.Locale
+import java.util.Arrays
 
 
 class TestJson {
@@ -637,6 +644,45 @@ s"""{
     assertEquals(compressed, parsedValues)
     val restoredArr = parsedValues.restoreCompressedObjKeys(arrIndex, false)
     assertEquals(orgArr, restoredArr)
+  }
+
+  @Test
+  def cyclic_reference(): Unit = {
+    case class Link(text: String, uri: URI)
+    val link = Link("Google Search", URI create "https://www.google.com")
+    val json = JsVal(link).toJson
+    val ast = JsVal.parse(json).asObj
+    assertEquals(link.text, ast.text.asStr.value)
+    assertEquals(link.uri.toString, ast.uri.asStr.value)
+  }
+
+  @Test
+  def common_value_classes(): Unit = {
+    case class Common(
+      timestamp: Timestamp = new Timestamp,
+      timeZone: TimeZone = TimeZone.getDefault,
+      file: File = new File(System getProperty "user.home"),
+      uri: URI = new URI("https://www.amazon.com"),
+      url: URL = new URL("https://www.facebook.com"),
+      locale: Locale = Locale.CANADA_FRENCH)
+    val common = new Common
+    val json = JsVal(common).toJson
+    val ast = JsVal.parse(json).asObj
+    assertEquals(common.timestamp, new Timestamp(ast.timestamp.asNum))
+    assertEquals(common.timeZone, TimeZone getTimeZone ast.timeZone.asStr)
+    assertEquals(common.file, new File(ast.file.asStr))
+    assertEquals(common.uri, new URI(ast.uri.asStr))
+    assertEquals(common.url, new URL(ast.url.asStr))
+    assertEquals(common.locale, Locale forLanguageTag ast.locale.asStr)
+  }
+
+  @Test
+  def byte_array(): Unit = {
+    val bytes = new Array[Byte](200)
+    Random.nextBytes(bytes)
+    val json = JsVal(bytes).toJson
+    val base64 = JsVal.parse(json).asStr.value
+    assertTrue(Arrays.equals(bytes, Base64.RFC_4648 decode base64))
   }
 
 }

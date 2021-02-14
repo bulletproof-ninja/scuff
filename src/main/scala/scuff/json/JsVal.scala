@@ -1,19 +1,18 @@
 package scuff.json
 
 import java.beans.Introspector
-import java.lang.reflect.{Method, Modifier}
-import java.math.MathContext
-import java.math.{BigDecimal => JBigDec}
-import java.math.{BigInteger => JBigInt}
+import java.io.File
+import java.lang.reflect.{Method, Modifier, InvocationTargetException}
+import java.math.{MathContext, BigDecimal => JBigDec, BigInteger => JBigInt}
+import java.net._
 import java.time.temporal.Temporal
-import java.util.UUID
+import java.util.{UUID, Locale, IdentityHashMap, TimeZone}
 
 import scala.annotation.tailrec
-import scala.collection.compat._
 import scala.jdk.CollectionConverters._
 import scala.reflect.{ClassTag, classTag}
 
-import scuff.EmailAddress
+import scuff.{Base64, EmailAddress}
 
 import language.dynamics
 
@@ -428,13 +427,14 @@ object JsArr {
   scuff.json.fromMap(indexed.mapValues(JsStr(_)))
 
 }
-final case class JsBool(value: Boolean) extends JsVal {
+final case class JsBool private (value: Boolean) extends JsVal {
   override def asBool = this
   def toJson(implicit config: JsVal.Config) = if (value) "true" else "false"
 }
 object JsBool {
-  val True = JsBool(true)
-  val False = JsBool(false)
+  def apply(truh: Boolean): JsBool = if (truh) True else False
+  val True = new JsBool(true)
+  val False = new JsBool(false)
 }
 
 object JsVal {
@@ -464,73 +464,106 @@ object JsVal {
 
   implicit def toJsVal(str: String): JsVal = if (str == null) JsNull else JsStr(str)
   implicit def toJsVal(num: Number): JsVal = if (num == null) JsNull else JsNum(num)
-  implicit def toJsVal(num: Long): JsVal = JsNum(num: Number)
-  implicit def toJsVal(num: Double): JsVal = JsNum(num: Number)
-  implicit def toJsVal(b: Boolean): JsVal = if (b) JsBool.True else JsBool.False
+  implicit def toJsVal(num: Long): JsNum = JsNum(num: Number)
+  implicit def toJsVal(num: Double): JsNum = JsNum(num: Number)
+  implicit def toJsVal(b: Boolean): JsBool = JsBool(b)
   implicit def toJsVal(m: Map[String, Any]): JsVal = if (m == null) JsNull else JsObj(m.map(e => e._1 -> JsVal(e._2)))
   implicit def toJsVal(a: Iterable[Any]): JsVal = if (a == null) JsNull else JsArr(a.iterator.map(JsVal(_)).toSeq: _*)
   implicit def toJsVal(t: (String, Any)): (String, JsVal) = t._1 -> JsVal(t._2)
 
   implicit def stringValue(js: JsStr): String = js.value
-  implicit def toByte(js: JsNum): Short = js.toByte
+  implicit def toByte(js: JsNum): Byte = js.toByte
   implicit def toShort(js: JsNum): Short = js.toShort
   implicit def toInt(js: JsNum): Int = js.toInt
   implicit def toLong(js: JsNum): Long = js.toLong
   implicit def toFloat(js: JsNum): Float = js.toFloat
   implicit def toDouble(js: JsNum): Double = js.toDouble
   implicit def toBigDecimal(js: JsNum): BigDecimal = js.toBigDec()
-  implicit def toJavaBigDecimal(js: JsNum): java.math.BigDecimal = js.toBigDec().underlying
+  implicit def toJavaBigDecimal(js: JsNum): JBigDec = js.toBigDec().underlying
+  implicit def toBigInt(js: JsNum): BigInt = js.toBigInt
+  implicit def toBigInteger(js: JsNum): JBigInt = js.toBigInteger
   implicit def boolValue(js: JsBool): Boolean = js.value
 
-  def apply(any: Any, mapper: PartialFunction[Any, Any] = PartialFunction.empty): JsVal = any match {
-    case jv: JsVal => jv
-    case any if mapper isDefinedAt any => JsVal(mapper(any), mapper)
-    case null => JsNull
-    case n: Number => JsNum(n)
-    case s: String => JsStr(s)
-    case b: Boolean => JsBool(b)
-    case m: collection.Map[_, _] => JsObj {
-      m.iterator.filterNot(_._2 == JsUndefined).map {
-        case (key, value) => String.valueOf(key) -> JsVal(value, mapper)
-      }.toMap
+  def apply(any: Any, mapper: PartialFunction[Any, Any] = PartialFunction.empty): JsVal =
+    try toJsVal(any, mapper) catch {
+      case cause: CyclicReferenceDetected =>
+        throw new RuntimeException(s"`${any.getClass.getName}` contains type that must be mapped explicitly: $any", cause)
     }
-    case o: Option[_] => o match {
-      case Some(value) => JsVal(value, mapper)
-      case _ => JsNull
-    }
-    case e: Either[_, _] => e match {
-      case Right(value) => JsVal(value, mapper)
-      case Left(value) => JsVal(value, mapper)
-    }
-    case i: Iterable[_] => JsArr(i.iterator.map(JsVal(_, mapper)).toSeq: _*)
-    case m: java.util.Map[_, _] => JsObj {
-      m.asScala.iterator.filterNot(_._2 == JsUndefined).map {
-        case (key, value) => String.valueOf(key) -> JsVal(value, mapper)
-      }.toMap
-    }
-    case i: java.lang.Iterable[_] => JsArr(i.iterator.asScala.map(JsVal(_, mapper)).toSeq: _*)
-    case asString @ (_: UUID | _: Temporal | _: EmailAddress) => JsStr(asString.toString)
-    case other =>
-      val methods = other match {
-        case _: AnyRef => getters.get(other.getClass)
-        case _ => Nil
+
+  private def toJsVal(
+      any: Any,
+      mapper: PartialFunction[Any, Any],
+      seen: IdentityHashMap[AnyRef, AnyRef] = null)
+      : JsVal =
+    any match {
+      case jv: JsVal => jv
+      case any if mapper isDefinedAt any => JsVal(mapper(any), mapper)
+      case null => JsNull
+      case n: Number => JsNum(n)
+      case s: CharSequence => JsStr(s.toString)
+      case b: Boolean => JsBool(b)
+      case m: collection.Map[_, _] => JsObj {
+        m.iterator.filterNot(_._2 == JsUndefined).map {
+          case (key, value) => String.valueOf(key) -> JsVal(value, mapper)
+        }.toMap
       }
-      if (methods.isEmpty) JsStr(other.toString)
-      else JsObj(intoMap(other.asInstanceOf[AnyRef], methods, mapper))
-  }
-  private def intoMap(target: AnyRef, methods: List[MethodDef], mapper: PartialFunction[Any, Any]): Map[String, JsVal] = {
-    methods.foldLeft(Map.empty[String, JsVal]) {
-      case (map, method) => JsVal(method invoke target, mapper) match {
-        case JsNull => map
-        case value => map.updated(method.propName, value)
+      case o: Option[_] => o match {
+        case Some(value) => JsVal(value, mapper)
+        case _ => JsNull
       }
+      case e: Either[_, _] => e match {
+        case Right(value) => JsVal(value, mapper)
+        case Left(value) => JsVal(value, mapper)
+      }
+      case bytes: Array[Byte] => JsStr(Base64.RFC_4648.encode(bytes).toString)
+      case i: Iterable[_] => JsArr(i.iterator.map(JsVal(_, mapper)).toSeq: _*)
+      case m: java.util.Map[_, _] => JsObj {
+        m.asScala.iterator.filterNot(_._2 == JsUndefined).map {
+          case (key, value) => String.valueOf(key) -> JsVal(value, mapper)
+        }.toMap
+      }
+      case i: java.lang.Iterable[_] => JsArr(i.iterator.asScala.map(JsVal(_, mapper)).toSeq: _*)
+      case tz: TimeZone => JsStr(tz.getID)
+      case ts: java.util.Date => JsNum(ts.getTime)
+      case l: Locale => JsStr(l.toLanguageTag)
+      case asString @ (_: URL | _: URI | _: UUID | _: Temporal | _: EmailAddress | _: File) => JsStr(asString.toString)
+      case other =>
+        val methods = other match {
+          case _: AnyRef => getters.get(other.getClass)
+          case _ => Nil
+        }
+        if (methods.isEmpty) new JsStr(other.toString)
+        else JsObj(intoMap(other.asInstanceOf[AnyRef], methods, mapper, seen))
     }
+
+  case class CyclicReferenceDetected(cls: Class[_])
+  extends RuntimeException(
+    s"Class too complex to convert automatically: ${cls.getName}")
+
+  private def intoMap(
+      target: AnyRef,
+      methods: List[MethodDef],
+      mapper: PartialFunction[Any, Any],
+      seenOrNull: IdentityHashMap[AnyRef, AnyRef]): Map[String, JsVal] = try {
+    val seen = if (seenOrNull ne null) seenOrNull else new IdentityHashMap[AnyRef, AnyRef]
+    if (seen.put(target, target) eq target) throw CyclicReferenceDetected(target.getClass)
+    else methods.foldLeft(Map.empty[String, JsVal]) {
+      case (map, method) =>
+        toJsVal(method invoke target, mapper, seen) match {
+          case JsNull => map
+          case value => map.updated(method.propName, value)
+        }
+    }
+  } catch {
+    case _: StackOverflowError => throw CyclicReferenceDetected(target.getClass)
   }
 
   private class MethodDef(val propName: String, private val method: Method) {
     def this(method: Method) = this(method.getName, method)
     def this(method: Method, name: String) = this(name, method)
-    def invoke(ref: AnyRef): Any = method invoke ref
+    def invoke(ref: AnyRef): Any = try method invoke ref catch {
+      case e: InvocationTargetException => throw e.getCause
+    }
     override def toString() = s"$propName = $method"
     override def hashCode = method.getName.hashCode ^ method.getReturnType.hashCode
     override def equals(any: Any): Boolean = any match {
