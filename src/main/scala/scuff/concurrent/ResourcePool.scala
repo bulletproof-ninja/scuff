@@ -1,5 +1,7 @@
 package scuff.concurrent
 
+import scuff._
+
 import java.util.concurrent._
 import atomic.{ AtomicInteger, AtomicReference }
 
@@ -330,7 +332,7 @@ abstract class BaseResourcePool[R <: AnyRef: ClassTag] protected (
     def getActiveCount: Int = -1
     def getMinActive = minResources
     def getMaxActive = Int.MaxValue
-    def getResourceTimeout: String = evictor.get.map(_.timeout.toString) getOrElse "<no timeout>"
+    def getResourceTimeout: String = evictor.get.map(_.timeout.toString) || "<no timeout>"
     def startEviction(resourceTimeout: Int, resourceTimeoutUnit: String): Unit = {
       val minTimeout = FiniteDuration(resourceTimeout, resourceTimeoutUnit)
       BaseResourcePool.this.startEviction(minTimeout, scheduler)

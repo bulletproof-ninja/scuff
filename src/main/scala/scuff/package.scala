@@ -21,6 +21,7 @@ package object scuff {
   implicit class ScuffOption[E](private val opt: Option[E]) extends AnyVal {
     def collectAs[S <: E: ClassTag]: Option[S] = opt.collect { case s: S => s }
     def collectOrElse[S <: E: ClassTag](orElse: => S): S = collectAs[S] getOrElse orElse
+    def ||[F >: E](orElse: => F): F = opt getOrElse orElse
   }
 
   implicit class ScuffString(private val str: String) extends AnyVal {
@@ -144,7 +145,7 @@ package object scuff {
 
   implicit class ScuffIterable[E](private val iter: Iterable[E]) extends AnyVal {
     def collectAs[S <: E: ClassTag]: Iterable[S] = iter.collect { case s: S => s }
-    def last: E = lastOption getOrElse {
+    def last: E = lastOption || {
       throw new NoSuchElementException(s"${iter.getClass.getSimpleName}.last")
     }
     def lastOption: Option[E] = if (iter.isEmpty) None else iter match {
@@ -158,12 +159,14 @@ package object scuff {
         }
         if (hasValue) Some(value) else None
     }
-    def head: E = headOption.getOrElse(throw new NoSuchElementException(s"${iter.getClass.getSimpleName}.head"))
+    def head: E = headOption || {
+      throw new NoSuchElementException(s"${iter.getClass.getSimpleName}.head")
+    }
     def headOption: Option[E] = iter.find(_ => true)
   }
   implicit class ScuffIterator[E](private val iter: Iterator[E]) extends AnyVal {
     def collectAs[S <: E: ClassTag]: Iterator[S] = iter.collect { case s: S => s }
-    def last: E = lastOption getOrElse {
+    def last: E = lastOption || {
       throw new NoSuchElementException(s"${iter.getClass.getSimpleName}.last")
     }
     def lastOption: Option[E] = if (iter.isEmpty) None else iter match {
@@ -177,7 +180,9 @@ package object scuff {
         }
         if (hasValue) Some(value) else None
     }
-    def head: E = headOption.getOrElse(throw new NoSuchElementException(s"${iter.getClass.getSimpleName}.head"))
+    def head: E = headOption || {
+      throw new NoSuchElementException(s"${iter.getClass.getSimpleName}.head")
+    }
     def headOption: Option[E] = iter.find(_ => true)
 
     /** This assumes a lazy iterator. */

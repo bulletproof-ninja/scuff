@@ -143,7 +143,7 @@ class L10nPropFormatter private (_baseName: Option[String], desiredLocales: Iter
       if (msg.parmCount != parms.length) {
         val expected = {
           if (msg.key != key && msg.parmCount == 0) map.get(key).map(_.parmCount) else None
-        } getOrElse msg.parmCount
+        } || msg.parmCount
         if (msg.key == key || msg.parmCount != 0 || parms.size != 1) {
           throw new MissingFormatArgumentException(s"Message '$key' expects ${expected} parameters, but received ${parms.length}")
         }

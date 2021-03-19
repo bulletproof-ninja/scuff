@@ -1,5 +1,7 @@
 package scuff.concurrent
 
+import scuff._
+
 import java.util.concurrent._
 import scala.concurrent.ExecutionContextExecutorService
 
@@ -12,7 +14,7 @@ extends ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, queue, threadFactory
 with ExecutionContextExecutorService
 with FailureReporting {
 
-  private[this] val reportException = failureReporter getOrElse super.reportFailure _
+  private[this] val reportException = failureReporter || super.reportFailure _
   override def reportFailure(th: Throwable) = reportException(th)
 
 }

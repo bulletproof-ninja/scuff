@@ -140,7 +140,7 @@ object Base64 {
 
   private class Impl(baseChars: Array[Char], charIdx: Array[Byte], lineSplitter: Option[LineSplitter], withPadding: Boolean, paddingChar: Char = '=') extends Base64 {
 
-    private[this] val lineLenRemoveEOL = lineSplitter.filter(_.isSymmetricCodec).map(_.lineLen) getOrElse 0
+    private[this] val lineLenRemoveEOL = lineSplitter.filter(_.isSymmetricCodec).map(_.lineLen) || 0
 
     private def encodeBytes(b1: Byte, b2: Byte, b3: Byte, chars: Array[Char], charOffset: Int, padding: Int): Unit = {
       import Numbers.unsigned

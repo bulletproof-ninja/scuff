@@ -1,10 +1,12 @@
 package scuff.concurrent
 
+import scuff._
+
 import java.util.concurrent.{ Future => _, _ }
+import ThreadPoolExecutor.AbortPolicy
 
 import scala.concurrent._
 import scala.util.Try
-import java.util.concurrent.ThreadPoolExecutor.AbortPolicy
 
 /**
  * Thread helper class.
@@ -16,7 +18,7 @@ object Threads {
     val tgs = new Array[ThreadGroup](128)
     val count = SystemThreadGroup.enumerate(tgs, /* recurse = */ false)
     val main = tgs.take(count).find(_.getName == "main")
-    main getOrElse SystemThreadGroup
+    main || SystemThreadGroup
   }
 
   val PiggyBack: SameThreadExecutor = new PiggyBack
@@ -108,7 +110,7 @@ object Threads {
       maxThreads: Int = Short.MaxValue,
       queue: BlockingQueue[Runnable] = new LinkedBlockingQueue[Runnable],
       handler: RejectedExecutionHandler = ThrowException): ExecutionContextExecutorService = {
-    val tf = Option(threadFactory) getOrElse factory(name, failureReporter)
+    val tf = Option(threadFactory) || factory(name, failureReporter)
     val exec = new CachedThreadPool(name, tf, maxThreads, queue, handler, Option(failureReporter))
     Runtime.getRuntime addShutdownHook new Thread {
       override def run(): Unit = {
@@ -131,7 +133,7 @@ object Threads {
   with ExecutionContextExecutorService
   with FailureReporting {
 
-    private[this] val reportException = failureReporter getOrElse super.reportFailure _
+    private[this] val reportException = failureReporter || super.reportFailure _
     override def reportFailure(th: Throwable) = reportException(th)
 
     override def toString() = {

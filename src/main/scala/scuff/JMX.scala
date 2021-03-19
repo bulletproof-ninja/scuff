@@ -45,7 +45,7 @@ object JMX {
     }
   }
   private def getTypeName(mxBean: AnyRef, mxBeanType: Option[Class[_]]): String = {
-    val name = mxBeanType.map(_.getSimpleName) getOrElse mxBean.getClass.getSimpleName
+    val name = mxBeanType.map(_.getSimpleName) || mxBean.getClass.getSimpleName
     if (name.length > MXBeanSuffix.length && name.endsWith(MXBeanSuffix)) {
       name.substring(0, name.length - MXBeanSuffix.length)
     } else name
@@ -91,7 +91,7 @@ object JMX {
 
     try jmxmpServer.start() catch {
       case cause: BindException =>
-        val target = urlOpt.map(url => s"${url.getHost}:${url.getPort}") getOrElse "default MBean server"
+        val target = urlOpt.map(url => s"${url.getHost}:${url.getPort}") || "default MBean server"
         val be = new BindException(s"Cannot bind to $target")
         be.setStackTrace(be.getStackTrace.take(1))
         be initCause cause

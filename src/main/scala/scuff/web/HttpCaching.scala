@@ -1,9 +1,11 @@
 package scuff.web
 
+import scuff._
+
 import javax.servlet._
 import http._
 import HttpServletResponse._
-import scuff.LRUHeapCache
+
 import scala.util.control.NoStackTrace
 
 trait HttpCaching extends HttpServlet {
@@ -15,15 +17,17 @@ trait HttpCaching extends HttpServlet {
       new ETag(tag)(false)
     }
     def flushTo(res: HttpServletResponse): Unit = {
-      for ((name, values) <- headers; value <- values) res.addHeader(name, value)
-      if (lastModified.isEmpty) {
-        eTag.addTo(res)
+      for ((name, values) <- headers; value <- values) {
+        res.addHeader(name, value)
       }
-      res.setContentType(contentType)
-      res.setCharacterEncoding(encoding)
-      res.setLocale(locale)
-      res.setContentLength(bytes.length)
-      res.getOutputStream().write(bytes)
+      if (lastModified.isEmpty) {
+        eTag addTo res
+      }
+      res setContentType contentType
+      res setCharacterEncoding encoding
+      res setLocale locale
+      res setContentLength bytes.length
+      res.getOutputStream write bytes
       res.flushBuffer()
     }
   }
@@ -72,7 +76,7 @@ trait HttpCaching extends HttpServlet {
           .map(_ :: Nil)
           .map(HttpHeaders.LastModified -> _)
           .map(_ :: headers)
-        withLastMod getOrElse headers
+        withLastMod || headers
       }
     }
     new Cached(proxy.getBytes, lastMod, headers, proxy.getContentType, proxy.getCharacterEncoding, proxy.getLocale)

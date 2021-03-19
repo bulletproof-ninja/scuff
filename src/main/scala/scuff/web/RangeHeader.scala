@@ -17,7 +17,7 @@ object RangeHeader {
         val rangeEnd = totalSize - 1
         ContentRange.Range(rangeStart, rangeEnd)
       } else {
-        val rangeEnd = end getOrElse totalSize - 1
+        val rangeEnd = end || (totalSize - 1)
         ContentRange.Range(start, rangeEnd)
       }
 

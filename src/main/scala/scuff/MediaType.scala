@@ -78,7 +78,7 @@ class MediaType private (private val mimeType: MimeType) extends Serializable {
    * `application/json;q=0.8`.
    * To get a clean base type, use `mediaType.pruned.baseType`.
    */
-  def pruned: MediaType = treeType.map(_.pruned) getOrElse this
+  def pruned: MediaType = treeType.map(_.pruned) || this
 
   /** As tree type, if defined. */
   def treeType: Option[TreeType] = MediaType.asTreeType(this)

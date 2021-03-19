@@ -56,7 +56,7 @@ object AskGeo {
       val root = (JsVal parse buf.copyToCharSeq(1024)).asObj
       val code = root.code.asNum.toInt
       if (code != 0) {
-        val msg = root.message getOrElse JsStr(s"Error code: $code")
+        val msg = root.message || JsStr(s"Error code: $code")
         throw new IllegalStateException(msg.value)
       }
       root.data.asArr.flatMap {

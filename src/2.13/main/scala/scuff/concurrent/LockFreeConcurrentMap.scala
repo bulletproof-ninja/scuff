@@ -1,5 +1,7 @@
 package scuff.concurrent
 
+import scuff._
+
 import scala.collection.immutable.Map
 
 /**
@@ -164,7 +166,7 @@ final class LockFreeConcurrentMap[A, B](initialMap: Map[A, B] = Map.empty[A, B])
       case Some(value) => value
       case _ =>
         val newValue = makeValue
-        putIfAbsent(key, newValue) getOrElse newValue
+        putIfAbsent(key, newValue) || newValue
     }
   }
 

@@ -1,5 +1,7 @@
 package scuff.web
 
+import scuff._
+
 import javax.servlet.http.HttpServletResponse
 
 case class ContentRange(unit: String, range: Option[ContentRange.Range], size: Option[Long]) {
@@ -9,8 +11,8 @@ case class ContentRange(unit: String, range: Option[ContentRange.Range], size: O
   def this(unit: String, size: Long) = this(unit, None, Some(size))
 
   def headerString = {
-    val rangeStr = range.map(r => s"${r.start}-${r.end}") getOrElse "*"
-    s"$unit $rangeStr/${size getOrElse "*"}"
+    val rangeStr = range.map(r => s"${r.start}-${r.end}") || "*"
+    s"$unit $rangeStr/${size || "*"}"
   }
 
   def setTo(res: HttpServletResponse) = res.setHeader(HttpHeaders.ContentRange, headerString)
