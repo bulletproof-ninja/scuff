@@ -114,7 +114,7 @@ class CoffeeScriptCompiler(config: CoffeeScriptCompiler.Config = new CoffeeScrip
     }
   }
 
-  override def toString(): String = s"CoffeeScriptCompiler(${engine.getClass.getName})"
+  override def toString(): String = s"${classOf[CoffeeScriptCompiler].getName}(${engine.getClass.getName})"
 
   /**
    * Compile coffeescript to javascript.

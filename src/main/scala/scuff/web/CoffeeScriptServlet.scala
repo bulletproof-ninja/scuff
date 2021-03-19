@@ -13,6 +13,8 @@ import scala.util.control.NonFatal
 import scuff.concurrent.Threads
 import scuff.concurrent.UnboundedResourcePool
 import java.util.concurrent.ScheduledExecutorService
+import scuff.Document
+import java.io.Writer
 
 object CoffeeScriptServlet {
 
@@ -36,7 +38,8 @@ object CoffeeScriptServlet {
  *
  * Use with [[scuff.web.Ice]] for Iced CoffeeScript.
  */
-abstract class CoffeeScriptServlet extends HttpServlet {
+abstract class CoffeeScriptServlet
+extends FileServlet {
 
   private lazy val ScriptEngineMgr = new ScriptEngineManager
 
@@ -84,6 +87,7 @@ abstract class CoffeeScriptServlet extends HttpServlet {
   override def destroy(): Unit = {
     eviction.foreach(_.cancel(true))
     compilerPool.drain()
+    super.destroy()
   }
 
   protected def coffeeCompilation(coffeeScript: String, filename: String): String =
@@ -92,52 +96,22 @@ abstract class CoffeeScriptServlet extends HttpServlet {
   private def compile(path: String, url: URL): String = {
     val started = System.currentTimeMillis()
     val script = url.openStream()
-    try {
-      coffeeCompilation(script, path)
-    } finally {
+    try coffeeCompilation(script, path) finally {
       script.close()
       val dur = System.currentTimeMillis() - started
       log(s"Compiled $path in $dur ms.")
     }
   }
 
-  /** Optional resource class loader. */
-  protected def resourceClassLoader: ClassLoader = null
+  protected def toDocument(path: String, url: URL): Document =
+    new Document {
 
-  /**
-   * Max age, in seconds.
-   * @param req The HTTP request.
-   * Passed for querying, in case max-age depends on the request.
-   */
-  protected def maxAge(req: HttpServletRequest): Int
+      def dump(out: Writer): Unit =
+        out write compile(path, url)
 
-  private def respond(req: HttpServletRequest, res: HttpServletResponse): Unit = {
-    req.getResource(resourceClassLoader) match {
-      case None => res.setStatus(HttpServletResponse.SC_NOT_FOUND)
-      case Some(Resource(url, lastModified)) =>
-        if (req.IfModifiedSince(lastModified)) {
-          val js = compile(req.servletPathInfo, url)
-          res.setDateHeader(LastModified, lastModified)
-          res.setMaxAge(maxAge(req))
-          res.setCharacterEncoding("UTF-8")
-          res.setContentType("text/javascript")
-          res.getWriter.print(js)
-          res.setStatus(HttpServletResponse.SC_OK)
-        } else {
-          res.setStatus(HttpServletResponse.SC_NOT_MODIFIED)
-        }
+      def mimeType: String = "application/javascript"
+      def encoding: String = "UTF-8"
     }
-  }
-
-  override def doGet(req: HttpServletRequest, res: HttpServletResponse): Unit = {
-    try {
-      respond(req, res)
-    } catch {
-      case e: Exception =>
-        log(s"Failed to compile: ${req.servletPathInfo}", e)
-        res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage)
-    }
-  }
 
 }
 
