@@ -19,7 +19,7 @@ import java.net.URI
 import java.util.TimeZone
 import java.io.File
 import java.net.URL
-import java.util.SimpleTimeZone
+
 import java.util.Locale
 import java.util.Arrays
 
@@ -45,7 +45,7 @@ class TestJson {
   def undefined() = {
     val obj = JsObj()
     assertEquals(JsUndefined, obj.foo)
-    assertEquals(JsNum("42".bd), obj.foo getOrElse JsNum(42))
+    assertEquals(JsNum("42".bd), obj.foo || JsNum(42))
   }
 
   @Test
@@ -60,7 +60,7 @@ class TestJson {
       case Failure(cause) =>
         assertEquals("Undefined: foo", cause.getMessage)
     }
-    Try(assertEquals(JsNum("42".bd), obj.bar getOrElse JsNum(42))) match {
+    Try(assertEquals(JsNum("42".bd), obj.bar || JsNum(42))) match {
       case Success(_) => fail("Should throw exception")
       case Failure(cause) =>
         assertEquals("Undefined: bar", cause.getMessage)

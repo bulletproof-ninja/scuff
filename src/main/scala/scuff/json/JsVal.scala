@@ -17,7 +17,7 @@ import scuff.{Base64, EmailAddress}
 import language.dynamics
 
 sealed abstract class JsVal {
-  final def getOrElse[JS <: JsVal: ClassTag](orElse: => JS): JS =
+  final def ||[JS <: JsVal: ClassTag](orElse: => JS): JS =
     if (classTag[JS].runtimeClass isInstance this) this.asInstanceOf[JS]
     else orElse
   def toJson(implicit config: JsVal.Config): String
