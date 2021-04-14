@@ -63,8 +63,9 @@ with StreamConsumer[T, Future[R]] {
 
   /** Forwarded to `apply(T): Future[_]` */
   def onNext(t: T): Unit =
-    if (promise.isCompleted) throw new IllegalStateException("Consumption completed")
-    else {
+    if (promise.isCompleted) {
+      throw new IllegalStateException(s"Consumption completed: ${promise.future.value.get}")
+    } else {
 
       counter.incrementAndGet()
 
@@ -82,7 +83,7 @@ with StreamConsumer[T, Future[R]] {
           case _ => // Success
             semaphore.release
         } else throw new IllegalStateException(
-          s"Cannot process $t after stream has completed.")
+          s"Cannot process after stream has completed: $t")
       }
 
     }
@@ -144,6 +145,11 @@ object AsyncStreamConsumer {
   }
 
 }
+
+/**
+  * [[scuff.concurrent.AsyncStreamConsumer]] that does not accept
+  * timeout or failures.
+  */
 trait StrictAsyncStreamConsumer[-T, R]
 extends AsyncStreamConsumer[T, R] {
   protected def whenDone(): Future[R]
