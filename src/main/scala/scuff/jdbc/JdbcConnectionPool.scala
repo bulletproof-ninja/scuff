@@ -12,7 +12,6 @@ import scuff.concurrent.{ BoundedResourcePool, ResourcePool }
  * @param name Optional pool name
  * @param lifecycle Type class for connection lifecycle behavior
  */
-@throws[ResourcePool.Exhausted]("when `maxConnections` have been reached and all connections are unavailable")
 class JdbcConnectionPool(
   newConnection: => Connection,
   minConnections: Int, maxConnections: Int,
@@ -23,6 +22,7 @@ extends BoundedResourcePool[Connection](
   newConnection, minConnections, maxConnections, name)(implicitly, lifecycle)
 with ConnectionSource {
 
+  @throws[ResourcePool.Exhausted]("when `maxConnections` have been reached and all connections are unavailable")
   protected def getConnection = newConnection
 
 }
