@@ -2,7 +2,8 @@ plugins {
     id 'com.adarshr.test-logger' version '2.1.0' apply true
 }
 
-version = System.properties.version ?: "0.0.1-SNAPSHOT"
+version = properties.version ?: ""
+if (version == "") throw new IllegalArgumentException("No version provided!")
 
 ext {
     getScalaFull = [
