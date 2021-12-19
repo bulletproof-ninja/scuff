@@ -24,8 +24,9 @@ class MultiMap[K, V] extends Iterable[(K, Set[V])] {
     * Abstraction over key values.
     */
   final class Values private[MultiMap] (key: K) extends Iterable[V] {
+    override def isEmpty = getValues(key).isEmpty
     def iterator = getValues(key).iterator
-    def contains(value: V) = getValues(key).contains(value)
+    def contains(value: V) = getValues(key) contains value
     def +=(value: V): Boolean = add(key, value)
     def -=(value: V): Boolean = remove(key, value)
     def ++=(values: Iterable[V]): Unit = add(key, values)
@@ -40,7 +41,7 @@ class MultiMap[K, V] extends Iterable[(K, Set[V])] {
    */
   def get(key: K): Set[V] = getValues(key)
 
-  def containsKey(key: K): Boolean = map.containsKey(key)
+  def containsKey(key: K): Boolean = map containsKey key
 
   /**
     *  Update (replace) single value for key.

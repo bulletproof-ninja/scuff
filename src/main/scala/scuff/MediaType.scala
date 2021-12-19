@@ -9,6 +9,9 @@ import scala.util.control.NonFatal
 
 object MediaType {
 
+  val `text/plain` = MediaType("text/plain")
+  val `application/json` = MediaType("application/json")
+
   @inline
   private def invalidMimeType(mt: String, cause: MimeTypeParseException) =
     new IllegalArgumentException(s"Invalid media type: $mt", cause)

@@ -25,7 +25,7 @@ trait RobotsNoIndex extends RobotsDirectiveServlet {
 
 abstract class RobotsDirectiveFilter extends Filter with RobotsDirective {
 
-  protected final def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = httpFilter(req, res, chain)
+  final def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = httpFilter(req, res, chain)
 
   @inline
   private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain): Unit = {

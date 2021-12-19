@@ -1,6 +1,6 @@
 package scuff
 
-import scala.reflect.ClassTag
+import scala.reflect.{ ClassTag, NameTransformer }
 
 object Enum {
   trait Value {
@@ -8,6 +8,7 @@ object Enum {
 
     def id: Int
     final def name: String = this.toString
+    override def toString = NameTransformer decode value.toString
 
   }
 }

@@ -1,20 +1,17 @@
 package scuff.web
 
-import javax.servlet._
-import http._
-import HttpHeaders._
-import scuff.js._
-import java.net.URL
-import scuff.concurrent.ResourcePool
-import scala.concurrent.duration._
-import javax.script._
-import java.util.concurrent.ScheduledFuture
-import scala.util.control.NonFatal
-import scuff.concurrent.Threads
-import scuff.concurrent.UnboundedResourcePool
-import java.util.concurrent.ScheduledExecutorService
 import scuff.Document
+import scuff.js._
+import scuff.concurrent.{ ResourcePool, Threads, UnboundedResourcePool }
+
 import java.io.Writer
+import java.net.URL
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.ScheduledExecutorService
+import javax.script._
+
+import scala.concurrent.duration._
+import scala.util.control.NonFatal
 
 object CoffeeScriptServlet {
 

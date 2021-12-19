@@ -218,8 +218,14 @@ with Dynamic {
       props.getOrElse(name, config.undefinedAccess(name))
     } else config.undefinedAccess(name)
   def selectDynamic(name: String): JsVal = apply(name)
+  def removed(name: String): JsObj =
+    JsObj(props - name)
   def updated(name: String, value: JsVal): JsObj =
-    JsObj(props.updated(name, value))
+    value match {
+      case JsUndefined => removed(name)
+      case _ => JsObj(props.updated(name, value))
+    }
+
   def iterator = if (props != null) props.iterator else Iterator.empty
 
   private[json] def compressKeysInternal(

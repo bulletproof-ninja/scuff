@@ -47,6 +47,12 @@ package object web {
     }
   }
   implicit class ScuffRequest(private val req: HttpServletRequest) extends AnyVal {
+    def ContentType: Option[MediaType] =
+      Option(req getHeader "Content-Type")
+        .map(MediaType(_))
+    def Accept: Option[MediaType] =
+      Option(req getHeader "Accept")
+        .map(MediaType(_))
     def isLocalhost: Boolean = req.getRemoteHost match {
       case "localhost" | "127.0.0.1" | "0:0:0:0:0:0:0:1" | "::1" => true
       case _ => false
@@ -104,7 +110,8 @@ package object web {
     }
 
     def getResource: Option[Resource] = getResource("", None)
-    def getResource(searchClasspath: ClassLoader): Option[Resource] = getResource("", Option(searchClasspath))
+    def getResource(searchClasspath: ClassLoader): Option[Resource] =
+      getResource("", Option(searchClasspath) orElse Option(req.getClass.getClassLoader))
     def getResource(prefixPath: String, searchClasspath: Option[ClassLoader] = None): Option[Resource] = {
       val resource = s"$prefixPath$servletPathInfo"
       val urlFile =
@@ -116,6 +123,17 @@ package object web {
         searchClasspath.flatMap {
           findCPResource(resource, _)
         }
+      } orElse {
+        System.getProperty("java.class.path")
+          .split(System getProperty "path.separator")
+          .iterator
+          .map { path =>
+            new java.io.File(s"$path$resource")
+          }
+          .collectFirst {
+            case file if file.exists =>
+              newResource(file.toURI.toURL, file)
+          }
       }
     }
     def IfNoneMatch = ETag.IfNoneMatch(req)
@@ -148,6 +166,12 @@ package object web {
       }
       req.getServletPath concat pathInfo
     }
+    /** Full query string. If present, will include `?` prefix. If missing, empty string. */
+    def queryStringFull: String =
+      req.getQueryString match {
+        case null => ""
+        case qry => "?" concat qry
+      }
 
   }
 

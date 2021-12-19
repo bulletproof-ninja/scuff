@@ -14,6 +14,26 @@ class TestEnum {
     def isWorkingDay(d: WeekDay) = d != Sat && d != Sun
   }
 
+  sealed trait Special extends Enum.Value
+  object Special extends Enum[Special] {
+    val
+      `with-dash`,
+      `with space`,
+      `with(parens)`
+        = new Val with WeekDay
+  }
+
+  @Test
+  def special(): Unit = {
+    assertEquals("with-dash", Special.`with-dash`.name)
+    assertEquals("with space", Special.`with space`.name)
+    assertEquals("with(parens)", Special.`with(parens)`.name)
+    Special.list.foreach { s =>
+      assertEquals(s, Special(s.name))
+      assertEquals(s, Special(s.id))
+    }
+  }
+
   @Test
   def `trait only`(): Unit = {
     assertEquals(9, WeekDay.values.size)

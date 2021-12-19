@@ -27,7 +27,8 @@ trait HttpHeaderPrinting extends HttpServlet with PrintHeaders {
 }
 
 abstract class HttpHeaderPrintingFilter extends Filter with PrintHeaders {
-  protected def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) = httpFilter(req, res, chain)
+  def doFilter(req: ServletRequest, res: ServletResponse, chain: FilterChain) =
+    httpFilter(req, res, chain)
 
   @inline
   private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain): Unit = {
