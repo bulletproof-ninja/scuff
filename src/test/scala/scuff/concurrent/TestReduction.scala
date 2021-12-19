@@ -3,7 +3,7 @@ package scuff.concurrent
 import org.junit._, Assert._
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scuff.StreamConsumer
+import scuff._
 import java.util.concurrent.atomic.AtomicInteger
 import scala.util.Try
 import scala.util.Failure
@@ -11,28 +11,28 @@ import scala.concurrent.ExecutionContext
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicLong
 
-object TestStreamConsumer {
+object TestReduction {
   def main(args: Array[String]): Unit = {
-    new TestStreamConsumer().`async, onstack failure in apply`()
+    new TestReduction().promiseAdapter1()
   }
 }
 
-class TestStreamConsumer {
+class TestReduction {
 
   implicit def ec = RandomDelayExecutionContext
-  private def callMe(n: Int)(consumer: StreamConsumer[Int, _]): Future[Unit] = Future {
+  private def callMe[R](n: Int)(reduction: Reduction[Int, R]): Future[R] = Future {
     var i = 0
     while (i < n) {
-      consumer onNext i
+      reduction next i
       i += 1
     }
-    consumer.onDone()
+    reduction.result()
   }
 
   @Test
   def toPromise(): Unit = {
-    val callMe100000 = callMe(1000000) _
-    val futureSum = StreamPromise.fold(BigInt(0), callMe100000) {
+    // val callMe100000 = callMe(1000000) _
+    val futureSum = ReductionPromise.fold(BigInt(0), callMe(1000000) _) {
       case (sum, int) => sum + int
     }
     assertEquals(BigInt(499999500000L), futureSum.await)
@@ -41,46 +41,32 @@ class TestStreamConsumer {
   @Test
   def promiseAdapter1(): Unit = {
     var sum = BigInt(0)
-    val sumAsPromise = StreamPromise(sum) { i: Int =>
+    val sumAsPromise = ReductionPromise(sum) { i: Int =>
       sum += i
     }
     val futureSum = sumAsPromise.future
     callMe(1000000)(sumAsPromise)
-    assertEquals(BigInt(499999500000L), futureSum.await)
+    assertEquals(BigInt(499999500000L), futureSum.await(60.seconds))
   }
 
   @Test
   def promiseAdapter2(): Unit = {
-    class Sum extends StreamConsumer[Int, Future[BigInt]] {
-      var th: Throwable = _
+    class Sum extends Reduction[Int, BigInt] {
       var sum = BigInt(0)
-      def onNext(i: Int) = sum += i
-      def onError(th: Throwable) = this.th = th
-      def onDone() =
-        if (th != null) Future failed th
-        else Future successful sum
+      def next(i: Int) = sum += i
+      def result() = sum
     }
-    val sumAsPromise = StreamPromise(new Sum)
+    val sumAsPromise = ReductionPromise(new Sum)
     val futureSum = sumAsPromise.future
     callMe(1000000)(sumAsPromise)
     assertEquals(BigInt(499999500000L), futureSum.await)
   }
 
   @Test
-  def adapter1(): Unit = {
-    var sum = BigInt(0)
-    val Sum: StreamConsumer[Int, Unit] = StreamConsumer(th => throw th)(sum += _)
-    callMe(1000000)(Sum).await
-    assertEquals(BigInt(499999500000L), sum)
-  }
-
-  @Test
   def `no adapter`(): Unit = {
-    object Sum extends StreamConsumer[Int, Unit] {
+    object Sum extends ForEach[Int] {
       var sum = BigInt(0)
-      def onNext(i: Int) = sum += i
-      def onError(th: Throwable) = throw th
-      def onDone() = ()
+      def next(i: Int) = sum += i
     }
     callMe(1000000)(Sum).await
     assertEquals(BigInt(499999500000L), Sum.sum)
@@ -88,7 +74,9 @@ class TestStreamConsumer {
 
   @Test
   def `async, success`(): Unit = {
-    object Average extends StrictAsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
+    object Average
+    extends ConcurrentReduction[Int, Int]
+    with NoFailuresAccepted[Int] {
 
       override def activeCount = super.activeCount
       override def totalCount = super.totalCount
@@ -97,33 +85,35 @@ class TestStreamConsumer {
 
       private val sum = new AtomicInteger
       private val count = new AtomicInteger
-      def apply(i: Int) = {
+      def asyncNext(i: Int) = {
         sum.addAndGet(i)
         count.incrementAndGet()
         Future.unit
       }
       val completionTimeout = 5.seconds
-      protected def whenDone(): Future[Int] = Future fromTry Try(sum.get / count.get)
+      protected def asyncResult(): Future[Int] = Future fromTry Try(sum.get / count.get)
     }
     assertEquals(0, Average.activeCount)
     assertEquals(0, Average.totalCount)
 
-    (0 to 100).foreach(Average.onNext)
+    (0 to 100).foreach(Average.next)
     assertEquals(101, Average.totalCount)
-    val result = Average.onDone().await
+    val result = Average.result().await
     assertEquals(50, result)
   }
 
   @Test
   def `async, future failure in apply`(): Unit = {
-    object Average extends StrictAsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
+    object Average
+    extends ConcurrentReduction[Int, Int]
+    with NoFailuresAccepted[Int] {
       protected def executionContext = ExecutionContext.global
-      def apply(i: Int) = Future failed new IllegalArgumentException(s"Invalid number: $i")
+      def asyncNext(i: Int) = Future failed new IllegalArgumentException(s"Invalid number: $i")
       val completionTimeout = 5.seconds
-      protected def whenDone(): Future[Int] = Future successful 42
+      protected def asyncResult(): Future[Int] = Future successful 42
     }
-    (0 to 100).foreach(Average.onNext)
-    Try(Average.onDone().await) match {
+    (0 to 100).foreach(Average.next)
+    Try(Average.result().await) match {
       case Failure(e: IllegalArgumentException) => assertTrue(e.getMessage contains "Invalid number:")
       case other => fail(s"Should have failed on IllegalArgumentException, was $other")
     }
@@ -131,18 +121,20 @@ class TestStreamConsumer {
 
   @Test
   def `async, onstack failure in apply`(): Unit = {
-    object Average extends StrictAsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
+    object Average
+    extends ConcurrentReduction[Int, Int]
+    with NoFailuresAccepted[Int] {
       override def totalCount: Long = super.totalCount
       protected def executionContext = ExecutionContext.global
-      def apply(i: Int) = throw new IllegalArgumentException(s"Invalid number: $i")
+      def asyncNext(i: Int) = throw new IllegalArgumentException(s"Invalid number: $i")
       val completionTimeout = 5.seconds
-      protected def whenDone(): Future[Int] = Future successful 42
+      protected def asyncResult(): Future[Int] = Future successful 42
     }
     (0 to 100).foreach { n =>
-      Average onNext n
+      Average next n
     }
     assertEquals(101, Average.totalCount)
-    Try(Average.onDone().await) match {
+    Try(Average.result().await) match {
       case Failure(e: IllegalArgumentException) =>
         assertTrue(e.getMessage startsWith "Invalid number:")
       case other =>
@@ -151,17 +143,19 @@ class TestStreamConsumer {
   }
 
   @Test
-  def `async, failure in onDone`(): Unit = {
-    object Average extends StrictAsyncStreamConsumer[Int, Int] with (Int => Future[Unit]) {
+  def `async, failure in result`(): Unit = {
+    object Average
+    extends ConcurrentReduction[Int, Int]
+    with NoFailuresAccepted[Int] {
       protected def executionContext = ExecutionContext.global
       private val sum = new AtomicInteger
       private val count = new AtomicInteger
-      def apply(i: Int) = ??? // Never called in this test
+      def asyncNext(i: Int) = ??? // Never called in this test
       val completionTimeout = 5.seconds
-      protected def whenDone(): Future[Int] = Future fromTry Try(sum.get / count.get)
+      protected def asyncResult(): Future[Int] = Future fromTry Try(sum.get / count.get)
     }
-    //(0 to 100).foreach(Average.onNext)
-    Try(Average.onDone().await) match {
+    //(0 to 100).foreach(Average.next)
+    Try(Average.result().await) match {
       case Failure(e: ArithmeticException) => assertTrue(e.getMessage contains "zero")
       case _ => fail("Should have failed on division by zero")
     }
@@ -169,24 +163,24 @@ class TestStreamConsumer {
 
   @Test
   def `fully async`() = {
-    object Sum extends AsyncStreamConsumer[Long, Long] {
+    object Sum extends ConcurrentReduction[Long, Long] {
       override def activeCount: Int = super.activeCount
       override def totalCount: Long = super.totalCount
       implicit protected def executionContext: ExecutionContext = RandomDelayExecutionContext
       protected def completionTimeout: FiniteDuration = 5.seconds
       private val sum = new AtomicLong
-      def apply(n: Long): Future[_] = Future {
+      def asyncNext(n: Long): Future[_] = Future {
         println(s"S + $n = ${ sum addAndGet n }")
       }
-      protected def whenDone(timedOut: Option[TimeoutException], errors: List[Throwable]): Future[Long] = {
+      protected def asyncResult(timedOut: Option[TimeoutException], errors: List[Throwable]): Future[Long] = {
         assertEquals(None, timedOut)
         assertEquals(Nil, errors)
         Future successful sum.get
       }
     }
-    (1L to 100L).foreach(Sum.onNext)
+    (1L to 100L).foreach(Sum.next)
     assertEquals(100L, Sum.totalCount)
-    val sum = Sum.onDone().await
+    val sum = Sum.result().await
     assertEquals(0, Sum.activeCount)
     assertEquals(5050, sum)
   }

@@ -8,38 +8,34 @@ import scala.util.control.NonFatal
 import scala.util.Failure
 
 /**
- * Stream consumer extension that delegates
- * `onNext(T): Unit` to `apply(T): Future[_]` and
- * returns the final result on `onDone(): Future[R]`
- * through calling `whenDone()` when all `apply(T)`
- * futures have completed.
+ * Reduction that allows each individual item `T` to run
+ * concurrently.
  * @tparam T The stream content
  * @tparam R The final stream result
  */
-trait AsyncStreamConsumer[-T, R]
-extends (T => Future[_])
-with StreamConsumer[T, Future[R]] {
+trait ConcurrentReduction[-T, R]
+extends Reduction[T, Future[R]] {
 
   /**
    * Max. allowed processing time to completion of
    * all `Future`s returned from `this.apply(T)`
-   * (which is invoked from `onNext(T)`).
+   * (which is invoked from `next(T)`).
    */
   protected def completionTimeout: FiniteDuration
   protected implicit def executionContext: ExecutionContext
 
   /**
-   * Produce final result, when done.
+   * Produce final result.
    * Called when external processing is completed,
-   * and either all `Future`s returned from `this.apply(T)` has
+   * and either all `Future`s returned from `this.asyncNext(T)` has
    * completed, or the process timed out waiting for all `Future`s
    * to complete. In the latter case, the timeout duration will be
    * provided.
    * @param timedOut Optional timeout, if triggered
    * (i.e. will be `None` if all `Future`s completed)
-   * @param errors Any errors from `apply`
+   * @param errors Any errors from `asyncNext`
    */
-  protected def whenDone(timedOut: Option[TimeoutException], errors: List[Throwable]): Future[R]
+  protected def asyncResult(timedOut: Option[TimeoutException], errors: List[Throwable]): Future[R]
 
   private[this] val semaphore = new java.util.concurrent.Semaphore(Int.MaxValue)
   private[this] val counter = new AtomicLong
@@ -61,15 +57,17 @@ with StreamConsumer[T, Future[R]] {
     }
   }
 
-  /** Forwarded to `apply(T): Future[_]` */
-  def onNext(t: T): Unit =
+  def asyncNext(t: T): Future[Any]
+
+  /** Forwarded to `asyncNext(T): Future[Any]` */
+  def next(t: T): Unit =
     if (promise.isCompleted) {
       throw new IllegalStateException(s"Consumption completed: ${promise.future.value.get}")
     } else {
 
       counter.incrementAndGet()
 
-      val future: Future[_] = try apply(t) catch {
+      val future: Future[_] = try asyncNext(t) catch {
         case NonFatal(th) => Future failed th
       }
 
@@ -88,14 +86,11 @@ with StreamConsumer[T, Future[R]] {
 
     }
 
-  def onError(th: Throwable): Unit =
-    promise failure th
-
-  def onDone(): Future[R] = {
+  def result(): Future[R] = {
 
     if (!promise.isCompleted) promise.completeWith {
       if (semaphore tryAcquire Int.MaxValue) {
-        whenDone(None, internalErrors.get)
+        asyncResult(None, internalErrors.get)
       } else {
         val instanceName = this.toString()
         val aquired = Threads.onBlockingThread(s"Awaiting completion of $instanceName") {
@@ -105,13 +100,13 @@ with StreamConsumer[T, Future[R]] {
             val stillActive = this.activeCount
             if (stillActive > 0) Some {
               new TimeoutException(
-                s"$instanceName stream consumption still has $stillActive active Future(s), $timeout after `onDone()` was invoked. Timeout is either too short OR stream is incomplete.")
+                s"$instanceName stream consumption still has $stillActive active Future(s), $timeout after `result()` was invoked. Timeout is either too short OR stream is incomplete.")
             } else None
           }
         }
 
         aquired
-          .flatMap(whenDone(_, internalErrors.get))
+          .flatMap(asyncResult(_, internalErrors.get))
           .andThen { case _ => jmxRegistration.foreach { _.cancel() } }
 
       }
@@ -123,22 +118,22 @@ with StreamConsumer[T, Future[R]] {
   override def toString() = s"${this.getClass.getName}@$hashCode"
 
   /** override with `= new AsyncStreamConsumerBean`. */
-  protected def mxBean: AsyncStreamConsumer.AsyncStreamConsumerMXBean = null
+  protected def mxBean: ConcurrentReduction.ConcurrentReducerMXBean = null
   protected class AsyncStreamConsumerBean
-  extends AsyncStreamConsumer.AsyncStreamConsumerMXBean {
-    def getActiveCount: Int = AsyncStreamConsumer.this.activeCount
-    def getErrorCount: Int = AsyncStreamConsumer.this.errorCount
-    def getTotalCount: Long = AsyncStreamConsumer.this.totalCount
+  extends ConcurrentReduction.ConcurrentReducerMXBean {
+    def getActiveCount: Int = ConcurrentReduction.this.activeCount
+    def getErrorCount: Int = ConcurrentReduction.this.errorCount
+    def getTotalCount: Long = ConcurrentReduction.this.totalCount
   }
 
   private[this] val jmxRegistration: Option[JMX.Registration] =
-    Option(mxBean).map(JMX.register(_, AsyncStreamConsumer.this.toString))
+    Option(mxBean).map(JMX.register(_, ConcurrentReduction.this.toString))
 
 }
 
-object AsyncStreamConsumer {
+object ConcurrentReduction {
 
-  private[concurrent] trait AsyncStreamConsumerMXBean {
+  private[concurrent] trait ConcurrentReducerMXBean {
     def getActiveCount: Int
     def getErrorCount: Int
     def getTotalCount: Long
@@ -147,15 +142,17 @@ object AsyncStreamConsumer {
 }
 
 /**
-  * [[scuff.concurrent.AsyncStreamConsumer]] that does not accept
+  * [[scuff.concurrent.ConcurrentReduction]] that does not accept
   * timeout or failures.
   */
-trait StrictAsyncStreamConsumer[-T, R]
-extends AsyncStreamConsumer[T, R] {
-  protected def whenDone(): Future[R]
-  protected def whenDone(timedOut: Option[TimeoutException], errors: List[Throwable]): Future[R] =
+trait NoFailuresAccepted[R] {
+  reducer: ConcurrentReduction[_, R] =>
+
+  protected def asyncResult(): Future[R]
+  protected def asyncResult(timedOut: Option[TimeoutException], errors: List[Throwable]): Future[R] =
     (timedOut orElse errors.headOption) match {
       case Some(failure) => Future failed failure
-      case None => whenDone()
+      case None => asyncResult()
     }
+
 }

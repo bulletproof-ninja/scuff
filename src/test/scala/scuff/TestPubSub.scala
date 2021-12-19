@@ -9,10 +9,8 @@ class TestPubSub {
 
   class Event
 
-  implicit def f2sb[T](f: T => Unit) = new StreamConsumer[T, Unit] {
-    def onNext(t: T) = f(t)
-    def onError(e: Throwable) = e.printStackTrace()
-    def onDone(): Unit = ()
+  implicit def f2sb[T](f: T => Unit) = new ForEach[T] {
+    def next(t: T) = f(t)
   }
 
   @Test
