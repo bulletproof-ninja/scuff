@@ -50,9 +50,6 @@ package object web {
     def ContentType: Option[MediaType] =
       Option(req getHeader "Content-Type")
         .map(MediaType(_))
-    def Accept: Option[MediaType] =
-      Option(req getHeader "Accept")
-        .map(MediaType(_))
     def isLocalhost: Boolean = req.getRemoteHost match {
       case "localhost" | "127.0.0.1" | "0:0:0:0:0:0:0:1" | "::1" => true
       case _ => false
