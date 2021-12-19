@@ -51,12 +51,13 @@ object ReductionPromise {
         promise tryComplete Try(lazyResult)
     }
 
-  def apply[T, R](delegate: Reduction[T, R]): ReductionPromise[T, R] = delegate match {
-    case promise: ReductionPromise[T, R] => promise
-    case _ => new ReductionPromise[T, R] {
-      def next(v: T) = delegate next v
-      def result(): Unit =
-        promise complete Try(delegate.result())
+  def apply[T, R](delegate: Reduction[T, R]): ReductionPromise[T, R] =
+    delegate match {
+      case promise: ReductionPromise[T, R] => promise
+      case _ => new ReductionPromise[T, R] {
+        def next(v: T) = delegate next v
+        def result(): Unit =
+          promise complete Try(delegate.result())
+      }
     }
-  }
 }

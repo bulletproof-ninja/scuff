@@ -31,8 +31,8 @@ class TestReduction {
 
   @Test
   def toPromise(): Unit = {
-    // val callMe100000 = callMe(1000000) _
-    val futureSum = ReductionPromise.fold(BigInt(0), callMe(1000000) _) {
+    val callMe100000 = (callMe[BigInt](1000000) _).asInstanceOf[Function1[Reduction[Int, _], _]]
+    val futureSum: Future[BigInt] = ReductionPromise.fold[Int, BigInt](BigInt(0), callMe100000) {
       case (sum, int) => sum + int
     }
     assertEquals(BigInt(499999500000L), futureSum.await)
