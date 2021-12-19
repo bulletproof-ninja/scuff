@@ -8,7 +8,7 @@ object Enum {
 
     def id: Int
     final def name: String = this.toString
-    override def toString = NameTransformer decode value.toString
+    override def toString = NameTransformer decode super.toString
 
   }
 }
