@@ -1,13 +1,13 @@
 plugins {
-    id "com.jfrog.bintray" version '1.8.5'
     id 'com.adarshr.test-logger' version '2.1.0' apply true
 }
 
+version = System.properties.version ?: "0.0.1-SNAPSHOT"
+
 ext {
     getScalaFull = [
-        '2.11': '2.11.12',
-        '2.12': '2.12.13',
-        '2.13': '2.13.5'
+        '2.12': '2.12.15',
+        '2.13': '2.13.6'
     ]
 
     vScala = System.properties.scalaVersion ?: '2.13'
@@ -18,6 +18,10 @@ ext {
     vMockito = '1.10.19'
     vJUnit = '4.12'
     vBouncyCastle = '1.61'
+
+    ossrhUsername = System.properties.ossrhUsername ?: ""
+    ossrhPassword = System.properties.ossrhPassword ?: ""
+
 }
 
 tasks.withType(ScalaCompile) {
@@ -32,19 +36,6 @@ tasks.withType(Jar) {
     archiveBaseName = "${project.name}_$vScala"
 }
 
-if (version == '') {
-    version = 'SNAPSHOT'
-}
-if (version == 'SNAPSHOT') {
-    version = tsVersion(version)
-}
-
-def tsVersion(version) {
-    java.text.SimpleDateFormat tsFmt = new java.text.SimpleDateFormat('yyMMddHHmm')
-    tsFmt.setCalendar(Calendar.getInstance(TimeZone.getTimeZone('UTC')))
-    return "${version}-b${tsFmt.format(new Date())}"
-}
-
 wrapper {
     gradleVersion = '6.8.3'
 }
@@ -54,8 +45,8 @@ allprojects {
         jcenter()
     }
     apply plugin: 'scala'
+    apply plugin: 'signing'
     apply plugin: 'maven-publish'
-    apply plugin: 'com.jfrog.bintray'
 
     sourceCompatibility = 1.8
     targetCompatibility = 1.8
@@ -67,15 +58,13 @@ allprojects {
                     srcDirs = ['src/main/scala', 'src/2.13/main/scala', 'src/2.12+2.13/main/scala']
                 } else if (vScala == '2.12') {
                     srcDirs = ['src/main/scala', 'src/2.12/main/scala', 'src/2.11+2.12/main/scala', 'src/2.12+2.13/main/scala']
-                } else if (vScala == '2.11') {
-                    srcDirs = ['src/main/scala', 'src/2.11/main/scala', 'src/2.11+2.12/main/scala']
                 } else throw new IllegalArgumentException("Unsupported Scala version: " + vScala)
             }
         }
     }
 
     dependencies {
-        compile "org.scala-lang.modules:scala-collection-compat_$vScala:2.4.1"
+        compile "org.scala-lang.modules:scala-collection-compat_$vScala:2.5.0"
 
         compileOnly "org.scala-lang:scala-reflect:$vScalaFull"
         compileOnly "javax.servlet:javax.servlet-api:$vServletApi"
@@ -108,33 +97,60 @@ allprojects {
     }
 
     publishing {
+        repositories {
+            maven {
+                def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+                def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+                url = version.contains('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+                credentials(PasswordCredentials) {
+                    username = System.properties.ossrhUsername ?: ""
+                    password = System.properties.ossrhPassword ?: ""
+                }
+            }
+        }
         publications {
             maven(MavenPublication) {
-                groupId System.properties.mavenGroupId ?: ""
+                pom {
+                    licenses {
+                        license {
+                            it.setName('MIT License')
+                            it.setUrl('https://github.com/bulletproof-ninja/scuff/blob/master/LICENSE')
+                        }
+                    }
+                    developers {
+                        developer {
+                            it.setName('Nils Kilden-Pedersen')
+                            it.setEmail('nils@bulletproof.ninja')
+                            it.setOrganization('Bulletproof Consulting, Inc.')
+                            it.setOrganizationUrl('https://github.com/bulletproof-ninja')
+                        }
+                    }
+                    scm {
+                        it.setUrl('https://github.com/bulletproof-ninja/scuff.git')
+                    }
+                }
+                groupId System.properties.mavenGroupId ?: "ninja.bulletproof"
                 artifactId "${project.name}_$vScala"
 
                 from components.java
                 artifact sourceJar
-                if (vScala != '2.13') { // Bug remains in 2.13.1
-                    artifact docsJar
-                }
+                artifact docsJar
+
             }
         }
     }
 
-    bintray {
-        user = System.properties.bintrayUser ?: "dryrun"
-        key = System.properties.bintrayKey ?: "dryrun"
-        dryRun = (user == "dryrun" || key == "dryrun" || version.startsWith('SNAPSHOT'))
-        publish = !dryRun
-        override = true
-        publications = ['maven']
-        pkg {
-            userOrg = System.properties.bintrayOrg ?: user
-            repo = "maven"
-            name = "Scuff"
-        }
+    signing {
+
+        // NOTE: `~/.gradle/gradle.properties` are expected
+        // to contain `signingKey` and `signingPassword`
+
+        def signingKey = findProperty("signingKey")
+        def signingPassword = findProperty("signingPassword")
+        useInMemoryPgpKeys(signingKey, signingPassword)
+        sign configurations.archives
     }
+
 
     test {
         testLogging {
