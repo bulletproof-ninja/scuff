@@ -32,7 +32,7 @@ class TestReduction {
   @Test
   def toPromise(): Unit = {
     val callMe100000 = (callMe[BigInt](1000000) _).asInstanceOf[Function1[Reduction[Int, _], _]]
-    val futureSum: Future[BigInt] = ReductionPromise.fold[Int, BigInt](BigInt(0), callMe100000) {
+    val futureSum: Future[BigInt] = FutureReduction.fold[Int, BigInt](BigInt(0), callMe100000) {
       case (sum, int) => sum + int
     }
     assertEquals(BigInt(499999500000L), futureSum.await)
@@ -41,7 +41,7 @@ class TestReduction {
   @Test
   def promiseAdapter1(): Unit = {
     var sum = BigInt(0)
-    val sumAsPromise = ReductionPromise(sum) { i: Int =>
+    val sumAsPromise = FutureReduction(sum) { i: Int =>
       sum += i
     }
     val futureSum = sumAsPromise.future
@@ -56,7 +56,7 @@ class TestReduction {
       def next(i: Int) = sum += i
       def result() = sum
     }
-    val sumAsPromise = ReductionPromise(new Sum)
+    val sumAsPromise = FutureReduction(new Sum)
     val futureSum = sumAsPromise.future
     callMe(1000000)(sumAsPromise)
     assertEquals(BigInt(499999500000L), futureSum.await)
