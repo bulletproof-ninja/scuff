@@ -3,7 +3,6 @@ plugins {
 }
 
 version = properties.version ?: ""
-if (version == "") throw new IllegalArgumentException("No version provided!")
 
 ext {
     getScalaFull = [
@@ -83,6 +82,7 @@ allprojects {
     }
 
     jar {
+        if (version == "") throw new IllegalArgumentException("No version provided!")
         manifest {
             attributes "Implementation-Title": project.name, "Implementation-Version": version
         }
@@ -130,7 +130,7 @@ allprojects {
                         it.setUrl('https://github.com/bulletproof-ninja/scuff.git')
                     }
                 }
-                groupId System.properties.mavenGroupId ?: "ninja.bulletproof"
+                groupId "ninja.bulletproof"
                 artifactId "${project.name}_$vScala"
 
                 from components.java
@@ -149,7 +149,7 @@ allprojects {
         def signingKey = findProperty("signingKey")
         def signingPassword = findProperty("signingPassword")
         useInMemoryPgpKeys(signingKey, signingPassword)
-        sign configurations.archives
+        sign publishing.publications
     }
 
 

@@ -5,8 +5,11 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
+PUBLISH_VERSION="$(./version.sh)"
+echo "Publishing version $PUBLISH_VERSION"
+
 ./gradlew \
-    -Pversion="$(./version.sh)" \
+    -Pversion="$PUBLISH_VERSION" \
     -DossrhUsername="$OSSRH_USER" \
     -DossrhPassword="$OSSRH_PASS" \
     -DscalaVersion="$1" \
