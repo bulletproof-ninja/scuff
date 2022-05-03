@@ -126,7 +126,7 @@ class HttpServletResponseProxy(delegate: HttpServletResponse) extends HttpServle
   var contentType = delegate.getContentType()
 
   private var contentLength: Option[Int] = None
-  def setContentLength(len: Int) = Some(len)
+  def setContentLength(len: Int) = this.contentLength = Some(len)
 
   def reset(): Unit = {
     headers.clear()
