@@ -33,6 +33,7 @@ object HttpHeaders {
   final val ContentLength = "Content-Length"
   final val ContentType = "Content-Type"
   final val ContentRange = "Content-Range"
+  final val ContentLocation = "Content-Location"
   final val ETag = "ETag"
   final val Expect = "Expect"
   final val Age = "Age"
@@ -59,6 +60,10 @@ object HttpHeaders {
 
   def ContentType(ct: MediaType): (String, String) = ContentType(ct.toString)
   def ContentType(ct: String): (String, String) = ContentType -> ct
+
+  def ContentLocation(location: URL): (String, String) = ContentLocation(location.toString)
+  def ContentLocation(location: URI): (String, String) = ContentLocation(location.toString)
+  def ContentLocation(location: String): (String, String) = ContentLocation -> location
 
   def ContentRange(unit: String, range: Range, size: Long): (String, String) =
     ContentRange -> s"""$unit ${range.head}-${range.last}/$size"""

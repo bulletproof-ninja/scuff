@@ -1,11 +1,14 @@
 package scuff.web
 
+import scuff.MediaType
+import scuff.UserPrincipal
+
+import java.security.Principal
 import javax.servlet._
 import javax.servlet.http._
-import java.security.Principal
+import scala.annotation.nowarn
+
 import HttpServletResponse._
-import scuff.UserPrincipal
-import scuff.MediaType
 
 /**
  * Application authorization trait. Apply to servlets
@@ -99,7 +102,7 @@ trait LoginPageForwarder extends Filter {
   }
 
   @inline
-  private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, chain: FilterChain): Unit = {
+  private def httpFilter(req: HttpServletRequest, res: HttpServletResponse, @nowarn chain: FilterChain): Unit = {
     if (!res.isCommitted) res.getStatus match {
       case SC_UNAUTHORIZED =>
         if (req.getMethod().equalsIgnoreCase("GET") && AcceptHeader(req).forall(_.acceptsAnyOf(acceptTypes))) {

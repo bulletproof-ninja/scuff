@@ -6,6 +6,7 @@ import scala.concurrent.duration._
 import scala.util.Try
 import java.time.Clock
 import java.time.OffsetDateTime
+import scala.annotation.nowarn
 
 object CookieMonster {
   private val SEP = "()<>@,;:\\\"/[]?={}".toSet
@@ -81,7 +82,7 @@ trait CookieMonster[T] {
    * Domain scope for cookie.
    * Per the Cookie API: "By default, cookies are only returned to the server that sent them."
    */
-  protected def domain(req: http.HttpServletRequest): String = null
+  protected def domain(@nowarn req: http.HttpServletRequest): String = null
 
   private lazy val validName: String = {
     val name = this.name
@@ -120,10 +121,16 @@ trait CookieMonster[T] {
   /**
    * Get value from cookie on request.
    */
-  def get(request: http.HttpServletRequest): Option[T] = {
-    Option(request.getCookies).flatMap { array =>
-      array.find(_.getName == name).flatMap { c =>
-        Try(codec.decode(c.getValue)).toOption
+  def get(request: http.HttpServletRequest): Option[Try[T]] =
+    get(request.getCookies)
+
+  /**
+   * Get value from available cookies.
+   */
+  def get(cookies: Array[http.Cookie]): Option[Try[T]] = {
+    Option(cookies).flatMap { array =>
+      array.find(_.getName == name).map { c =>
+        Try(codec.decode(c.getValue))
       }
     }
   }

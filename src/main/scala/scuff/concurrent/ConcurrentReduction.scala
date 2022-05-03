@@ -86,7 +86,7 @@ extends Reduction[T, Future[R]] {
 
     }
 
-  def result(): Future[R] = {
+  def finished(): Future[R] = {
 
     if (!promise.isCompleted) promise.completeWith {
       if (semaphore tryAcquire Int.MaxValue) {

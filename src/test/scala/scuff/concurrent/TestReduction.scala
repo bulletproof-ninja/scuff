@@ -11,12 +11,6 @@ import scala.concurrent.ExecutionContext
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicLong
 
-object TestReduction {
-  def main(args: Array[String]): Unit = {
-    new TestReduction().promiseAdapter1()
-  }
-}
-
 class TestReduction {
 
   implicit def ec = RandomDelayExecutionContext
@@ -26,39 +20,15 @@ class TestReduction {
       reduction next i
       i += 1
     }
-    reduction.result()
+    reduction.finished()
   }
 
   @Test
-  def toPromise(): Unit = {
-    val callMe100000 = (callMe[BigInt](1000000) _).asInstanceOf[Function1[Reduction[Int, _], _]]
-    val futureSum: Future[BigInt] = FutureReduction.fold[Int, BigInt](BigInt(0), callMe100000) {
+  def foldReduction(): Unit = {
+    val sumReduction = Reduction.fold[Int, BigInt](BigInt(0)) {
       case (sum, int) => sum + int
     }
-    assertEquals(BigInt(499999500000L), futureSum.await)
-  }
-
-  @Test
-  def promiseAdapter1(): Unit = {
-    var sum = BigInt(0)
-    val sumAsPromise = FutureReduction(sum) { i: Int =>
-      sum += i
-    }
-    val futureSum = sumAsPromise.future
-    callMe(1000000)(sumAsPromise)
-    assertEquals(BigInt(499999500000L), futureSum.await(60.seconds))
-  }
-
-  @Test
-  def promiseAdapter2(): Unit = {
-    class Sum extends Reduction[Int, BigInt] {
-      var sum = BigInt(0)
-      def next(i: Int) = sum += i
-      def result() = sum
-    }
-    val sumAsPromise = FutureReduction(new Sum)
-    val futureSum = sumAsPromise.future
-    callMe(1000000)(sumAsPromise)
+    val futureSum = callMe(1000000)(sumReduction)
     assertEquals(BigInt(499999500000L), futureSum.await)
   }
 
@@ -98,7 +68,7 @@ class TestReduction {
 
     (0 to 100).foreach(Average.next)
     assertEquals(101, Average.totalCount)
-    val result = Average.result().await
+    val result = Average.finished().await
     assertEquals(50, result)
   }
 
@@ -113,7 +83,7 @@ class TestReduction {
       protected def asyncResult(): Future[Int] = Future successful 42
     }
     (0 to 100).foreach(Average.next)
-    Try(Average.result().await) match {
+    Try(Average.finished().await) match {
       case Failure(e: IllegalArgumentException) => assertTrue(e.getMessage contains "Invalid number:")
       case other => fail(s"Should have failed on IllegalArgumentException, was $other")
     }
@@ -134,7 +104,7 @@ class TestReduction {
       Average next n
     }
     assertEquals(101, Average.totalCount)
-    Try(Average.result().await) match {
+    Try(Average.finished().await) match {
       case Failure(e: IllegalArgumentException) =>
         assertTrue(e.getMessage startsWith "Invalid number:")
       case other =>
@@ -155,7 +125,7 @@ class TestReduction {
       protected def asyncResult(): Future[Int] = Future fromTry Try(sum.get / count.get)
     }
     //(0 to 100).foreach(Average.next)
-    Try(Average.result().await) match {
+    Try(Average.finished().await) match {
       case Failure(e: ArithmeticException) => assertTrue(e.getMessage contains "zero")
       case _ => fail("Should have failed on division by zero")
     }
@@ -180,7 +150,7 @@ class TestReduction {
     }
     (1L to 100L).foreach(Sum.next)
     assertEquals(100L, Sum.totalCount)
-    val sum = Sum.result().await
+    val sum = Sum.finished().await
     assertEquals(0, Sum.activeCount)
     assertEquals(5050, sum)
   }

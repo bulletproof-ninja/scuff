@@ -2,12 +2,11 @@ plugins {
     id 'com.adarshr.test-logger' version '2.1.0' apply true
 }
 
-version = properties.version ?: ""
-
 ext {
+
     getScalaFull = [
         '2.12': '2.12.15',
-        '2.13': '2.13.6'
+        '2.13': '2.13.8'
     ]
 
     vScala = System.properties.scalaVersion ?: '2.13'
@@ -82,7 +81,7 @@ allprojects {
     }
 
     jar {
-        if (version == "") throw new IllegalArgumentException("No version provided!")
+        version = properties.version ?: "0.0.1-SNAPSHOT"
         manifest {
             attributes "Implementation-Title": project.name, "Implementation-Version": version
         }

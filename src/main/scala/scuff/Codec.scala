@@ -1,6 +1,7 @@
 package scuff
 
 import java.io._
+import scala.annotation.nowarn
 
 /**
   * Codec. Combined encoder/decoder interface.
@@ -36,6 +37,7 @@ object Codec {
     def encode(a: A) = codec.encode(a).utf8
     def decode(b: Array[Byte]) = codec.decode(b.utf8)
   }
+  @nowarn
   def UTF8[A: ClassTag](codec: Codec[A, Array[Byte]]) = new Codec[A, String] {
     def encode(a: A) = codec.encode(a).utf8
     def decode(b: String) = codec.decode(b.utf8)

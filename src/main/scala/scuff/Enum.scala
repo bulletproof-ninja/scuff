@@ -36,7 +36,7 @@ class Enum[V <: Enum.Value: ClassTag] extends Enumeration {
       case Some(value) => value
       case _ =>
         val valuesStr = this.list.map(v => s"'$v'").mkString(", ")
-        throw new NoSuchElementException(s"No value found for '$name'; available: $valuesStr")
+        throw new NoSuchElementException(s"Enum `${getClass.getName}` has no value found for '$name'; available: $valuesStr")
     }
   }
 

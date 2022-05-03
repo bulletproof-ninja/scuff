@@ -11,6 +11,7 @@ import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
+import scala.annotation.nowarn
 
 class TestCookieMonster {
   @Test
@@ -55,7 +56,7 @@ class TestCookieMonster {
     val cookieContent = cookieContentArg.getValue
     assertTrue(cookieContent contains "; SameSite=Strict")
     assertTrue(cookieContent contains "; Max-Age=120")
-    val Array(cookieValue, _*) = cookieContent.substring(UserCookie.name.length+1, cookieContent.length).split("; ")
+    @nowarn val Array(cookieValue, _*) = cookieContent.substring(UserCookie.name.length+1, cookieContent.length).split("; ")
     val cookie = new Cookie(UserCookie.name, cookieValue)
     when(req.getCookies).thenReturn(Array(cookie))
     req.getCookies.find(_.getName == UserCookie.name) match {
@@ -68,8 +69,8 @@ class TestCookieMonster {
     UserCookie.get(req) match {
       case None => fail("Should return user cookie")
       case Some(cookieUser) =>
-        assertNotSame(user, cookieUser)
-        assertEquals(user, cookieUser)
+        assertNotSame(user, cookieUser.get)
+        assertEquals(user, cookieUser.get)
     }
   }
 

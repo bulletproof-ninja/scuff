@@ -9,6 +9,7 @@ import scala.jdk.CollectionConverters._
 import javax.servlet.{ ServletRequest, ServletResponse }
 import javax.servlet.http.{ HttpServletRequest, HttpServletResponse }
 import scala.util.{ Try, Success, Failure }
+import scala.annotation.nowarn
 
 package web {
   case class Resource(url: URL, lastModified: Long)
@@ -84,7 +85,7 @@ package object web {
       url.getProtocol match {
         case "file" => new java.io.File(url.getFile)
         case "jar" =>
-          val Array(jar, _*) = JarSplit.split(url.getFile)
+          @nowarn val Array(jar, _*) = JarSplit split url.getFile
           toFile(new URL(jar))
         case _ => sys.error(s"Cannot handle $url")
       }
